@@ -67,6 +67,7 @@ dependencies:
   shimmer: ^3.0.0
   flutter_svg: ^2.0.10+1
   scrollable_positioned_list: ^0.3.8
+  toastification: ^3.2.0
 
   # System / misc
   permission_handler: ^11.3.1

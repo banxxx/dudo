@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,12 +8,46 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import 'app/app.dart';
 import 'app/di/injection.dart';
+import 'core/exceptions/error_handler.dart';
 import 'core/network/http_client.dart';
 import 'core/tts/tts_service.dart';
-import 'core/utils/logger.dart';
 
 Future<void> main() async {
+  runZonedGuarded<Future<void>>(
+    _bootstrap,
+    (error, stackTrace) {
+      ErrorHandler.handle(
+        error,
+        stackTrace,
+        context: 'runZonedGuarded',
+        fatal: true,
+      );
+    },
+  );
+}
+
+Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    ErrorHandler.handle(
+      details.exception,
+      details.stack ?? StackTrace.current,
+      context: 'FlutterError',
+      fatal: true,
+    );
+  };
+
+  PlatformDispatcher.instance.onError = (error, stackTrace) {
+    ErrorHandler.handle(
+      error,
+      stackTrace,
+      context: 'PlatformDispatcher',
+      fatal: true,
+    );
+    return true;
+  };
 
   // System UI styling — M3 prefers edge-to-edge.
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -33,7 +70,7 @@ Future<void> main() async {
   try {
     await HttpClient.init();
   } catch (e, st) {
-    log.w('HttpClient.init failed: $e\n$st');
+    ErrorHandler.handle(e, st, context: 'HttpClient.init');
   }
 
   // TTS / audio service bootstrap — safe-init: many desktop/test
@@ -41,7 +78,7 @@ Future<void> main() async {
   try {
     await TtsService.instance.init();
   } catch (e, st) {
-    log.w('TtsService.init failed (ignored): $e\n$st');
+    ErrorHandler.handle(e, st, context: 'TtsService.init');
   }
 
   runApp(

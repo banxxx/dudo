@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 
+import '../exceptions/exception_mapper.dart';
 import 'http_client.dart';
 
 /// Concurrent download orchestrator for chapter content & cover images.
@@ -55,7 +56,7 @@ class DownloadManager {
       );
       task.completer.complete(File(task.savePath));
     } catch (e, st) {
-      task.completer.completeError(e, st);
+      task.completer.completeError(ExceptionMapper.map(e, st), st);
     }
   }
 }

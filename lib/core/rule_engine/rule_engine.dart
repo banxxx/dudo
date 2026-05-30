@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../exceptions/exception_mapper.dart';
 import '../network/http_client.dart';
 import 'models/rule_chain.dart';
 import 'models/source_rule.dart';
@@ -37,19 +38,23 @@ class RuleEngine {
     final url = search?.searchUrl;
     if (url == null) return const [];
     final filled = url.replaceAll('{{key}}', Uri.encodeQueryComponent(keyword));
-    final res = await HttpClient.instance.dio.get<List<int>>(filled);
-    final body = utf8.decode(res.data ?? const []);
-    final list = _list(body, search?.bookList);
-    return [
-      for (final node in list)
-        SearchResult(
-          name: _string(node, search?.name) ?? '',
-          author: _string(node, search?.author) ?? '',
-          coverUrl: _string(node, search?.coverUrl),
-          bookUrl: _string(node, search?.bookUrl),
-          intro: _string(node, search?.intro),
-        ),
-    ];
+    try {
+      final res = await HttpClient.instance.dio.get<List<int>>(filled);
+      final body = utf8.decode(res.data ?? const []);
+      final list = _list(body, search?.bookList);
+      return [
+        for (final node in list)
+          SearchResult(
+            name: _string(node, search?.name) ?? '',
+            author: _string(node, search?.author) ?? '',
+            coverUrl: _string(node, search?.coverUrl),
+            bookUrl: _string(node, search?.bookUrl),
+            intro: _string(node, search?.intro),
+          ),
+      ];
+    } catch (e, st) {
+      throw ExceptionMapper.map(e, st);
+    }
   }
 
   String? _string(Object source, String? rawRule) {

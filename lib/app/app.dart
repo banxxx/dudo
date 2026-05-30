@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../shared/l10n/app_localizations.dart';
+import '../shared/messages/app_message_host.dart';
 import '../shared/theme/app_theme.dart';
 import 'router/app_router.dart';
 
@@ -28,6 +29,9 @@ class DudoApp extends ConsumerWidget {
           theme: AppTheme.build(lightScheme),
           darkTheme: AppTheme.build(darkScheme),
           locale: const Locale('zh', 'CN'),
+          builder: (context, child) {
+            return AppMessageHost(child: child ?? const SizedBox.shrink());
+          },
           supportedLocales: AppLocalizations.supportedLocales,
           localizationsDelegates: const <LocalizationsDelegate<Object>>[
             AppLocalizations.delegate,

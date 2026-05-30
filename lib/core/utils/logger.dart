@@ -7,6 +7,6 @@ final Logger log = Logger(
     errorMethodCount: 8,
     colors: true,
     printEmojis: false,
-    printTime: true,
+    dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
   ),
 );

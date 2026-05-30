@@ -3,9 +3,11 @@ import 'dart:io' show Directory;
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
-import 'package:logger/logger.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+import '../exceptions/exception_mapper.dart';
+import '../utils/logger.dart';
 
 /// Lightweight Dio wrapper with cookie persistence, retry, charset & logging
 /// support — used by the source-engine and direct downloads alike.
@@ -42,7 +44,7 @@ class HttpClient {
         receiveTimeout: const Duration(seconds: 30),
         sendTimeout: const Duration(seconds: 15),
         followRedirects: true,
-        validateStatus: (int? s) => s != null && s < 500,
+        validateStatus: (int? s) => s != null && s >= 200 && s < 400,
         headers: <String, dynamic>{
           'User-Agent':
               'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 dudo/0.1',
@@ -113,11 +115,10 @@ class RetryInterceptor extends Interceptor {
 /// Project log interceptor — renamed to avoid clashing with `dio.LogInterceptor`.
 class AppLogInterceptor extends Interceptor {
   AppLogInterceptor();
-  final Logger _log = Logger(printer: PrettyPrinter(methodCount: 0));
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    _log.d('→ ${options.method} ${options.uri}');
+    log.d('→ ${options.method} ${options.uri}');
     handler.next(options);
   }
 
@@ -126,13 +127,14 @@ class AppLogInterceptor extends Interceptor {
     Response<dynamic> response,
     ResponseInterceptorHandler handler,
   ) {
-    _log.d('← ${response.statusCode} ${response.requestOptions.uri}');
+    log.d('← ${response.statusCode} ${response.requestOptions.uri}');
     handler.next(response);
   }
 
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    _log.w('✗ ${err.requestOptions.uri} : ${err.message}');
+    final exception = ExceptionMapper.fromDio(err, err.stackTrace);
+    log.w('✗ ${err.requestOptions.uri} : ${exception.message}');
     handler.next(err);
   }
 }

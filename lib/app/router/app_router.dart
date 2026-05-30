@@ -7,6 +7,7 @@ import '../../features/profile/presentation/profile_page.dart';
 import '../../features/reader/presentation/reader_page.dart';
 import '../../features/search/presentation/search_page.dart';
 import '../../features/source_manage/presentation/source_manage_page.dart';
+import '../../shared/widgets/error_state_view.dart';
 import '../../shared/widgets/home_scaffold.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -73,7 +74,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
-      body: Center(child: Text('404: ${state.uri}')),
+      body: ErrorStateView(
+        title: '页面不存在',
+        message: '无法打开 ${state.uri}',
+        action: FilledButton(
+          onPressed: () => context.go(AppRoutes.bookshelf),
+          child: const Text('返回书架'),
+        ),
+      ),
     ),
   );
 });
