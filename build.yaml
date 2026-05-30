@@ -1,0 +1,11 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          store_date_time_values_as_text: true
+          named_parameters: true
+          new_sql_code_generation: true
+      riverpod_generator:
+        options:
+          provider_name_suffix: 'Provider'

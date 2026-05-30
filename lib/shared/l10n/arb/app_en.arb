@@ -1,0 +1,10 @@
+{
+  "@@locale": "en",
+  "appTitle": "dudo Reader",
+  "bookshelf": "Library",
+  "search": "Search",
+  "sources": "Sources",
+  "profile": "Profile",
+  "reader": "Reader",
+  "addBook": "Add book"
+}
