@@ -48,6 +48,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('晚上好，继续沉入书页'), findsNothing);
-    expect(find.text('书架还空着，点击右下角搜索来添加一本书吧'), findsOneWidget);
+    expect(find.text('书架还是空的'), findsOneWidget);
   });
 }
