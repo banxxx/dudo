@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
-import '../../app/router/app_router.dart';
 import '../l10n/app_localizations.dart';
+import 'dudo_bottom_tab_bar.dart';
 
 /// Adaptive home shell with a [NavigationBar] on phones and a
 /// [NavigationRail] on wider screens (tablets / landscape).
@@ -56,14 +56,14 @@ class HomeScaffold extends StatelessWidget {
 
     return Scaffold(
       body: body,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
+      bottomNavigationBar: DudoBottomTabBar(
+        currentIndex: navigationShell.currentIndex,
         onDestinationSelected: _goBranch,
-        destinations: <NavigationDestination>[
+        destinations: <DudoBottomTabDestination>[
           for (final _Dest d in destinations)
-            NavigationDestination(
-              icon: Icon(d.icon),
-              selectedIcon: Icon(d.selectedIcon),
+            DudoBottomTabDestination(
+              icon: d.icon,
+              selectedIcon: d.selectedIcon,
               label: d.label,
             ),
         ],
@@ -80,18 +80,17 @@ class HomeScaffold extends StatelessWidget {
   }
 
   Widget? _buildFab(BuildContext context) {
-    // FAB only on the bookshelf branch.
-    if (navigationShell.currentIndex != 0) return null;
-    return FloatingActionButton.extended(
-      onPressed: () => context.goNamed(AppRoutes.searchName),
-      icon: const Icon(Symbols.add_rounded),
-      label: Text(AppLocalizations.of(context).addBook),
-    );
+    return null;
   }
 
   List<_Dest> _destinations(BuildContext context) {
     final AppLocalizations l = AppLocalizations.of(context);
     return <_Dest>[
+      _Dest(
+        icon: Symbols.home_rounded,
+        selectedIcon: Symbols.home_rounded,
+        label: l.home,
+      ),
       _Dest(
         icon: Symbols.menu_book_rounded,
         selectedIcon: Symbols.menu_book_rounded,
@@ -101,11 +100,6 @@ class HomeScaffold extends StatelessWidget {
         icon: Symbols.search_rounded,
         selectedIcon: Symbols.search_rounded,
         label: l.search,
-      ),
-      _Dest(
-        icon: Symbols.travel_explore_rounded,
-        selectedIcon: Symbols.travel_explore_rounded,
-        label: l.sources,
       ),
       _Dest(
         icon: Symbols.person_rounded,

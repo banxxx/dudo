@@ -26,6 +26,7 @@ class AppLocalizations {
       <String, Map<String, String>>{
     'zh': <String, String>{
       'appTitle': 'dudo 读物',
+      'home': '首页',
       'bookshelf': '书架',
       'search': '搜索',
       'sources': '书源',
@@ -42,6 +43,7 @@ class AppLocalizations {
     },
     'en': <String, String>{
       'appTitle': 'dudo Reader',
+      'home': 'Home',
       'bookshelf': 'Library',
       'search': 'Search',
       'sources': 'Sources',
@@ -64,6 +66,7 @@ class AppLocalizations {
   }
 
   String get appTitle => _t('appTitle');
+  String get home => _t('home');
   String get bookshelf => _t('bookshelf');
   String get search => _t('search');
   String get sources => _t('sources');
@@ -84,8 +87,7 @@ class _AppLocalizationsDelegate
   const _AppLocalizationsDelegate();
 
   @override
-  bool isSupported(Locale locale) =>
-      AppLocalizations.supportedLocales.any(
+  bool isSupported(Locale locale) => AppLocalizations.supportedLocales.any(
         (Locale l) => l.languageCode == locale.languageCode,
       );
 

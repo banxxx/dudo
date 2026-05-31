@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/bookshelf/presentation/bookshelf_page.dart';
+import '../../features/bookshelf/presentation/bookshelf_library_page.dart';
+import '../../features/home/presentation/home_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../../features/reader/presentation/reader_page.dart';
 import '../../features/search/presentation/search_page.dart';
-import '../../features/source_manage/presentation/source_manage_page.dart';
 import '../../shared/widgets/error_state_view.dart';
 import '../../shared/widgets/home_scaffold.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: AppRoutes.bookshelf,
+    initialLocation: AppRoutes.home,
     debugLogDiagnostics: true,
     routes: [
       // Main scaffold with bottom navigation.
@@ -23,9 +23,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
+                path: AppRoutes.home,
+                name: AppRoutes.homeName,
+                builder: (_, __) => const HomePage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: AppRoutes.bookshelf,
                 name: AppRoutes.bookshelfName,
-                builder: (_, __) => const BookshelfPage(),
+                builder: (_, __) => const BookshelfLibraryPage(),
               ),
             ],
           ),
@@ -35,15 +44,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: AppRoutes.search,
                 name: AppRoutes.searchName,
                 builder: (_, __) => const SearchPage(),
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: AppRoutes.sources,
-                name: AppRoutes.sourcesName,
-                builder: (_, __) => const SourceManagePage(),
               ),
             ],
           ),
@@ -78,8 +78,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         title: '页面不存在',
         message: '无法打开 ${state.uri}',
         action: FilledButton(
-          onPressed: () => context.go(AppRoutes.bookshelf),
-          child: const Text('返回书架'),
+          onPressed: () => context.go(AppRoutes.home),
+          child: const Text('返回首页'),
         ),
       ),
     ),
@@ -88,6 +88,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
 class AppRoutes {
   AppRoutes._();
+
+  static const home = '/home';
+  static const homeName = 'home';
 
   static const bookshelf = '/bookshelf';
   static const bookshelfName = 'bookshelf';

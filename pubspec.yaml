@@ -68,6 +68,7 @@ dependencies:
   flutter_svg: ^2.0.10+1
   scrollable_positioned_list: ^0.3.8
   toastification: ^3.2.0
+  lucide_icons_flutter: ^3.1.14+2
 
   # System / misc
   permission_handler: ^11.3.1
