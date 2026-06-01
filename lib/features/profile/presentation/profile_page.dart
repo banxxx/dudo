@@ -319,6 +319,7 @@ class _LibraryToolsSection extends StatelessWidget {
       icon: LucideIcons.timer,
       iconFill: DudoColors.surfaceLow,
       iconColor: DudoColors.secondary,
+      route: AppRoutes.readingStats,
     ),
     _ToolItem(
       title: '离线缓存',
@@ -377,7 +378,7 @@ class _ToolRow extends StatelessWidget {
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        onTap: _handleOpenTool,
+        onTap: () => _handleOpenTool(context, item),
         borderRadius: BorderRadius.circular(18),
         child: Container(
           height: 50,
@@ -444,6 +445,7 @@ class _ToolItem {
     required this.icon,
     required this.iconFill,
     required this.iconColor,
+    this.route,
   });
 
   final String title;
@@ -451,10 +453,16 @@ class _ToolItem {
   final IconData icon;
   final Color iconFill;
   final Color iconColor;
+  final String? route;
 }
 
 void _handleOpenSettings(BuildContext context) {
   context.push(AppRoutes.settings);
 }
 
-void _handleOpenTool() {}
+void _handleOpenTool(BuildContext context, _ToolItem item) {
+  final route = item.route;
+  if (route != null) {
+    context.push(route);
+  }
+}

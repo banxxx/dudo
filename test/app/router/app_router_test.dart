@@ -13,6 +13,7 @@ void main() {
     expect(AppRoutes.search, '/search');
     expect(AppRoutes.profile, '/profile');
     expect(AppRoutes.settings, '/settings');
+    expect(AppRoutes.readingStats, '/reading-stats');
   });
 
   testWidgets('router starts on home and exposes the designed bottom tabs',
@@ -71,5 +72,37 @@ void main() {
     expect(find.text('偏好中心'), findsOneWidget);
     expect(find.text('阅读体验'), findsOneWidget);
     expect(find.text('内容与书源'), findsOneWidget);
+  });
+
+  testWidgets('opens reading stats from profile tools', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: Consumer(
+          builder: (context, ref, _) {
+            return MaterialApp.router(
+              routerConfig: ref.watch(appRouterProvider),
+              locale: const Locale('zh', 'CN'),
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: AppLocalizations.supportedLocales,
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('我的'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('阅读记录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('阅读统计'), findsOneWidget);
+    expect(find.text('6h 40m'), findsOneWidget);
   });
 }

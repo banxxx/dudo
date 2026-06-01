@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../shared/theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../app/router/app_router.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 
@@ -266,21 +268,24 @@ class _QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
+    return SizedBox(
       height: 64,
       child: Row(
         children: [
-          Expanded(
+          const Expanded(
             child: _QuickAction(icon: LucideIcons.search, label: '找书'),
           ),
-          SizedBox(width: 10),
-          Expanded(
+          const SizedBox(width: 10),
+          const Expanded(
             child: _QuickAction(icon: LucideIcons.bookmark, label: '书签'),
           ),
-          SizedBox(width: 10),
+          const SizedBox(width: 10),
           Expanded(
-            child:
-                _QuickAction(icon: LucideIcons.chartNoAxesColumn, label: '统计'),
+            child: _QuickAction(
+              icon: LucideIcons.chartNoAxesColumn,
+              label: '统计',
+              onTap: () => context.push(AppRoutes.readingStats),
+            ),
           ),
         ],
       ),
@@ -289,16 +294,17 @@ class _QuickActions extends StatelessWidget {
 }
 
 class _QuickAction extends StatelessWidget {
-  const _QuickAction({required this.icon, required this.label});
+  const _QuickAction({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(20),
-      onTap: () {},
+      onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: DudoColors.surface,

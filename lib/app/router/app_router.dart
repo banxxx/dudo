@@ -6,6 +6,7 @@ import '../../features/bookshelf/presentation/bookshelf_library_page.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../../features/reader/presentation/reader_page.dart';
+import '../../features/reading_stats/presentation/reading_stats_page.dart';
 import '../../features/search/presentation/search_page.dart';
 import '../../features/settings/presentation/settings_detail_pages.dart';
 import '../../features/settings/presentation/settings_page.dart';
@@ -64,6 +65,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.settings,
         name: AppRoutes.settingsName,
         builder: (_, __) => const SettingsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.readingStats,
+        name: AppRoutes.readingStatsName,
+        builder: (_, __) => const ReadingStatsPage(),
       ),
       GoRoute(
         path: AppRoutes.sourceSettings,
@@ -133,6 +139,9 @@ class AppRoutes {
 
   static const settings = '/settings';
   static const settingsName = 'settings';
+
+  static const readingStats = '/reading-stats';
+  static const readingStatsName = 'reading-stats';
 
   static const sourceSettings = '/settings/sources';
   static const sourceSettingsName = 'settings-sources';
