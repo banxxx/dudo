@@ -25,7 +25,7 @@ class DudoBottomTabBar extends StatelessWidget {
     return ColoredBox(
       color: isDark ? DudoColors.darkBackground : DudoColors.paperBackground,
       child: SizedBox(
-        height: 98,
+        height: 78 + (bottomPadding > 0 ? bottomPadding : 20),
         child: Padding(
           padding: EdgeInsets.fromLTRB(
             18,
@@ -35,7 +35,7 @@ class DudoBottomTabBar extends StatelessWidget {
           ),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: AppRadius.full,
+              borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
                   color: isDark
@@ -47,7 +47,7 @@ class DudoBottomTabBar extends StatelessWidget {
               ],
             ),
             child: ClipRRect(
-              borderRadius: AppRadius.full,
+              borderRadius: BorderRadius.circular(30),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                 child: Container(
@@ -57,38 +57,66 @@ class DudoBottomTabBar extends StatelessWidget {
                     color: isDark
                         ? DudoColors.darkSurface
                         : DudoColors.surface.withValues(alpha: 0.95),
-                    borderRadius: AppRadius.full,
+                    borderRadius: BorderRadius.circular(30),
                     border: Border.all(
                       color: isDark
                           ? DudoColors.darkNavigationStroke
                           : DudoColors.navigationStroke,
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      for (var index = 0;
-                          index < destinations.length;
-                          index++) ...[
-                        Expanded(
-                          child: _DudoBottomTabItem(
-                            destination: destinations[index],
-                            selected: index == currentIndex,
-                            selectedBackground: isDark
-                                ? DudoColors.darkNavigationActive
-                                : DudoColors.textPrimary,
-                            selectedForeground: isDark
-                                ? DudoColors.darkNavigationActiveForeground
-                                : DudoColors.surfaceHigh,
-                            unselectedForeground: isDark
-                                ? DudoColors.darkNavigationInactive
-                                : DudoColors.secondary,
-                            onTap: () => onDestinationSelected(index),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final gapTotal = 6 * (destinations.length - 1);
+                      final itemWidth = (constraints.maxWidth - gapTotal) /
+                          destinations.length;
+                      final indicatorLeft = currentIndex * (itemWidth + 6);
+
+                      return Stack(
+                        children: [
+                          AnimatedPositioned(
+                            duration: AppMotion.medium,
+                            curve: AppMotion.emphasized,
+                            left: indicatorLeft,
+                            top: 0,
+                            bottom: 0,
+                            width: itemWidth,
+                            child: DecoratedBox(
+                              key: const ValueKey('bottom-tab-indicator'),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? DudoColors.darkNavigationActive
+                                    : DudoColors.textPrimary,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                            ),
                           ),
-                        ),
-                        if (index != destinations.length - 1)
-                          const SizedBox(width: 6),
-                      ],
-                    ],
+                          Row(
+                            children: [
+                              for (var index = 0;
+                                  index < destinations.length;
+                                  index++) ...[
+                                Expanded(
+                                  child: _DudoBottomTabItem(
+                                    destination: destinations[index],
+                                    selected: index == currentIndex,
+                                    selectedForeground: isDark
+                                        ? DudoColors
+                                            .darkNavigationActiveForeground
+                                        : DudoColors.surfaceHigh,
+                                    unselectedForeground: isDark
+                                        ? DudoColors.darkNavigationInactive
+                                        : DudoColors.secondary,
+                                    onTap: () => onDestinationSelected(index),
+                                  ),
+                                ),
+                                if (index != destinations.length - 1)
+                                  const SizedBox(width: 6),
+                              ],
+                            ],
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -116,7 +144,6 @@ class _DudoBottomTabItem extends StatelessWidget {
   const _DudoBottomTabItem({
     required this.destination,
     required this.selected,
-    required this.selectedBackground,
     required this.selectedForeground,
     required this.unselectedForeground,
     required this.onTap,
@@ -124,50 +151,52 @@ class _DudoBottomTabItem extends StatelessWidget {
 
   final DudoBottomTabDestination destination;
   final bool selected;
-  final Color selectedBackground;
   final Color selectedForeground;
   final Color unselectedForeground;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final foreground = selected ? selectedForeground : unselectedForeground;
-
     return Semantics(
       selected: selected,
       button: true,
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: AppRadius.xLarge,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: AppMotion.short,
-            curve: AppMotion.emphasized,
-            decoration: BoxDecoration(
-              color: selected ? selectedBackground : Colors.transparent,
-              borderRadius: AppRadius.xLarge,
-            ),
-            child: IconTheme(
-              data: IconThemeData(color: foreground, size: 20),
-              child: DefaultTextStyle(
-                style: DudoTextStyles.sans(
-                  color: foreground,
-                  fontSize: 10,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                        selected ? destination.selectedIcon : destination.icon),
-                    const SizedBox(height: 4),
-                    Text(destination.label),
-                  ],
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(end: selected ? 1 : 0),
+          duration: AppMotion.medium,
+          curve: AppMotion.emphasized,
+          builder: (context, value, child) {
+            final foreground = Color.lerp(
+              unselectedForeground,
+              selectedForeground,
+              value,
+            )!;
+
+            return DefaultTextStyle(
+              style: DudoTextStyles.sans(
+                color: foreground,
+                fontSize: 10,
+                fontWeight: FontWeight.lerp(
+                  FontWeight.w400,
+                  FontWeight.w600,
+                  value,
                 ),
               ),
-            ),
+              child: IconTheme(
+                data: IconThemeData(color: foreground, size: 20),
+                child: child!,
+              ),
+            );
+          },
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(selected ? destination.selectedIcon : destination.icon),
+              const SizedBox(height: 4),
+              Text(destination.label),
+            ],
           ),
         ),
       ),

@@ -18,8 +18,11 @@ class DudoPageFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const scrollPhysics = ClampingScrollPhysics();
+
     final Widget content = eager
         ? SingleChildScrollView(
+            physics: scrollPhysics,
             padding: padding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -27,6 +30,7 @@ class DudoPageFrame extends StatelessWidget {
             ),
           )
         : ListView(
+            physics: scrollPhysics,
             padding: padding,
             children: children,
           );
