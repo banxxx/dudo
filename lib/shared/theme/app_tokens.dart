@@ -56,6 +56,40 @@ class AppRadius {
   static const BorderRadius full = BorderRadius.all(Radius.circular(999));
 }
 
+/// Responsive layout tokens for shared page containers and shells.
+class DudoLayout {
+  DudoLayout._();
+
+  static const double compactPhoneWidth = 360;
+  static const double phoneContentMaxWidth = 480;
+  static const double tabletContentMaxWidth = 720;
+  static const double desktopContentMaxWidth = 1080;
+
+  static const EdgeInsets compactPhonePagePadding = EdgeInsets.fromLTRB(
+    16,
+    8,
+    16,
+    16,
+  );
+  static const EdgeInsets phonePagePadding = EdgeInsets.fromLTRB(20, 8, 20, 16);
+  static const EdgeInsets tabletPagePadding = EdgeInsets.fromLTRB(
+    32,
+    16,
+    32,
+    24,
+  );
+  static const EdgeInsets desktopPagePadding = EdgeInsets.fromLTRB(
+    40,
+    20,
+    40,
+    32,
+  );
+
+  static const double bottomTabBarHeight = 68;
+  static const double bottomTabHorizontalInset = 18;
+  static const double bottomTabTopInset = 10;
+}
+
 /// Custom motion tokens following M3 emphasized easing.
 class AppMotion {
   AppMotion._();

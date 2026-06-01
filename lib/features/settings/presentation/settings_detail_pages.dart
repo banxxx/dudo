@@ -391,6 +391,7 @@ class _SettingsDetailScaffold extends StatelessWidget {
       backgroundColor: DudoColors.paperBackground,
       body: DudoPageFrame(
         padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
+        constrainWidth: false,
         eager: true,
         children: children,
       ),

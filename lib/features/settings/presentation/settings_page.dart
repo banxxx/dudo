@@ -16,6 +16,7 @@ class SettingsPage extends StatelessWidget {
       backgroundColor: DudoColors.paperBackground,
       body: DudoPageFrame(
         padding: EdgeInsets.fromLTRB(20, 6, 20, 18),
+        constrainWidth: false,
         eager: true,
         children: [
           _TopActions(),

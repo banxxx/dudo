@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/utils/breakpoints.dart';
 import '../l10n/app_localizations.dart';
 import 'dudo_bottom_tab_bar.dart';
 
@@ -12,14 +13,11 @@ class HomeScaffold extends StatelessWidget {
 
   final StatefulNavigationShell navigationShell;
 
-  static const double _breakpointMedium = 600.0;
-  static const double _breakpointLarge = 840.0;
-
   @override
   Widget build(BuildContext context) {
     final double width = MediaQuery.sizeOf(context).width;
-    final bool useRail = width >= _breakpointMedium;
-    final bool useExtended = width >= _breakpointLarge;
+    final bool useRail = Breakpoints.isTabletWidth(width);
+    final bool useExtended = Breakpoints.isLargeWidth(width);
 
     final List<_Dest> destinations = _destinations(context);
 

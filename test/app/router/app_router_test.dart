@@ -1,4 +1,5 @@
 import 'package:dudo/app/router/app_router.dart';
+import 'package:dudo/core/utils/breakpoints.dart';
 import 'package:dudo/shared/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -6,18 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('main tab route constants match the paper navigation structure', () {
-    expect(AppRoutes.home, '/home');
-    expect(AppRoutes.homeName, 'home');
-    expect(AppRoutes.bookshelf, '/bookshelf');
-    expect(AppRoutes.search, '/search');
-    expect(AppRoutes.profile, '/profile');
-    expect(AppRoutes.settings, '/settings');
-    expect(AppRoutes.readingStats, '/reading-stats');
-  });
-
-  testWidgets('router starts on home and exposes the designed bottom tabs',
-      (tester) async {
+  Future<void> pumpApp(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
         child: Consumer(
@@ -38,6 +28,21 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+  }
+
+  test('main tab route constants match the paper navigation structure', () {
+    expect(AppRoutes.home, '/home');
+    expect(AppRoutes.homeName, 'home');
+    expect(AppRoutes.bookshelf, '/bookshelf');
+    expect(AppRoutes.search, '/search');
+    expect(AppRoutes.profile, '/profile');
+    expect(AppRoutes.settings, '/settings');
+    expect(AppRoutes.readingStats, '/reading-stats');
+  });
+
+  testWidgets('router starts on home and exposes the designed bottom tabs',
+      (tester) async {
+    await pumpApp(tester);
 
     expect(find.text('晚上好，继续沉入书页'), findsOneWidget);
     expect(find.text('首页'), findsOneWidget);
@@ -74,27 +79,43 @@ void main() {
     expect(find.text('内容与书源'), findsOneWidget);
   });
 
+  testWidgets('uses bottom tabs on phone widths', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(Breakpoints.medium - 1, 800);
+    addTearDown(tester.view.reset);
+
+    await pumpApp(tester);
+
+    expect(find.byType(BottomNavigationBar), findsNothing);
+    expect(find.byType(NavigationRail), findsNothing);
+    expect(find.text('首页'), findsOneWidget);
+    expect(find.text('书架'), findsOneWidget);
+  });
+
+  testWidgets('uses compact navigation rail on tablet widths', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(Breakpoints.medium, 900);
+    addTearDown(tester.view.reset);
+
+    await pumpApp(tester);
+
+    final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+    expect(rail.extended, isFalse);
+  });
+
+  testWidgets('uses extended navigation rail on large widths', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(Breakpoints.large, 900);
+    addTearDown(tester.view.reset);
+
+    await pumpApp(tester);
+
+    final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+    expect(rail.extended, isTrue);
+  });
+
   testWidgets('opens reading stats from profile tools', (tester) async {
-    await tester.pumpWidget(
-      ProviderScope(
-        child: Consumer(
-          builder: (context, ref, _) {
-            return MaterialApp.router(
-              routerConfig: ref.watch(appRouterProvider),
-              locale: const Locale('zh', 'CN'),
-              localizationsDelegates: const [
-                AppLocalizations.delegate,
-                GlobalMaterialLocalizations.delegate,
-                GlobalWidgetsLocalizations.delegate,
-                GlobalCupertinoLocalizations.delegate,
-              ],
-              supportedLocales: AppLocalizations.supportedLocales,
-            );
-          },
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await pumpApp(tester);
 
     await tester.tap(find.text('我的'));
     await tester.pumpAndSettle();
