@@ -32,3 +32,4 @@ ios/Runner.xcodeproj/xcuserdata/
 
 # Local-only documentation (not for VCS)
 docs/
+.claude/
