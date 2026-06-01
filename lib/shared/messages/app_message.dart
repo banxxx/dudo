@@ -40,7 +40,8 @@ class AppMessageRequest {
   final bool replaceExisting;
   final bool dismissible;
 
-  String get effectiveKey => dedupeKey ??
+  String get effectiveKey =>
+      dedupeKey ??
       [
         kind.name,
         position.name,

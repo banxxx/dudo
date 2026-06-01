@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../../shared/theme/app_fonts.dart';
 
 import '../../../core/utils/breakpoints.dart';
 import '../../../shared/theme/app_theme.dart';
@@ -96,7 +96,7 @@ class _ReaderPageBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // We use GoogleFonts so we don't have to bundle Noto Serif SC in pubspec.
-    final TextStyle textStyle = GoogleFonts.notoSerifSc(
+    final TextStyle textStyle = DudoTextStyles.serif(
       color: palette.foreground,
       fontSize: 18,
       height: 1.8,

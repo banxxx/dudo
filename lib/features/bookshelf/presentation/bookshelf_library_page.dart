@@ -1,28 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import '../../../shared/theme/app_fonts.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../shared/theme/app_tokens.dart';
+import '../../../shared/widgets/dudo_page_frame.dart';
 
 class BookshelfLibraryPage extends ConsumerWidget {
   const BookshelfLibraryPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
+    return const Scaffold(
       backgroundColor: DudoColors.paperBackground,
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          children: const [
-            _BookshelfHeader(),
-            SizedBox(height: 20),
-            _EmptyBookshelfCard(),
-            SizedBox(height: 20),
-            _LibraryTipsSection(),
-          ],
-        ),
+      body: DudoPageFrame(
+        children: [
+          _BookshelfHeader(),
+          SizedBox(height: 20),
+          _EmptyBookshelfCard(),
+          SizedBox(height: 20),
+          _LibraryTipsSection(),
+        ],
       ),
     );
   }
@@ -38,7 +36,7 @@ class _BookshelfHeader extends StatelessWidget {
       children: [
         Text(
           '晚上好，Ban',
-          style: GoogleFonts.notoSansSc(
+          style: DudoTextStyles.sans(
             color: DudoColors.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w400,
@@ -47,7 +45,7 @@ class _BookshelfHeader extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           '我的书架',
-          style: GoogleFonts.notoSerifSc(
+          style: DudoTextStyles.serif(
             color: DudoColors.textPrimary,
             fontSize: 26,
             fontWeight: FontWeight.w700,
@@ -77,7 +75,7 @@ class _EmptyBookshelfCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             '书架还是空的',
-            style: GoogleFonts.notoSerifSc(
+            style: DudoTextStyles.serif(
               color: DudoColors.onPrimaryContainer,
               fontSize: 22,
               fontWeight: FontWeight.w700,
@@ -87,7 +85,7 @@ class _EmptyBookshelfCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             '把喜欢的作品加入书架后，阅读进度、收藏和缓存都会在这里安静地整理好。',
-            style: GoogleFonts.notoSansSc(
+            style: DudoTextStyles.sans(
               color: DudoColors.primaryDark,
               fontSize: 13,
               fontWeight: FontWeight.w400,
@@ -194,7 +192,7 @@ class _EmptyStateActions extends StatelessWidget {
       children: [
         _PillActionButton(
           label: '去找书',
-          icon: Symbols.search_rounded,
+          icon: LucideIcons.search,
           background: DudoColors.textPrimary,
           foreground: DudoColors.surfaceHigh,
           borderColor: Colors.transparent,
@@ -204,7 +202,7 @@ class _EmptyStateActions extends StatelessWidget {
         SizedBox(width: 8),
         _PillActionButton(
           label: '导入本地',
-          icon: Symbols.upload_file_rounded,
+          icon: LucideIcons.fileUp,
           background: DudoColors.surface,
           foreground: DudoColors.primary,
           borderColor: DudoColors.outline,
@@ -238,7 +236,7 @@ class _PillActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final labelText = Text(
       label,
-      style: GoogleFonts.notoSansSc(
+      style: DudoTextStyles.sans(
         color: foreground,
         fontSize: 13,
         fontWeight: FontWeight.w600,
@@ -293,7 +291,7 @@ class _LibraryTipsSection extends StatelessWidget {
             Expanded(
               child: Text(
                 '可以从这里开始',
-                style: GoogleFonts.notoSansSc(
+                style: DudoTextStyles.sans(
                   color: DudoColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -304,7 +302,7 @@ class _LibraryTipsSection extends StatelessWidget {
               onPressed: _handleSkipForNow,
               style: TextButton.styleFrom(
                 foregroundColor: DudoColors.secondary,
-                textStyle: GoogleFonts.notoSansSc(
+                textStyle: DudoTextStyles.sans(
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
                 ),
@@ -315,19 +313,19 @@ class _LibraryTipsSection extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         const _TipCard(
-          icon: Symbols.search_rounded,
+          icon: LucideIcons.search,
           title: '去搜索发现书籍',
           description: '从全站书源中找到想读的作品',
         ),
         const SizedBox(height: 6),
         const _TipCard(
-          icon: Symbols.upload_file_rounded,
+          icon: LucideIcons.fileUp,
           title: '导入本地文件',
           description: '把已有的 txt、epub 放进书架',
         ),
         const SizedBox(height: 6),
         const _TipCard(
-          icon: Symbols.bookmark_add_rounded,
+          icon: LucideIcons.bookmarkPlus,
           title: '收藏推荐作品',
           description: '遇到感兴趣的书，先加入待读清单',
         ),
@@ -376,7 +374,7 @@ class _TipCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.notoSansSc(
+                  style: DudoTextStyles.sans(
                     color: DudoColors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -387,7 +385,7 @@ class _TipCard extends StatelessWidget {
                   description,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.notoSansSc(
+                  style: DudoTextStyles.sans(
                     color: DudoColors.secondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w400,

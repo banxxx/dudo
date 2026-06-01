@@ -1,33 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import '../../../shared/theme/app_fonts.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../shared/theme/app_tokens.dart';
+import '../../../shared/widgets/dudo_page_frame.dart';
 
 class BookshelfPage extends ConsumerWidget {
   const BookshelfPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
+    return const Scaffold(
       backgroundColor: DudoColors.paperBackground,
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
-          children: const [
-            _HomeHeader(),
-            SizedBox(height: 12),
-            _ContinueReadingHero(),
-            SizedBox(height: 12),
-            _QuickActions(),
-            SizedBox(height: 12),
-            _RecommendationSection(),
-            SizedBox(height: 12),
-            _ReadingRhythmCard(),
-          ],
-        ),
+      body: DudoPageFrame(
+        padding: EdgeInsets.fromLTRB(20, 6, 20, 10),
+        bottomSafeArea: false,
+        children: [
+          _HomeHeader(),
+          SizedBox(height: 12),
+          _ContinueReadingHero(),
+          SizedBox(height: 12),
+          _QuickActions(),
+          SizedBox(height: 12),
+          _RecommendationSection(),
+          SizedBox(height: 12),
+          _ReadingRhythmCard(),
+        ],
       ),
     );
   }
@@ -47,7 +46,7 @@ class _HomeHeader extends StatelessWidget {
             children: [
               Text(
                 '今日阅读',
-                style: GoogleFonts.notoSansSc(
+                style: DudoTextStyles.sans(
                   color: DudoColors.secondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -57,7 +56,7 @@ class _HomeHeader extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 '晚上好，继续沉入书页',
-                style: GoogleFonts.notoSerifSc(
+                style: DudoTextStyles.serif(
                   color: DudoColors.textPrimary,
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
@@ -76,7 +75,7 @@ class _HomeHeader extends StatelessWidget {
             border: Border.all(color: DudoColors.navigationStroke),
           ),
           child: const Icon(
-            Symbols.eco_rounded,
+            LucideIcons.leaf,
             color: DudoColors.primary,
             size: 22,
           ),
@@ -119,7 +118,7 @@ class _ContinueReadingHero extends StatelessWidget {
                   children: [
                     Text(
                       '继续阅读',
-                      style: GoogleFonts.notoSansSc(
+                      style: DudoTextStyles.sans(
                         color: DudoColors.primary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -128,7 +127,7 @@ class _ContinueReadingHero extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       '三体 · 第 24 章',
-                      style: GoogleFonts.notoSerifSc(
+                      style: DudoTextStyles.serif(
                         color: DudoColors.textPrimary,
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
@@ -138,7 +137,9 @@ class _ContinueReadingHero extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       '旧世界的回声，在清晨雾气里慢慢浮现。',
-                      style: GoogleFonts.notoSansSc(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
                         color: DudoColors.textSecondary,
                         fontSize: 13,
                         height: 1.45,
@@ -151,7 +152,7 @@ class _ContinueReadingHero extends StatelessWidget {
                   children: [
                     Text(
                       '剩余 8 分钟',
-                      style: GoogleFonts.notoSansSc(
+                      style: DudoTextStyles.sans(
                         color: DudoColors.textSecondary,
                         fontSize: 12,
                       ),
@@ -191,7 +192,7 @@ class _HeroBookCover extends StatelessWidget {
         children: [
           Text(
             'LIU',
-            style: GoogleFonts.inter(
+            style: DudoTextStyles.numeric(
               color: DudoColors.surfaceHigh,
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -201,7 +202,7 @@ class _HeroBookCover extends StatelessWidget {
           Center(
             child: Text(
               '三体',
-              style: GoogleFonts.notoSerifSc(
+              style: DudoTextStyles.serif(
                 color: DudoColors.surfaceHigh,
                 fontSize: 25,
                 fontWeight: FontWeight.w700,
@@ -210,7 +211,7 @@ class _HeroBookCover extends StatelessWidget {
           ),
           Text(
             '62%',
-            style: GoogleFonts.inter(
+            style: DudoTextStyles.numeric(
               color: DudoColors.surfaceHigh,
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -241,7 +242,7 @@ class _ReadButton extends StatelessWidget {
           children: [
             Text(
               '阅读',
-              style: GoogleFonts.notoSansSc(
+              style: DudoTextStyles.sans(
                 color: DudoColors.surfaceHigh,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -249,7 +250,7 @@ class _ReadButton extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             const Icon(
-              Symbols.chevron_right_rounded,
+              LucideIcons.chevronRight,
               color: DudoColors.surfaceHigh,
               size: 14,
             ),
@@ -270,15 +271,16 @@ class _QuickActions extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: _QuickAction(icon: Symbols.search_rounded, label: '找书'),
+            child: _QuickAction(icon: LucideIcons.search, label: '找书'),
           ),
           SizedBox(width: 10),
           Expanded(
-            child: _QuickAction(icon: Symbols.bookmark_rounded, label: '书签'),
+            child: _QuickAction(icon: LucideIcons.bookmark, label: '书签'),
           ),
           SizedBox(width: 10),
           Expanded(
-            child: _QuickAction(icon: Symbols.bar_chart_rounded, label: '统计'),
+            child:
+                _QuickAction(icon: LucideIcons.chartNoAxesColumn, label: '统计'),
           ),
         ],
       ),
@@ -310,7 +312,7 @@ class _QuickAction extends StatelessWidget {
             const SizedBox(height: 5),
             Text(
               label,
-              style: GoogleFonts.notoSansSc(
+              style: DudoTextStyles.sans(
                 color: DudoColors.secondary,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -335,7 +337,7 @@ class _RecommendationSection extends StatelessWidget {
           children: [
             Text(
               '为你精选',
-              style: GoogleFonts.notoSansSc(
+              style: DudoTextStyles.sans(
                 color: DudoColors.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -343,7 +345,7 @@ class _RecommendationSection extends StatelessWidget {
             ),
             Text(
               '全部',
-              style: GoogleFonts.notoSansSc(
+              style: DudoTextStyles.sans(
                 color: DudoColors.secondary,
                 fontSize: 12,
               ),
@@ -420,7 +422,7 @@ class _RecommendedBookCard extends StatelessWidget {
             alignment: Alignment.bottomLeft,
             child: Text(
               label,
-              style: GoogleFonts.inter(
+              style: DudoTextStyles.numeric(
                 color: DudoColors.surfaceHigh,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
@@ -433,7 +435,7 @@ class _RecommendedBookCard extends StatelessWidget {
           title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: GoogleFonts.notoSansSc(
+          style: DudoTextStyles.sans(
             color: DudoColors.textPrimary,
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -442,7 +444,7 @@ class _RecommendedBookCard extends StatelessWidget {
         const SizedBox(height: 3),
         Text(
           subtitle,
-          style: GoogleFonts.notoSansSc(
+          style: DudoTextStyles.sans(
             color: DudoColors.secondary,
             fontSize: 11,
           ),
@@ -472,7 +474,7 @@ class _ReadingRhythmCard extends StatelessWidget {
         children: [
           Text(
             '本周节奏',
-            style: GoogleFonts.notoSansSc(
+            style: DudoTextStyles.sans(
               color: DudoColors.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -502,7 +504,7 @@ class _ReadingRhythmCard extends StatelessWidget {
                         const SizedBox(height: 5),
                         Text(
                           days[i],
-                          style: GoogleFonts.notoSansSc(
+                          style: DudoTextStyles.sans(
                             color: DudoColors.secondary,
                             fontSize: 10,
                           ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n/app_localizations.dart';
 import 'dudo_bottom_tab_bar.dart';
@@ -87,23 +87,23 @@ class HomeScaffold extends StatelessWidget {
     final AppLocalizations l = AppLocalizations.of(context);
     return <_Dest>[
       _Dest(
-        icon: Symbols.home_rounded,
-        selectedIcon: Symbols.home_rounded,
+        icon: LucideIcons.house,
+        selectedIcon: LucideIcons.house,
         label: l.home,
       ),
       _Dest(
-        icon: Symbols.menu_book_rounded,
-        selectedIcon: Symbols.menu_book_rounded,
+        icon: LucideIcons.library,
+        selectedIcon: LucideIcons.library,
         label: l.bookshelf,
       ),
       _Dest(
-        icon: Symbols.search_rounded,
-        selectedIcon: Symbols.search_rounded,
+        icon: LucideIcons.search,
+        selectedIcon: LucideIcons.search,
         label: l.search,
       ),
       _Dest(
-        icon: Symbols.person_rounded,
-        selectedIcon: Symbols.person_rounded,
+        icon: LucideIcons.user,
+        selectedIcon: LucideIcons.user,
         label: l.profile,
       ),
     ];

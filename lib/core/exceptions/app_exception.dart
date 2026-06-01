@@ -66,7 +66,8 @@ class AppException implements Exception {
   bool get isRetryable => switch (type) {
         AppExceptionType.network ||
         AppExceptionType.timeout ||
-        AppExceptionType.server => true,
+        AppExceptionType.server =>
+          true,
         _ => false,
       };
 

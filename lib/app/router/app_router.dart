@@ -7,6 +7,8 @@ import '../../features/home/presentation/home_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../../features/reader/presentation/reader_page.dart';
 import '../../features/search/presentation/search_page.dart';
+import '../../features/settings/presentation/settings_detail_pages.dart';
+import '../../features/settings/presentation/settings_page.dart';
 import '../../shared/widgets/error_state_view.dart';
 import '../../shared/widgets/home_scaffold.dart';
 
@@ -58,6 +60,31 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
+      GoRoute(
+        path: AppRoutes.settings,
+        name: AppRoutes.settingsName,
+        builder: (_, __) => const SettingsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.sourceSettings,
+        name: AppRoutes.sourceSettingsName,
+        builder: (_, __) => const SourceManageSettingsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.themeSettings,
+        name: AppRoutes.themeSettingsName,
+        builder: (_, __) => const ThemeSettingsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.typographySettings,
+        name: AppRoutes.typographySettingsName,
+        builder: (_, __) => const TypographySettingsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.readAloudSettings,
+        name: AppRoutes.readAloudSettingsName,
+        builder: (_, __) => const ReadAloudSettingsPage(),
+      ),
       // Reader is a fullscreen route outside the shell.
       GoRoute(
         path: '${AppRoutes.reader}/:bookId',
@@ -103,6 +130,21 @@ class AppRoutes {
 
   static const profile = '/profile';
   static const profileName = 'profile';
+
+  static const settings = '/settings';
+  static const settingsName = 'settings';
+
+  static const sourceSettings = '/settings/sources';
+  static const sourceSettingsName = 'settings-sources';
+
+  static const themeSettings = '/settings/theme';
+  static const themeSettingsName = 'settings-theme';
+
+  static const typographySettings = '/settings/typography';
+  static const typographySettingsName = 'settings-typography';
+
+  static const readAloudSettings = '/settings/read-aloud';
+  static const readAloudSettingsName = 'settings-read-aloud';
 
   static const reader = '/reader';
   static const readerName = 'reader';

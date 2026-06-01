@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/exceptions/app_exception.dart';
 import '../theme/app_tokens.dart';
@@ -7,7 +7,7 @@ import '../theme/app_tokens.dart';
 class ErrorStateView extends StatelessWidget {
   const ErrorStateView({
     super.key,
-    this.icon = Symbols.error_rounded,
+    this.icon = LucideIcons.circleAlert,
     required this.title,
     this.message,
     this.action,

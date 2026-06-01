@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../theme/app_tokens.dart';
 import 'app_message.dart';
@@ -113,7 +113,7 @@ class _CompactContent extends StatelessWidget {
           IconButton(
             visualDensity: VisualDensity.compact,
             onPressed: onClose,
-            icon: Icon(Icons.close_rounded, color: colors.foreground),
+            icon: Icon(LucideIcons.x, color: colors.foreground),
             tooltip: '关闭',
           ),
         ],
@@ -170,7 +170,7 @@ class _DialogContent extends StatelessWidget {
             end: -AppSpacing.sm,
             child: IconButton(
               onPressed: onClose,
-              icon: Icon(Icons.close_rounded, color: colors.foreground),
+              icon: Icon(LucideIcons.x, color: colors.foreground),
               tooltip: '关闭',
             ),
           ),
@@ -202,11 +202,11 @@ _MessageColors _colors(ColorScheme scheme, AppMessageKind kind) {
 
 IconData _icon(AppMessageKind kind) {
   return switch (kind) {
-    AppMessageKind.info => Symbols.info_rounded,
-    AppMessageKind.success => Symbols.check_circle_rounded,
-    AppMessageKind.warning => Symbols.warning_rounded,
-    AppMessageKind.error => Symbols.error_rounded,
-    AppMessageKind.loading => Symbols.hourglass_top_rounded,
+    AppMessageKind.info => LucideIcons.info,
+    AppMessageKind.success => LucideIcons.circleCheck,
+    AppMessageKind.warning => LucideIcons.triangleAlert,
+    AppMessageKind.error => LucideIcons.circleAlert,
+    AppMessageKind.loading => LucideIcons.hourglass,
   };
 }
 

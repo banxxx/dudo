@@ -19,9 +19,11 @@ class ErrorHandler {
     ].join(' ');
 
     if (fatal) {
-      log.e(message, error: exception.cause ?? exception, stackTrace: stackTrace);
+      log.e(message,
+          error: exception.cause ?? exception, stackTrace: stackTrace);
     } else {
-      log.w(message, error: exception.cause ?? exception, stackTrace: stackTrace);
+      log.w(message,
+          error: exception.cause ?? exception, stackTrace: stackTrace);
     }
   }
 }

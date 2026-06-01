@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import '../../../shared/theme/app_fonts.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../shared/theme/app_tokens.dart';
+import '../../../shared/widgets/dudo_page_frame.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
@@ -45,30 +46,27 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-          children: [
-            _SearchHeader(
-              controller: _controller,
-              focusNode: _focusNode,
-              active: _hasQuery,
-              onClear: _handleClearQuery,
-              onFilter: _handleOpenFilters,
-            ),
+      body: DudoPageFrame(
+        children: [
+          _SearchHeader(
+            controller: _controller,
+            focusNode: _focusNode,
+            active: _hasQuery,
+            onClear: _handleClearQuery,
+            onFilter: _handleOpenFilters,
+          ),
+          const SizedBox(height: 14),
+          if (_hasQuery) ...[
+            const _RecentSearchSection(),
             const SizedBox(height: 14),
-            if (_hasQuery) ...[
-              const _RecentSearchSection(),
-              const SizedBox(height: 14),
-            ],
-            const _SourceSelectorSection(),
-            const SizedBox(height: 14),
-            if (_hasQuery)
-              const _SearchResultsSection()
-            else
-              const _SearchEmptySuggestions(),
           ],
-        ),
+          const _SourceSelectorSection(),
+          const SizedBox(height: 14),
+          if (_hasQuery)
+            const _SearchResultsSection()
+          else
+            const _SearchEmptySuggestions(),
+        ],
       ),
     );
   }
@@ -103,7 +101,7 @@ class _SearchHeader extends StatelessWidget {
                 children: [
                   Text(
                     '探索书源与作品',
-                    style: GoogleFonts.notoSansSc(
+                    style: DudoTextStyles.sans(
                       color: DudoColors.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
@@ -112,7 +110,7 @@ class _SearchHeader extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '搜索',
-                    style: GoogleFonts.notoSerifSc(
+                    style: DudoTextStyles.serif(
                       color: DudoColors.textPrimary,
                       fontSize: 26,
                       fontWeight: FontWeight.w700,
@@ -136,7 +134,7 @@ class _SearchHeader extends StatelessWidget {
                     border: Border.all(color: DudoColors.outline),
                   ),
                   child: const Icon(
-                    Symbols.tune_rounded,
+                    LucideIcons.slidersHorizontal,
                     color: DudoColors.primary,
                     size: 20,
                   ),
@@ -188,7 +186,7 @@ class _SearchField extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              Symbols.search_rounded,
+              LucideIcons.search,
               color: active ? DudoColors.primary : DudoColors.secondary,
               size: 18,
             ),
@@ -201,12 +199,12 @@ class _SearchField extends StatelessWidget {
                     child: Text(
                       active ? controller.text : '搜索书名、作者、关键词',
                       style: active
-                          ? GoogleFonts.notoSansSc(
+                          ? DudoTextStyles.sans(
                               color: DudoColors.textPrimary,
                               fontSize: 15,
                               fontWeight: FontWeight.w500,
                             )
-                          : GoogleFonts.notoSansSc(
+                          : DudoTextStyles.sans(
                               color: DudoColors.secondary,
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
@@ -236,7 +234,7 @@ class _SearchField extends StatelessWidget {
               GestureDetector(
                 onTap: onClear,
                 child: const Icon(
-                  Symbols.close_rounded,
+                  LucideIcons.x,
                   color: DudoColors.secondary,
                   size: 18,
                 ),
@@ -262,7 +260,7 @@ class _SourceSelectorSection extends StatelessWidget {
             Expanded(
               child: Text(
                 '常用书源',
-                style: GoogleFonts.notoSansSc(
+                style: DudoTextStyles.sans(
                   color: DudoColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -271,7 +269,7 @@ class _SourceSelectorSection extends StatelessWidget {
             ),
             Text(
               '全部',
-              style: GoogleFonts.notoSansSc(
+              style: DudoTextStyles.sans(
                 color: DudoColors.primary,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -286,7 +284,7 @@ class _SourceSelectorSection extends StatelessWidget {
               child: _SourceCard(
                 title: '本地书架',
                 subtitle: '优先缓存',
-                icon: Symbols.library_books_rounded,
+                icon: LucideIcons.library,
                 fill: DudoColors.primaryContainer,
                 border: DudoColors.primaryContainerStrong,
                 iconFill: DudoColors.primaryContainerStrong,
@@ -298,7 +296,7 @@ class _SourceSelectorSection extends StatelessWidget {
               child: _SourceCard(
                 title: '网络书源',
                 subtitle: '12 个启用',
-                icon: Symbols.public_rounded,
+                icon: LucideIcons.globe,
                 fill: DudoColors.surface,
                 border: DudoColors.outlineVariant,
                 iconFill: DudoColors.surfaceLow,
@@ -362,7 +360,7 @@ class _SourceCard extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.notoSansSc(
+                  style: DudoTextStyles.sans(
                     color: DudoColors.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -373,7 +371,7 @@ class _SourceCard extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.notoSansSc(
+                  style: DudoTextStyles.sans(
                     color: DudoColors.secondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
@@ -411,7 +409,7 @@ class _SearchEmptySuggestions extends StatelessWidget {
               borderRadius: BorderRadius.circular(32),
             ),
             child: const Icon(
-              Symbols.travel_explore_rounded,
+              LucideIcons.telescope,
               color: DudoColors.primary,
               size: 30,
             ),
@@ -420,7 +418,7 @@ class _SearchEmptySuggestions extends StatelessWidget {
           Text(
             '输入关键词开始找书',
             textAlign: TextAlign.center,
-            style: GoogleFonts.notoSerifSc(
+            style: DudoTextStyles.serif(
               color: DudoColors.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.w700,
@@ -430,7 +428,7 @@ class _SearchEmptySuggestions extends StatelessWidget {
           Text(
             '可以搜索书名、作者，也可以从搜索来源中选择本地或在线书库。',
             textAlign: TextAlign.center,
-            style: GoogleFonts.notoSansSc(
+            style: DudoTextStyles.sans(
               color: DudoColors.textSecondary,
               fontSize: 13,
               fontWeight: FontWeight.w400,
@@ -453,7 +451,7 @@ class _RecentSearchSection extends StatelessWidget {
       children: [
         Text(
           '最近搜索',
-          style: GoogleFonts.notoSansSc(
+          style: DudoTextStyles.sans(
             color: DudoColors.textPrimary,
             fontSize: 18,
             fontWeight: FontWeight.w600,
@@ -492,7 +490,7 @@ class _RecentSearchChip extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         label,
-        style: GoogleFonts.notoSansSc(
+        style: DudoTextStyles.sans(
           color: DudoColors.secondary,
           fontSize: 12,
           fontWeight: FontWeight.w400,
@@ -539,7 +537,7 @@ class _SearchResultsSection extends StatelessWidget {
             Expanded(
               child: Text(
                 '搜索结果',
-                style: GoogleFonts.notoSansSc(
+                style: DudoTextStyles.sans(
                   color: DudoColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -548,7 +546,7 @@ class _SearchResultsSection extends StatelessWidget {
             ),
             Text(
               '24 条',
-              style: GoogleFonts.notoSansSc(
+              style: DudoTextStyles.sans(
                 color: DudoColors.secondary,
                 fontSize: 13,
                 fontWeight: FontWeight.w400,
@@ -605,7 +603,7 @@ class _SearchResultCard extends StatelessWidget {
                   result.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.notoSansSc(
+                  style: DudoTextStyles.sans(
                     color: DudoColors.textPrimary,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -616,7 +614,7 @@ class _SearchResultCard extends StatelessWidget {
                   result.meta,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.notoSansSc(
+                  style: DudoTextStyles.sans(
                     color: DudoColors.secondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
@@ -627,7 +625,7 @@ class _SearchResultCard extends StatelessWidget {
                   result.intro,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.notoSansSc(
+                  style: DudoTextStyles.sans(
                     color: DudoColors.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w400,

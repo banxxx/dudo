@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../theme/app_tokens.dart';
 
@@ -14,7 +14,7 @@ class EmptyStateView extends StatelessWidget {
   });
 
   factory EmptyStateView.simple(String title) =>
-      EmptyStateView(icon: Symbols.auto_stories_rounded, title: title);
+      EmptyStateView(icon: LucideIcons.bookOpenText, title: title);
 
   final IconData icon;
   final String title;

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../shared/l10n/app_localizations.dart';
 import '../../../shared/widgets/empty_state_view.dart';
@@ -16,17 +16,17 @@ class SourceManagePage extends ConsumerWidget {
         title: Text(l.sources),
         actions: [
           IconButton(
-            icon: const Icon(Symbols.add_rounded),
+            icon: const Icon(LucideIcons.plus),
             onPressed: () {},
             tooltip: 'Import',
           ),
         ],
       ),
       body: EmptyStateView(
-        icon: Symbols.rule_rounded,
+        icon: LucideIcons.listChecks,
         title: l.emptySources,
         action: FilledButton.icon(
-          icon: const Icon(Symbols.cloud_download_rounded),
+          icon: const Icon(LucideIcons.cloudDownload),
           label: const Text('导入书源'),
           onPressed: () {},
         ),

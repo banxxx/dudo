@@ -1,6 +1,7 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
+import 'app_fonts.dart';
 
 /// Material 3 theme builder for dudo.
 ///
@@ -39,10 +40,12 @@ class AppTheme {
       scaffoldBackgroundColor: scheme.surface,
     );
 
-    final textTheme = GoogleFonts.notoSansScTextTheme(base.textTheme).apply(
-      bodyColor: scheme.onSurface,
-      displayColor: scheme.onSurface,
-    );
+    final textTheme = base.textTheme
+        .apply(
+          bodyColor: scheme.onSurface,
+          displayColor: scheme.onSurface,
+        )
+        .apply(fontFamily: DudoFonts.sansSc);
 
     return base.copyWith(
       textTheme: textTheme,

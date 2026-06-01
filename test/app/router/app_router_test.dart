@@ -12,6 +12,7 @@ void main() {
     expect(AppRoutes.bookshelf, '/bookshelf');
     expect(AppRoutes.search, '/search');
     expect(AppRoutes.profile, '/profile');
+    expect(AppRoutes.settings, '/settings');
   });
 
   testWidgets('router starts on home and exposes the designed bottom tabs',
@@ -56,5 +57,19 @@ void main() {
     expect(find.text('探索书源与作品'), findsOneWidget);
     expect(find.text('搜索书名、作者、关键词'), findsOneWidget);
     expect(find.text('常用书源'), findsOneWidget);
+
+    await tester.tap(find.text('我的'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('纸上旅人'), findsOneWidget);
+    expect(find.text('五月阅读目标'), findsOneWidget);
+    expect(find.text('书房工具'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('偏好中心'), findsOneWidget);
+    expect(find.text('阅读体验'), findsOneWidget);
+    expect(find.text('内容与书源'), findsOneWidget);
   });
 }

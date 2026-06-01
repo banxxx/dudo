@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:material_symbols_icons/symbols.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../shared/theme/app_theme.dart';
 
@@ -37,23 +37,23 @@ class ReaderControls extends StatelessWidget {
                   children: [
                     IconButton(
                       color: Colors.white,
-                      icon: const Icon(Symbols.arrow_back_rounded),
+                      icon: const Icon(LucideIcons.arrowLeft),
                       onPressed: onBack,
                     ),
                     const Spacer(),
                     IconButton(
                       color: Colors.white,
-                      icon: const Icon(Symbols.bookmark_add_rounded),
+                      icon: const Icon(LucideIcons.bookmarkPlus),
                       onPressed: () {},
                     ),
                     IconButton(
                       color: Colors.white,
-                      icon: const Icon(Symbols.record_voice_over_rounded),
+                      icon: const Icon(LucideIcons.volume2),
                       onPressed: () {},
                     ),
                     IconButton(
                       color: Colors.white,
-                      icon: const Icon(Symbols.more_vert_rounded),
+                      icon: const Icon(LucideIcons.moreVertical),
                       onPressed: () {},
                     ),
                   ],
@@ -88,22 +88,22 @@ class ReaderControls extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _ToolButton(
-                          icon: Symbols.menu_book_rounded,
+                          icon: LucideIcons.bookOpenText,
                           label: '目录',
                           onPressed: () {},
                         ),
                         _ToolButton(
-                          icon: Symbols.format_size_rounded,
+                          icon: LucideIcons.type,
                           label: '排版',
                           onPressed: () {},
                         ),
                         _ToolButton(
-                          icon: Symbols.brightness_6_rounded,
+                          icon: LucideIcons.sunMoon,
                           label: '亮度',
                           onPressed: () {},
                         ),
                         _ToolButton(
-                          icon: Symbols.settings_rounded,
+                          icon: LucideIcons.settings,
                           label: '更多',
                           onPressed: () {},
                         ),
@@ -180,7 +180,8 @@ class _ToolButton extends StatelessWidget {
           children: [
             Icon(icon, color: Colors.white),
             const SizedBox(height: 4),
-            Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+            Text(label,
+                style: const TextStyle(color: Colors.white, fontSize: 12)),
           ],
         ),
       ),

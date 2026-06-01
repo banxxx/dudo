@@ -1,7 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_fonts.dart';
 
 import '../theme/app_tokens.dart';
 
@@ -152,7 +152,7 @@ class _DudoBottomTabItem extends StatelessWidget {
             child: IconTheme(
               data: IconThemeData(color: foreground, size: 20),
               child: DefaultTextStyle(
-                style: GoogleFonts.notoSansSc(
+                style: DudoTextStyles.sans(
                   color: foreground,
                   fontSize: 10,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,

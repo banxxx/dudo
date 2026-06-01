@@ -60,9 +60,8 @@ class RuleEngine {
   String? _string(Object source, String? rawRule) {
     if (rawRule == null || rawRule.isEmpty) return null;
     final chain = RuleChain.parse(rawRule);
-    final type = chain.segments.isEmpty
-        ? RuleType.css
-        : chain.segments.first.type;
+    final type =
+        chain.segments.isEmpty ? RuleType.css : chain.segments.first.type;
     final parser = registry.forType(type);
     return parser?.parseString(source, chain);
   }
@@ -70,9 +69,8 @@ class RuleEngine {
   List<Object> _list(Object source, String? rawRule) {
     if (rawRule == null || rawRule.isEmpty) return const <Object>[];
     final chain = RuleChain.parse(rawRule);
-    final type = chain.segments.isEmpty
-        ? RuleType.css
-        : chain.segments.first.type;
+    final type =
+        chain.segments.isEmpty ? RuleType.css : chain.segments.first.type;
     final parser = registry.forType(type);
     return parser?.parseElements(source, chain) ?? const <Object>[];
   }

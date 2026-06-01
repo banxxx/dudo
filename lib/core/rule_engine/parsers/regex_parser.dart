@@ -22,7 +22,8 @@ class RegexParser implements RuleParser {
         if (m == null) continue;
         final pattern = m.group(1)!;
         final group = int.tryParse(m.group(2) ?? '0') ?? 0;
-        for (final match in RegExp(pattern, multiLine: true).allMatches(source)) {
+        for (final match
+            in RegExp(pattern, multiLine: true).allMatches(source)) {
           final v = match.group(group);
           if (v != null) results.add(v);
         }

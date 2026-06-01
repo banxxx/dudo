@@ -68,7 +68,15 @@ class CssParser implements RuleParser {
   }
 
   bool _isAttrStep(String s) {
-    const attrs = {'text', 'textNodes', 'html', 'innerHTML', 'href', 'src', 'all'};
+    const attrs = {
+      'text',
+      'textNodes',
+      'html',
+      'innerHTML',
+      'href',
+      'src',
+      'all'
+    };
     return attrs.contains(s);
   }
 

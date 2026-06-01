@@ -111,3 +111,37 @@ flutter:
   assets:
     - assets/images/
     - assets/sources/
+
+  fonts:
+    - family: Noto Sans SC
+      fonts:
+        - asset: assets/fonts/NotoSansSC/NotoSansSC-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSansSC/NotoSansSC-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/NotoSansSC/NotoSansSC-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/NotoSansSC/NotoSansSC-Bold.ttf
+          weight: 700
+
+    - family: Noto Serif SC
+      fonts:
+        - asset: assets/fonts/NotoSerifSC/NotoSerifSC-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSerifSC/NotoSerifSC-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/NotoSerifSC/NotoSerifSC-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/NotoSerifSC/NotoSerifSC-Bold.ttf
+          weight: 700
+
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter/Inter_28pt-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter/Inter_28pt-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter/Inter_28pt-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter/Inter_28pt-Bold.ttf
+          weight: 700
