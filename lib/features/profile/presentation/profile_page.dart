@@ -146,33 +146,6 @@ class _ProfileIdentityCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                Container(
-                  height: 30,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0x22FFF8EA),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        LucideIcons.sparkles,
-                        color: DudoColors.secondaryContainer,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '静读会员',
-                        style: DudoTextStyles.sans(
-                          color: DudoColors.secondaryContainer,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
@@ -313,6 +286,14 @@ class _LibraryToolsSection extends StatelessWidget {
   const _LibraryToolsSection();
 
   static const _items = [
+    _ToolItem(
+      title: '书源管理',
+      description: '添加、启用、更新和校验书源',
+      icon: LucideIcons.rss,
+      iconFill: DudoColors.surfaceLow,
+      iconColor: DudoColors.secondary,
+      route: AppRoutes.sourceSettings,
+    ),
     _ToolItem(
       title: '阅读记录',
       description: '查看每日阅读曲线',

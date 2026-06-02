@@ -23,13 +23,23 @@ class BookshelfLibraryPage extends ConsumerStatefulWidget {
 class _BookshelfLibraryPageState extends ConsumerState<BookshelfLibraryPage> {
   bool _isManaging = false;
   bool _isDeleting = false;
+  final FocusNode _searchFocusNode = FocusNode();
+  final TextEditingController _searchController = TextEditingController();
   final Set<String> _selectedBookIds = <String>{};
   final GlobalKey<_BookshelfManageOverlayState> _manageOverlayKey =
       GlobalKey<_BookshelfManageOverlayState>();
   OverlayEntry? _manageOverlay;
 
   @override
+  void initState() {
+    super.initState();
+    _searchFocusNode.addListener(_handleSearchFocusChanged);
+  }
+
+  @override
   void dispose() {
+    _searchFocusNode.dispose();
+    _searchController.dispose();
     _removeManageOverlay();
     super.dispose();
   }
@@ -39,20 +49,44 @@ class _BookshelfLibraryPageState extends ConsumerState<BookshelfLibraryPage> {
     final books = ref.watch(shelfBooksProvider);
     final tipsDismissed = ref.watch(bookshelfTipsDismissedProvider);
     final items = books.valueOrNull;
+    final searchQuery = _searchController.text.trim().toLowerCase();
+    final filteredItems = items == null
+        ? null
+        : searchQuery.isEmpty
+            ? items
+            : items
+                .where(
+                  (book) =>
+                      book.title.toLowerCase().contains(searchQuery) ||
+                      (book.author ?? '').toLowerCase().contains(searchQuery),
+                )
+                .toList();
     final showTips = items?.isEmpty == true && !tipsDismissed;
-    if (items != null) _pruneSelection(items);
+    if (items != null) {
+      if (items.isEmpty && _searchController.text.isNotEmpty) {
+        _searchController.clear();
+      }
+      _pruneSelection(items);
+    }
 
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
       body: DudoPageFrame(
         children: [
-          const _BookshelfHeader(),
+          _BookshelfHeader(
+            controller: _searchController,
+            focusNode: _searchFocusNode,
+            showSearch: items?.isNotEmpty == true,
+            onChanged: (_) => setState(() {}),
+          ),
           const SizedBox(height: 20),
           books.when(
-            data: (items) => items.isEmpty
+            data: (_) => items!.isEmpty
                 ? _EmptyBookshelfCard(onImport: _importLocalBook)
                 : _ShelfBooksSection(
-                    books: items,
+                    books: filteredItems!,
+                    totalBookCount: items.length,
+                    searchQuery: searchQuery,
                     isManaging: _isManaging,
                     selectedBookIds: _selectedBookIds,
                     onManage: () => _enterManageMode(items),
@@ -80,7 +114,12 @@ class _BookshelfLibraryPageState extends ConsumerState<BookshelfLibraryPage> {
     ref.invalidate(shelfBooksProvider);
   }
 
+  void _handleSearchFocusChanged() {
+    if (mounted) setState(() {});
+  }
+
   void _enterManageMode(List<Book> books) {
+    _searchController.clear();
     setState(() => _isManaging = true);
     _showManageOverlay(books);
   }
@@ -197,7 +236,17 @@ class _BookshelfLibraryPageState extends ConsumerState<BookshelfLibraryPage> {
 }
 
 class _BookshelfHeader extends StatelessWidget {
-  const _BookshelfHeader();
+  const _BookshelfHeader({
+    required this.controller,
+    required this.focusNode,
+    required this.showSearch,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool showSearch;
+  final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -221,7 +270,89 @@ class _BookshelfHeader extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
+        if (showSearch) ...[
+          const SizedBox(height: 14),
+          _BookshelfSearchField(
+            controller: controller,
+            focusNode: focusNode,
+            onChanged: onChanged,
+          ),
+        ],
       ],
+    );
+  }
+}
+
+class _BookshelfSearchField extends StatelessWidget {
+  const _BookshelfSearchField({
+    required this.controller,
+    required this.focusNode,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = controller.text.trim().isNotEmpty || focusNode.hasFocus;
+
+    return Container(
+      height: 52,
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isActive ? DudoColors.primary : DudoColors.outline,
+        ),
+      ),
+      child: TextField(
+        focusNode: focusNode,
+        controller: controller,
+        onChanged: onChanged,
+        textInputAction: TextInputAction.search,
+        cursorColor: DudoColors.primary,
+        style: DudoTextStyles.sans(
+          color: DudoColors.textPrimary,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        decoration: InputDecoration(
+          prefixIcon: Icon(
+            LucideIcons.search,
+            color: isActive ? DudoColors.primary : DudoColors.secondary,
+            size: 18,
+          ),
+          suffixIcon: controller.text.isEmpty
+              ? null
+              : IconButton(
+                  onPressed: () {
+                    controller.clear();
+                    onChanged('');
+                  },
+                  icon: const Icon(
+                    LucideIcons.x,
+                    color: DudoColors.secondary,
+                    size: 17,
+                  ),
+                ),
+          hintText: '搜索书名、作者或书源',
+          hintStyle: DudoTextStyles.sans(
+            color: DudoColors.secondary,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+          ),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 15),
+        ),
+      ),
     );
   }
 }
@@ -229,6 +360,8 @@ class _BookshelfHeader extends StatelessWidget {
 class _ShelfBooksSection extends StatelessWidget {
   const _ShelfBooksSection({
     required this.books,
+    required this.totalBookCount,
+    required this.searchQuery,
     required this.isManaging,
     required this.selectedBookIds,
     required this.onManage,
@@ -236,6 +369,8 @@ class _ShelfBooksSection extends StatelessWidget {
   });
 
   final List<Book> books;
+  final int totalBookCount;
+  final String searchQuery;
   final bool isManaging;
   final Set<String> selectedBookIds;
   final VoidCallback onManage;
@@ -243,66 +378,312 @@ class _ShelfBooksSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isSearching = searchQuery.isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '已导入 ${books.length} 本',
-              style: DudoTextStyles.sans(
-                color: DudoColors.textPrimary,
-                fontSize: 19,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            TextButton(
-              onPressed: isManaging ? null : onManage,
-              style: TextButton.styleFrom(
-                foregroundColor: DudoColors.primary,
-                disabledForegroundColor: DudoColors.secondary,
-                minimumSize: const Size(44, 36),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                textStyle: DudoTextStyles.sans(
-                  fontSize: 13,
+        if (isSearching)
+          _BookshelfSearchResultSummary(count: books.length)
+        else
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '已导入 $totalBookCount 本',
+                style: DudoTextStyles.sans(
+                  color: DudoColors.textPrimary,
+                  fontSize: 19,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              child: Text(isManaging ? '管理中' : '管理'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            const gap = 14.0;
-            final cardWidth = (constraints.maxWidth - gap) / 2;
-
-            return Wrap(
-              spacing: gap,
-              runSpacing: gap,
-              children: [
-                for (var index = 0; index < books.length; index++)
-                  SizedBox(
-                    width: cardWidth,
-                    child: _ShelfBookCard(
-                      book: books[index],
-                      paletteIndex: index,
-                      isManaging: isManaging,
-                      isSelected: selectedBookIds.contains(books[index].id),
-                      onTap: isManaging
-                          ? () => onToggleBook(books[index].id)
-                          : () => context.push(
-                                '${AppRoutes.reader}/${books[index].id}?chapter=${books[index].lastChapterIndex}',
-                              ),
-                    ),
+              TextButton(
+                onPressed: isManaging ? null : onManage,
+                style: TextButton.styleFrom(
+                  foregroundColor: DudoColors.primary,
+                  disabledForegroundColor: DudoColors.secondary,
+                  minimumSize: const Size(44, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  textStyle: DudoTextStyles.sans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
-              ],
-            );
-          },
+                ),
+                child: Text(isManaging ? '管理中' : '管理'),
+              ),
+            ],
+          ),
+        const SizedBox(height: 12),
+        if (books.isEmpty)
+          _BookshelfSearchEmptyCard(query: searchQuery)
+        else if (isSearching)
+          _ShelfSearchResultsList(
+            books: books,
+            searchQuery: searchQuery,
+          )
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const gap = 14.0;
+              final cardWidth = (constraints.maxWidth - gap) / 2;
+
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: [
+                  for (var index = 0; index < books.length; index++)
+                    SizedBox(
+                      width: cardWidth,
+                      child: _ShelfBookCard(
+                        book: books[index],
+                        paletteIndex: index,
+                        isManaging: isManaging,
+                        isSelected: selectedBookIds.contains(books[index].id),
+                        onTap: isManaging
+                            ? () => onToggleBook(books[index].id)
+                            : () => context.push(
+                                  '${AppRoutes.reader}/${books[index].id}?chapter=${books[index].lastChapterIndex}',
+                                ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
+class _BookshelfSearchResultSummary extends StatelessWidget {
+  const _BookshelfSearchResultSummary({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          '搜索结果',
+          style: DudoTextStyles.sans(
+            color: DudoColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        Text(
+          '$count 本',
+          style: DudoTextStyles.sans(
+            color: DudoColors.secondary,
+            fontSize: 13,
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _ShelfSearchResultsList extends StatelessWidget {
+  const _ShelfSearchResultsList({
+    required this.books,
+    required this.searchQuery,
+  });
+
+  final List<Book> books;
+  final String searchQuery;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var index = 0; index < books.length; index++) ...[
+          _ShelfSearchResultCard(
+            book: books[index],
+            paletteIndex: index,
+            searchQuery: searchQuery,
+            onTap: () => context.push(
+              '${AppRoutes.reader}/${books[index].id}?chapter=${books[index].lastChapterIndex}',
+            ),
+          ),
+          if (index != books.length - 1) const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _ShelfSearchResultCard extends StatelessWidget {
+  const _ShelfSearchResultCard({
+    required this.book,
+    required this.paletteIndex,
+    required this.searchQuery,
+    required this.onTap,
+  });
+
+  final Book book;
+  final int paletteIndex;
+  final String searchQuery;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = _coverPalettes[paletteIndex % _coverPalettes.length];
+    final progress = _readingProgressPercent(book);
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Container(
+          height: 120,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: DudoColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: DudoColors.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              _ShelfBookCover(
+                title: book.title,
+                width: 68,
+                height: 96,
+                startColor: palette.start,
+                endColor: palette.end,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 96,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        book.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: DudoTextStyles.sans(
+                          color: DudoColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        book.author ?? '本地文件',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: DudoTextStyles.sans(
+                          color: DudoColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                      _SearchResultProgressChip(progress: progress),
+                      Text(
+                        '匹配${_matchedFieldLabel(book, searchQuery)}关键词「$searchQuery」',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: DudoTextStyles.sans(
+                          color: DudoColors.secondary,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  int _readingProgressPercent(Book book) {
+    if (book.lastChapterIndex <= 0 && book.lastReadPosition <= 0) return 0;
+    return (45 + (book.lastChapterIndex * 9 + book.lastReadPosition ~/ 80) % 45)
+        .clamp(1, 99);
+  }
+
+  String _matchedFieldLabel(Book book, String query) {
+    if (book.title.toLowerCase().contains(query)) return '书名';
+    if ((book.author ?? '').toLowerCase().contains(query)) return '作者';
+    return '书源';
+  }
+}
+
+class _SearchResultProgressChip extends StatelessWidget {
+  const _SearchResultProgressChip({required this.progress});
+
+  final int progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      decoration: const BoxDecoration(
+        color: DudoColors.primaryContainer,
+        borderRadius: AppRadius.full,
+      ),
+      child: Center(
+        widthFactor: 1,
+        child: Text(
+          progress == 0 ? '未读' : '已读 $progress%',
+          style: DudoTextStyles.sans(
+            color: DudoColors.primary,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BookshelfSearchEmptyCard extends StatelessWidget {
+  const _BookshelfSearchEmptyCard({required this.query});
+
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: DudoColors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '没有找到相关书籍',
+            style: DudoTextStyles.sans(
+              color: DudoColors.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '“$query” 没有匹配书名或作者。',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: DudoTextStyles.sans(
+              color: DudoColors.textSecondary,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -801,19 +1182,23 @@ class _ShelfBookCover extends StatelessWidget {
     required this.title,
     required this.startColor,
     required this.endColor,
+    this.width = 72,
+    this.height = 102,
   });
 
   final String title;
   final Color startColor;
   final Color endColor;
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     final coverTitle = title.characters.take(4).toString();
 
     return Container(
-      width: 72,
-      height: 102,
+      width: width,
+      height: height,
       padding: const EdgeInsets.all(8),
       alignment: Alignment.bottomLeft,
       decoration: BoxDecoration(

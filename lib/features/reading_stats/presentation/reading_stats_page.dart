@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +9,7 @@ import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/calendar_range_selector/calendar_range_sheet.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../application/reading_stats_provider.dart';
+import '../data/reading_stats_repository.dart';
 import '../domain/reading_stats_models.dart';
 
 class ReadingStatsPage extends ConsumerWidget {
@@ -19,19 +21,92 @@ class ReadingStatsPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
-      body: DudoPageFrame(
-        padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+      body: summary.when(
+        data: (summary) => DudoPageFrame(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+          children: [
+            _StatsHeader(summary: summary),
+            const SizedBox(height: 12),
+            _OverviewCard(summary: summary),
+            const SizedBox(height: 12),
+            _RhythmChart(summary: summary),
+            const SizedBox(height: 12),
+            if (summary.hasData)
+              _BookContributionCard(summary: summary)
+            else
+              const _EmptyRhythmCard(),
+          ],
+        ),
+        loading: () => const DudoPageFrame(
+          padding: EdgeInsets.fromLTRB(20, 6, 20, 10),
+          children: [
+            _ReadingStatsLoadingCard(),
+          ],
+        ),
+        error: (_, __) => DudoPageFrame(
+          padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+          children: [
+            _ReadingStatsErrorCard(
+              onRetry: () => ref.invalidate(readingStatsSummaryProvider),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReadingStatsLoadingCard extends StatelessWidget {
+  const _ReadingStatsLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 180,
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: DudoColors.outlineVariant),
+      ),
+      alignment: Alignment.center,
+      child: const CircularProgressIndicator(color: DudoColors.primary),
+    );
+  }
+}
+
+class _ReadingStatsErrorCard extends StatelessWidget {
+  const _ReadingStatsErrorCard({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: DudoColors.outlineVariant),
+      ),
+      child: Column(
         children: [
-          _StatsHeader(summary: summary),
+          Text(
+            '阅读统计加载失败',
+            style: DudoTextStyles.sans(
+              color: DudoColors.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 12),
-          _OverviewCard(summary: summary),
-          const SizedBox(height: 12),
-          _RhythmChart(summary: summary),
-          const SizedBox(height: 12),
-          if (summary.hasData)
-            _BookContributionCard(summary: summary)
-          else
-            const _EmptyRhythmCard(),
+          FilledButton(
+            onPressed: onRetry,
+            style: FilledButton.styleFrom(
+              backgroundColor: DudoColors.textPrimary,
+              foregroundColor: DudoColors.surfaceHigh,
+            ),
+            child: const Text('重试'),
+          ),
         ],
       ),
     );
@@ -67,7 +142,7 @@ class _StatsHeader extends ConsumerWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                '本周节奏',
+                summary.range.title,
                 style: DudoTextStyles.serif(
                   color: DudoColors.textPrimary,
                   fontSize: 28,
@@ -251,7 +326,7 @@ class _RhythmChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxMinutes = summary.dailyStats
+    final maxMinutes = summary.rhythmStats
         .map((stat) => stat.minutes)
         .fold<int>(0, (max, minutes) => minutes > max ? minutes : max);
 
@@ -266,19 +341,36 @@ class _RhythmChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  '每日阅读分布',
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '阅读节奏',
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      summary.rhythmSubtitle,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.secondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Text(
-                summary.hasData ? '峰值 ${maxMinutes}m' : '暂无数据',
+                summary.hasData
+                    ? '峰值 ${_formatPeak(maxMinutes, summary.rhythmGranularity)}'
+                    : '暂无数据',
                 style: DudoTextStyles.sans(
                   color: DudoColors.secondary,
                   fontSize: 12,
@@ -290,87 +382,207 @@ class _RhythmChart extends StatelessWidget {
           const SizedBox(height: 14),
           SizedBox(
             height: 138,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                for (var i = 0; i < summary.dailyStats.length; i++) ...[
-                  Expanded(
-                    child: _ChartBar(
-                      stat: summary.dailyStats[i],
-                      maxMinutes: maxMinutes,
-                      highlighted: i == 2 || i == 4 || i == 6,
-                    ),
-                  ),
-                  if (i != summary.dailyStats.length - 1)
-                    const SizedBox(width: 8),
-                ],
-              ],
+            child: _ReadingRhythmBarChart(
+              rhythmStats: summary.rhythmStats,
+              granularity: summary.rhythmGranularity,
+              maxMinutes: maxMinutes,
             ),
           ),
         ],
       ),
     );
   }
+
+  String _formatPeak(
+    int minutes,
+    ReadingStatsRhythmGranularity granularity,
+  ) {
+    if (granularity == ReadingStatsRhythmGranularity.day || minutes < 60) {
+      return '${minutes}m';
+    }
+    final hours = minutes ~/ 60;
+    final remainingMinutes = minutes % 60;
+    if (remainingMinutes == 0) return '${hours}h';
+    return '${hours}h ${remainingMinutes}m';
+  }
 }
 
-class _ChartBar extends StatelessWidget {
-  const _ChartBar({
-    required this.stat,
+class _ReadingRhythmBarChart extends StatefulWidget {
+  const _ReadingRhythmBarChart({
+    required this.rhythmStats,
+    required this.granularity,
     required this.maxMinutes,
-    required this.highlighted,
   });
 
-  final DailyReadingStat stat;
+  final List<ReadingRhythmStat> rhythmStats;
+  final ReadingStatsRhythmGranularity granularity;
   final int maxMinutes;
-  final bool highlighted;
+
+  @override
+  State<_ReadingRhythmBarChart> createState() => _ReadingRhythmBarChartState();
+}
+
+class _ReadingRhythmBarChartState extends State<_ReadingRhythmBarChart> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _jumpToLatestIfScrollable();
+  }
+
+  @override
+  void didUpdateWidget(_ReadingRhythmBarChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.rhythmStats.length != widget.rhythmStats.length ||
+        oldWidget.granularity != widget.granularity) {
+      _jumpToLatestIfScrollable();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final normalized = maxMinutes == 0 ? 0.0 : stat.minutes / maxMinutes;
-    final height = 18 + normalized * 76;
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Text(
-          stat.minutes == 0 ? '' : '${stat.minutes}m',
-          style: DudoTextStyles.numeric(
-            color: DudoColors.secondary,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TweenAnimationBuilder<double>(
-          tween: Tween<double>(begin: 0, end: height),
-          duration: AppMotion.long,
-          curve: AppMotion.emphasizedDecelerate,
-          builder: (context, animatedHeight, child) {
-            return Container(
-              width: 20,
-              height: animatedHeight,
-              decoration: BoxDecoration(
-                color: stat.minutes == 0
-                    ? DudoColors.outlineVariant
-                    : highlighted
-                        ? DudoColors.primary
-                        : DudoColors.primaryContainerStrong,
-                borderRadius: BorderRadius.circular(10),
+    final chartMaxY =
+        widget.maxMinutes <= 0 ? 60.0 : (widget.maxMinutes * 1.28).toDouble();
+    final chartWidth = _chartWidthFor(widget.rhythmStats.length);
+    final shouldScroll = chartWidth > 330;
+    final chart = SizedBox(
+      width: shouldScroll ? chartWidth : null,
+      child: BarChart(
+        BarChartData(
+          alignment: BarChartAlignment.spaceAround,
+          maxY: chartMaxY,
+          minY: 0,
+          gridData: const FlGridData(show: false),
+          borderData: FlBorderData(show: false),
+          titlesData: FlTitlesData(
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 24,
+                getTitlesWidget: (value, meta) {
+                  final index = value.toInt();
+                  if (index < 0 || index >= widget.rhythmStats.length) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      widget.rhythmStats[index].label,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.secondary,
+                        fontSize: widget.rhythmStats.length > 16 ? 10 : 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  );
+                },
               ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        Text(
-          stat.dayLabel,
-          style: DudoTextStyles.sans(
-            color: DudoColors.secondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
+            ),
           ),
+          barTouchData: BarTouchData(
+            enabled: true,
+            touchTooltipData: BarTouchTooltipData(
+              tooltipBorderRadius: BorderRadius.circular(12),
+              tooltipPadding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              getTooltipColor: (_) => DudoColors.textPrimary,
+              getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                final stat = widget.rhythmStats[group.x.toInt()];
+                return BarTooltipItem(
+                  '${_tooltipDateRange(stat)}\n${stat.minutes == 0 ? '未阅读' : '${stat.minutes} 分钟'}',
+                  DudoTextStyles.sans(
+                    color: DudoColors.surfaceHigh,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                );
+              },
+            ),
+          ),
+          barGroups: [
+            for (var i = 0; i < widget.rhythmStats.length; i++)
+              BarChartGroupData(
+                x: i,
+                barRods: [
+                  BarChartRodData(
+                    toY: widget.rhythmStats[i].minutes == 0
+                        ? chartMaxY * 0.08
+                        : widget.rhythmStats[i].minutes.toDouble(),
+                    width: _barWidthFor(widget.rhythmStats.length),
+                    borderRadius: BorderRadius.circular(9),
+                    color: widget.rhythmStats[i].minutes == 0
+                        ? DudoColors.outlineVariant
+                        : _barColorFor(widget.rhythmStats[i].minutes),
+                  ),
+                ],
+              ),
+          ],
         ),
-      ],
+        duration: AppMotion.long,
+        curve: AppMotion.emphasizedDecelerate,
+      ),
     );
+
+    if (!shouldScroll) return chart;
+
+    return SingleChildScrollView(
+      key: const ValueKey('reading-stats-rhythm-scroll'),
+      controller: _scrollController,
+      scrollDirection: Axis.horizontal,
+      child: chart,
+    );
+  }
+
+  void _jumpToLatestIfScrollable() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    });
+  }
+
+  double _chartWidthFor(int count) {
+    if (count <= 7) return 0;
+    final slotWidth =
+        widget.granularity == ReadingStatsRhythmGranularity.day ? 42.0 : 54.0;
+    return count * slotWidth;
+  }
+
+  double _barWidthFor(int count) {
+    if (count <= 7) return 18;
+    if (count <= 18) return 14;
+    return 10;
+  }
+
+  Color _barColorFor(int minutes) {
+    if (widget.maxMinutes > 0 && minutes == widget.maxMinutes) {
+      return DudoColors.primary;
+    }
+    return DudoColors.primaryContainerStrong;
+  }
+
+  String _tooltipDateRange(ReadingRhythmStat stat) {
+    if (DateUtils.isSameDay(stat.start, stat.end)) {
+      return '${stat.start.month}月${stat.start.day}日';
+    }
+    if (stat.start.year == stat.end.year) {
+      return '${stat.start.month}月${stat.start.day}日-${stat.end.month}月${stat.end.day}日';
+    }
+    return '${stat.start.year}年${stat.start.month}月${stat.start.day}日-'
+        '${stat.end.year}年${stat.end.month}月${stat.end.day}日';
   }
 }
 
@@ -526,13 +738,22 @@ Future<void> _showRangeSheet(BuildContext context, WidgetRef ref) async {
     context: context,
     initialSelection: range.toCalendarSelection(),
     today: today,
-    summaryTextBuilder: (selection) => readingStatsSummaryFor(
+    summaryTextBuilder: (selection) => readingStatsRangePreviewText(
       ReadingStatsRange.fromCalendarSelection(selection),
-    ).sheetSummary,
+    ),
   );
 
   if (selection != null) {
-    ref.read(readingStatsRangeProvider.notifier).state =
-        ReadingStatsRange.fromCalendarSelection(selection);
+    final nextRange = ReadingStatsRange.fromCalendarSelection(selection);
+    if (!context.mounted) return;
+    if (!nextRange.isSupportedForRhythm) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('一次最多查看 366 天的阅读节奏，请重新选择时间范围'),
+        ),
+      );
+      return;
+    }
+    ref.read(readingStatsRangeProvider.notifier).state = nextRange;
   }
 }

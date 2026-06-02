@@ -57,14 +57,6 @@ class SettingsPage extends StatelessWidget {
             title: '内容与书源',
             rows: [
               _SettingRowData(
-                title: '书源管理',
-                description: '添加、启用、更新和校验书源',
-                value: '8 个启用',
-                icon: LucideIcons.rss,
-                iconFill: DudoColors.surfaceLow,
-                route: AppRoutes.sourceSettings,
-              ),
-              _SettingRowData(
                 title: '书架更新',
                 description: '更新频率、章节提醒和自动拉取',
                 value: '每天',
