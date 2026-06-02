@@ -33,6 +33,8 @@ void main() {
   test('main tab route constants match the paper navigation structure', () {
     expect(AppRoutes.home, '/home');
     expect(AppRoutes.homeName, 'home');
+    expect(AppRoutes.bookmarks, '/home/bookmarks');
+    expect(AppRoutes.bookmarksName, 'bookmarks');
     expect(AppRoutes.bookshelf, '/bookshelf');
     expect(AppRoutes.search, '/search');
     expect(AppRoutes.profile, '/profile');
@@ -77,6 +79,29 @@ void main() {
     expect(find.text('偏好中心'), findsOneWidget);
     expect(find.text('阅读体验'), findsOneWidget);
     expect(find.text('内容与书源'), findsOneWidget);
+  });
+
+  testWidgets('home quick actions navigate to search, bookmarks, and stats',
+      (tester) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.text('找书'));
+    await tester.pumpAndSettle();
+    expect(find.text('探索书源与作品'), findsOneWidget);
+
+    await tester.tap(find.text('首页'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('书签'));
+    await tester.pumpAndSettle();
+    expect(find.text('阅读标记'), findsOneWidget);
+    expect(find.text('暂无书签和高亮'), findsOneWidget);
+
+    await tester.tap(find.text('首页'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('统计'));
+    await tester.pumpAndSettle();
+    expect(find.text('阅读统计'), findsOneWidget);
+    expect(find.text('本周节奏'), findsOneWidget);
   });
 
   testWidgets('uses bottom tabs on phone widths', (tester) async {

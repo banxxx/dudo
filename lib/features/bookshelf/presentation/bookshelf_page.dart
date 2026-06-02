@@ -272,12 +272,20 @@ class _QuickActions extends StatelessWidget {
       height: 64,
       child: Row(
         children: [
-          const Expanded(
-            child: _QuickAction(icon: LucideIcons.search, label: '找书'),
+          Expanded(
+            child: _QuickAction(
+              icon: LucideIcons.search,
+              label: '找书',
+              onTap: () => context.go(AppRoutes.search),
+            ),
           ),
           const SizedBox(width: 10),
-          const Expanded(
-            child: _QuickAction(icon: LucideIcons.bookmark, label: '书签'),
+          Expanded(
+            child: _QuickAction(
+              icon: LucideIcons.bookmark,
+              label: '书签',
+              onTap: () => context.push(AppRoutes.bookmarks),
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(

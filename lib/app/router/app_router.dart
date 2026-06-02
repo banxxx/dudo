@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/bookshelf/presentation/bookmarks_page.dart';
 import '../../features/bookshelf/presentation/bookshelf_library_page.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
@@ -29,6 +30,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: AppRoutes.home,
                 name: AppRoutes.homeName,
                 builder: (_, __) => const HomePage(),
+                routes: [
+                  GoRoute(
+                    path: AppRoutes.bookmarksRelative,
+                    name: AppRoutes.bookmarksName,
+                    builder: (_, __) => const BookmarksPage(),
+                  ),
+                ],
               ),
             ],
           ),
@@ -124,6 +132,10 @@ class AppRoutes {
 
   static const home = '/home';
   static const homeName = 'home';
+
+  static const bookmarksRelative = 'bookmarks';
+  static const bookmarks = '$home/$bookmarksRelative';
+  static const bookmarksName = 'bookmarks';
 
   static const bookshelf = '/bookshelf';
   static const bookshelfName = 'bookshelf';
