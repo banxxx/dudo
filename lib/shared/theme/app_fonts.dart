@@ -25,6 +25,7 @@ class DudoTextStyles {
       fontWeight: fontWeight,
       height: height,
       letterSpacing: letterSpacing,
+      decoration: TextDecoration.none,
     );
   }
 

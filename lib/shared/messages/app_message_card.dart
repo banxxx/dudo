@@ -58,8 +58,9 @@ class AppMessageCard extends StatelessWidget {
                     : ImageFilter.blur(sigmaX: 0, sigmaY: 0),
                 child: Material(
                   color: colors.background,
-                  elevation:
-                      request.visualStyle == AppMessageVisualStyle.paper ? 0 : 6,
+                  elevation: request.visualStyle == AppMessageVisualStyle.paper
+                      ? 0
+                      : 6,
                   shadowColor: DudoColors.textPrimary.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(isDialog ? 28 : 26),
                   clipBehavior: Clip.antiAlias,
@@ -108,11 +109,11 @@ class _CompactContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.max,
       children: [
         _MessageIcon(kind: request.kind, colors: colors, size: 48),
         const SizedBox(width: 12),
-        Flexible(
+        Expanded(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -32,4 +32,25 @@ class BookshelfRepository {
       await database.into(database.chapters).insert(chapter);
     });
   }
+
+  Future<List<Book>> deleteLocalBooksByIds(Set<String> ids) async {
+    if (ids.isEmpty) return const [];
+
+    return database.transaction(() async {
+      final booksToDelete = await (database.select(database.books)
+            ..where((book) => book.id.isIn(ids) & book.localPath.isNotNull()))
+          .get();
+      final localIds = booksToDelete.map((book) => book.id).toList();
+      if (localIds.isEmpty) return const <Book>[];
+
+      await (database.delete(database.readingSessions)
+            ..where((session) => session.bookId.isIn(localIds)))
+          .go();
+      await (database.delete(database.books)
+            ..where((book) => book.id.isIn(localIds)))
+          .go();
+
+      return booksToDelete;
+    });
+  }
 }
