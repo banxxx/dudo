@@ -16,6 +16,7 @@ void main() {
 
     expect(find.text('阅读标记'), findsOneWidget);
     expect(find.text('书签'), findsOneWidget);
+    expect(find.byKey(const ValueKey('bookmarks-back-button')), findsOneWidget);
     expect(find.text('暂无书签和高亮'), findsOneWidget);
     expect(find.text('阅读时点击书签或划线，高亮摘录会自动收集在这里。'), findsOneWidget);
     expect(find.text('把喜欢的句子留在这里'), findsOneWidget);

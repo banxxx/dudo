@@ -381,7 +381,7 @@ class _ToolRow extends StatelessWidget {
         onTap: () => _handleOpenTool(context, item),
         borderRadius: BorderRadius.circular(18),
         child: Container(
-          height: 50,
+          height: 56,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: DudoColors.surface,
@@ -391,13 +391,13 @@ class _ToolRow extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: item.iconFill,
-                  borderRadius: BorderRadius.circular(17),
+                  borderRadius: BorderRadius.circular(18),
                 ),
-                child: Icon(item.icon, color: item.iconColor, size: 17),
+                child: Icon(item.icon, color: item.iconColor, size: 18),
               ),
               const SizedBox(width: 12),
               Expanded(

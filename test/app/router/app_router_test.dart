@@ -33,7 +33,7 @@ void main() {
   test('main tab route constants match the paper navigation structure', () {
     expect(AppRoutes.home, '/home');
     expect(AppRoutes.homeName, 'home');
-    expect(AppRoutes.bookmarks, '/home/bookmarks');
+    expect(AppRoutes.bookmarks, '/bookmarks');
     expect(AppRoutes.bookmarksName, 'bookmarks');
     expect(AppRoutes.bookshelf, '/bookshelf');
     expect(AppRoutes.search, '/search');
@@ -46,7 +46,7 @@ void main() {
       (tester) async {
     await pumpApp(tester);
 
-    expect(find.text('晚上好，继续沉入书页'), findsOneWidget);
+    expect(find.text('今天想读点什么？'), findsOneWidget);
     expect(find.text('首页'), findsOneWidget);
     expect(find.text('书架'), findsOneWidget);
     expect(find.text('搜索'), findsOneWidget);
@@ -95,9 +95,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('阅读标记'), findsOneWidget);
     expect(find.text('暂无书签和高亮'), findsOneWidget);
+    expect(find.byKey(const ValueKey('bookmarks-back-button')), findsOneWidget);
+    expect(find.byType(BottomNavigationBar), findsNothing);
+    expect(find.text('首页'), findsNothing);
 
-    await tester.tap(find.text('首页'));
+    await tester.tap(find.byKey(const ValueKey('bookmarks-back-button')));
     await tester.pumpAndSettle();
+    expect(find.text('今天想读点什么？'), findsOneWidget);
     await tester.tap(find.text('统计'));
     await tester.pumpAndSettle();
     expect(find.text('阅读统计'), findsOneWidget);

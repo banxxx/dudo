@@ -15,7 +15,7 @@ class BookmarksPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
       body: DudoPageFrame(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 12),
         bottomSafeArea: false,
         children: [
           const _BookmarksHeader(),
@@ -38,6 +38,12 @@ class _BookmarksHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
+        _RoundIconButton(
+          key: const ValueKey('bookmarks-back-button'),
+          icon: LucideIcons.chevronLeft,
+          onTap: () => context.pop(),
+        ),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,6 +84,35 @@ class _BookmarksHeader extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({super.key, required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: DudoColors.surface,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: DudoColors.outlineVariant),
+          ),
+          child: Icon(icon, color: DudoColors.secondary, size: 21),
+        ),
+      ),
     );
   }
 }

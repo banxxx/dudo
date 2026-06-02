@@ -135,7 +135,7 @@ void main() {
           .last,
     );
     final toolDecoration = toolRow.decoration! as BoxDecoration;
-    expect(toolRow.constraints?.maxHeight, 50);
+    expect(toolRow.constraints?.maxHeight, 56);
     expect(toolRow.padding, const EdgeInsets.symmetric(horizontal: 12));
     expect(toolDecoration.color, DudoColors.surface);
     expect(toolDecoration.borderRadius, BorderRadius.circular(18));

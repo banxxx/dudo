@@ -9,7 +9,11 @@ import '../../features/profile/presentation/profile_page.dart';
 import '../../features/reader/presentation/reader_page.dart';
 import '../../features/reading_stats/presentation/reading_stats_page.dart';
 import '../../features/search/presentation/search_page.dart';
-import '../../features/settings/presentation/settings_detail_pages.dart';
+import '../../features/settings/read_aloud_settings/presentation/read_aloud_settings_page.dart';
+import '../../features/settings/source_add/presentation/source_add_settings_page.dart';
+import '../../features/settings/source_manage/presentation/source_manage_settings_page.dart';
+import '../../features/settings/theme_settings/presentation/theme_settings_page.dart';
+import '../../features/settings/typography_settings/presentation/typography_settings_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
 import '../../shared/widgets/error_state_view.dart';
 import '../../shared/widgets/home_scaffold.dart';
@@ -19,6 +23,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.home,
     debugLogDiagnostics: true,
     routes: [
+      GoRoute(
+        path: AppRoutes.bookmarks,
+        name: AppRoutes.bookmarksName,
+        builder: (_, __) => const BookmarksPage(),
+      ),
       // Main scaffold with bottom navigation.
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
@@ -30,13 +39,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: AppRoutes.home,
                 name: AppRoutes.homeName,
                 builder: (_, __) => const HomePage(),
-                routes: [
-                  GoRoute(
-                    path: AppRoutes.bookmarksRelative,
-                    name: AppRoutes.bookmarksName,
-                    builder: (_, __) => const BookmarksPage(),
-                  ),
-                ],
               ),
             ],
           ),
@@ -83,6 +85,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.sourceSettings,
         name: AppRoutes.sourceSettingsName,
         builder: (_, __) => const SourceManageSettingsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.sourceAdd,
+        name: AppRoutes.sourceAddName,
+        builder: (_, __) => const SourceAddSettingsPage(),
       ),
       GoRoute(
         path: AppRoutes.themeSettings,
@@ -133,8 +140,7 @@ class AppRoutes {
   static const home = '/home';
   static const homeName = 'home';
 
-  static const bookmarksRelative = 'bookmarks';
-  static const bookmarks = '$home/$bookmarksRelative';
+  static const bookmarks = '/bookmarks';
   static const bookmarksName = 'bookmarks';
 
   static const bookshelf = '/bookshelf';
@@ -157,6 +163,9 @@ class AppRoutes {
 
   static const sourceSettings = '/settings/sources';
   static const sourceSettingsName = 'settings-sources';
+
+  static const sourceAdd = '/settings/sources/add';
+  static const sourceAddName = 'settings-sources-add';
 
   static const themeSettings = '/settings/theme';
   static const themeSettingsName = 'settings-theme';
