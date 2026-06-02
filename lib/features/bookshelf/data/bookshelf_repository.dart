@@ -23,11 +23,47 @@ class BookshelfRepository {
     return query.watch();
   }
 
+  Future<Book?> findLocalBookByTitle(String title) async {
+    final query = database.select(database.books)
+      ..where((book) => book.title.equals(title) & book.localPath.isNotNull())
+      ..orderBy([
+        (book) => OrderingTerm(
+              expression: book.updatedAt,
+              mode: OrderingMode.desc,
+            ),
+      ])
+      ..limit(1);
+    return query.getSingleOrNull();
+  }
+
   Future<void> insertImportedTxtBook({
     required BooksCompanion book,
     required ChaptersCompanion chapter,
   }) async {
+    await replaceImportedTxtBook(
+      replacedBookIds: const {},
+      book: book,
+      chapter: chapter,
+    );
+  }
+
+  Future<void> replaceImportedTxtBook({
+    required Set<String> replacedBookIds,
+    required BooksCompanion book,
+    required ChaptersCompanion chapter,
+  }) async {
     await database.transaction(() async {
+      if (replacedBookIds.isNotEmpty) {
+        await (database.delete(database.readingSessions)
+              ..where((session) => session.bookId.isIn(replacedBookIds)))
+            .go();
+        await (database.delete(database.books)
+              ..where(
+                (book) =>
+                    book.id.isIn(replacedBookIds) & book.localPath.isNotNull(),
+              ))
+            .go();
+      }
       await database.into(database.books).insert(book);
       await database.into(database.chapters).insert(chapter);
     });

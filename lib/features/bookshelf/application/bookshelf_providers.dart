@@ -15,7 +15,12 @@ final shelfBooksProvider = StreamProvider<List<Book>>((ref) {
   return ref.watch(bookshelfRepositoryProvider).watchShelfBooks();
 });
 
-final localBookImportServiceProvider = Provider<LocalBookImportService>((ref) {
+final localBookDuplicateProvider =
+    FutureProvider.family<Book?, String>((ref, title) {
+  return ref.watch(bookshelfRepositoryProvider).findLocalBookByTitle(title);
+});
+
+final localBookImportServiceProvider = Provider<LocalBookImporter>((ref) {
   return LocalBookImportService(
     repository: ref.watch(bookshelfRepositoryProvider),
   );
