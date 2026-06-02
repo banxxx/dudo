@@ -1,4 +1,4 @@
-import 'package:dudo/features/bookshelf/presentation/bookmarks_page.dart';
+import 'package:dudo/features/bookmarks/presentation/bookmarks_page.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
