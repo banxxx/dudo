@@ -15,6 +15,9 @@ abstract class AppMessageService {
     String? title,
     AppMessagePosition position = AppMessagePosition.bottom,
     String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
   });
 
   void success(
@@ -22,6 +25,9 @@ abstract class AppMessageService {
     String? title,
     AppMessagePosition position = AppMessagePosition.bottom,
     String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
   });
 
   void warning(
@@ -29,6 +35,9 @@ abstract class AppMessageService {
     String? title,
     AppMessagePosition position = AppMessagePosition.top,
     String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
   });
 
   void error(
@@ -36,6 +45,9 @@ abstract class AppMessageService {
     String? title,
     AppMessagePosition position = AppMessagePosition.top,
     String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
   });
 
   void loading({
@@ -43,6 +55,9 @@ abstract class AppMessageService {
     String? description,
     AppMessagePosition position = AppMessagePosition.center,
     String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
   });
 
   void showCenter({
@@ -51,6 +66,7 @@ abstract class AppMessageService {
     AppMessageKind kind = AppMessageKind.info,
     String? dedupeKey,
     bool replaceExisting = false,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
   });
 
   void dismiss(String dedupeKey);

@@ -341,17 +341,24 @@ class _ChartBar extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        Container(
-          width: 20,
-          height: height,
-          decoration: BoxDecoration(
-            color: stat.minutes == 0
-                ? DudoColors.outlineVariant
-                : highlighted
-                    ? DudoColors.primary
-                    : DudoColors.primaryContainerStrong,
-            borderRadius: BorderRadius.circular(10),
-          ),
+        TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: height),
+          duration: AppMotion.long,
+          curve: AppMotion.emphasizedDecelerate,
+          builder: (context, animatedHeight, child) {
+            return Container(
+              width: 20,
+              height: animatedHeight,
+              decoration: BoxDecoration(
+                color: stat.minutes == 0
+                    ? DudoColors.outlineVariant
+                    : highlighted
+                        ? DudoColors.primary
+                        : DudoColors.primaryContainerStrong,
+                borderRadius: BorderRadius.circular(10),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 8),
         Text(
@@ -514,10 +521,11 @@ class _EmptyRhythmCard extends StatelessWidget {
 
 Future<void> _showRangeSheet(BuildContext context, WidgetRef ref) async {
   final range = ref.read(readingStatsRangeProvider);
+  final today = ref.read(readingStatsTodayProvider);
   final selection = await showCalendarRangeSelectorSheet(
     context: context,
     initialSelection: range.toCalendarSelection(),
-    today: DateTime(2024, 5, 22),
+    today: today,
     summaryTextBuilder: (selection) => readingStatsSummaryFor(
       ReadingStatsRange.fromCalendarSelection(selection),
     ).sheetSummary,

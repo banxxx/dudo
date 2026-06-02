@@ -5,15 +5,43 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../features/bookshelf/application/bookshelf_providers.dart';
+import '../../../../shared/messages/app_message.dart';
+import '../../../../shared/messages/app_message_service.dart';
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
 import '../../shared/widgets/settings_detail_scaffold.dart';
 
-class SourceAddSettingsPage extends ConsumerWidget {
+const _localBookImportMessageKey = 'source-add-local-book-import';
+
+class SourceAddSettingsPage extends ConsumerStatefulWidget {
   const SourceAddSettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SourceAddSettingsPage> createState() =>
+      _SourceAddSettingsPageState();
+}
+
+class _SourceAddSettingsPageState extends ConsumerState<SourceAddSettingsPage> {
+  late AppMessageService _messageService;
+  late GoRouter _router;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _messageService = ref.read(appMessageServiceProvider);
+    _router = GoRouter.of(context);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _messageService.dismiss(_localBookImportMessageKey);
+    });
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SettingsDetailScaffold(
       children: [
         const SettingsDetailHeader(
@@ -22,7 +50,7 @@ class SourceAddSettingsPage extends ConsumerWidget {
           showAction: false,
         ),
         const SizedBox(height: 14),
-        _LocalBookImportCard(onImport: () => _importLocalBook(context, ref)),
+        _LocalBookImportCard(onImport: _importLocalBook),
         const SizedBox(height: 14),
         const SettingsSectionTitle('在线书源'),
         const SizedBox(height: 10),
@@ -35,11 +63,39 @@ class SourceAddSettingsPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _importLocalBook(BuildContext context, WidgetRef ref) async {
-    final result = await ref.read(localBookImportServiceProvider).importTxtBook();
-    ref.invalidate(shelfBooksProvider);
-    if (result != null && context.mounted) {
-      context.go(AppRoutes.bookshelf);
+  Future<void> _importLocalBook() async {
+    try {
+      final result =
+          await ref.read(localBookImportServiceProvider).importTxtBook();
+      if (result == null) {
+        ref.read(appMessageServiceProvider).info(
+          '没有选择任何文件',
+          title: '已取消导入',
+          dedupeKey: _localBookImportMessageKey,
+          visualStyle: AppMessageVisualStyle.paper,
+        );
+        return;
+      }
+
+      ref.invalidate(shelfBooksProvider);
+      ref.read(appMessageServiceProvider).success(
+        '《${result.title}》已加入书架',
+        title: '导入成功',
+        dedupeKey: _localBookImportMessageKey,
+        visualStyle: AppMessageVisualStyle.paper,
+        actionLabel: '查看',
+        onAction: () {
+          _messageService.dismiss(_localBookImportMessageKey);
+          _router.go(AppRoutes.bookshelf);
+        },
+      );
+    } catch (_) {
+      ref.read(appMessageServiceProvider).error(
+        '请确认文件为可读取的 TXT 文本后重试',
+        title: '导入失败',
+        dedupeKey: _localBookImportMessageKey,
+        visualStyle: AppMessageVisualStyle.paper,
+      );
     }
   }
 }
@@ -365,15 +421,15 @@ class _NoticeLine extends StatelessWidget {
           height: 18,
           child: icon == null
               ? Center(
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: dotColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                )
+            child: Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: dotColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+          )
               : Icon(icon, color: iconColor, size: 16),
         ),
         const SizedBox(width: 8),

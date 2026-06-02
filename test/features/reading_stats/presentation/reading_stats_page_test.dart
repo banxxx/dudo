@@ -11,6 +11,9 @@ void main() {
   testWidgets('renders the H2 reading stats design with data', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          readingStatsTodayProvider.overrideWithValue(DateTime(2024, 5, 22)),
+        ],
         child: MaterialApp.router(
           routerConfig: GoRouter(
             initialLocation: '/reading-stats',
@@ -82,6 +85,9 @@ void main() {
       (tester) async {
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          readingStatsTodayProvider.overrideWithValue(DateTime(2024, 5, 22)),
+        ],
         child: MaterialApp.router(
           routerConfig: GoRouter(
             initialLocation: '/reading-stats',

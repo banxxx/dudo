@@ -17,6 +17,11 @@ enum AppMessageSize {
   dialog,
 }
 
+enum AppMessageVisualStyle {
+  paper,
+  filled,
+}
+
 class AppMessageRequest {
   const AppMessageRequest({
     required this.title,
@@ -24,6 +29,9 @@ class AppMessageRequest {
     this.kind = AppMessageKind.info,
     this.position = AppMessagePosition.bottom,
     this.size = AppMessageSize.compact,
+    this.visualStyle = AppMessageVisualStyle.paper,
+    this.actionLabel,
+    this.onAction,
     this.duration,
     this.dedupeKey,
     this.replaceExisting = false,
@@ -35,6 +43,9 @@ class AppMessageRequest {
   final AppMessageKind kind;
   final AppMessagePosition position;
   final AppMessageSize size;
+  final AppMessageVisualStyle visualStyle;
+  final String? actionLabel;
+  final void Function()? onAction;
   final Duration? duration;
   final String? dedupeKey;
   final bool replaceExisting;
@@ -46,6 +57,8 @@ class AppMessageRequest {
         kind.name,
         position.name,
         size.name,
+        visualStyle.name,
+        actionLabel ?? '',
         title,
         description ?? '',
       ].join('|');

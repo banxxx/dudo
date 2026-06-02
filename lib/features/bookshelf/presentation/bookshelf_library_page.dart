@@ -16,6 +16,8 @@ class BookshelfLibraryPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final books = ref.watch(shelfBooksProvider);
+    final tipsDismissed = ref.watch(bookshelfTipsDismissedProvider);
+    final showTips = books.valueOrNull?.isEmpty == true && !tipsDismissed;
 
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
@@ -28,10 +30,17 @@ class BookshelfLibraryPage extends ConsumerWidget {
                 ? _EmptyBookshelfCard(onImport: () => _importLocalBook(ref))
                 : _ShelfBooksSection(books: items),
             loading: () => const _BookshelfLoadingCard(),
-            error: (_, __) => _BookshelfErrorCard(onRetry: () => ref.invalidate(shelfBooksProvider)),
+            error: (_, __) => _BookshelfErrorCard(
+                onRetry: () => ref.invalidate(shelfBooksProvider)),
           ),
-          const SizedBox(height: 20),
-          const _LibraryTipsSection(),
+          if (showTips) ...[
+            const SizedBox(height: 20),
+            _LibraryTipsSection(
+              onDismiss: () => ref
+                  .read(bookshelfTipsDismissedProvider.notifier)
+                  .state = true,
+            ),
+          ],
         ],
       ),
     );
@@ -125,7 +134,8 @@ class _ShelfBookRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () => context.push('${AppRoutes.reader}/${book.id}?chapter=${book.lastChapterIndex}'),
+        onTap: () => context.push(
+            '${AppRoutes.reader}/${book.id}?chapter=${book.lastChapterIndex}'),
         child: Container(
           height: 82,
           padding: const EdgeInsets.all(12),
@@ -386,14 +396,14 @@ class _EmptyStateActions extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const _PillActionButton(
+        _PillActionButton(
           label: '去找书',
           icon: LucideIcons.search,
           background: DudoColors.textPrimary,
           foreground: DudoColors.surfaceHigh,
           borderColor: Colors.transparent,
           labelFirst: true,
-          onPressed: _handleSearchBooks,
+          onPressed: () => context.go(AppRoutes.search),
         ),
         const SizedBox(width: 8),
         _PillActionButton(
@@ -475,7 +485,9 @@ class _PillActionButton extends StatelessWidget {
 }
 
 class _LibraryTipsSection extends StatelessWidget {
-  const _LibraryTipsSection();
+  const _LibraryTipsSection({required this.onDismiss});
+
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -495,7 +507,7 @@ class _LibraryTipsSection extends StatelessWidget {
               ),
             ),
             TextButton(
-              onPressed: _handleSkipForNow,
+              onPressed: onDismiss,
               style: TextButton.styleFrom(
                 foregroundColor: DudoColors.secondary,
                 textStyle: DudoTextStyles.sans(
@@ -595,7 +607,3 @@ class _TipCard extends StatelessWidget {
     );
   }
 }
-
-void _handleSearchBooks() {}
-
-void _handleSkipForNow() {}

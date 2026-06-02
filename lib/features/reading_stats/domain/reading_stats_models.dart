@@ -9,23 +9,44 @@ class ReadingStatsRange {
     required this.end,
   });
 
-  factory ReadingStatsRange.week() => ReadingStatsRange(
-        preset: ReadingStatsPreset.week,
-        start: DateTime(2024, 5, 18),
-        end: DateTime(2024, 5, 24),
-      );
+  factory ReadingStatsRange.week() => ReadingStatsRange.weekOf(DateTime.now());
 
-  factory ReadingStatsRange.month() => ReadingStatsRange(
-        preset: ReadingStatsPreset.month,
-        start: DateTime(2024, 5),
-        end: DateTime(2024, 5, 31),
-      );
+  factory ReadingStatsRange.weekOf(DateTime anchor) {
+    final selection = CalendarDateRangeSelection.weekOf(anchor);
+    return ReadingStatsRange(
+      preset: ReadingStatsPreset.week,
+      start: selection.start,
+      end: selection.end,
+    );
+  }
 
-  factory ReadingStatsRange.custom() => ReadingStatsRange(
-        preset: ReadingStatsPreset.custom,
-        start: DateTime(2024, 5, 10),
-        end: DateTime(2024, 5, 20),
-      );
+  factory ReadingStatsRange.month() =>
+      ReadingStatsRange.monthOf(DateTime.now());
+
+  factory ReadingStatsRange.monthOf(DateTime anchor) {
+    final selection = CalendarDateRangeSelection.monthOf(anchor);
+    return ReadingStatsRange(
+      preset: ReadingStatsPreset.month,
+      start: selection.start,
+      end: selection.end,
+    );
+  }
+
+  factory ReadingStatsRange.custom({
+    DateTime? start,
+    DateTime? end,
+  }) {
+    final fallbackStart = start ?? DateTime.now();
+    final selection = CalendarDateRangeSelection.custom(
+      start: fallbackStart,
+      end: end ?? fallbackStart,
+    );
+    return ReadingStatsRange(
+      preset: ReadingStatsPreset.custom,
+      start: selection.start,
+      end: selection.end,
+    );
+  }
 
   factory ReadingStatsRange.fromCalendarSelection(
     CalendarDateRangeSelection selection,

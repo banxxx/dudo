@@ -110,4 +110,28 @@ void main() {
     );
     expect(firstTipDescription.style?.color, DudoColors.secondary);
   });
+
+  testWidgets('hides starter tips for the current app session', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          shelfBooksProvider.overrideWith((ref) => Stream.value(const [])),
+        ],
+        child: const MaterialApp(
+          home: BookshelfLibraryPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('可以从这里开始'), findsOneWidget);
+    expect(find.text('去搜索发现书籍'), findsOneWidget);
+
+    await tester.tap(find.text('稍后再说'));
+    await tester.pump();
+
+    expect(find.text('可以从这里开始'), findsNothing);
+    expect(find.text('去搜索发现书籍'), findsNothing);
+    expect(find.text('书架还是空的'), findsOneWidget);
+  });
 }

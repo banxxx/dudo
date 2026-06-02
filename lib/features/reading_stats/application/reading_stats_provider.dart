@@ -2,8 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../domain/reading_stats_models.dart';
 
+final readingStatsTodayProvider = Provider<DateTime>((_) => DateTime.now());
+
 final readingStatsRangeProvider = StateProvider<ReadingStatsRange>(
-  (_) => ReadingStatsRange.week(),
+  (ref) => ReadingStatsRange.weekOf(ref.watch(readingStatsTodayProvider)),
 );
 
 final readingStatsSummaryProvider = Provider<ReadingStatsSummary>((ref) {

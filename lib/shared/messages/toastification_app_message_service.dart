@@ -50,12 +50,18 @@ class ToastificationAppMessageService implements AppMessageService {
     String? title,
     AppMessagePosition position = AppMessagePosition.bottom,
     String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
   }) {
     show(AppMessageRequest(
       title: title ?? message,
       description: title == null ? null : message,
       kind: AppMessageKind.info,
       position: position,
+      visualStyle: visualStyle,
+      actionLabel: actionLabel,
+      onAction: onAction,
       dedupeKey: dedupeKey,
     ));
   }
@@ -66,12 +72,18 @@ class ToastificationAppMessageService implements AppMessageService {
     String? title,
     AppMessagePosition position = AppMessagePosition.bottom,
     String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
   }) {
     show(AppMessageRequest(
       title: title ?? message,
       description: title == null ? null : message,
       kind: AppMessageKind.success,
       position: position,
+      visualStyle: visualStyle,
+      actionLabel: actionLabel,
+      onAction: onAction,
       dedupeKey: dedupeKey,
     ));
   }
@@ -82,12 +94,18 @@ class ToastificationAppMessageService implements AppMessageService {
     String? title,
     AppMessagePosition position = AppMessagePosition.top,
     String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
   }) {
     show(AppMessageRequest(
       title: title ?? message,
       description: title == null ? null : message,
       kind: AppMessageKind.warning,
       position: position,
+      visualStyle: visualStyle,
+      actionLabel: actionLabel,
+      onAction: onAction,
       dedupeKey: dedupeKey,
     ));
   }
@@ -98,12 +116,18 @@ class ToastificationAppMessageService implements AppMessageService {
     String? title,
     AppMessagePosition position = AppMessagePosition.top,
     String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
   }) {
     show(AppMessageRequest(
       title: title ?? message,
       description: title == null ? null : message,
       kind: AppMessageKind.error,
       position: position,
+      visualStyle: visualStyle,
+      actionLabel: actionLabel,
+      onAction: onAction,
       dedupeKey: dedupeKey,
     ));
   }
@@ -114,6 +138,9 @@ class ToastificationAppMessageService implements AppMessageService {
     String? description,
     AppMessagePosition position = AppMessagePosition.center,
     String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
   }) {
     show(AppMessageRequest(
       title: title,
@@ -123,6 +150,9 @@ class ToastificationAppMessageService implements AppMessageService {
       size: position == AppMessagePosition.center
           ? AppMessageSize.dialog
           : AppMessageSize.compact,
+      visualStyle: visualStyle,
+      actionLabel: actionLabel,
+      onAction: onAction,
       dedupeKey: dedupeKey,
     ));
   }
@@ -134,6 +164,7 @@ class ToastificationAppMessageService implements AppMessageService {
     AppMessageKind kind = AppMessageKind.info,
     String? dedupeKey,
     bool replaceExisting = false,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
   }) {
     show(AppMessageRequest(
       title: title,
@@ -141,6 +172,7 @@ class ToastificationAppMessageService implements AppMessageService {
       kind: kind,
       position: AppMessagePosition.center,
       size: AppMessageSize.dialog,
+      visualStyle: visualStyle,
       dedupeKey: dedupeKey,
       replaceExisting: replaceExisting,
     ));
