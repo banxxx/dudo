@@ -1,28 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../shared/theme/app_fonts.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../app/router/app_router.dart';
+import '../../../core/database/app_database.dart';
+import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
+import '../application/bookshelf_providers.dart';
 
 class BookshelfLibraryPage extends ConsumerWidget {
   const BookshelfLibraryPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const Scaffold(
+    final books = ref.watch(shelfBooksProvider);
+
+    return Scaffold(
       backgroundColor: DudoColors.paperBackground,
       body: DudoPageFrame(
         children: [
-          _BookshelfHeader(),
-          SizedBox(height: 20),
-          _EmptyBookshelfCard(),
-          SizedBox(height: 20),
-          _LibraryTipsSection(),
+          const _BookshelfHeader(),
+          const SizedBox(height: 20),
+          books.when(
+            data: (items) => items.isEmpty
+                ? _EmptyBookshelfCard(onImport: () => _importLocalBook(ref))
+                : _ShelfBooksSection(books: items),
+            loading: () => const _BookshelfLoadingCard(),
+            error: (_, __) => _BookshelfErrorCard(onRetry: () => ref.invalidate(shelfBooksProvider)),
+          ),
+          const SizedBox(height: 20),
+          const _LibraryTipsSection(),
         ],
       ),
     );
+  }
+
+  Future<void> _importLocalBook(WidgetRef ref) async {
+    await ref.read(localBookImportServiceProvider).importTxtBook();
+    ref.invalidate(shelfBooksProvider);
   }
 }
 
@@ -56,8 +73,185 @@ class _BookshelfHeader extends StatelessWidget {
   }
 }
 
+class _ShelfBooksSection extends StatelessWidget {
+  const _ShelfBooksSection({required this.books});
+
+  final List<Book> books;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '已导入 ${books.length} 本',
+              style: DudoTextStyles.sans(
+                color: DudoColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              '本地书籍',
+              style: DudoTextStyles.sans(
+                color: DudoColors.secondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        for (final book in books) ...[
+          _ShelfBookRow(book: book),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _ShelfBookRow extends StatelessWidget {
+  const _ShelfBookRow({required this.book});
+
+  final Book book;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => context.push('${AppRoutes.reader}/${book.id}?chapter=${book.lastChapterIndex}'),
+        child: Container(
+          height: 82,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: DudoColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: DudoColors.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: DudoColors.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  LucideIcons.fileText,
+                  color: DudoColors.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      book.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      book.author ?? '本地文件',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.secondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                LucideIcons.chevronRight,
+                color: DudoColors.outline,
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BookshelfLoadingCard extends StatelessWidget {
+  const _BookshelfLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 160,
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: DudoColors.outlineVariant),
+      ),
+      alignment: Alignment.center,
+      child: const CircularProgressIndicator(color: DudoColors.primary),
+    );
+  }
+}
+
+class _BookshelfErrorCard extends StatelessWidget {
+  const _BookshelfErrorCard({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: DudoColors.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          Text(
+            '书架加载失败',
+            style: DudoTextStyles.sans(
+              color: DudoColors.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _PillActionButton(
+            label: '重试',
+            icon: LucideIcons.refreshCw,
+            background: DudoColors.textPrimary,
+            foreground: DudoColors.surfaceHigh,
+            borderColor: Colors.transparent,
+            onPressed: onRetry,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _EmptyBookshelfCard extends StatelessWidget {
-  const _EmptyBookshelfCard();
+  const _EmptyBookshelfCard({required this.onImport});
+
+  final VoidCallback onImport;
 
   @override
   Widget build(BuildContext context) {
@@ -94,7 +288,7 @@ class _EmptyBookshelfCard extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 14),
-          const _EmptyStateActions(),
+          _EmptyStateActions(onImport: onImport),
         ],
       ),
     );
@@ -183,14 +377,16 @@ class _IllustrationBook extends StatelessWidget {
 }
 
 class _EmptyStateActions extends StatelessWidget {
-  const _EmptyStateActions();
+  const _EmptyStateActions({required this.onImport});
+
+  final VoidCallback onImport;
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _PillActionButton(
+        const _PillActionButton(
           label: '去找书',
           icon: LucideIcons.search,
           background: DudoColors.textPrimary,
@@ -199,14 +395,14 @@ class _EmptyStateActions extends StatelessWidget {
           labelFirst: true,
           onPressed: _handleSearchBooks,
         ),
-        SizedBox(width: 8),
+        const SizedBox(width: 8),
         _PillActionButton(
           label: '导入本地',
           icon: LucideIcons.fileUp,
           background: DudoColors.surface,
           foreground: DudoColors.primary,
           borderColor: DudoColors.outline,
-          onPressed: _handleImportLocalBooks,
+          onPressed: onImport,
         ),
       ],
     );
@@ -400,14 +596,6 @@ class _TipCard extends StatelessWidget {
   }
 }
 
-void _handleSearchBooks() {
-  // Reserved for navigating to the search flow when data features are wired.
-}
+void _handleSearchBooks() {}
 
-void _handleImportLocalBooks() {
-  // Reserved for future local book import support.
-}
-
-void _handleSkipForNow() {
-  // Reserved for dismissing onboarding tips after persistence is available.
-}
+void _handleSkipForNow() {}

@@ -1,39 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../app/router/app_router.dart';
+import '../../../../features/bookshelf/application/bookshelf_providers.dart';
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
 import '../../shared/widgets/settings_detail_scaffold.dart';
 
-class SourceAddSettingsPage extends StatelessWidget {
+class SourceAddSettingsPage extends ConsumerWidget {
   const SourceAddSettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const SettingsDetailScaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return SettingsDetailScaffold(
       children: [
-        SettingsDetailHeader(
+        const SettingsDetailHeader(
           eyebrow: '内容与书源',
           title: '添加书源',
           showAction: false,
         ),
-        SizedBox(height: 14),
-        _LocalBookImportCard(),
-        SizedBox(height: 14),
-        SettingsSectionTitle('在线书源'),
-        SizedBox(height: 10),
-        _SourceAddressInput(),
-        SizedBox(height: 10),
-        _RuleFileImportRow(),
-        SizedBox(height: 14),
-        _ImportNoticeCard(),
+        const SizedBox(height: 14),
+        _LocalBookImportCard(onImport: () => _importLocalBook(context, ref)),
+        const SizedBox(height: 14),
+        const SettingsSectionTitle('在线书源'),
+        const SizedBox(height: 10),
+        const _SourceAddressInput(),
+        const SizedBox(height: 10),
+        const _RuleFileImportRow(),
+        const SizedBox(height: 14),
+        const _ImportNoticeCard(),
       ],
     );
+  }
+
+  Future<void> _importLocalBook(BuildContext context, WidgetRef ref) async {
+    final result = await ref.read(localBookImportServiceProvider).importTxtBook();
+    ref.invalidate(shelfBooksProvider);
+    if (result != null && context.mounted) {
+      context.go(AppRoutes.bookshelf);
+    }
   }
 }
 
 class _LocalBookImportCard extends StatelessWidget {
-  const _LocalBookImportCard();
+  const _LocalBookImportCard({required this.onImport});
+
+  final VoidCallback onImport;
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +111,7 @@ class _LocalBookImportCard extends StatelessWidget {
             child: _DarkCardButton(
               label: '选择文件',
               icon: LucideIcons.arrowRight,
-              onTap: () {},
+              onTap: onImport,
             ),
           ),
         ],

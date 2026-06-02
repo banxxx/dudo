@@ -1,3 +1,5 @@
+import '../../../shared/widgets/calendar_range_selector/calendar_range_models.dart';
+
 enum ReadingStatsPreset { week, month, custom }
 
 class ReadingStatsRange {
@@ -25,6 +27,20 @@ class ReadingStatsRange {
         end: DateTime(2024, 5, 20),
       );
 
+  factory ReadingStatsRange.fromCalendarSelection(
+    CalendarDateRangeSelection selection,
+  ) {
+    return ReadingStatsRange(
+      preset: switch (selection.preset) {
+        CalendarRangePreset.week => ReadingStatsPreset.week,
+        CalendarRangePreset.month => ReadingStatsPreset.month,
+        CalendarRangePreset.custom => ReadingStatsPreset.custom,
+      },
+      start: selection.start,
+      end: selection.end,
+    );
+  }
+
   final ReadingStatsPreset preset;
   final DateTime start;
   final DateTime end;
@@ -38,6 +54,19 @@ class ReadingStatsRange {
       case ReadingStatsPreset.custom:
         return '自定义';
     }
+  }
+
+  CalendarDateRangeSelection toCalendarSelection() {
+    return CalendarDateRangeSelection(
+      preset: switch (preset) {
+        ReadingStatsPreset.week => CalendarRangePreset.week,
+        ReadingStatsPreset.month => CalendarRangePreset.month,
+        ReadingStatsPreset.custom => CalendarRangePreset.custom,
+      },
+      start: start,
+      end: end,
+      visibleMonth: start,
+    );
   }
 }
 

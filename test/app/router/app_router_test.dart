@@ -7,6 +7,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  Future<void> pumpNavigation(WidgetTester tester) async {
+    await tester.pump();
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  Future<void> tapBottomTab(WidgetTester tester, int index) async {
+    const labels = ['首页', '书架', '搜索', '我的'];
+    final tab = find
+        .ancestor(
+          of: find.text(labels[index]),
+          matching: find.byType(GestureDetector),
+        )
+        .last;
+    await tester.tap(tab);
+    await pumpNavigation(tester);
+  }
+
   Future<void> pumpApp(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -27,7 +46,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await pumpNavigation(tester);
   }
 
   test('main tab route constants match the paper navigation structure', () {
@@ -44,6 +63,10 @@ void main() {
 
   testWidgets('router starts on home and exposes the designed bottom tabs',
       (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(Breakpoints.medium - 1, 800);
+    addTearDown(tester.view.reset);
+
     await pumpApp(tester);
 
     expect(find.text('今天想读点什么？'), findsOneWidget);
@@ -53,28 +76,25 @@ void main() {
     expect(find.text('我的'), findsOneWidget);
     expect(find.text('书源'), findsNothing);
 
-    await tester.tap(find.text('书架'));
-    await tester.pumpAndSettle();
+    await tapBottomTab(tester, 1);
 
     expect(find.text('晚上好，继续沉入书页'), findsNothing);
-    expect(find.text('书架还是空的'), findsOneWidget);
+    expect(find.text('我的书架'), findsOneWidget);
 
-    await tester.tap(find.text('搜索'));
-    await tester.pumpAndSettle();
+    await tapBottomTab(tester, 2);
 
     expect(find.text('探索书源与作品'), findsOneWidget);
     expect(find.text('搜索书名、作者、关键词'), findsOneWidget);
     expect(find.text('常用书源'), findsOneWidget);
 
-    await tester.tap(find.text('我的'));
-    await tester.pumpAndSettle();
+    await tapBottomTab(tester, 3);
 
     expect(find.text('纸上旅人'), findsOneWidget);
     expect(find.text('五月阅读目标'), findsOneWidget);
     expect(find.text('书房工具'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
-    await tester.pumpAndSettle();
+    await pumpNavigation(tester);
 
     expect(find.text('偏好中心'), findsOneWidget);
     expect(find.text('阅读体验'), findsOneWidget);
@@ -83,16 +103,19 @@ void main() {
 
   testWidgets('home quick actions navigate to search, bookmarks, and stats',
       (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(Breakpoints.medium - 1, 800);
+    addTearDown(tester.view.reset);
+
     await pumpApp(tester);
 
     await tester.tap(find.text('找书'));
-    await tester.pumpAndSettle();
+    await pumpNavigation(tester);
     expect(find.text('探索书源与作品'), findsOneWidget);
 
-    await tester.tap(find.text('首页'));
-    await tester.pumpAndSettle();
+    await tapBottomTab(tester, 0);
     await tester.tap(find.text('书签'));
-    await tester.pumpAndSettle();
+    await pumpNavigation(tester);
     expect(find.text('阅读标记'), findsOneWidget);
     expect(find.text('暂无书签和高亮'), findsOneWidget);
     expect(find.byKey(const ValueKey('bookmarks-back-button')), findsOneWidget);
@@ -100,10 +123,10 @@ void main() {
     expect(find.text('首页'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('bookmarks-back-button')));
-    await tester.pumpAndSettle();
+    await pumpNavigation(tester);
     expect(find.text('今天想读点什么？'), findsOneWidget);
     await tester.tap(find.text('统计'));
-    await tester.pumpAndSettle();
+    await pumpNavigation(tester);
     expect(find.text('阅读统计'), findsOneWidget);
     expect(find.text('本周节奏'), findsOneWidget);
   });
@@ -144,13 +167,16 @@ void main() {
   });
 
   testWidgets('opens reading stats from profile tools', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(Breakpoints.medium - 1, 800);
+    addTearDown(tester.view.reset);
+
     await pumpApp(tester);
 
-    await tester.tap(find.text('我的'));
-    await tester.pumpAndSettle();
+    await tapBottomTab(tester, 3);
 
     await tester.tap(find.text('阅读记录'));
-    await tester.pumpAndSettle();
+    await pumpNavigation(tester);
 
     expect(find.text('阅读统计'), findsOneWidget);
     expect(find.text('6h 40m'), findsOneWidget);

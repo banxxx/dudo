@@ -1,3 +1,4 @@
+import 'package:dudo/features/bookshelf/application/bookshelf_providers.dart';
 import 'package:dudo/features/bookshelf/presentation/bookshelf_library_page.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
@@ -7,12 +8,16 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('renders the Pencil A2 empty bookshelf design', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
+      ProviderScope(
+        overrides: [
+          shelfBooksProvider.overrideWith((ref) => Stream.value(const [])),
+        ],
+        child: const MaterialApp(
           home: BookshelfLibraryPage(),
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(scaffold.backgroundColor, DudoColors.paperBackground);

@@ -8,7 +8,10 @@ final readingStatsRangeProvider = StateProvider<ReadingStatsRange>(
 
 final readingStatsSummaryProvider = Provider<ReadingStatsSummary>((ref) {
   final range = ref.watch(readingStatsRangeProvider);
+  return readingStatsSummaryFor(range);
+});
 
+ReadingStatsSummary readingStatsSummaryFor(ReadingStatsRange range) {
   switch (range.preset) {
     case ReadingStatsPreset.week:
       return ReadingStatsSummary(
@@ -94,4 +97,4 @@ final readingStatsSummaryProvider = Provider<ReadingStatsSummary>((ref) {
         hasData: false,
       );
   }
-});
+}
