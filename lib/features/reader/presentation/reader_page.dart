@@ -254,6 +254,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
           pages: pages,
           scrollController: _scrollController,
           scrollable: _pageTurnMode == '滚动',
+          interactive:
+              _pageTurnMode == '滚动' && _overlayMode == ReaderOverlayMode.hidden,
           preview: _overlayMode != ReaderOverlayMode.hidden &&
               _overlayMode != ReaderOverlayMode.controls,
           onScrollPositionChanged: (position) => _updateReadPosition(
@@ -261,6 +263,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
             readPosition: position,
             contentLength: view.text.length,
           ),
+          onTap: _toggleOverlay,
         ),
         _ReaderProgress(
           metrics: metrics,
@@ -598,8 +601,9 @@ class _ReaderGestureLayer extends StatelessWidget {
       key: const ValueKey('reader-gesture-layer'),
       behavior: HitTestBehavior.opaque,
       onTapUp: (details) => _handleTap(context, details.localPosition),
-      onHorizontalDragEnd: (details) =>
-          _handleHorizontalDragEnd(details.primaryVelocity ?? 0),
+      onHorizontalDragEnd: pageTurnMode == '滚动'
+          ? null
+          : (details) => _handleHorizontalDragEnd(details.primaryVelocity ?? 0),
     );
   }
 
@@ -611,6 +615,11 @@ class _ReaderGestureLayer extends StatelessWidget {
 
     final width = context.size?.width ?? 0;
     if (width == 0) {
+      onToggleOverlay();
+      return;
+    }
+
+    if (pageTurnMode == '滚动') {
       onToggleOverlay();
       return;
     }
@@ -647,8 +656,10 @@ class _ReadingArticle extends StatelessWidget {
     required this.pages,
     required this.scrollController,
     required this.scrollable,
+    required this.interactive,
     required this.preview,
     required this.onScrollPositionChanged,
+    required this.onTap,
   });
 
   final _ReaderPageMetrics metrics;
@@ -660,8 +671,10 @@ class _ReadingArticle extends StatelessWidget {
   final List<_ReaderPageSlice> pages;
   final ScrollController scrollController;
   final bool scrollable;
+  final bool interactive;
   final bool preview;
   final ValueChanged<int> onScrollPositionChanged;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -680,7 +693,7 @@ class _ReadingArticle extends StatelessWidget {
       width: metrics.s(330),
       height: metrics.s(642),
       child: IgnorePointer(
-        ignoring: !scrollable,
+        ignoring: !interactive,
         child: Opacity(
           opacity: preview ? 0.42 : 1,
           child: scrollable
@@ -696,13 +709,17 @@ class _ReadingArticle extends StatelessWidget {
                     );
                     return false;
                   },
-                  child: SingleChildScrollView(
-                    key: const ValueKey('reader-scroll-view'),
-                    controller: scrollController,
-                    physics: const BouncingScrollPhysics(),
-                    child: Padding(
-                      padding: EdgeInsets.only(bottom: metrics.s(32)),
-                      child: Text(chapter.text, style: style),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: onTap,
+                    child: SingleChildScrollView(
+                      key: const ValueKey('reader-scroll-view'),
+                      controller: scrollController,
+                      physics: const BouncingScrollPhysics(),
+                      child: Padding(
+                        padding: EdgeInsets.only(bottom: metrics.s(32)),
+                        child: Text(chapter.text, style: style),
+                      ),
                     ),
                   ),
                 )
