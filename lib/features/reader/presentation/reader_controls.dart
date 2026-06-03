@@ -1,32 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../domain/reader_catalog_item.dart';
+import '../domain/reader_overlay_mode.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/app_tokens.dart';
-
-enum ReaderOverlayMode {
-  hidden,
-  controls,
-  catalog,
-  typography,
-  theme,
-  listening,
-  more,
-  pageTurn,
-}
-
-class ReaderCatalogItem {
-  const ReaderCatalogItem({
-    required this.chapterIndex,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final int chapterIndex;
-  final String title;
-  final String subtitle;
-}
 
 class ReaderControls extends StatelessWidget {
   const ReaderControls({
@@ -710,40 +689,41 @@ class _CatalogBottomSheet extends StatelessWidget {
                           borderRadius: BorderRadius.circular(metrics.s(18)),
                         ),
                         child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  chapter.title,
-                                  style: DudoTextStyles.sans(
-                                    color: palette.foreground,
-                                    fontSize: metrics.s(14),
-                                    fontWeight: active
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    chapter.title,
+                                    style: DudoTextStyles.sans(
+                                      color: palette.foreground,
+                                      fontSize: metrics.s(14),
+                                      fontWeight: active
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                    ),
                                   ),
-                                ),
-                                SizedBox(height: metrics.s(4)),
-                                Text(
-                                  chapter.subtitle,
-                                  style: DudoTextStyles.sans(
-                                    color: palette.mutedForeground ??
-                                        DudoColors.textSecondary,
-                                    fontSize: metrics.s(12),
+                                  SizedBox(height: metrics.s(4)),
+                                  Text(
+                                    chapter.subtitle,
+                                    style: DudoTextStyles.sans(
+                                      color: palette.mutedForeground ??
+                                          DudoColors.textSecondary,
+                                      fontSize: metrics.s(12),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          if (active)
-                            Icon(LucideIcons.bookOpenCheck,
-                                size: metrics.s(18), color: DudoColors.primary),
-                        ],
+                            if (active)
+                              Icon(LucideIcons.bookOpenCheck,
+                                  size: metrics.s(18),
+                                  color: DudoColors.primary),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
+                    );
                   },
                 ),
               ),
@@ -939,9 +919,12 @@ class _TypographyOptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleColor = selected ? const Color(0xFF1B2918) : const Color(0xFF25251F);
-    final valueColor = selected ? const Color(0xFF5E6F5B) : const Color(0xFF8A735A);
-    final sampleColor = selected ? const Color(0x665E6F5B) : const Color(0xFFD8CDBB);
+    final titleColor =
+        selected ? const Color(0xFF1B2918) : const Color(0xFF25251F);
+    final valueColor =
+        selected ? const Color(0xFF5E6F5B) : const Color(0xFF8A735A);
+    final sampleColor =
+        selected ? const Color(0x665E6F5B) : const Color(0xFFD8CDBB);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(metrics.s(18)),
@@ -1193,8 +1176,7 @@ class _BrightnessRow extends StatelessWidget {
                     fontWeight: FontWeight.w600)),
             Text('${(clamped * 100).round()}%',
                 style: DudoTextStyles.sans(
-                    color: const Color(0xFF8A735A),
-                    fontSize: metrics.s(13))),
+                    color: const Color(0xFF8A735A), fontSize: metrics.s(13))),
           ],
         ),
         SizedBox(height: metrics.s(8)),
@@ -1822,7 +1804,8 @@ class _ToolButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = active ? const Color(0xFF5E6F5B) : const Color(0xFF8A735A);
+    final foreground =
+        active ? const Color(0xFF5E6F5B) : const Color(0xFF8A735A);
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(16),
@@ -1865,8 +1848,10 @@ class _SmallPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = reversed ? const Color(0xFFFFF8EA) : const Color(0xFF8A735A);
-    final background = reversed ? const Color(0xFF25251F) : const Color(0xFFF3ECDD);
+    final foreground =
+        reversed ? const Color(0xFFFFF8EA) : const Color(0xFF8A735A);
+    final background =
+        reversed ? const Color(0xFF25251F) : const Color(0xFFF3ECDD);
     final children = [
       Icon(icon, size: 16, color: foreground),
       const SizedBox(width: 6),

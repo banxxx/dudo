@@ -12,6 +12,7 @@ class DudoPageFrame extends StatelessWidget {
     this.constrainWidth = true,
     this.bottomSafeArea = true,
     this.eager = false,
+    this.controller,
   });
 
   final List<Widget> children;
@@ -20,6 +21,7 @@ class DudoPageFrame extends StatelessWidget {
   final bool constrainWidth;
   final bool bottomSafeArea;
   final bool eager;
+  final ScrollController? controller;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +34,7 @@ class DudoPageFrame extends StatelessWidget {
 
     final Widget content = eager
         ? SingleChildScrollView(
+            controller: controller,
             physics: scrollPhysics,
             padding: effectivePadding,
             child: Column(
@@ -40,6 +43,7 @@ class DudoPageFrame extends StatelessWidget {
             ),
           )
         : ListView(
+            controller: controller,
             physics: scrollPhysics,
             padding: effectivePadding,
             children: children,

@@ -23,8 +23,15 @@ class BookDetailPage extends ConsumerStatefulWidget {
 }
 
 class _BookDetailPageState extends ConsumerState<BookDetailPage> {
+  final ScrollController _scrollController = ScrollController();
   bool _showMoreMenu = false;
   bool _isAddingToShelf = false;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,13 +48,9 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
           return Stack(
             children: [
               DudoPageFrame(
-                padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+                controller: _scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 64, 20, 14),
                 children: [
-                  _BookDetailTopBar(
-                    onBack: _goBack,
-                    onMore: () => setState(() => _showMoreMenu = true),
-                  ),
-                  const SizedBox(height: 14),
                   _BookDetailContent(
                     book: book,
                     chapters: chapters,
@@ -59,6 +62,11 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
                         _openReader(book, chapters, chapterIndex: chapterIndex),
                   ),
                 ],
+              ),
+              _PinnedBookDetailTopBar(
+                onBack: _goBack,
+                onMore: () => setState(() => _showMoreMenu = true),
+                onDoubleTap: _scrollToTop,
               ),
               if (_showMoreMenu)
                 _BookMoreOverlay(
@@ -85,6 +93,15 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
     } else {
       context.go(AppRoutes.bookshelf);
     }
+  }
+
+  void _scrollToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _openReader(
@@ -213,14 +230,12 @@ class _BookDetailContent extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         _BookIntroSection(intro: book.intro),
-        if (!showProgress) ...[
-          const SizedBox(height: 10),
-          _ChapterListSection(
-            chapters: chapters,
-            chaptersLoading: chaptersLoading,
-            onChapterTap: onChapterTap,
-          ),
-        ],
+        const SizedBox(height: 10),
+        _ChapterListSection(
+          chapters: chapters,
+          chaptersLoading: chaptersLoading,
+          onChapterTap: onChapterTap,
+        ),
       ],
     );
   }
@@ -236,6 +251,37 @@ class _BookDetailContent extends StatelessWidget {
     if (chapters.isEmpty) return null;
     final index = book.lastChapterIndex.clamp(0, chapters.length - 1);
     return chapters[index];
+  }
+}
+
+class _PinnedBookDetailTopBar extends StatelessWidget {
+  const _PinnedBookDetailTopBar({
+    required this.onBack,
+    required this.onMore,
+    required this.onDoubleTap,
+  });
+
+  final VoidCallback onBack;
+  final VoidCallback onMore;
+  final VoidCallback onDoubleTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final topPadding = MediaQuery.paddingOf(context).top;
+    return Positioned(
+      left: 0,
+      right: 0,
+      top: 0,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onDoubleTap: onDoubleTap,
+        child: Container(
+          padding: EdgeInsets.fromLTRB(20, topPadding + 6, 20, 8),
+          color: DudoColors.paperBackground,
+          child: _BookDetailTopBar(onBack: onBack, onMore: onMore),
+        ),
+      ),
+    );
   }
 }
 
@@ -855,7 +901,8 @@ class _ChapterListSection extends StatelessWidget {
                     for (var i = 0; i < visibleChapters.length; i++) ...[
                       _ChapterListTile(
                         chapter: visibleChapters[i],
-                        onTap: () => onChapterTap(visibleChapters[i].chapterIndex),
+                        onTap: () =>
+                            onChapterTap(visibleChapters[i].chapterIndex),
                       ),
                       if (i != visibleChapters.length - 1)
                         const Divider(
