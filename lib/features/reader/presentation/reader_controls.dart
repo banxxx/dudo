@@ -85,10 +85,12 @@ class ReaderControls extends StatelessWidget {
             );
           }
 
-          if (_showsBars) {
-            children
-              ..add(
-                _ReaderTopControls(
+          children
+            ..add(
+              _ReaderTopControlsSlot(
+                metrics: metrics,
+                visible: _showsBars,
+                child: _ReaderTopControls(
                   metrics: metrics,
                   bookTitle: bookTitle,
                   chapterLabel: chapterLabel,
@@ -97,9 +99,13 @@ class ReaderControls extends StatelessWidget {
                   onBack: onBack,
                   onMore: () => onModeChanged(ReaderOverlayMode.more),
                 ),
-              )
-              ..add(
-                _ReaderBottomControls(
+              ),
+            )
+            ..add(
+              _ReaderBottomControlsSlot(
+                metrics: metrics,
+                visible: _showsBars,
+                child: _ReaderBottomControls(
                   metrics: metrics,
                   chapterLabel: chapterLabel,
                   progress: progress,
@@ -111,8 +117,8 @@ class ReaderControls extends StatelessWidget {
                   onListening: () => onModeChanged(ReaderOverlayMode.listening),
                   onPageTurn: () => onModeChanged(ReaderOverlayMode.pageTurn),
                 ),
-              );
-          }
+              ),
+            );
 
           switch (mode) {
             case ReaderOverlayMode.catalog:
@@ -260,6 +266,98 @@ class _GlassSurface extends StatelessWidget {
   }
 }
 
+class _ReaderTopControlsSlot extends StatelessWidget {
+  const _ReaderTopControlsSlot({
+    required this.metrics,
+    required this.visible,
+    required this.child,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final bool visible;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      key: const ValueKey('reader-top-controls-slot'),
+      left: metrics.x(16),
+      top: metrics.y(74),
+      width: metrics.s(358),
+      height: metrics.s(58),
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: AnimatedSwitcher(
+          duration: AppMotion.medium,
+          reverseDuration: AppMotion.medium,
+          switchInCurve: AppMotion.emphasizedDecelerate,
+          switchOutCurve: AppMotion.emphasizedAccelerate,
+          transitionBuilder: (child, animation) {
+            final offset = Tween<Offset>(
+              begin: const Offset(0, -0.45),
+              end: Offset.zero,
+            ).animate(animation);
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(position: offset, child: child),
+            );
+          },
+          child: visible
+              ? child
+              : const SizedBox.shrink(
+                  key: ValueKey('reader-top-controls-hidden')),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReaderBottomControlsSlot extends StatelessWidget {
+  const _ReaderBottomControlsSlot({
+    required this.metrics,
+    required this.visible,
+    required this.child,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final bool visible;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      key: const ValueKey('reader-bottom-controls-slot'),
+      left: metrics.x(16),
+      top: metrics.y(700),
+      width: metrics.s(358),
+      height: metrics.s(124),
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: AnimatedSwitcher(
+          duration: AppMotion.medium,
+          reverseDuration: AppMotion.medium,
+          switchInCurve: AppMotion.emphasizedDecelerate,
+          switchOutCurve: AppMotion.emphasizedAccelerate,
+          transitionBuilder: (child, animation) {
+            final offset = Tween<Offset>(
+              begin: const Offset(0, 0.32),
+              end: Offset.zero,
+            ).animate(animation);
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(position: offset, child: child),
+            );
+          },
+          child: visible
+              ? child
+              : const SizedBox.shrink(
+                  key: ValueKey('reader-bottom-controls-hidden')),
+        ),
+      ),
+    );
+  }
+}
+
 class _ReaderTopControls extends StatelessWidget {
   const _ReaderTopControls({
     required this.metrics,
@@ -281,10 +379,8 @@ class _ReaderTopControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
+    return SizedBox(
       key: const ValueKey('reader-top-controls'),
-      left: metrics.x(16),
-      top: metrics.y(74),
       width: metrics.s(358),
       height: metrics.s(58),
       child: _GlassSurface(
@@ -300,7 +396,7 @@ class _ReaderTopControls extends StatelessWidget {
               _IconTapArea(
                 tooltip: '返回',
                 icon: LucideIcons.chevronLeft,
-                color: palette.foreground,
+                color: const Color(0xFF25251F),
                 onTap: onBack,
               ),
               Expanded(
@@ -312,7 +408,7 @@ class _ReaderTopControls extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: DudoTextStyles.sans(
-                        color: palette.mutedForeground ?? DudoColors.secondary,
+                        color: const Color(0xFF8A735A),
                         fontSize: metrics.s(12),
                       ),
                     ),
@@ -321,10 +417,10 @@ class _ReaderTopControls extends StatelessWidget {
                       '$chapterLabel · $chapterTitle',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: DudoTextStyles.serif(
-                        color: palette.foreground,
-                        fontSize: metrics.s(15),
-                        fontWeight: FontWeight.w700,
+                      style: DudoTextStyles.sans(
+                        color: const Color(0xFF25251F),
+                        fontSize: metrics.s(14),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -332,8 +428,8 @@ class _ReaderTopControls extends StatelessWidget {
               ),
               _IconTapArea(
                 tooltip: '更多',
-                icon: LucideIcons.moreVertical,
-                color: palette.foreground,
+                icon: LucideIcons.ellipsis,
+                color: const Color(0xFF8A735A),
                 onTap: onMore,
               ),
             ],
@@ -369,10 +465,8 @@ class _ReaderBottomControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
+    return SizedBox(
       key: const ValueKey('reader-bottom-controls'),
-      left: metrics.x(16),
-      top: metrics.y(700),
       width: metrics.s(358),
       height: metrics.s(124),
       child: _GlassSurface(
@@ -387,6 +481,7 @@ class _ReaderBottomControls extends StatelessWidget {
               SizedBox(
                 height: metrics.s(38),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _SmallPillButton(
                       label: '上一章',
@@ -394,27 +489,11 @@ class _ReaderBottomControls extends StatelessWidget {
                       palette: palette,
                       onTap: () {},
                     ),
-                    Expanded(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            chapterLabel,
-                            style: DudoTextStyles.sans(
-                              color: palette.foreground,
-                              fontSize: metrics.s(12),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            '已读 ${(progress * 100).round()}%',
-                            style: DudoTextStyles.numeric(
-                              color: palette.mutedForeground ??
-                                  DudoColors.textSecondary,
-                              fontSize: metrics.s(11),
-                            ),
-                          ),
-                        ],
+                    Text(
+                      '剩余 8 分钟',
+                      style: DudoTextStyles.sans(
+                        color: const Color(0xFF6F6B61),
+                        fontSize: metrics.s(12),
                       ),
                     ),
                     _SmallPillButton(
@@ -427,36 +506,45 @@ class _ReaderBottomControls extends StatelessWidget {
                   ],
                 ),
               ),
-              SizedBox(height: metrics.s(8)),
+              SizedBox(height: metrics.s(10)),
               Expanded(
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _ToolButton(
-                        icon: LucideIcons.list,
-                        label: '目录',
-                        palette: palette,
-                        onPressed: onCatalog),
-                    _ToolButton(
-                        icon: LucideIcons.type,
-                        label: '排版',
-                        palette: palette,
-                        onPressed: onTypography),
-                    _ToolButton(
-                        icon: LucideIcons.sunMoon,
-                        label: '主题',
-                        palette: palette,
-                        onPressed: onTheme),
-                    _ToolButton(
-                        icon: LucideIcons.volume2,
-                        label: '听书',
-                        palette: palette,
-                        onPressed: onListening),
-                    _ToolButton(
-                        icon: LucideIcons.bookOpen,
-                        label: '翻页',
-                        palette: palette,
-                        onPressed: onPageTurn),
+                    Expanded(
+                      child: _ToolButton(
+                          icon: LucideIcons.list,
+                          label: '目录',
+                          palette: palette,
+                          onPressed: onCatalog),
+                    ),
+                    Expanded(
+                      child: _ToolButton(
+                          icon: LucideIcons.type,
+                          label: '排版',
+                          palette: palette,
+                          onPressed: onTypography),
+                    ),
+                    Expanded(
+                      child: _ToolButton(
+                          icon: LucideIcons.palette,
+                          label: '主题',
+                          palette: palette,
+                          onPressed: onTheme),
+                    ),
+                    Expanded(
+                      child: _ToolButton(
+                          icon: LucideIcons.panelsTopLeft,
+                          label: '翻页',
+                          palette: palette,
+                          onPressed: onPageTurn),
+                    ),
+                    Expanded(
+                      child: _ToolButton(
+                          icon: LucideIcons.volume2,
+                          label: '朗读',
+                          palette: palette,
+                          onPressed: onListening),
+                    ),
                   ],
                 ),
               ),
@@ -494,15 +582,20 @@ class _CatalogBottomSheet extends StatelessWidget {
     return Positioned(
       key: const ValueKey('reader-catalog-sheet'),
       left: metrics.left,
-      top: metrics.y(236),
+      top: metrics.height - metrics.s(608),
       width: metrics.width,
-      height: metrics.height - metrics.y(236),
+      height: metrics.s(608),
       child: _GlassSurface(
-        fill: palette.panelStrong ?? DudoColors.surfaceHigh,
+        fill: const Color(0xFFFFF8EA),
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(metrics.s(28)),
           topRight: Radius.circular(metrics.s(28)),
+          bottomLeft: Radius.circular(metrics.s(32)),
+          bottomRight: Radius.circular(metrics.s(32)),
         ),
+        shadowColor: const Color(0x2625251F),
+        shadowOffset: Offset(0, -metrics.s(12)),
+        shadowBlur: metrics.s(34),
         child: Padding(
           padding: EdgeInsets.fromLTRB(
               metrics.s(20), metrics.s(14), metrics.s(20), metrics.s(18)),
@@ -519,30 +612,36 @@ class _CatalogBottomSheet extends StatelessWidget {
               ),
               SizedBox(height: metrics.s(18)),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '目录',
-                    style: DudoTextStyles.serif(
-                      color: palette.foreground,
-                      fontSize: metrics.s(24),
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '三体 · 共 912 章',
+                        style: DudoTextStyles.sans(
+                          color: const Color(0xFF8A735A),
+                          fontSize: metrics.s(12),
+                        ),
+                      ),
+                      SizedBox(height: metrics.s(4)),
+                      Text(
+                        '目录',
+                        style: DudoTextStyles.serif(
+                          color: const Color(0xFF25251F),
+                          fontSize: metrics.s(26),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
-                  const Spacer(),
                   Text(
-                    '共 42 章',
+                    '倒序',
                     style: DudoTextStyles.sans(
-                      color:
-                          palette.mutedForeground ?? DudoColors.textSecondary,
-                      fontSize: metrics.s(12),
+                      color: const Color(0xFF5E6F5B),
+                      fontSize: metrics.s(13),
+                      fontWeight: FontWeight.w600,
                     ),
-                  ),
-                  SizedBox(width: metrics.s(8)),
-                  _IconTapArea(
-                    tooltip: '收起目录',
-                    icon: LucideIcons.x,
-                    color: palette.foreground,
-                    onTap: onClose,
                   ),
                 ],
               ),
@@ -1206,18 +1305,17 @@ class _ToolButton extends StatelessWidget {
       onTap: onPressed,
       borderRadius: BorderRadius.circular(16),
       child: SizedBox(
-        width: 58,
         height: 52,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: palette.foreground, size: 20),
-            const SizedBox(height: 4),
+            Icon(icon, color: const Color(0xFF8A735A), size: 17),
+            const SizedBox(height: 3),
             Text(label,
                 style: DudoTextStyles.sans(
-                    color: palette.mutedForeground ?? DudoColors.textSecondary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600)),
+                    color: const Color(0xFF8A735A),
+                    fontSize: 9,
+                    fontWeight: FontWeight.normal)),
           ],
         ),
       ),
@@ -1241,25 +1339,25 @@ class _SmallPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final foreground = reversed ? const Color(0xFFFFF8EA) : const Color(0xFF8A735A);
+    final background = reversed ? const Color(0xFF25251F) : const Color(0xFFF3ECDD);
     final children = [
-      Icon(icon,
-          size: 14, color: palette.mutedForeground ?? DudoColors.secondary),
-      const SizedBox(width: 2),
+      Icon(icon, size: 16, color: foreground),
+      const SizedBox(width: 6),
       Text(label,
           style: DudoTextStyles.sans(
-              color: palette.mutedForeground ?? DudoColors.secondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600)),
+              color: foreground,
+              fontSize: 13,
+              fontWeight: reversed ? FontWeight.w600 : FontWeight.normal)),
     ];
     return InkWell(
       onTap: onTap,
       borderRadius: AppRadius.full,
       child: Container(
-        height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-            color: DudoColors.surfaceLow.withValues(alpha: 0.68),
-            borderRadius: AppRadius.full),
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration:
+            BoxDecoration(color: background, borderRadius: AppRadius.full),
         child: Row(children: reversed ? children.reversed.toList() : children),
       ),
     );

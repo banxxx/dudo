@@ -36,6 +36,24 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   bool get _isPureReading => _overlayMode == ReaderOverlayMode.hidden;
 
   @override
+  void initState() {
+    super.initState();
+    _syncSystemUiMode();
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant ReaderPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncSystemUiMode();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final foreground = _palette.foreground;
     final statusStyle = foreground.computeLuminance() > 0.5
@@ -60,7 +78,6 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
               child: Stack(
                 children: [
                   _ReaderPaperBackground(palette: _palette),
-                  _ReaderStatusBar(metrics: metrics, palette: _palette),
                   _SoftPageEdge(metrics: metrics, pureReading: _isPureReading),
                   _ReadingArticle(
                     metrics: metrics,
@@ -92,10 +109,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                     pageTurnMode: _pageTurnMode,
                     isListening: _isListening,
                     onBack: () => context.pop(),
-                    onClose: () => setState(
-                        () => _overlayMode = ReaderOverlayMode.controls),
-                    onModeChanged: (mode) =>
-                        setState(() => _overlayMode = mode),
+                    onClose: () => _setOverlayMode(ReaderOverlayMode.controls),
+                    onModeChanged: _setOverlayMode,
                     onPaletteChanged: (palette) =>
                         setState(() => _palette = palette),
                     onFontSizeChanged: (fontSize) =>
@@ -119,11 +134,26 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   }
 
   void _toggleOverlay() {
-    setState(() {
-      _overlayMode = _overlayMode == ReaderOverlayMode.hidden
+    _setOverlayMode(
+      _overlayMode == ReaderOverlayMode.hidden
           ? ReaderOverlayMode.controls
-          : ReaderOverlayMode.hidden;
-    });
+          : ReaderOverlayMode.hidden,
+    );
+  }
+
+  void _setOverlayMode(ReaderOverlayMode mode) {
+    if (_overlayMode == mode) return;
+    setState(() => _overlayMode = mode);
+    _syncSystemUiMode(mode);
+  }
+
+  void _syncSystemUiMode([ReaderOverlayMode? mode]) {
+    final nextMode = mode ?? _overlayMode;
+    if (nextMode == ReaderOverlayMode.hidden) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    } else {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
   }
 }
 
@@ -183,126 +213,6 @@ class _ReaderPaperBackground extends StatelessWidget {
   }
 }
 
-class _ReaderStatusBar extends StatelessWidget {
-  const _ReaderStatusBar({required this.metrics, required this.palette});
-
-  final _ReaderPageMetrics metrics;
-  final ReaderPalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: metrics.left,
-      top: 0,
-      width: metrics.width,
-      height: metrics.s(62),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          metrics.s(24),
-          metrics.s(18),
-          metrics.s(24),
-          metrics.s(10),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '9:41',
-              style: DudoTextStyles.numeric(
-                color: palette.foreground,
-                fontSize: metrics.s(15),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Row(
-              children: [
-                _StatusDot(
-                    width: metrics.s(15),
-                    height: metrics.s(10),
-                    color: palette.foreground),
-                SizedBox(width: metrics.s(6)),
-                _StatusDot(
-                    width: metrics.s(16),
-                    height: metrics.s(12),
-                    color: palette.foreground),
-                SizedBox(width: metrics.s(6)),
-                _BatteryIcon(metrics: metrics, color: palette.foreground),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusDot extends StatelessWidget {
-  const _StatusDot(
-      {required this.width, required this.height, required this.color});
-
-  final double width;
-  final double height;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(3),
-      ),
-    );
-  }
-}
-
-class _BatteryIcon extends StatelessWidget {
-  const _BatteryIcon({required this.metrics, required this.color});
-
-  final _ReaderPageMetrics metrics;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: metrics.s(20),
-      height: metrics.s(14),
-      child: Stack(
-        alignment: Alignment.centerLeft,
-        children: [
-          Container(
-            width: metrics.s(18),
-            height: metrics.s(12),
-            decoration: BoxDecoration(
-              border: Border.all(color: color, width: 1.4),
-              borderRadius: BorderRadius.circular(3),
-            ),
-          ),
-          Positioned(
-            left: metrics.s(3),
-            child: Container(
-              width: metrics.s(11),
-              height: metrics.s(6),
-              decoration: BoxDecoration(
-                  color: color, borderRadius: BorderRadius.circular(2)),
-            ),
-          ),
-          Positioned(
-            right: 0,
-            child: Container(
-              width: metrics.s(2),
-              height: metrics.s(6),
-              decoration: BoxDecoration(
-                  color: color, borderRadius: BorderRadius.circular(2)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _SoftPageEdge extends StatelessWidget {
   const _SoftPageEdge({required this.metrics, required this.pureReading});
 
@@ -344,7 +254,7 @@ class _ReadingArticle extends StatelessWidget {
   Widget build(BuildContext context) {
     final titleSize = pureReading ? 30.0 : 28.0;
     final bodySize =
-        pureReading ? fontSize : (fontSize - 1).clamp(16, 23).toDouble();
+    pureReading ? fontSize : (fontSize - 1).clamp(16, 23).toDouble();
     return Positioned(
       key: const ValueKey('reader-article'),
       left: metrics.x(30),
