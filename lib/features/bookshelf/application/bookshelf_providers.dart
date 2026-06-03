@@ -15,6 +15,15 @@ final shelfBooksProvider = StreamProvider<List<Book>>((ref) {
   return ref.watch(bookshelfRepositoryProvider).watchShelfBooks();
 });
 
+final bookByIdProvider = StreamProvider.family<Book?, String>((ref, bookId) {
+  return ref.watch(bookshelfRepositoryProvider).watchBookById(bookId);
+});
+
+final bookChaptersProvider =
+    StreamProvider.family<List<Chapter>, String>((ref, bookId) {
+  return ref.watch(bookshelfRepositoryProvider).watchChaptersForBook(bookId);
+});
+
 final localBookDuplicateProvider =
     FutureProvider.family<Book?, String>((ref, title) {
   return ref.watch(bookshelfRepositoryProvider).findLocalBookByTitle(title);

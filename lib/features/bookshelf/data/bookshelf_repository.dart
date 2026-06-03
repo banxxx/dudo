@@ -23,6 +23,36 @@ class BookshelfRepository {
     return query.watch();
   }
 
+  Stream<Book?> watchBookById(String bookId) {
+    final query = database.select(database.books)
+      ..where((book) => book.id.equals(bookId))
+      ..limit(1);
+    return query.watchSingleOrNull();
+  }
+
+  Stream<List<Chapter>> watchChaptersForBook(String bookId) {
+    final query = database.select(database.chapters)
+      ..where((chapter) => chapter.bookId.equals(bookId))
+      ..orderBy([
+        (chapter) => OrderingTerm(
+              expression: chapter.chapterIndex,
+              mode: OrderingMode.asc,
+            ),
+      ]);
+    return query.watch();
+  }
+
+  Future<void> addBookToShelf(String bookId) async {
+    await (database.update(database.books)
+          ..where((book) => book.id.equals(bookId)))
+        .write(
+      BooksCompanion(
+        inShelf: const Value(true),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   Future<Book?> findLocalBookByTitle(String title) async {
     final query = database.select(database.books)
       ..where((book) => book.title.equals(title) & book.localPath.isNotNull())

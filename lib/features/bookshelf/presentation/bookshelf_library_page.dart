@@ -442,7 +442,7 @@ class _ShelfBooksSection extends StatelessWidget {
                         onTap: isManaging
                             ? () => onToggleBook(books[index].id)
                             : () => context.push(
-                                  '${AppRoutes.reader}/${books[index].id}?chapter=${books[index].lastChapterIndex}',
+                                  '${AppRoutes.bookDetail}/${books[index].id}',
                                 ),
                       ),
                     ),
@@ -504,7 +504,7 @@ class _ShelfSearchResultsList extends StatelessWidget {
             paletteIndex: index,
             searchQuery: searchQuery,
             onTap: () => context.push(
-              '${AppRoutes.reader}/${books[index].id}?chapter=${books[index].lastChapterIndex}',
+              '${AppRoutes.bookDetail}/${books[index].id}',
             ),
           ),
           if (index != books.length - 1) const SizedBox(height: 8),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/bookmarks/presentation/bookmarks_page.dart';
+import '../../features/bookshelf/presentation/book_detail_page.dart';
 import '../../features/bookshelf/presentation/bookshelf_library_page.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
@@ -106,6 +107,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: AppRoutes.readAloudSettingsName,
         builder: (_, __) => const ReadAloudSettingsPage(),
       ),
+      GoRoute(
+        path: '${AppRoutes.bookDetail}/:bookId',
+        name: AppRoutes.bookDetailName,
+        builder: (context, state) {
+          final bookId = state.pathParameters['bookId']!;
+          return BookDetailPage(bookId: bookId);
+        },
+      ),
       // Reader is a fullscreen route outside the shell.
       GoRoute(
         path: '${AppRoutes.reader}/:bookId',
@@ -175,6 +184,9 @@ class AppRoutes {
 
   static const readAloudSettings = '/settings/read-aloud';
   static const readAloudSettingsName = 'settings-read-aloud';
+
+  static const bookDetail = '/books';
+  static const bookDetailName = 'book-detail';
 
   static const reader = '/reader';
   static const readerName = 'reader';
