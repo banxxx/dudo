@@ -16,6 +16,18 @@ enum ReaderOverlayMode {
   pageTurn,
 }
 
+class ReaderCatalogItem {
+  const ReaderCatalogItem({
+    required this.chapterIndex,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final int chapterIndex;
+  final String title;
+  final String subtitle;
+}
+
 class ReaderControls extends StatelessWidget {
   const ReaderControls({
     super.key,
@@ -24,15 +36,22 @@ class ReaderControls extends StatelessWidget {
     required this.chapterLabel,
     required this.chapterTitle,
     required this.progress,
+    required this.remainingText,
     required this.palette,
     required this.fontSize,
     required this.lineHeight,
     required this.brightness,
     required this.pageTurnMode,
     required this.isListening,
+    required this.currentChapterIndex,
+    required this.chapterCount,
+    required this.catalogItems,
     required this.onBack,
     required this.onClose,
     required this.onModeChanged,
+    required this.onChapterSelected,
+    required this.onPreviousChapter,
+    required this.onNextChapter,
     required this.onPaletteChanged,
     required this.onFontSizeChanged,
     required this.onLineHeightChanged,
@@ -46,15 +65,22 @@ class ReaderControls extends StatelessWidget {
   final String chapterLabel;
   final String chapterTitle;
   final double progress;
+  final String remainingText;
   final ReaderPalette palette;
   final double fontSize;
   final double lineHeight;
   final double brightness;
   final String pageTurnMode;
   final bool isListening;
+  final int currentChapterIndex;
+  final int chapterCount;
+  final List<ReaderCatalogItem> catalogItems;
   final VoidCallback onBack;
   final VoidCallback onClose;
   final ValueChanged<ReaderOverlayMode> onModeChanged;
+  final ValueChanged<int> onChapterSelected;
+  final VoidCallback? onPreviousChapter;
+  final VoidCallback? onNextChapter;
   final ValueChanged<ReaderPalette> onPaletteChanged;
   final ValueChanged<double> onFontSizeChanged;
   final ValueChanged<double> onLineHeightChanged;
@@ -91,8 +117,6 @@ class ReaderControls extends StatelessWidget {
                 child: _ReaderTopControls(
                   metrics: metrics,
                   bookTitle: bookTitle,
-                  chapterLabel: chapterLabel,
-                  chapterTitle: chapterTitle,
                   palette: palette,
                   onBack: onBack,
                   onMore: () => onModeChanged(ReaderOverlayMode.more),
@@ -108,8 +132,11 @@ class ReaderControls extends StatelessWidget {
                   mode: mode,
                   chapterLabel: chapterLabel,
                   progress: progress,
+                  remainingText: remainingText,
                   palette: palette,
                   onCatalog: () => onModeChanged(ReaderOverlayMode.catalog),
+                  onPreviousChapter: onPreviousChapter,
+                  onNextChapter: onNextChapter,
                   onTypography: () =>
                       onModeChanged(ReaderOverlayMode.typography),
                   onTheme: () => onModeChanged(ReaderOverlayMode.theme),
@@ -124,9 +151,14 @@ class ReaderControls extends StatelessWidget {
               children.add(
                 _CatalogBottomSheet(
                   metrics: metrics,
+                  bookTitle: bookTitle,
                   chapterTitle: chapterTitle,
+                  chapterCount: chapterCount,
+                  currentChapterIndex: currentChapterIndex,
+                  chapters: catalogItems,
                   palette: palette,
                   onClose: () => onModeChanged(ReaderOverlayMode.controls),
+                  onChapterSelected: onChapterSelected,
                 ),
               );
             case ReaderOverlayMode.typography:
@@ -155,6 +187,8 @@ class ReaderControls extends StatelessWidget {
                 _ListeningPanel(
                   metrics: metrics,
                   palette: palette,
+                  chapterTitle: chapterTitle,
+                  remainingText: remainingText,
                   isListening: isListening,
                   onListeningChanged: onListeningChanged,
                 ),
@@ -368,8 +402,6 @@ class _ReaderTopControls extends StatelessWidget {
   const _ReaderTopControls({
     required this.metrics,
     required this.bookTitle,
-    required this.chapterLabel,
-    required this.chapterTitle,
     required this.palette,
     required this.onBack,
     required this.onMore,
@@ -377,8 +409,6 @@ class _ReaderTopControls extends StatelessWidget {
 
   final _ReaderOverlayMetrics metrics;
   final String bookTitle;
-  final String chapterLabel;
-  final String chapterTitle;
   final ReaderPalette palette;
   final VoidCallback onBack;
   final VoidCallback onMore;
@@ -406,30 +436,16 @@ class _ReaderTopControls extends StatelessWidget {
                 onTap: onBack,
               ),
               Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      bookTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: DudoTextStyles.sans(
-                        color: const Color(0xFF8A735A),
-                        fontSize: metrics.s(12),
-                      ),
-                    ),
-                    SizedBox(height: metrics.s(2)),
-                    Text(
-                      '$chapterLabel · $chapterTitle',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: DudoTextStyles.sans(
-                        color: const Color(0xFF25251F),
-                        fontSize: metrics.s(14),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  bookTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: DudoTextStyles.sans(
+                    color: const Color(0xFF25251F),
+                    fontSize: metrics.s(15),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               _IconTapArea(
@@ -452,8 +468,11 @@ class _ReaderBottomControls extends StatelessWidget {
     required this.mode,
     required this.chapterLabel,
     required this.progress,
+    required this.remainingText,
     required this.palette,
     required this.onCatalog,
+    required this.onPreviousChapter,
+    required this.onNextChapter,
     required this.onTypography,
     required this.onTheme,
     required this.onListening,
@@ -464,8 +483,11 @@ class _ReaderBottomControls extends StatelessWidget {
   final ReaderOverlayMode mode;
   final String chapterLabel;
   final double progress;
+  final String remainingText;
   final ReaderPalette palette;
   final VoidCallback onCatalog;
+  final VoidCallback? onPreviousChapter;
+  final VoidCallback? onNextChapter;
   final VoidCallback onTypography;
   final VoidCallback onTheme;
   final VoidCallback onListening;
@@ -495,10 +517,10 @@ class _ReaderBottomControls extends StatelessWidget {
                       label: '上一章',
                       icon: LucideIcons.chevronLeft,
                       palette: palette,
-                      onTap: () {},
+                      onTap: onPreviousChapter ?? () {},
                     ),
                     Text(
-                      '剩余 8 分钟',
+                      remainingText,
                       style: DudoTextStyles.sans(
                         color: const Color(0xFF6F6B61),
                         fontSize: metrics.s(12),
@@ -508,7 +530,7 @@ class _ReaderBottomControls extends StatelessWidget {
                       label: '下一章',
                       icon: LucideIcons.chevronRight,
                       palette: palette,
-                      onTap: () {},
+                      onTap: onNextChapter ?? () {},
                       reversed: true,
                     ),
                   ],
@@ -572,23 +594,25 @@ class _ReaderBottomControls extends StatelessWidget {
 class _CatalogBottomSheet extends StatelessWidget {
   const _CatalogBottomSheet({
     required this.metrics,
+    required this.bookTitle,
     required this.chapterTitle,
+    required this.chapterCount,
+    required this.currentChapterIndex,
+    required this.chapters,
     required this.palette,
     required this.onClose,
+    required this.onChapterSelected,
   });
 
   final _ReaderOverlayMetrics metrics;
+  final String bookTitle;
   final String chapterTitle;
+  final int chapterCount;
+  final int currentChapterIndex;
+  final List<ReaderCatalogItem> chapters;
   final ReaderPalette palette;
   final VoidCallback onClose;
-
-  static const chapters = [
-    ('第一章 · 旧世界的回声', '42% · 正在阅读'),
-    ('第二章 · 未读消息', '约 18 分钟'),
-    ('第三章 · 纸页背面', '约 23 分钟'),
-    ('第四章 · 长夜航线', '约 19 分钟'),
-    ('第五章 · 远处的钟声', '约 21 分钟'),
-  ];
+  final ValueChanged<int> onChapterSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -631,7 +655,7 @@ class _CatalogBottomSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '三体 · 共 912 章',
+                        '$bookTitle · 共 $chapterCount 章',
                         style: DudoTextStyles.sans(
                           color: const Color(0xFF8A735A),
                           fontSize: metrics.s(12),
@@ -672,24 +696,27 @@ class _CatalogBottomSheet extends StatelessWidget {
                   separatorBuilder: (_, __) => SizedBox(height: metrics.s(8)),
                   itemBuilder: (context, index) {
                     final chapter = chapters[index];
-                    final active = index == 0;
-                    return Container(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: metrics.s(14), vertical: metrics.s(12)),
-                      decoration: BoxDecoration(
-                        color: active
-                            ? DudoColors.primaryContainer
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(metrics.s(18)),
-                      ),
-                      child: Row(
+                    final active = chapter.chapterIndex == currentChapterIndex;
+                    return GestureDetector(
+                      onTap: () => onChapterSelected(chapter.chapterIndex),
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: metrics.s(14), vertical: metrics.s(12)),
+                        decoration: BoxDecoration(
+                          color: active
+                              ? DudoColors.primaryContainer
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(metrics.s(18)),
+                        ),
+                        child: Row(
                         children: [
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  chapter.$1,
+                                  chapter.title,
                                   style: DudoTextStyles.sans(
                                     color: palette.foreground,
                                     fontSize: metrics.s(14),
@@ -700,7 +727,7 @@ class _CatalogBottomSheet extends StatelessWidget {
                                 ),
                                 SizedBox(height: metrics.s(4)),
                                 Text(
-                                  chapter.$2,
+                                  chapter.subtitle,
                                   style: DudoTextStyles.sans(
                                     color: palette.mutedForeground ??
                                         DudoColors.textSecondary,
@@ -715,7 +742,8 @@ class _CatalogBottomSheet extends StatelessWidget {
                                 size: metrics.s(18), color: DudoColors.primary),
                         ],
                       ),
-                    );
+                    ),
+                  );
                   },
                 ),
               ),
@@ -1249,12 +1277,16 @@ class _ListeningPanel extends StatelessWidget {
   const _ListeningPanel({
     required this.metrics,
     required this.palette,
+    required this.chapterTitle,
+    required this.remainingText,
     required this.isListening,
     required this.onListeningChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
   final ReaderPalette palette;
+  final String chapterTitle;
+  final String remainingText;
   final bool isListening;
   final ValueChanged<bool> onListeningChanged;
 
@@ -1282,7 +1314,7 @@ class _ListeningPanel extends StatelessWidget {
                           fontSize: metrics.s(22),
                           fontWeight: FontWeight.w700)),
                   SizedBox(height: metrics.s(4)),
-                  Text('旧世界的回声 · 还剩 8 分钟',
+                  Text('$chapterTitle · $remainingText',
                       style: DudoTextStyles.sans(
                           color: const Color(0xFF8A735A),
                           fontSize: metrics.s(12))),

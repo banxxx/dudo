@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../core/database/app_database.dart';
 import 'bookshelf_repository.dart';
+import 'local_book_chapter_analysis_service.dart';
 
 class LocalBookImportCandidate {
   const LocalBookImportCandidate({
@@ -43,9 +44,13 @@ abstract class LocalBookImporter {
 }
 
 class LocalBookImportService implements LocalBookImporter {
-  const LocalBookImportService({required this.repository});
+  const LocalBookImportService({
+    required this.repository,
+    required this.chapterAnalysisService,
+  });
 
   final BookshelfRepository repository;
+  final LocalBookChapterAnalysisService chapterAnalysisService;
 
   @override
   Future<LocalBookImportCandidate?> pickTxtBook() async {
@@ -83,7 +88,6 @@ class LocalBookImportService implements LocalBookImporter {
     Book? overwriteBook,
   }) async {
     final sourceFile = File(candidate.sourcePath);
-    final content = await sourceFile.readAsString();
     final now = DateTime.now();
     final bookId = 'local_${now.microsecondsSinceEpoch}';
     final documentsDir = await getApplicationDocumentsDirectory();
@@ -105,15 +109,12 @@ class LocalBookImportService implements LocalBookImporter {
         inShelf: const Value(true),
         sortOrder: Value(now.millisecondsSinceEpoch),
       ),
-      chapter: ChaptersCompanion.insert(
-        id: '${bookId}_chapter_0',
-        bookId: bookId,
-        chapterIndex: 0,
-        title: '全文',
-        content: Value(content),
-        isCached: const Value(true),
-        fetchedAt: Value(now),
-      ),
+      chapters: const [],
+    );
+
+    chapterAnalysisService.analyzeInBackground(
+      bookId: bookId,
+      localPath: localPath,
     );
 
     if (overwriteBook != null) {

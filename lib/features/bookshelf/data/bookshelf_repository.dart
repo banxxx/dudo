@@ -42,6 +42,41 @@ class BookshelfRepository {
     return query.watch();
   }
 
+  Stream<List<Chapter>> watchChapterMetasForBook(String bookId) {
+    final query = database.selectOnly(database.chapters)
+      ..addColumns([
+        database.chapters.id,
+        database.chapters.bookId,
+        database.chapters.chapterIndex,
+        database.chapters.title,
+        database.chapters.url,
+        database.chapters.isCached,
+        database.chapters.fetchedAt,
+      ])
+      ..where(database.chapters.bookId.equals(bookId))
+      ..orderBy([
+        OrderingTerm(
+          expression: database.chapters.chapterIndex,
+          mode: OrderingMode.asc,
+        ),
+      ]);
+    return query.watch().map(
+          (rows) => [
+            for (final row in rows)
+              Chapter(
+                id: row.read(database.chapters.id)!,
+                bookId: row.read(database.chapters.bookId)!,
+                chapterIndex: row.read(database.chapters.chapterIndex)!,
+                title: row.read(database.chapters.title)!,
+                url: row.read(database.chapters.url),
+                content: null,
+                isCached: row.read(database.chapters.isCached)!,
+                fetchedAt: row.read(database.chapters.fetchedAt),
+              ),
+          ],
+        );
+  }
+
   Future<void> addBookToShelf(String bookId) async {
     await (database.update(database.books)
           ..where((book) => book.id.equals(bookId)))
@@ -49,6 +84,24 @@ class BookshelfRepository {
       BooksCompanion(
         inShelf: const Value(true),
         updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> updateReadingProgress({
+    required String bookId,
+    required int chapterIndex,
+    required int readPosition,
+  }) async {
+    final now = DateTime.now();
+    await (database.update(database.books)
+          ..where((book) => book.id.equals(bookId)))
+        .write(
+      BooksCompanion(
+        lastChapterIndex: Value(chapterIndex),
+        lastReadPosition: Value(readPosition),
+        updatedAt: Value(now),
+        sortOrder: Value(now.millisecondsSinceEpoch),
       ),
     );
   }
@@ -68,19 +121,19 @@ class BookshelfRepository {
 
   Future<void> insertImportedTxtBook({
     required BooksCompanion book,
-    required ChaptersCompanion chapter,
+    required List<ChaptersCompanion> chapters,
   }) async {
     await replaceImportedTxtBook(
       replacedBookIds: const {},
       book: book,
-      chapter: chapter,
+      chapters: chapters,
     );
   }
 
   Future<void> replaceImportedTxtBook({
     required Set<String> replacedBookIds,
     required BooksCompanion book,
-    required ChaptersCompanion chapter,
+    required List<ChaptersCompanion> chapters,
   }) async {
     await database.transaction(() async {
       if (replacedBookIds.isNotEmpty) {
@@ -95,7 +148,27 @@ class BookshelfRepository {
             .go();
       }
       await database.into(database.books).insert(book);
-      await database.into(database.chapters).insert(chapter);
+      if (chapters.isNotEmpty) {
+        await database.batch((batch) {
+          batch.insertAll(database.chapters, chapters);
+        });
+      }
+    });
+  }
+
+  Future<void> replaceChaptersForBook({
+    required String bookId,
+    required List<ChaptersCompanion> chapters,
+  }) async {
+    await database.transaction(() async {
+      await (database.delete(database.chapters)
+            ..where((chapter) => chapter.bookId.equals(bookId)))
+          .go();
+      if (chapters.isNotEmpty) {
+        await database.batch((batch) {
+          batch.insertAll(database.chapters, chapters);
+        });
+      }
     });
   }
 
