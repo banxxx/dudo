@@ -33,8 +33,6 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
 
   _MockReaderChapter get _chapter => _mockChapter;
 
-  bool get _isPureReading => _overlayMode == ReaderOverlayMode.hidden;
-
   @override
   void initState() {
     super.initState();
@@ -78,12 +76,11 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
               child: Stack(
                 children: [
                   _ReaderPaperBackground(palette: _palette),
-                  _SoftPageEdge(metrics: metrics, pureReading: _isPureReading),
+                  _SoftPageEdge(metrics: metrics),
                   _ReadingArticle(
                     metrics: metrics,
                     palette: _palette,
                     chapter: _chapter,
-                    pureReading: _isPureReading,
                     fontSize: _fontSize,
                     lineHeight: _lineHeight,
                     preview: _overlayMode != ReaderOverlayMode.hidden &&
@@ -94,7 +91,6 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                     palette: _palette,
                     chapterLabel: _chapter.chapterLabel,
                     progress: _chapter.progress,
-                    pureReading: _isPureReading,
                   ),
                   ReaderControls(
                     mode: _overlayMode,
@@ -148,12 +144,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   }
 
   void _syncSystemUiMode([ReaderOverlayMode? mode]) {
-    final nextMode = mode ?? _overlayMode;
-    if (nextMode == ReaderOverlayMode.hidden) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    } else {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    }
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 }
 
@@ -214,18 +205,17 @@ class _ReaderPaperBackground extends StatelessWidget {
 }
 
 class _SoftPageEdge extends StatelessWidget {
-  const _SoftPageEdge({required this.metrics, required this.pureReading});
+  const _SoftPageEdge({required this.metrics});
 
   final _ReaderPageMetrics metrics;
-  final bool pureReading;
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
       left: metrics.x(18),
-      top: metrics.y(pureReading ? 100 : 170),
+      top: metrics.y(100),
       width: metrics.s(1),
-      height: metrics.s(pureReading ? 610 : 432),
+      height: metrics.s(610),
       child: const ColoredBox(color: Color(0x66D8CDBB)),
     );
   }
@@ -236,7 +226,6 @@ class _ReadingArticle extends StatelessWidget {
     required this.metrics,
     required this.palette,
     required this.chapter,
-    required this.pureReading,
     required this.fontSize,
     required this.lineHeight,
     required this.preview,
@@ -245,22 +234,18 @@ class _ReadingArticle extends StatelessWidget {
   final _ReaderPageMetrics metrics;
   final ReaderPalette palette;
   final _MockReaderChapter chapter;
-  final bool pureReading;
   final double fontSize;
   final double lineHeight;
   final bool preview;
 
   @override
   Widget build(BuildContext context) {
-    final titleSize = pureReading ? 30.0 : 28.0;
-    final bodySize =
-    pureReading ? fontSize : (fontSize - 1).clamp(16, 23).toDouble();
     return Positioned(
       key: const ValueKey('reader-article'),
       left: metrics.x(30),
-      top: metrics.y(pureReading ? 92 : 164),
+      top: metrics.y(92),
       width: metrics.s(330),
-      height: metrics.s(pureReading ? 642 : 450),
+      height: metrics.s(642),
       child: Opacity(
         opacity: preview ? 0.42 : 1,
         child: ClipRect(
@@ -271,13 +256,13 @@ class _ReadingArticle extends StatelessWidget {
                 chapter.title,
                 style: DudoTextStyles.serif(
                   color: palette.foreground,
-                  fontSize: metrics.s(titleSize),
+                  fontSize: metrics.s(30),
                   fontWeight: FontWeight.w700,
                   height: 1.22,
                   letterSpacing: 0.2,
                 ),
               ),
-              SizedBox(height: metrics.s(pureReading ? 8 : 6)),
+              SizedBox(height: metrics.s(8)),
               Text(
                 chapter.chapterLabel,
                 style: DudoTextStyles.sans(
@@ -287,14 +272,14 @@ class _ReadingArticle extends StatelessWidget {
                   letterSpacing: 1.8,
                 ),
               ),
-              SizedBox(height: metrics.s(pureReading ? 18 : 14)),
+              SizedBox(height: metrics.s(18)),
               Expanded(
                 child: Text(
                   chapter.paragraphs.join('\n\n'),
                   overflow: TextOverflow.clip,
                   style: DudoTextStyles.serif(
                     color: palette.foreground,
-                    fontSize: metrics.s(bodySize),
+                    fontSize: metrics.s(fontSize),
                     height: lineHeight,
                     letterSpacing: 0.4,
                   ),
@@ -314,21 +299,19 @@ class _ReaderProgress extends StatelessWidget {
     required this.palette,
     required this.chapterLabel,
     required this.progress,
-    required this.pureReading,
   });
 
   final _ReaderPageMetrics metrics;
   final ReaderPalette palette;
   final String chapterLabel;
   final double progress;
-  final bool pureReading;
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
       key: const ValueKey('reader-progress'),
       left: metrics.x(30),
-      top: metrics.y(pureReading ? 766 : 650),
+      top: metrics.y(766),
       width: metrics.s(330),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

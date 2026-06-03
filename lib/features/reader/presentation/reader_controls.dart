@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -107,6 +105,7 @@ class ReaderControls extends StatelessWidget {
                 visible: _showsBars,
                 child: _ReaderBottomControls(
                   metrics: metrics,
+                  mode: mode,
                   chapterLabel: chapterLabel,
                   progress: progress,
                   palette: palette,
@@ -228,7 +227,7 @@ class _GlassSurface extends StatelessWidget {
     required this.child,
     required this.borderRadius,
     required this.fill,
-    this.shadowColor = const Color(0x2625251F),
+    this.shadowColor = const Color(0x3325251F),
     this.shadowOffset = const Offset(0, 12),
     this.shadowBlur = 34,
   });
@@ -242,22 +241,29 @@ class _GlassSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: borderRadius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        boxShadow: [
+          BoxShadow(
+            color: shadowColor,
+            blurRadius: shadowBlur,
+            offset: shadowOffset,
+          ),
+          const BoxShadow(
+            color: Color(0x12FFFFFF),
+            blurRadius: 1,
+            offset: Offset(0, -1),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: borderRadius,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: fill,
             borderRadius: borderRadius,
-            border: Border.all(color: const Color(0xAAFFFFFF)),
-            boxShadow: [
-              BoxShadow(
-                color: shadowColor,
-                blurRadius: shadowBlur,
-                offset: shadowOffset,
-              ),
-            ],
+            border: Border.all(color: const Color(0xFFE7DCC8)),
           ),
           child: child,
         ),
@@ -384,7 +390,7 @@ class _ReaderTopControls extends StatelessWidget {
       width: metrics.s(358),
       height: metrics.s(58),
       child: _GlassSurface(
-        fill: palette.panel ?? const Color(0xEAFFF8EA),
+        fill: const Color(0xFFFFF8EA),
         borderRadius: BorderRadius.circular(metrics.s(24)),
         shadowColor: const Color(0x1F25251F),
         shadowOffset: Offset(0, metrics.s(10)),
@@ -443,6 +449,7 @@ class _ReaderTopControls extends StatelessWidget {
 class _ReaderBottomControls extends StatelessWidget {
   const _ReaderBottomControls({
     required this.metrics,
+    required this.mode,
     required this.chapterLabel,
     required this.progress,
     required this.palette,
@@ -454,6 +461,7 @@ class _ReaderBottomControls extends StatelessWidget {
   });
 
   final _ReaderOverlayMetrics metrics;
+  final ReaderOverlayMode mode;
   final String chapterLabel;
   final double progress;
   final ReaderPalette palette;
@@ -470,7 +478,7 @@ class _ReaderBottomControls extends StatelessWidget {
       width: metrics.s(358),
       height: metrics.s(124),
       child: _GlassSurface(
-        fill: palette.panelStrong ?? const Color(0xF0FFF8EA),
+        fill: const Color(0xFFFFF8EA),
         borderRadius: BorderRadius.circular(metrics.s(28)),
         shadowOffset: Offset(0, metrics.s(14)),
         shadowBlur: metrics.s(34),
@@ -515,6 +523,7 @@ class _ReaderBottomControls extends StatelessWidget {
                           icon: LucideIcons.list,
                           label: '目录',
                           palette: palette,
+                          active: mode == ReaderOverlayMode.catalog,
                           onPressed: onCatalog),
                     ),
                     Expanded(
@@ -522,6 +531,7 @@ class _ReaderBottomControls extends StatelessWidget {
                           icon: LucideIcons.type,
                           label: '排版',
                           palette: palette,
+                          active: mode == ReaderOverlayMode.typography,
                           onPressed: onTypography),
                     ),
                     Expanded(
@@ -529,6 +539,7 @@ class _ReaderBottomControls extends StatelessWidget {
                           icon: LucideIcons.palette,
                           label: '主题',
                           palette: palette,
+                          active: mode == ReaderOverlayMode.theme,
                           onPressed: onTheme),
                     ),
                     Expanded(
@@ -536,6 +547,7 @@ class _ReaderBottomControls extends StatelessWidget {
                           icon: LucideIcons.panelsTopLeft,
                           label: '翻页',
                           palette: palette,
+                          active: mode == ReaderOverlayMode.pageTurn,
                           onPressed: onPageTurn),
                     ),
                     Expanded(
@@ -543,6 +555,7 @@ class _ReaderBottomControls extends StatelessWidget {
                           icon: LucideIcons.volume2,
                           label: '朗读',
                           palette: palette,
+                          active: mode == ReaderOverlayMode.listening,
                           onPressed: onListening),
                     ),
                   ],
@@ -742,55 +755,206 @@ class _TypographyPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelTitle(
-              metrics: metrics,
-              palette: palette,
-              title: '阅读排版',
-              subtitle:
-                  '字号 ${fontSize.round()} · 行高 ${lineHeight.toStringAsFixed(2)}'),
+          Text(
+            '阅读排版',
+            style: DudoTextStyles.serif(
+              color: const Color(0xFF25251F),
+              fontSize: metrics.s(22),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           SizedBox(height: metrics.s(12)),
-          Row(
+          Column(
             children: [
-              _RoundAction(
-                  icon: LucideIcons.minus,
-                  palette: palette,
-                  onTap: () => onFontSizeChanged(
-                      (fontSize - 1).clamp(16, 24).toDouble())),
-              Expanded(
-                child: Slider(
-                  value: fontSize,
-                  min: 16,
-                  max: 24,
-                  divisions: 8,
-                  activeColor: palette.accent ?? DudoColors.primary,
-                  inactiveColor: DudoColors.outlineVariant,
-                  onChanged: onFontSizeChanged,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '字号',
+                    style: DudoTextStyles.sans(
+                      color: const Color(0xFF25251F),
+                      fontSize: metrics.s(14),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    fontSize.round().toString(),
+                    style: DudoTextStyles.sans(
+                      color: const Color(0xFF8A735A),
+                      fontSize: metrics.s(13),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: metrics.s(8)),
+              SizedBox(
+                height: metrics.s(40),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _TypographyPill(
+                        label: 'A-',
+                        metrics: metrics,
+                        selected: false,
+                        onTap: () => onFontSizeChanged(
+                            (fontSize - 1).clamp(16, 24).toDouble()),
+                      ),
+                    ),
+                    SizedBox(width: metrics.s(8)),
+                    Expanded(
+                      child: _TypographyPill(
+                        label: fontSize.round().toString(),
+                        metrics: metrics,
+                        selected: true,
+                        onTap: () {},
+                      ),
+                    ),
+                    SizedBox(width: metrics.s(8)),
+                    Expanded(
+                      child: _TypographyPill(
+                        label: 'A+',
+                        metrics: metrics,
+                        selected: false,
+                        onTap: () => onFontSizeChanged(
+                            (fontSize + 1).clamp(16, 24).toDouble()),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              _RoundAction(
-                  icon: LucideIcons.plus,
-                  palette: palette,
-                  onTap: () => onFontSizeChanged(
-                      (fontSize + 1).clamp(16, 24).toDouble())),
             ],
           ),
-          SizedBox(height: metrics.s(8)),
-          _ChoiceRow(
-            metrics: metrics,
-            palette: palette,
-            labels: const ['紧凑', '默认', '宽松'],
-            selected: lineHeight < 1.65
-                ? '紧凑'
-                : lineHeight > 1.78
-                    ? '宽松'
-                    : '默认',
-            onSelected: (label) => onLineHeightChanged(label == '紧凑'
-                ? 1.55
-                : label == '宽松'
-                    ? 1.86
-                    : 1.72),
+          SizedBox(height: metrics.s(12)),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _TypographyOptionCard(
+                    metrics: metrics,
+                    title: '行距',
+                    value: '舒适',
+                    selected: true,
+                    onTap: () => onLineHeightChanged(1.72),
+                  ),
+                ),
+                SizedBox(width: metrics.s(10)),
+                Expanded(
+                  child: _TypographyOptionCard(
+                    metrics: metrics,
+                    title: '字体',
+                    value: '宋体',
+                    selected: false,
+                    onTap: () {},
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TypographyPill extends StatelessWidget {
+  const _TypographyPill({
+    required this.label,
+    required this.metrics,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final _ReaderOverlayMetrics metrics;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: AppRadius.full,
+      child: Container(
+        height: metrics.s(40),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF25251F) : const Color(0xFFF3ECDD),
+          borderRadius: AppRadius.full,
+        ),
+        child: Text(
+          label,
+          style: DudoTextStyles.sans(
+            color: selected ? const Color(0xFFFFF8EA) : const Color(0xFF8A735A),
+            fontSize: metrics.s(13),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TypographyOptionCard extends StatelessWidget {
+  const _TypographyOptionCard({
+    required this.metrics,
+    required this.title,
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final String title;
+  final String value;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleColor = selected ? const Color(0xFF1B2918) : const Color(0xFF25251F);
+    final valueColor = selected ? const Color(0xFF5E6F5B) : const Color(0xFF8A735A);
+    final sampleColor = selected ? const Color(0x665E6F5B) : const Color(0xFFD8CDBB);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(metrics.s(18)),
+      child: Container(
+        padding: EdgeInsets.all(metrics.s(12)),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFDDE8D4) : const Color(0xFFFFFBF2),
+          borderRadius: BorderRadius.circular(metrics.s(18)),
+          border: Border.all(
+            color: selected ? const Color(0xFFBFD0B5) : const Color(0xFFE7DCC8),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: DudoTextStyles.sans(
+                color: titleColor,
+                fontSize: metrics.s(13),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            SizedBox(height: metrics.s(6)),
+            Text(
+              value,
+              style: DudoTextStyles.sans(
+                color: valueColor,
+                fontSize: metrics.s(12),
+              ),
+            ),
+            const Spacer(),
+            Container(
+              height: metrics.s(4),
+              decoration: BoxDecoration(
+                color: sampleColor,
+                borderRadius: AppRadius.full,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -813,79 +977,269 @@ class _ThemePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final items = <ReaderPalette>[
+      ReaderTheme.parchment,
+      ReaderTheme.eyeCare,
+      ReaderTheme.night,
+    ];
+    final displayNames = <String, String>{
+      ReaderTheme.parchment.name: '纸页',
+      ReaderTheme.eyeCare.name: '护眼',
+      ReaderTheme.night.name: '夜读',
+    };
     return _FloatingPanel(
       key: const ValueKey('reader-theme-panel'),
       metrics: metrics,
-      top: 424,
-      height: 256,
+      top: 410,
+      height: 270,
       palette: palette,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelTitle(
-              metrics: metrics,
-              palette: palette,
-              title: '阅读主题',
-              subtitle: '纸张、亮度与护眼模式'),
-          SizedBox(height: metrics.s(14)),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              for (final item in ReaderTheme.presets)
-                GestureDetector(
-                  onTap: () => onPaletteChanged(item),
-                  child: Container(
-                    width: metrics.s(70),
-                    height: metrics.s(58),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          item.background,
-                          item.backgroundEnd ?? item.background
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(metrics.s(18)),
-                      border: Border.all(
-                        color: item.name == palette.name
-                            ? (palette.accent ?? DudoColors.primary)
-                            : (palette.outline ?? DudoColors.outline),
-                        width: item.name == palette.name ? 2 : 1,
-                      ),
+          Text('阅读主题',
+              style: DudoTextStyles.serif(
+                  color: const Color(0xFF25251F),
+                  fontSize: metrics.s(22),
+                  fontWeight: FontWeight.w700)),
+          SizedBox(height: metrics.s(11)),
+          SizedBox(
+            height: metrics.s(104),
+            child: Row(
+              children: [
+                for (var i = 0; i < items.length; i++) ...[
+                  if (i > 0) SizedBox(width: metrics.s(10)),
+                  Expanded(
+                    child: _ThemeSwatchCard(
+                      metrics: metrics,
+                      item: items[i],
+                      label: displayNames[items[i].name] ?? items[i].name,
+                      selected: items[i].name == palette.name,
+                      onTap: () => onPaletteChanged(items[i]),
                     ),
-                    alignment: Alignment.center,
-                    child: Text('A',
-                        style: DudoTextStyles.serif(
-                            color: item.foreground,
-                            fontSize: metrics.s(22),
-                            fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          SizedBox(height: metrics.s(11)),
+          _BrightnessRow(
+            metrics: metrics,
+            brightness: brightness,
+            onBrightnessChanged: onBrightnessChanged,
+          ),
+          SizedBox(height: metrics.s(11)),
+          SizedBox(
+            height: metrics.s(32),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _ThemeFooterPill(
+                    metrics: metrics,
+                    label: '跟随系统',
+                    background: const Color(0xFFF3ECDD),
+                    foreground: const Color(0xFF8A735A),
+                    onTap: () {},
                   ),
                 ),
-            ],
-          ),
-          SizedBox(height: metrics.s(18)),
-          Row(
-            children: [
-              Icon(LucideIcons.sun,
-                  size: metrics.s(18),
-                  color: palette.mutedForeground ?? DudoColors.secondary),
-              Expanded(
-                child: Slider(
-                  value: brightness,
-                  activeColor: palette.accent ?? DudoColors.primary,
-                  inactiveColor: DudoColors.outlineVariant,
-                  onChanged: onBrightnessChanged,
+                SizedBox(width: metrics.s(8)),
+                Expanded(
+                  child: _ThemeFooterPill(
+                    metrics: metrics,
+                    label: '护眼增强',
+                    background: const Color(0xFFDDE8D4),
+                    foreground: const Color(0xFF5E6F5B),
+                    onTap: () {},
+                  ),
                 ),
-              ),
-              Text('${(brightness * 100).round()}%',
-                  style: DudoTextStyles.numeric(
-                      color: palette.foreground,
-                      fontSize: metrics.s(12),
-                      fontWeight: FontWeight.w600)),
-            ],
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ThemeSwatchCard extends StatelessWidget {
+  const _ThemeSwatchCard({
+    required this.metrics,
+    required this.item,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final ReaderPalette item;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = selected
+        ? const Color(0xFF5E6F5B)
+        : (item.outline ?? const Color(0xFFBFD0B5));
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: EdgeInsets.all(metrics.s(10)),
+        decoration: BoxDecoration(
+          color: item.background,
+          borderRadius: BorderRadius.circular(metrics.s(20)),
+          border: Border.all(color: borderColor, width: selected ? 2 : 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: DudoTextStyles.sans(
+                    color: item.foreground,
+                    fontSize: metrics.s(13),
+                    fontWeight: FontWeight.w600)),
+            SizedBox(height: metrics.s(8)),
+            Container(
+              height: metrics.s(4),
+              decoration: BoxDecoration(
+                color: item.foreground.withValues(alpha: 0.4),
+                borderRadius: AppRadius.full,
+              ),
+            ),
+            SizedBox(height: metrics.s(8)),
+            Container(
+              width: metrics.s(42),
+              height: metrics.s(4),
+              decoration: BoxDecoration(
+                color: item.foreground.withValues(alpha: 0.27),
+                borderRadius: AppRadius.full,
+              ),
+            ),
+            const Spacer(),
+            if (selected)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  width: metrics.s(18),
+                  height: metrics.s(18),
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF5E6F5B),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(LucideIcons.check,
+                      size: metrics.s(12), color: const Color(0xFFFFF8EA)),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BrightnessRow extends StatelessWidget {
+  const _BrightnessRow({
+    required this.metrics,
+    required this.brightness,
+    required this.onBrightnessChanged,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final double brightness;
+  final ValueChanged<double> onBrightnessChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final clamped = brightness.clamp(0.0, 1.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('亮度',
+                style: DudoTextStyles.sans(
+                    color: const Color(0xFF25251F),
+                    fontSize: metrics.s(14),
+                    fontWeight: FontWeight.w600)),
+            Text('${(clamped * 100).round()}%',
+                style: DudoTextStyles.sans(
+                    color: const Color(0xFF8A735A),
+                    fontSize: metrics.s(13))),
+          ],
+        ),
+        SizedBox(height: metrics.s(8)),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            void updateFromOffset(double dx) {
+              final ratio = (dx / constraints.maxWidth).clamp(0.0, 1.0);
+              onBrightnessChanged(ratio);
+            }
+
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (d) => updateFromOffset(d.localPosition.dx),
+              onHorizontalDragUpdate: (d) =>
+                  updateFromOffset(d.localPosition.dx),
+              child: Container(
+                height: metrics.s(6),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFD8CDBB),
+                  borderRadius: AppRadius.full,
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: clamped == 0 ? 0.0001 : clamped,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF5E6F5B),
+                        borderRadius: AppRadius.full,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _ThemeFooterPill extends StatelessWidget {
+  const _ThemeFooterPill({
+    required this.metrics,
+    required this.label,
+    required this.background,
+    required this.foreground,
+    required this.onTap,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final String label;
+  final Color background;
+  final Color foreground;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(metrics.s(15)),
+        ),
+        child: Text(label,
+            style: DudoTextStyles.sans(
+                color: foreground,
+                fontSize: metrics.s(12),
+                fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -906,20 +1260,7 @@ class _ListeningPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bars = [
-      18.0,
-      32.0,
-      24.0,
-      42.0,
-      28.0,
-      36.0,
-      20.0,
-      30.0,
-      46.0,
-      24.0,
-      34.0,
-      18.0
-    ];
+    final bars = <double>[18, 34, 26, 44, 22, 38, 28, 16, 30];
     return _FloatingPanel(
       key: const ValueKey('reader-listening-panel'),
       metrics: metrics,
@@ -929,55 +1270,127 @@ class _ListeningPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelTitle(
-              metrics: metrics,
-              palette: palette,
-              title: '正在听书',
-              subtitle: '温柔女声 · 1.0x'),
-          SizedBox(height: metrics.s(18)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(isListening ? '朗读中' : '朗读',
+                      style: DudoTextStyles.serif(
+                          color: const Color(0xFF25251F),
+                          fontSize: metrics.s(22),
+                          fontWeight: FontWeight.w700)),
+                  SizedBox(height: metrics.s(4)),
+                  Text('旧世界的回声 · 还剩 8 分钟',
+                      style: DudoTextStyles.sans(
+                          color: const Color(0xFF8A735A),
+                          fontSize: metrics.s(12))),
+                ],
+              ),
+              GestureDetector(
+                onTap: () => onListeningChanged(!isListening),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: metrics.s(48),
+                  height: metrics.s(48),
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF25251F),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isListening ? LucideIcons.pause : LucideIcons.play,
+                    size: metrics.s(20),
+                    color: const Color(0xFFFFF8EA),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: metrics.s(14)),
           SizedBox(
-            height: metrics.s(48),
+            height: metrics.s(54),
+            width: double.infinity,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                for (var i = 0; i < bars.length; i++)
+                for (var i = 0; i < bars.length; i++) ...[
+                  if (i > 0) SizedBox(width: metrics.s(6)),
                   AnimatedContainer(
                     duration: AppMotion.medium,
                     width: metrics.s(8),
                     height: metrics.s(
-                      (isListening ? bars[i] : 14 + i % 3 * 6).toDouble(),
+                      isListening ? bars[i] : (16 + i % 3 * 6).toDouble(),
                     ),
                     decoration: BoxDecoration(
-                      color: i.isEven
-                          ? (palette.accent ?? DudoColors.primary)
-                          : DudoColors.outline,
+                      color: i == 3
+                          ? const Color(0xFF5E6F5B)
+                          : const Color(0xFFD8CDBB),
                       borderRadius: AppRadius.full,
                     ),
                   ),
+                ],
               ],
             ),
           ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _RoundAction(
-                  icon: LucideIcons.skipBack, palette: palette, onTap: () {}),
-              SizedBox(width: metrics.s(18)),
-              _PlayButton(
-                  metrics: metrics,
-                  palette: palette,
-                  isPlaying: isListening,
-                  onTap: () => onListeningChanged(!isListening)),
-              SizedBox(width: metrics.s(18)),
-              _RoundAction(
-                  icon: LucideIcons.skipForward,
-                  palette: palette,
-                  onTap: () {}),
-            ],
+          SizedBox(height: metrics.s(14)),
+          SizedBox(
+            height: metrics.s(38),
+            child: Row(
+              children: [
+                for (var i = 0; i < 4; i++) ...[
+                  if (i > 0) SizedBox(width: metrics.s(10)),
+                  Expanded(
+                    child: _ListeningPill(
+                      metrics: metrics,
+                      label: const ['0.8x', '1.0x', '1.2x', '定时'][i],
+                      selected: i == 1,
+                      onTap: () {},
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ListeningPill extends StatelessWidget {
+  const _ListeningPill({
+    required this.metrics,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFDDE8D4) : const Color(0xFFF3ECDD),
+          borderRadius: BorderRadius.circular(metrics.s(19)),
+        ),
+        child: Text(label,
+            style: DudoTextStyles.sans(
+                color: selected
+                    ? const Color(0xFF5E6F5B)
+                    : const Color(0xFF8A735A),
+                fontSize: metrics.s(13),
+                fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -1011,7 +1424,7 @@ class _MoreMenuPopover extends StatelessWidget {
       width: metrics.s(228),
       height: metrics.s(266),
       child: _GlassSurface(
-        fill: palette.panelStrong ?? const Color(0xF2FFF8EA),
+        fill: const Color(0xFFFFF8EA),
         borderRadius: BorderRadius.circular(metrics.s(24)),
         child: Padding(
           padding: EdgeInsets.all(metrics.s(10)),
@@ -1051,41 +1464,197 @@ class _PageTurnPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final modes = <_PageTurnModeData>[
+      const _PageTurnModeData(
+        label: '仿真',
+        description: '像纸书一样翻动',
+        icon: LucideIcons.bookOpen,
+      ),
+      const _PageTurnModeData(
+        label: '滑动',
+        description: '左右滑动切页',
+        icon: LucideIcons.moveHorizontal,
+      ),
+      const _PageTurnModeData(
+        label: '滚动',
+        description: '连续纵向阅读',
+        icon: LucideIcons.scrollText,
+      ),
+    ];
     return _FloatingPanel(
       key: const ValueKey('reader-page-turn-panel'),
       metrics: metrics,
-      top: 444,
-      height: 236,
+      top: 428,
+      height: 252,
       palette: palette,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _PanelTitle(
-              metrics: metrics,
-              palette: palette,
-              title: '翻页方式',
-              subtitle: '选择最贴近纸书的翻页节奏'),
-          SizedBox(height: metrics.s(16)),
-          _ChoiceRow(
-            metrics: metrics,
-            palette: palette,
-            labels: const ['仿真', '滑动', '覆盖'],
-            selected: selectedMode,
-            onSelected: onModeChanged,
+          Text('翻页方式',
+              style: DudoTextStyles.serif(
+                  color: const Color(0xFF25251F),
+                  fontSize: metrics.s(22),
+                  fontWeight: FontWeight.w700)),
+          SizedBox(height: metrics.s(12)),
+          SizedBox(
+            height: metrics.s(118),
+            child: Row(
+              children: [
+                for (var i = 0; i < modes.length; i++) ...[
+                  if (i > 0) SizedBox(width: metrics.s(10)),
+                  Expanded(
+                    child: _PageTurnModeCard(
+                      metrics: metrics,
+                      data: modes[i],
+                      selected: modes[i].label == selectedMode,
+                      onTap: () => onModeChanged(modes[i].label),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
-          SizedBox(height: metrics.s(18)),
-          Text('点击区域',
-              style: DudoTextStyles.sans(
-                  color: palette.mutedForeground ?? DudoColors.textSecondary,
-                  fontSize: metrics.s(12))),
-          SizedBox(height: metrics.s(8)),
-          _ChoiceRow(
-            metrics: metrics,
-            palette: palette,
-            labels: const ['左右翻页', '整屏翻页'],
-            selected: '左右翻页',
-            onSelected: (_) {},
+          SizedBox(height: metrics.s(12)),
+          SizedBox(
+            height: metrics.s(34),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('点击区域',
+                    style: DudoTextStyles.sans(
+                        color: const Color(0xFF25251F),
+                        fontSize: metrics.s(14),
+                        fontWeight: FontWeight.w600)),
+                _TapAreaSegments(
+                  metrics: metrics,
+                  labels: const ['左右', '上下'],
+                  selected: '左右',
+                  onSelected: (_) {},
+                ),
+              ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PageTurnModeData {
+  const _PageTurnModeData({
+    required this.label,
+    required this.description,
+    required this.icon,
+  });
+
+  final String label;
+  final String description;
+  final IconData icon;
+}
+
+class _PageTurnModeCard extends StatelessWidget {
+  const _PageTurnModeCard({
+    required this.metrics,
+    required this.data,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final _PageTurnModeData data;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = selected ? const Color(0xFFDDE8D4) : const Color(0xFFFFFBF2);
+    final borderColor =
+        selected ? const Color(0xFF5E6F5B) : const Color(0xFFE7DCC8);
+    final iconColor =
+        selected ? const Color(0xFF5E6F5B) : const Color(0xFF8A735A);
+    final labelColor =
+        selected ? const Color(0xFF1B2918) : const Color(0xFF25251F);
+    final descColor =
+        selected ? const Color(0xFF5E6F5B) : const Color(0xFF8A735A);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: EdgeInsets.all(metrics.s(10)),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(metrics.s(20)),
+          border: Border.all(color: borderColor, width: selected ? 2 : 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(data.icon, size: metrics.s(20), color: iconColor),
+            SizedBox(height: metrics.s(8)),
+            Text(data.label,
+                style: DudoTextStyles.sans(
+                    color: labelColor,
+                    fontSize: metrics.s(13),
+                    fontWeight: FontWeight.w600)),
+            SizedBox(height: metrics.s(8)),
+            Text(data.description,
+                style: DudoTextStyles.sans(
+                    color: descColor, fontSize: metrics.s(11), height: 1.25)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TapAreaSegments extends StatelessWidget {
+  const _TapAreaSegments({
+    required this.metrics,
+    required this.labels,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final List<String> labels;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(metrics.s(4)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3ECDD),
+        borderRadius: BorderRadius.circular(metrics.s(17)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < labels.length; i++) ...[
+            if (i > 0) SizedBox(width: metrics.s(4)),
+            GestureDetector(
+              onTap: () => onSelected(labels[i]),
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: metrics.s(12)),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: labels[i] == selected
+                      ? const Color(0xFF25251F)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(metrics.s(14)),
+                ),
+                child: Text(labels[i],
+                    style: DudoTextStyles.sans(
+                        color: labels[i] == selected
+                            ? const Color(0xFFFFF8EA)
+                            : const Color(0xFF8A735A),
+                        fontSize: metrics.s(12),
+                        fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1116,46 +1685,15 @@ class _FloatingPanel extends StatelessWidget {
       width: metrics.s(358),
       height: metrics.s(height),
       child: _GlassSurface(
-        fill: palette.panelStrong ?? const Color(0xF2FFF8EA),
+        fill: const Color(0xFFFFF8EA),
         borderRadius: BorderRadius.circular(metrics.s(26)),
+        shadowOffset: Offset(0, metrics.s(12)),
+        shadowBlur: metrics.s(34),
         child: Padding(
           padding: EdgeInsets.all(metrics.s(16)),
           child: child,
         ),
       ),
-    );
-  }
-}
-
-class _PanelTitle extends StatelessWidget {
-  const _PanelTitle({
-    required this.metrics,
-    required this.palette,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final _ReaderOverlayMetrics metrics;
-  final ReaderPalette palette;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title,
-            style: DudoTextStyles.serif(
-                color: palette.foreground,
-                fontSize: metrics.s(20),
-                fontWeight: FontWeight.w700)),
-        SizedBox(height: metrics.s(4)),
-        Text(subtitle,
-            style: DudoTextStyles.sans(
-                color: palette.mutedForeground ?? DudoColors.textSecondary,
-                fontSize: metrics.s(12))),
-      ],
     );
   }
 }
@@ -1207,57 +1745,6 @@ class _SegmentTabs extends StatelessWidget {
   }
 }
 
-class _ChoiceRow extends StatelessWidget {
-  const _ChoiceRow(
-      {required this.metrics,
-      required this.palette,
-      required this.labels,
-      required this.selected,
-      required this.onSelected});
-
-  final _ReaderOverlayMetrics metrics;
-  final ReaderPalette palette;
-  final List<String> labels;
-  final String selected;
-  final ValueChanged<String> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (final label in labels) ...[
-          Expanded(
-            child: GestureDetector(
-              onTap: () => onSelected(label),
-              child: AnimatedContainer(
-                duration: AppMotion.short,
-                height: metrics.s(44),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: label == selected
-                      ? DudoColors.primaryContainer
-                      : DudoColors.surfaceLow.withValues(alpha: 0.62),
-                  borderRadius: BorderRadius.circular(metrics.s(16)),
-                  border: Border.all(
-                      color: label == selected
-                          ? DudoColors.primaryContainerStrong
-                          : Colors.transparent),
-                ),
-                child: Text(label,
-                    style: DudoTextStyles.sans(
-                        color: palette.foreground,
-                        fontSize: metrics.s(13),
-                        fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ),
-          if (label != labels.last) SizedBox(width: metrics.s(8)),
-        ],
-      ],
-    );
-  }
-}
-
 class _IconTapArea extends StatelessWidget {
   const _IconTapArea(
       {required this.tooltip,
@@ -1292,30 +1779,37 @@ class _ToolButton extends StatelessWidget {
       {required this.icon,
       required this.label,
       required this.palette,
-      required this.onPressed});
+      required this.onPressed,
+      this.active = false});
 
   final IconData icon;
   final String label;
   final ReaderPalette palette;
   final VoidCallback onPressed;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
+    final foreground = active ? const Color(0xFF5E6F5B) : const Color(0xFF8A735A);
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(16),
-      child: SizedBox(
+      child: Container(
         height: 52,
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFFDDE8D4) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: const Color(0xFF8A735A), size: 17),
+            Icon(icon, color: foreground, size: 17),
             const SizedBox(height: 3),
             Text(label,
                 style: DudoTextStyles.sans(
-                    color: const Color(0xFF8A735A),
+                    color: foreground,
                     fontSize: 9,
-                    fontWeight: FontWeight.normal)),
+                    fontWeight: active ? FontWeight.w600 : FontWeight.normal)),
           ],
         ),
       ),
@@ -1359,60 +1853,6 @@ class _SmallPillButton extends StatelessWidget {
         decoration:
             BoxDecoration(color: background, borderRadius: AppRadius.full),
         child: Row(children: reversed ? children.reversed.toList() : children),
-      ),
-    );
-  }
-}
-
-class _RoundAction extends StatelessWidget {
-  const _RoundAction(
-      {required this.icon, required this.palette, required this.onTap});
-
-  final IconData icon;
-  final ReaderPalette palette;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: AppRadius.full,
-      child: Container(
-        width: 42,
-        height: 42,
-        decoration: const BoxDecoration(
-            color: DudoColors.surfaceLow, borderRadius: AppRadius.full),
-        child: Icon(icon, size: 18, color: palette.foreground),
-      ),
-    );
-  }
-}
-
-class _PlayButton extends StatelessWidget {
-  const _PlayButton(
-      {required this.metrics,
-      required this.palette,
-      required this.isPlaying,
-      required this.onTap});
-
-  final _ReaderOverlayMetrics metrics;
-  final ReaderPalette palette;
-  final bool isPlaying;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: AppRadius.full,
-      child: Container(
-        width: metrics.s(54),
-        height: metrics.s(54),
-        decoration: BoxDecoration(
-            color: palette.accent ?? DudoColors.primary,
-            borderRadius: AppRadius.full),
-        child: Icon(isPlaying ? LucideIcons.pause : LucideIcons.play,
-            size: metrics.s(24), color: Colors.white),
       ),
     );
   }
