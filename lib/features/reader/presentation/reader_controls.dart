@@ -144,7 +144,7 @@ class ReaderControls extends StatelessWidget {
                   hasMore: catalogHasMore,
                   isLoadingMore: catalogIsLoadingMore,
                   palette: palette,
-                  onClose: () => onModeChanged(ReaderOverlayMode.controls),
+                  onClose: () => onModeChanged(ReaderOverlayMode.hidden),
                   onChapterSelected: onChapterSelected,
                   onLoadMore: onCatalogLoadMore,
                 ),
@@ -579,7 +579,7 @@ class _ReaderBottomControls extends StatelessWidget {
   }
 }
 
-class _CatalogBottomSheet extends StatelessWidget {
+class _CatalogBottomSheet extends StatefulWidget {
   const _CatalogBottomSheet({
     required this.metrics,
     required this.bookTitle,
@@ -609,171 +609,273 @@ class _CatalogBottomSheet extends StatelessWidget {
   final VoidCallback? onLoadMore;
 
   @override
+  State<_CatalogBottomSheet> createState() => _CatalogBottomSheetState();
+}
+
+class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _dragController;
+  double _dragOffset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _dragController = AnimationController.unbounded(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    )..addListener(() {
+        setState(() => _dragOffset = _dragController.value);
+      });
+  }
+
+  @override
+  void dispose() {
+    _dragController.dispose();
+    super.dispose();
+  }
+
+  void _handleHeaderDragStart(DragStartDetails details) {
+    _dragController.stop();
+  }
+
+  void _handleHeaderDragUpdate(DragUpdateDetails details) {
+    final nextOffset =
+        (_dragOffset + details.delta.dy).clamp(0.0, double.infinity);
+    if (nextOffset == _dragOffset) return;
+    setState(() => _dragOffset = nextOffset);
+  }
+
+  void _handleHeaderDragEnd(DragEndDetails details) {
+    final sheetHeight = widget.metrics.s(608);
+    final velocity = details.primaryVelocity ?? 0;
+    final shouldClose = _dragOffset > sheetHeight * 0.25 ||
+        (velocity > 900 && _dragOffset > sheetHeight * 0.08);
+    if (shouldClose) {
+      _animateClosed(sheetHeight: sheetHeight, velocity: velocity);
+      return;
+    }
+    _animateBack();
+  }
+
+  void _handleHeaderDragCancel() {
+    _animateBack();
+  }
+
+  void _animateBack() {
+    _dragController.value = _dragOffset;
+    _dragController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _animateClosed({
+    required double sheetHeight,
+    required double velocity,
+  }) {
+    final remainingDistance =
+        (sheetHeight - _dragOffset).clamp(1.0, sheetHeight).toDouble();
+    final effectiveVelocity = velocity.abs().clamp(900.0, 3200.0).toDouble();
+    final durationMs =
+        (remainingDistance / effectiveVelocity * 1000).clamp(110, 260).round();
+
+    _dragController.value = _dragOffset;
+    _dragController
+        .animateTo(
+      sheetHeight,
+      duration: Duration(milliseconds: durationMs),
+      curve: Curves.easeOutCubic,
+    )
+        .whenComplete(() {
+      if (mounted) widget.onClose();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final metrics = widget.metrics;
+    final palette = widget.palette;
+    final hasMore = widget.hasMore;
+    final isLoadingMore = widget.isLoadingMore;
+    final onLoadMore = widget.onLoadMore;
+    final chapters = widget.chapters;
+    final currentChapterIndex = widget.currentChapterIndex;
+    final chapterCount = widget.chapterCount;
+    final bookTitle = widget.bookTitle;
+    final onChapterSelected = widget.onChapterSelected;
+
     return Positioned(
       key: const ValueKey('reader-catalog-sheet'),
       left: metrics.left,
       top: metrics.height - metrics.s(608),
       width: metrics.width,
       height: metrics.s(608),
-      child: _GlassSurface(
-        fill: const Color(0xFFFFF8EA),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(metrics.s(28)),
-          topRight: Radius.circular(metrics.s(28)),
-          bottomLeft: Radius.zero,
-          bottomRight: Radius.zero,
-        ),
-        shadowColor: const Color(0x2625251F),
-        shadowOffset: Offset(0, -metrics.s(12)),
-        shadowBlur: metrics.s(34),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-              metrics.s(20), metrics.s(14), metrics.s(20), metrics.s(18)),
-          child: Column(
-            children: [
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragEnd: (details) {
-                  if ((details.primaryVelocity ?? 0) > 260) onClose();
-                },
-                child: Column(
-                  children: [
-                    Container(
-                      width: metrics.s(42),
-                      height: metrics.s(4),
-                      decoration: BoxDecoration(
-                        color: (palette.outline ?? DudoColors.outline)
-                            .withValues(alpha: 0.7),
-                        borderRadius: AppRadius.full,
+      child: Transform.translate(
+        offset: Offset(0, _dragOffset),
+        child: _GlassSurface(
+          fill: const Color(0xFFFFF8EA),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(metrics.s(28)),
+            topRight: Radius.circular(metrics.s(28)),
+            bottomLeft: Radius.zero,
+            bottomRight: Radius.zero,
+          ),
+          shadowColor: const Color(0x2625251F),
+          shadowOffset: Offset(0, -metrics.s(12)),
+          shadowBlur: metrics.s(34),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+                metrics.s(20), metrics.s(14), metrics.s(20), metrics.s(18)),
+            child: Column(
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragStart: _handleHeaderDragStart,
+                  onVerticalDragUpdate: _handleHeaderDragUpdate,
+                  onVerticalDragEnd: _handleHeaderDragEnd,
+                  onVerticalDragCancel: _handleHeaderDragCancel,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: metrics.s(42),
+                        height: metrics.s(4),
+                        decoration: BoxDecoration(
+                          color: (palette.outline ?? DudoColors.outline)
+                              .withValues(alpha: 0.7),
+                          borderRadius: AppRadius.full,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: metrics.s(18)),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '$bookTitle · 共 $chapterCount 章',
-                              style: DudoTextStyles.sans(
-                                color: const Color(0xFF8A735A),
-                                fontSize: metrics.s(12),
-                              ),
-                            ),
-                            SizedBox(height: metrics.s(4)),
-                            Text(
-                              '目录',
-                              style: DudoTextStyles.serif(
-                                color: const Color(0xFF25251F),
-                                fontSize: metrics.s(26),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          '倒序',
-                          style: DudoTextStyles.sans(
-                            color: const Color(0xFF5E6F5B),
-                            fontSize: metrics.s(13),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: metrics.s(14)),
-                    _SegmentTabs(
-                        metrics: metrics,
-                        labels: const ['目录', '书签', '笔记'],
-                        selected: 0,
-                        palette: palette),
-                  ],
-                ),
-              ),
-              SizedBox(height: metrics.s(14)),
-              Expanded(
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    if (notification.metrics.extentAfter < metrics.s(160) &&
-                        hasMore &&
-                        !isLoadingMore) {
-                      onLoadMore?.call();
-                    }
-                    return false;
-                  },
-                  child: ListView.separated(
-                    key: const ValueKey('reader-catalog-list'),
-                    padding: EdgeInsets.zero,
-                    itemCount:
-                        chapters.length + (hasMore || isLoadingMore ? 1 : 0),
-                    separatorBuilder: (_, __) => SizedBox(height: metrics.s(8)),
-                    itemBuilder: (context, index) {
-                      if (index >= chapters.length) {
-                        return _CatalogLoadingFooter(
-                          metrics: metrics,
-                          palette: palette,
-                          isLoading: isLoadingMore,
-                        );
-                      }
-                      final chapter = chapters[index];
-                      final active =
-                          chapter.chapterIndex == currentChapterIndex;
-                      return GestureDetector(
-                        onTap: () => onChapterSelected(chapter.chapterIndex),
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: metrics.s(14),
-                              vertical: metrics.s(12)),
-                          decoration: BoxDecoration(
-                            color: active
-                                ? DudoColors.primaryContainer
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(metrics.s(18)),
-                          ),
-                          child: Row(
+                      SizedBox(height: metrics.s(18)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      chapter.title,
-                                      style: DudoTextStyles.sans(
-                                        color: palette.foreground,
-                                        fontSize: metrics.s(14),
-                                        fontWeight: active
-                                            ? FontWeight.w700
-                                            : FontWeight.w500,
-                                      ),
-                                    ),
-                                    SizedBox(height: metrics.s(4)),
-                                    Text(
-                                      chapter.subtitle,
-                                      style: DudoTextStyles.sans(
-                                        color: palette.mutedForeground ??
-                                            DudoColors.textSecondary,
-                                        fontSize: metrics.s(12),
-                                      ),
-                                    ),
-                                  ],
+                              Text(
+                                '$bookTitle · 共 $chapterCount 章',
+                                style: DudoTextStyles.sans(
+                                  color: const Color(0xFF8A735A),
+                                  fontSize: metrics.s(12),
                                 ),
                               ),
-                              if (active)
-                                Icon(LucideIcons.bookOpenCheck,
-                                    size: metrics.s(18),
-                                    color: DudoColors.primary),
+                              SizedBox(height: metrics.s(4)),
+                              Text(
+                                '目录',
+                                style: DudoTextStyles.serif(
+                                  color: const Color(0xFF25251F),
+                                  fontSize: metrics.s(26),
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                             ],
                           ),
-                        ),
-                      );
-                    },
+                          Text(
+                            '倒序',
+                            style: DudoTextStyles.sans(
+                              color: const Color(0xFF5E6F5B),
+                              fontSize: metrics.s(13),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: metrics.s(14)),
+                      _SegmentTabs(
+                          metrics: metrics,
+                          labels: const ['目录', '书签', '笔记'],
+                          selected: 0,
+                          palette: palette),
+                    ],
                   ),
                 ),
-              ),
-            ],
+                SizedBox(height: metrics.s(14)),
+                Expanded(
+                  child: NotificationListener<ScrollNotification>(
+                    onNotification: (notification) {
+                      if (notification.metrics.extentAfter < metrics.s(160) &&
+                          hasMore &&
+                          !isLoadingMore) {
+                        onLoadMore?.call();
+                      }
+                      return false;
+                    },
+                    child: ListView.separated(
+                      key: const ValueKey('reader-catalog-list'),
+                      padding: EdgeInsets.zero,
+                      itemCount:
+                          chapters.length + (hasMore || isLoadingMore ? 1 : 0),
+                      separatorBuilder: (_, __) =>
+                          SizedBox(height: metrics.s(8)),
+                      itemBuilder: (context, index) {
+                        if (index >= chapters.length) {
+                          return _CatalogLoadingFooter(
+                            metrics: metrics,
+                            palette: palette,
+                            isLoading: isLoadingMore,
+                          );
+                        }
+                        final chapter = chapters[index];
+                        final active =
+                            chapter.chapterIndex == currentChapterIndex;
+                        return GestureDetector(
+                          onTap: () => onChapterSelected(chapter.chapterIndex),
+                          behavior: HitTestBehavior.opaque,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: metrics.s(14),
+                                vertical: metrics.s(12)),
+                            decoration: BoxDecoration(
+                              color: active
+                                  ? DudoColors.primaryContainer
+                                  : Colors.transparent,
+                              borderRadius:
+                                  BorderRadius.circular(metrics.s(18)),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        chapter.title,
+                                        style: DudoTextStyles.sans(
+                                          color: palette.foreground,
+                                          fontSize: metrics.s(14),
+                                          fontWeight: active
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
+                                        ),
+                                      ),
+                                      SizedBox(height: metrics.s(4)),
+                                      Text(
+                                        chapter.subtitle,
+                                        style: DudoTextStyles.sans(
+                                          color: palette.mutedForeground ??
+                                              DudoColors.textSecondary,
+                                          fontSize: metrics.s(12),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (active)
+                                  Icon(LucideIcons.bookOpenCheck,
+                                      size: metrics.s(18),
+                                      color: DudoColors.primary),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
