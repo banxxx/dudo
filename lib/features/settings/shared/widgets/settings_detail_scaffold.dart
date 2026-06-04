@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
 import '../../../../shared/widgets/dudo_page_frame.dart';
+import '../../../../shared/widgets/dudo_page_header.dart';
 
 class SettingsDetailScaffold extends StatelessWidget {
   const SettingsDetailScaffold({super.key, required this.children});
@@ -31,92 +32,65 @@ class SettingsDetailHeader extends StatelessWidget {
     required this.eyebrow,
     required this.title,
     this.actionIcon,
+    this.onActionTap,
     this.showAction = true,
   });
 
   final String eyebrow;
   final String title;
   final IconData? actionIcon;
+  final VoidCallback? onActionTap;
   final bool showAction;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return DudoPageHeader(
+      title: title,
       height: 60,
-      child: Row(
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                SettingsCircleIconButton(
-                  icon: LucideIcons.chevronLeft,
-                  onTap: () => context.pop(),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        eyebrow,
-                        style: DudoTextStyles.sans(
-                          color: DudoColors.secondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        title,
-                        style: DudoTextStyles.serif(
-                          color: DudoColors.textPrimary,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (showAction && actionIcon != null) ...[
-            const SizedBox(width: 12),
-            SettingsCircleIconButton(icon: actionIcon!, onTap: () {}),
-          ],
-        ],
+      titleAlignment: Alignment.centerLeft,
+      reserveTrailingSpace: false,
+      leading: DudoCircleIconButton(
+        icon: LucideIcons.chevronLeft,
+        iconSize: 20,
+        onTap: () => context.pop(),
       ),
-    );
-  }
-}
-
-class SettingsCircleIconButton extends StatelessWidget {
-  const SettingsCircleIconButton({super.key, required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: DudoColors.surface,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: DudoColors.outline),
-          ),
-          child: Icon(icon, color: DudoColors.secondary, size: 20),
+      titleWidget: Padding(
+        padding: const EdgeInsets.only(left: 12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              eyebrow,
+              style: DudoTextStyles.sans(
+                color: DudoColors.secondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.1,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              title,
+              style: DudoTextStyles.serif(
+                color: DudoColors.textPrimary,
+                fontSize: 26,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
+      trailing: showAction && actionIcon != null
+          ? Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: DudoCircleIconButton(
+                icon: actionIcon!,
+                iconSize: 20,
+                onTap: onActionTap ?? () {},
+              ),
+            )
+          : null,
     );
   }
 }
@@ -138,7 +112,6 @@ class SettingsSectionTitle extends StatelessWidget {
     );
   }
 }
-
 
 class SettingsMeterControl extends StatelessWidget {
   const SettingsMeterControl({
@@ -317,4 +290,3 @@ class SettingsDudoSwitch extends StatelessWidget {
     );
   }
 }
-

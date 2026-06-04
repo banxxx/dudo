@@ -6,6 +6,7 @@ import '../../../app/router/app_router.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
+import '../../../shared/widgets/dudo_page_header.dart';
 
 class BookmarksPage extends StatelessWidget {
   const BookmarksPage({super.key});
@@ -36,82 +37,49 @@ class _BookmarksHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _RoundIconButton(
-          key: const ValueKey('bookmarks-back-button'),
-          icon: LucideIcons.chevronLeft,
-          onTap: () => context.pop(),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '阅读标记',
-                style: DudoTextStyles.sans(
-                  color: DudoColors.secondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.1,
-                ),
+    return DudoPageHeader(
+      title: '书签',
+      height: 60,
+      titleAlignment: Alignment.centerLeft,
+      reserveTrailingSpace: false,
+      leading: DudoCircleIconButton(
+        key: const ValueKey('bookmarks-back-button'),
+        icon: LucideIcons.chevronLeft,
+        iconSize: 21,
+        borderColor: DudoColors.outlineVariant,
+        onTap: () => context.pop(),
+      ),
+      titleWidget: Padding(
+        padding: const EdgeInsets.only(left: 12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '阅读标记',
+              style: DudoTextStyles.sans(
+                color: DudoColors.secondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.1,
               ),
-              const SizedBox(height: 3),
-              Text(
-                '书签',
-                style: DudoTextStyles.serif(
-                  color: DudoColors.textPrimary,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              '书签',
+              style: DudoTextStyles.serif(
+                color: DudoColors.textPrimary,
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: DudoColors.surface,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: DudoColors.outline),
-          ),
-          child: const Icon(
-            LucideIcons.slidersHorizontal,
-            color: DudoColors.secondary,
-            size: 20,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({super.key, required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: DudoColors.surface,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: DudoColors.outlineVariant),
-          ),
-          child: Icon(icon, color: DudoColors.secondary, size: 21),
-        ),
+      ),
+      trailing: DudoCircleIconButton(
+        icon: LucideIcons.slidersHorizontal,
+        iconSize: 20,
+        onTap: () {},
       ),
     );
   }

@@ -8,6 +8,7 @@ import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/calendar_range_selector/calendar_range_sheet.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
+import '../../../shared/widgets/dudo_page_header.dart';
 import '../application/reading_stats_provider.dart';
 import '../data/reading_stats_repository.dart';
 import '../domain/reading_stats_models.dart';
@@ -120,104 +121,95 @@ class _StatsHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Row(
-      children: [
-        _RoundIconButton(
-          icon: LucideIcons.chevronLeft,
-          onTap: () => context.pop(),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '阅读统计',
-                style: DudoTextStyles.sans(
-                  color: DudoColors.secondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                summary.range.title,
-                style: DudoTextStyles.serif(
-                  color: DudoColors.textPrimary,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  height: 1.18,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Material(
-          color: Colors.transparent,
-          borderRadius: AppRadius.full,
-          child: InkWell(
-            key: const ValueKey('reading-stats-range-button'),
-            borderRadius: AppRadius.full,
-            onTap: () => _showRangeSheet(context, ref),
-            child: Container(
-              height: 42,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: DudoColors.surface,
-                borderRadius: AppRadius.full,
-                border: Border.all(color: DudoColors.outlineVariant),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    LucideIcons.calendarDays,
-                    color: DudoColors.secondary,
-                    size: 17,
-                  ),
-                  const SizedBox(width: 7),
-                  Text(
-                    summary.range.label,
-                    style: DudoTextStyles.sans(
-                      color: DudoColors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+    return DudoPageHeader(
+      title: summary.range.title,
+      height: 60,
+      titleAlignment: Alignment.centerLeft,
+      reserveTrailingSpace: false,
+      leading: DudoCircleIconButton(
+        icon: LucideIcons.chevronLeft,
+        iconSize: 21,
+        borderColor: DudoColors.outlineVariant,
+        onTap: () => context.pop(),
+      ),
+      titleWidget: Padding(
+        padding: const EdgeInsets.only(left: 12),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '阅读统计',
+              style: DudoTextStyles.sans(
+                color: DudoColors.secondary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.2,
               ),
             ),
-          ),
+            const SizedBox(height: 3),
+            Text(
+              summary.range.title,
+              style: DudoTextStyles.serif(
+                color: DudoColors.textPrimary,
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                height: 1.18,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
+      trailing: _StatsRangeButton(
+        label: summary.range.label,
+        onTap: () => _showRangeSheet(context, ref),
+      ),
     );
   }
 }
 
-class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({required this.icon, required this.onTap});
+class _StatsRangeButton extends StatelessWidget {
+  const _StatsRangeButton({required this.label, required this.onTap});
 
-  final IconData icon;
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: AppRadius.full,
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        key: const ValueKey('reading-stats-range-button'),
+        borderRadius: AppRadius.full,
         onTap: onTap,
         child: Container(
-          width: 44,
-          height: 44,
+          height: 42,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             color: DudoColors.surface,
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: AppRadius.full,
             border: Border.all(color: DudoColors.outlineVariant),
           ),
-          child: Icon(icon, color: DudoColors.secondary, size: 21),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                LucideIcons.calendarDays,
+                color: DudoColors.secondary,
+                size: 17,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: DudoTextStyles.sans(
+                  color: DudoColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -60,6 +60,9 @@ class DudoPageHeader extends StatelessWidget {
     this.trailing,
     this.titleWidget,
     this.height = 54,
+    this.titleAlignment = Alignment.center,
+    this.reserveLeadingSpace = true,
+    this.reserveTrailingSpace = true,
   });
 
   final String title;
@@ -68,6 +71,9 @@ class DudoPageHeader extends StatelessWidget {
   final Widget? trailing;
   final Widget? titleWidget;
   final double height;
+  final Alignment titleAlignment;
+  final bool reserveLeadingSpace;
+  final bool reserveTrailingSpace;
 
   @override
   Widget build(BuildContext context) {
@@ -76,9 +82,13 @@ class DudoPageHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          leading ?? SizedBox(width: height),
+          if (leading != null)
+            leading!
+          else if (reserveLeadingSpace)
+            SizedBox(width: height),
           Expanded(
-            child: Center(
+            child: Align(
+              alignment: titleAlignment,
               child: titleWidget ??
                   Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -111,7 +121,10 @@ class DudoPageHeader extends StatelessWidget {
                   ),
             ),
           ),
-          trailing ?? SizedBox(width: height),
+          if (trailing != null)
+            trailing!
+          else if (reserveTrailingSpace)
+            SizedBox(width: height),
         ],
       ),
     );

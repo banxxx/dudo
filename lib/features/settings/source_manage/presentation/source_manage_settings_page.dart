@@ -14,10 +14,11 @@ class SourceManageSettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return SettingsDetailScaffold(
       children: [
-        const SettingsDetailHeader(
+        SettingsDetailHeader(
           eyebrow: '内容与书源',
           title: '书源管理',
           actionIcon: LucideIcons.plus,
+          onActionTap: () => context.push(AppRoutes.sourceAdd),
         ),
         const SizedBox(height: 14),
         const _SourceSummary(),
@@ -168,7 +169,8 @@ class _QuickAction extends StatelessWidget {
           decoration: BoxDecoration(
             color: selected ? DudoColors.textPrimary : DudoColors.surface,
             borderRadius: BorderRadius.circular(20),
-            border: selected ? null : Border.all(color: DudoColors.outlineVariant),
+            border:
+                selected ? null : Border.all(color: DudoColors.outlineVariant),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -273,4 +275,3 @@ class _SourceRow extends StatelessWidget {
     );
   }
 }
-
