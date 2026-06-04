@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dudo/core/database/app_database.dart';
 import 'package:dudo/features/bookshelf/application/bookshelf_providers.dart';
 import 'package:dudo/features/bookshelf/presentation/bookshelf_library_page.dart';
@@ -7,6 +9,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('uses a subtle loading hint before bookshelf data resolves',
+      (tester) async {
+    final controller = StreamController<List<Book>>();
+    addTearDown(controller.close);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          shelfBooksProvider.overrideWith((ref) => controller.stream),
+        ],
+        child: const MaterialApp(
+          home: BookshelfLibraryPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('正在整理书架'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('书架还是空的'), findsNothing);
+    expect(find.text('可以从这里开始'), findsNothing);
+  });
+
   testWidgets('renders imported local books like Pencil A1 recent cards',
       (tester) async {
     final now = DateTime(2026, 6, 2);

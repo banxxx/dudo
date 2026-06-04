@@ -1,5 +1,4 @@
 import '../../../core/database/app_database.dart';
-import 'reader_catalog_item.dart';
 import 'reader_text_normalizer.dart';
 
 class ReaderChapterView {
@@ -15,7 +14,6 @@ class ReaderChapterView {
     required this.chapterCount,
     required this.previousChapterIndex,
     required this.nextChapterIndex,
-    required this.catalogItems,
     required this.contentMissing,
   });
 
@@ -30,7 +28,6 @@ class ReaderChapterView {
   final int chapterCount;
   final int? previousChapterIndex;
   final int? nextChapterIndex;
-  final List<ReaderCatalogItem> catalogItems;
   final bool contentMissing;
 
   bool get hasPrevious => previousChapterIndex != null;
@@ -50,46 +47,32 @@ class ReaderChapterView {
         .toDouble();
   }
 
-  factory ReaderChapterView.fromBook({
+  factory ReaderChapterView.fromChapter({
     required Book book,
-    required List<Chapter> chapters,
-    required int requestedChapterIndex,
+    required Chapter chapterMeta,
+    required Chapter currentChapter,
+    required int chapterCount,
   }) {
-    final clampedPosition = requestedChapterIndex.clamp(0, chapters.length - 1);
-    final exactIndex = chapters.indexWhere(
-      (chapter) => chapter.chapterIndex == requestedChapterIndex,
-    );
-    final position = exactIndex >= 0 ? exactIndex : clampedPosition;
-    final chapter = chapters[position];
-    final rawContent = chapter.content ?? '';
+    final rawContent = currentChapter.content ?? '';
     final text = normalizeReaderText(rawContent);
     final paragraphs = splitReaderParagraphs(rawContent);
-    final isSingleLocalChapter = book.localPath != null && chapters.length == 1;
-    final chapterLabel = isSingleLocalChapter ? '全文' : chapter.title;
+    final isSingleLocalChapter = book.localPath != null && chapterCount == 1;
+    final chapterLabel = isSingleLocalChapter ? '全文' : chapterMeta.title;
+    final chapterIndex = chapterMeta.chapterIndex;
 
     return ReaderChapterView(
       bookTitle: book.title,
       chapterLabel: chapterLabel,
-      chapterTitle: chapter.title,
+      chapterTitle: chapterMeta.title,
       remainingText: _estimateReadingTimeText(text),
-      chapterOrdinal: position,
+      chapterOrdinal: chapterIndex.clamp(0, chapterCount - 1),
       text: text,
       paragraphs: paragraphs,
-      currentChapterIndex: chapter.chapterIndex,
-      chapterCount: chapters.length,
-      previousChapterIndex:
-          position > 0 ? chapters[position - 1].chapterIndex : null,
-      nextChapterIndex: position + 1 < chapters.length
-          ? chapters[position + 1].chapterIndex
-          : null,
-      catalogItems: [
-        for (var i = 0; i < chapters.length; i++)
-          ReaderCatalogItem(
-            chapterIndex: chapters[i].chapterIndex,
-            title: chapters[i].title,
-            subtitle: i == position ? '正在阅读' : '已缓存',
-          ),
-      ],
+      currentChapterIndex: chapterIndex,
+      chapterCount: chapterCount,
+      previousChapterIndex: chapterIndex > 0 ? chapterIndex - 1 : null,
+      nextChapterIndex:
+          chapterIndex + 1 < chapterCount ? chapterIndex + 1 : null,
       contentMissing: text.isEmpty,
     );
   }

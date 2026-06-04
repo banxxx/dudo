@@ -25,6 +25,9 @@ class ReaderControls extends StatelessWidget {
     required this.currentChapterIndex,
     required this.chapterCount,
     required this.catalogItems,
+    this.catalogHasMore = false,
+    this.catalogIsLoadingMore = false,
+    this.onCatalogLoadMore,
     required this.onBack,
     required this.onClose,
     required this.onModeChanged,
@@ -54,6 +57,9 @@ class ReaderControls extends StatelessWidget {
   final int currentChapterIndex;
   final int chapterCount;
   final List<ReaderCatalogItem> catalogItems;
+  final bool catalogHasMore;
+  final bool catalogIsLoadingMore;
+  final VoidCallback? onCatalogLoadMore;
   final VoidCallback onBack;
   final VoidCallback onClose;
   final ValueChanged<ReaderOverlayMode> onModeChanged;
@@ -135,9 +141,12 @@ class ReaderControls extends StatelessWidget {
                   chapterCount: chapterCount,
                   currentChapterIndex: currentChapterIndex,
                   chapters: catalogItems,
+                  hasMore: catalogHasMore,
+                  isLoadingMore: catalogIsLoadingMore,
                   palette: palette,
                   onClose: () => onModeChanged(ReaderOverlayMode.controls),
                   onChapterSelected: onChapterSelected,
+                  onLoadMore: onCatalogLoadMore,
                 ),
               );
             case ReaderOverlayMode.typography:
@@ -578,9 +587,12 @@ class _CatalogBottomSheet extends StatelessWidget {
     required this.chapterCount,
     required this.currentChapterIndex,
     required this.chapters,
+    required this.hasMore,
+    required this.isLoadingMore,
     required this.palette,
     required this.onClose,
     required this.onChapterSelected,
+    this.onLoadMore,
   });
 
   final _ReaderOverlayMetrics metrics;
@@ -589,9 +601,12 @@ class _CatalogBottomSheet extends StatelessWidget {
   final int chapterCount;
   final int currentChapterIndex;
   final List<ReaderCatalogItem> chapters;
+  final bool hasMore;
+  final bool isLoadingMore;
   final ReaderPalette palette;
   final VoidCallback onClose;
   final ValueChanged<int> onChapterSelected;
+  final VoidCallback? onLoadMore;
 
   @override
   Widget build(BuildContext context) {
@@ -669,67 +684,126 @@ class _CatalogBottomSheet extends StatelessWidget {
                   palette: palette),
               SizedBox(height: metrics.s(14)),
               Expanded(
-                child: ListView.separated(
-                  padding: EdgeInsets.zero,
-                  itemCount: chapters.length,
-                  separatorBuilder: (_, __) => SizedBox(height: metrics.s(8)),
-                  itemBuilder: (context, index) {
-                    final chapter = chapters[index];
-                    final active = chapter.chapterIndex == currentChapterIndex;
-                    return GestureDetector(
-                      onTap: () => onChapterSelected(chapter.chapterIndex),
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: metrics.s(14), vertical: metrics.s(12)),
-                        decoration: BoxDecoration(
-                          color: active
-                              ? DudoColors.primaryContainer
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(metrics.s(18)),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    chapter.title,
-                                    style: DudoTextStyles.sans(
-                                      color: palette.foreground,
-                                      fontSize: metrics.s(14),
-                                      fontWeight: active
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
-                                    ),
-                                  ),
-                                  SizedBox(height: metrics.s(4)),
-                                  Text(
-                                    chapter.subtitle,
-                                    style: DudoTextStyles.sans(
-                                      color: palette.mutedForeground ??
-                                          DudoColors.textSecondary,
-                                      fontSize: metrics.s(12),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (active)
-                              Icon(LucideIcons.bookOpenCheck,
-                                  size: metrics.s(18),
-                                  color: DudoColors.primary),
-                          ],
-                        ),
-                      ),
-                    );
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification.metrics.extentAfter < metrics.s(160) &&
+                        hasMore &&
+                        !isLoadingMore) {
+                      onLoadMore?.call();
+                    }
+                    return false;
                   },
+                  child: ListView.separated(
+                    key: const ValueKey('reader-catalog-list'),
+                    padding: EdgeInsets.zero,
+                    itemCount:
+                        chapters.length + (hasMore || isLoadingMore ? 1 : 0),
+                    separatorBuilder: (_, __) => SizedBox(height: metrics.s(8)),
+                    itemBuilder: (context, index) {
+                      if (index >= chapters.length) {
+                        return _CatalogLoadingFooter(
+                          metrics: metrics,
+                          palette: palette,
+                          isLoading: isLoadingMore,
+                        );
+                      }
+                      final chapter = chapters[index];
+                      final active =
+                          chapter.chapterIndex == currentChapterIndex;
+                      return GestureDetector(
+                        onTap: () => onChapterSelected(chapter.chapterIndex),
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: metrics.s(14),
+                              vertical: metrics.s(12)),
+                          decoration: BoxDecoration(
+                            color: active
+                                ? DudoColors.primaryContainer
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(metrics.s(18)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      chapter.title,
+                                      style: DudoTextStyles.sans(
+                                        color: palette.foreground,
+                                        fontSize: metrics.s(14),
+                                        fontWeight: active
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                      ),
+                                    ),
+                                    SizedBox(height: metrics.s(4)),
+                                    Text(
+                                      chapter.subtitle,
+                                      style: DudoTextStyles.sans(
+                                        color: palette.mutedForeground ??
+                                            DudoColors.textSecondary,
+                                        fontSize: metrics.s(12),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (active)
+                                Icon(LucideIcons.bookOpenCheck,
+                                    size: metrics.s(18),
+                                    color: DudoColors.primary),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CatalogLoadingFooter extends StatelessWidget {
+  const _CatalogLoadingFooter({
+    required this.metrics,
+    required this.palette,
+    required this.isLoading,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final ReaderPalette palette;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: const ValueKey('reader-catalog-loading-footer'),
+      padding: EdgeInsets.symmetric(vertical: metrics.s(12)),
+      child: Center(
+        child: isLoading
+            ? SizedBox(
+                width: metrics.s(18),
+                height: metrics.s(18),
+                child: CircularProgressIndicator(
+                  strokeWidth: metrics.s(2),
+                  color: DudoColors.primary,
+                ),
+              )
+            : Text(
+                '继续加载目录',
+                style: DudoTextStyles.sans(
+                  color: palette.mutedForeground ?? DudoColors.textSecondary,
+                  fontSize: metrics.s(12),
+                ),
+              ),
       ),
     );
   }

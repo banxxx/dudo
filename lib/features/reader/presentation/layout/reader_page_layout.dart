@@ -74,13 +74,28 @@ class ReaderPageLayout {
     required List<ReaderPageSlice> pages,
     required int readPosition,
   }) {
-    for (var i = 0; i < pages.length; i++) {
-      final page = pages[i];
-      if (readPosition >= page.startOffset && readPosition < page.endOffset) {
-        return i;
+    if (pages.isEmpty) return 0;
+    if (readPosition <= pages.first.startOffset) return 0;
+    if (readPosition >= pages.last.endOffset) return pages.length - 1;
+
+    var low = 0;
+    var high = pages.length - 1;
+    var closestBefore = 0;
+
+    while (low <= high) {
+      final mid = low + ((high - low) >> 1);
+      final page = pages[mid];
+      if (readPosition < page.startOffset) {
+        high = mid - 1;
+      } else if (readPosition >= page.endOffset) {
+        closestBefore = mid;
+        low = mid + 1;
+      } else {
+        return mid;
       }
     }
-    return pages.length - 1;
+
+    return closestBefore.clamp(0, pages.length - 1).toInt();
   }
 
   static int _findPageEnd({

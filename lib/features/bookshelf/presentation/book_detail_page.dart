@@ -59,14 +59,16 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   @override
   Widget build(BuildContext context) {
     final bookValue = ref.watch(bookByIdProvider(widget.bookId));
-    final chapterCountValue = ref.watch(bookChapterCountProvider(widget.bookId));
+    final chapterCountValue =
+        ref.watch(bookChapterCountProvider(widget.bookId));
 
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
       body: bookValue.when(
         data: (book) {
           if (book == null) return _BookMissingState(onBack: _goBack);
-          final chapterCount = chapterCountValue.valueOrNull ?? _catalogChapters.length;
+          final chapterCount =
+              chapterCountValue.valueOrNull ?? _catalogChapters.length;
           final chaptersLoading = _catalogChapters.isEmpty &&
               (_isLoadingCatalogPage || chapterCountValue.isLoading);
           final currentChapterValue = ref.watch(
@@ -167,11 +169,12 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
     if (_isLoadingCatalogPage || !_hasMoreCatalogPages) return;
     setState(() => _isLoadingCatalogPage = true);
     try {
-      final page = await ref.read(bookshelfRepositoryProvider).fetchChapterMetasPage(
-            bookId: widget.bookId,
-            offset: _catalogChapters.length,
-            limit: _chapterCatalogPageSize,
-          );
+      final page =
+          await ref.read(bookshelfRepositoryProvider).fetchChapterMetasPage(
+                bookId: widget.bookId,
+                offset: _catalogChapters.length,
+                limit: _chapterCatalogPageSize,
+              );
       if (!mounted) return;
       setState(() {
         _catalogChapters.addAll(page);
@@ -302,8 +305,8 @@ class _BookDetailScrollView extends StatelessWidget {
             physics: const ClampingScrollPhysics(),
             slivers: [
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(horizontalPadding, 64,
-                    horizontalPadding, 10),
+                padding: EdgeInsets.fromLTRB(
+                    horizontalPadding, 64, horizontalPadding, 10),
                 sliver: SliverToBoxAdapter(
                   child: _BookDetailHeaderContent(
                     book: book,
@@ -321,7 +324,6 @@ class _BookDetailScrollView extends StatelessWidget {
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                 sliver: SliverToBoxAdapter(
                   child: _ChapterListHeader(
-                    loadedChapterCount: chapters.length,
                     chapterCount: chapterCount,
                     loadingMoreChapters: loadingMoreChapters,
                   ),
@@ -379,8 +381,10 @@ class _BookDetailScrollView extends StatelessWidget {
   }
 
   double _maxWidthForWidth(double width) {
-    if (Breakpoints.isDesktopWidth(width)) return DudoLayout.desktopContentMaxWidth;
-    if (Breakpoints.isTabletWidth(width)) return DudoLayout.tabletContentMaxWidth;
+    if (Breakpoints.isDesktopWidth(width))
+      return DudoLayout.desktopContentMaxWidth;
+    if (Breakpoints.isTabletWidth(width))
+      return DudoLayout.tabletContentMaxWidth;
     return DudoLayout.phoneContentMaxWidth;
   }
 }
@@ -411,7 +415,8 @@ class _BookDetailHeaderContent extends StatelessWidget {
     final hasStarted = book.lastChapterIndex > 0 || book.lastReadPosition > 0;
     final showProgress = hasStarted;
     final chapterProgress = _chapterProgressPercent(book, currentChapter);
-    final bookProgress = _bookProgressPercent(book, chapterCount, currentChapter);
+    final bookProgress =
+        _bookProgressPercent(book, chapterCount, currentChapter);
 
     return Column(
       children: [
@@ -1062,22 +1067,16 @@ class _BookIntroSection extends StatelessWidget {
 
 class _ChapterListHeader extends StatelessWidget {
   const _ChapterListHeader({
-    required this.loadedChapterCount,
     required this.chapterCount,
     required this.loadingMoreChapters,
   });
 
-  final int loadedChapterCount;
   final int chapterCount;
   final bool loadingMoreChapters;
 
   @override
   Widget build(BuildContext context) {
-    final label = chapterCount <= 0
-        ? ''
-        : loadedChapterCount < chapterCount
-            ? '已加载 $loadedChapterCount / $chapterCount 章'
-            : '共 $chapterCount 章';
+    final label = chapterCount <= 0 ? '' : '共 $chapterCount 章';
     return Column(
       children: [
         Row(

@@ -124,12 +124,13 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
+          await _createBookshelfIndexes();
         },
         onUpgrade: (m, from, to) async {
           if (from < 2) {
@@ -144,8 +145,18 @@ class AppDatabase extends _$AppDatabase {
               'ON chapters (book_id, idx)',
             );
           }
+          if (from < 4) {
+            await _createBookshelfIndexes();
+          }
         },
       );
+
+  Future<void> _createBookshelfIndexes() async {
+    await customStatement(
+      'CREATE INDEX IF NOT EXISTS books_shelf_order_index '
+      'ON books (in_shelf, sort_order DESC, updated_at DESC)',
+    );
+  }
 }
 
 LazyDatabase _openConnection() {

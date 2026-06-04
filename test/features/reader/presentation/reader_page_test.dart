@@ -7,12 +7,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  Future<void> pumpReader(WidgetTester tester) async {
+  Future<_RecordingBookshelfRepository> pumpReader(
+    WidgetTester tester, {
+    String? firstChapterContent,
+  }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.reset);
 
-    final repository = _NoopBookshelfRepository();
+    final repository = _RecordingBookshelfRepository();
     final now = DateTime(2026, 6, 3);
     final book = Book(
       id: 'mock-book',
@@ -26,21 +29,35 @@ void main() {
       inShelf: true,
       sortOrder: 1,
     );
-    final chapters = List.generate(42, (index) {
+    final chaptersByIndex = <int, Chapter>{};
+    final chapterMetas = List.generate(42, (index) {
       final title = index == 0 ? '第一章' : '第${index + 1}章';
-      return Chapter(
+      final chapter = Chapter(
         id: 'chapter-$index',
         bookId: 'mock-book',
         chapterIndex: index,
         title: title,
         content: index == 0
-            ? List.filled(200, '罗辑醒来的时候，旧世界的回声仍在窗外回荡。').join('\n')
+            ? firstChapterContent ??
+                List.filled(200, '罗辑醒来的时候，旧世界的回声仍在窗外回荡。').join('\n')
             : '这是$title的正文内容。',
         normalizedContentLength: index == 0 ? 4598 : 10 + title.length,
         isCached: true,
         fetchedAt: now,
       );
+      chaptersByIndex[index] = chapter;
+      return Chapter(
+        id: chapter.id,
+        bookId: chapter.bookId,
+        chapterIndex: chapter.chapterIndex,
+        title: chapter.title,
+        content: null,
+        normalizedContentLength: chapter.normalizedContentLength,
+        isCached: chapter.isCached,
+        fetchedAt: chapter.fetchedAt,
+      );
     });
+    repository.chapterMetas = chapterMetas;
 
     await tester.pumpWidget(
       ProviderScope(
@@ -48,8 +65,14 @@ void main() {
           bookshelfRepositoryProvider.overrideWithValue(repository),
           bookByIdProvider('mock-book')
               .overrideWith((ref) => Stream.value(book)),
-          bookChaptersProvider('mock-book')
-              .overrideWith((ref) => Stream.value(chapters)),
+          bookChapterCountProvider('mock-book')
+              .overrideWith((ref) => Stream.value(chapterMetas.length)),
+          currentBookChapterMetaProvider.overrideWith(
+            (ref, key) => Stream.value(chapterMetas[key.chapterIndex]),
+          ),
+          currentBookChapterContentProvider.overrideWith(
+            (ref, key) => Stream.value(chaptersByIndex[key.chapterIndex]),
+          ),
         ],
         child: const MaterialApp(
           home: ReaderPage(bookId: 'mock-book'),
@@ -57,6 +80,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    return repository;
   }
 
   testWidgets('renders Pencil D7 pure reading state with mock chapter',
@@ -65,6 +89,7 @@ void main() {
 
     expect(find.textContaining('第一章'), findsOneWidget);
     expect(find.textContaining('罗辑醒来的时候'), findsWidgets);
+    expect(find.textContaining('这是第2章的正文内容'), findsNothing);
     expect(
         find.byKey(const ValueKey('reader-progress-percent')), findsOneWidget);
     expect(find.byKey(const ValueKey('reader-top-controls')), findsNothing);
@@ -106,7 +131,7 @@ void main() {
   });
 
   testWidgets('bottom tools open D2-D5 and D8 panels', (tester) async {
-    await pumpReader(tester);
+    final repository = await pumpReader(tester);
     await tester.tap(find.byKey(const ValueKey('reader-gesture-layer')));
     await tester.pumpAndSettle();
 
@@ -114,6 +139,23 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('reader-catalog-sheet')), findsOneWidget);
     expect(find.textContaining('共 42 章'), findsOneWidget);
+    expect(repository.catalogPageRequests, hasLength(1));
+    expect(repository.catalogPageRequests.single.offset, 0);
+    expect(repository.catalogPageRequests.single.limit, 30);
+    expect(find.text('第一章'), findsWidgets);
+    expect(find.text('第31章'), findsNothing);
+
+    for (var i = 0; i < 8; i++) {
+      await tester.drag(
+        find.byKey(const ValueKey('reader-catalog-list')),
+        const Offset(0, -300),
+      );
+      await tester.pump();
+      if (repository.catalogPageRequests.length == 2) break;
+    }
+    await tester.pumpAndSettle();
+    expect(repository.catalogPageRequests, hasLength(2));
+    expect(repository.catalogPageRequests.last.offset, 30);
 
     await tester.tapAt(const Offset(195, 120));
     await tester.pumpAndSettle();
@@ -159,7 +201,7 @@ void main() {
 
   testWidgets('hidden reader turns pages within the current chapter first',
       (tester) async {
-    await pumpReader(tester);
+    final repository = await pumpReader(tester);
 
     expect(find.textContaining('第一章 · 1/'), findsOneWidget);
 
@@ -169,6 +211,10 @@ void main() {
     expect(find.text('第一章'), findsNothing);
     expect(find.textContaining('第一章 · 2/'), findsOneWidget);
     expect(find.textContaining('这是第2章的正文内容'), findsNothing);
+    expect(repository.recentlyReadUpdates, isNotEmpty);
+    expect(repository.recentlyReadUpdates.last.chapterIndex, 0);
+    expect(repository.recentlyReadUpdates.last.readPosition, greaterThan(0));
+    expect(repository.progressUpdates, isEmpty);
 
     await tester.flingFrom(const Offset(330, 420), const Offset(-300, 0), 1200);
     await tester.pumpAndSettle();
@@ -192,15 +238,128 @@ void main() {
 
     expect(find.byKey(const ValueKey('reader-scroll-view')), findsOneWidget);
   });
+
+  testWidgets('scroll mode builds visible paragraphs lazily', (tester) async {
+    final content = List.generate(
+      200,
+      (index) => '段落 $index：这是用于验证滚动虚拟化的唯一正文。',
+    ).join('\n\n');
+    await pumpReader(tester, firstChapterContent: content);
+    await tester.tap(find.byKey(const ValueKey('reader-gesture-layer')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('翻页'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('滚动'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(195, 422));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('reader-scroll-view')), findsOneWidget);
+    expect(find.byKey(const ValueKey('reader-paragraph-0')), findsOneWidget);
+    expect(find.textContaining('段落 0'), findsOneWidget);
+    expect(find.textContaining('段落 199'), findsNothing);
+  });
+
+  testWidgets('flushes pending scroll progress on dispose', (tester) async {
+    final repository = await pumpReader(tester);
+    await tester.tap(find.byKey(const ValueKey('reader-gesture-layer')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('翻页'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('滚动'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(195, 422));
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const ValueKey('reader-scroll-view')),
+      const Offset(0, -260),
+    );
+    await tester.pump();
+    expect(repository.progressUpdates, isEmpty);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+
+    expect(repository.progressUpdates, isNotEmpty);
+    expect(repository.progressUpdates.last.chapterIndex, 0);
+    expect(repository.progressUpdates.last.readPosition, greaterThan(0));
+    expect(repository.recentlyReadUpdates, isEmpty);
+  });
 }
 
-class _NoopBookshelfRepository implements BookshelfRepository {
+class _ProgressUpdate {
+  const _ProgressUpdate({
+    required this.bookId,
+    required this.chapterIndex,
+    required this.readPosition,
+  });
+
+  final String bookId;
+  final int chapterIndex;
+  final int readPosition;
+}
+
+class _CatalogPageRequest {
+  const _CatalogPageRequest({
+    required this.bookId,
+    required this.offset,
+    required this.limit,
+  });
+
+  final String bookId;
+  final int offset;
+  final int limit;
+}
+
+class _RecordingBookshelfRepository implements BookshelfRepository {
+  List<Chapter> chapterMetas = const [];
+  final catalogPageRequests = <_CatalogPageRequest>[];
+  final progressUpdates = <_ProgressUpdate>[];
+  final recentlyReadUpdates = <_ProgressUpdate>[];
+
+  @override
+  Future<List<Chapter>> fetchChapterMetasPage({
+    required String bookId,
+    required int offset,
+    required int limit,
+  }) async {
+    catalogPageRequests.add(
+      _CatalogPageRequest(bookId: bookId, offset: offset, limit: limit),
+    );
+    return chapterMetas.skip(offset).take(limit).toList();
+  }
+
   @override
   Future<void> updateReadingProgress({
     required String bookId,
     required int chapterIndex,
     required int readPosition,
-  }) async {}
+  }) async {
+    progressUpdates.add(
+      _ProgressUpdate(
+        bookId: bookId,
+        chapterIndex: chapterIndex,
+        readPosition: readPosition,
+      ),
+    );
+  }
+
+  @override
+  Future<void> markBookRecentlyRead({
+    required String bookId,
+    required int chapterIndex,
+    required int readPosition,
+  }) async {
+    recentlyReadUpdates.add(
+      _ProgressUpdate(
+        bookId: bookId,
+        chapterIndex: chapterIndex,
+        readPosition: readPosition,
+      ),
+    );
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

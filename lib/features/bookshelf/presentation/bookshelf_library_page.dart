@@ -62,6 +62,9 @@ class _BookshelfLibraryPageState extends ConsumerState<BookshelfLibraryPage> {
                 )
                 .toList();
     final showTips = items?.isEmpty == true && !tipsDismissed;
+    final hasShelfData = items != null;
+    final isColdLoading = books.isLoading && !hasShelfData;
+    final showSubtleRefresh = books.isLoading && hasShelfData;
     if (items != null) {
       if (items.isEmpty && _searchController.text.isNotEmpty) {
         _searchController.clear();
@@ -80,8 +83,10 @@ class _BookshelfLibraryPageState extends ConsumerState<BookshelfLibraryPage> {
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 20),
-          books.when(
-            data: (_) => items!.isEmpty
+          if (showSubtleRefresh) const _BookshelfRefreshLine(),
+          if (showSubtleRefresh) const SizedBox(height: 12),
+          if (hasShelfData)
+            items.isEmpty
                 ? _EmptyBookshelfCard(onImport: _importLocalBook)
                 : _ShelfBooksSection(
                     books: filteredItems!,
@@ -91,11 +96,12 @@ class _BookshelfLibraryPageState extends ConsumerState<BookshelfLibraryPage> {
                     selectedBookIds: _selectedBookIds,
                     onManage: () => _enterManageMode(items),
                     onToggleBook: _toggleSelection,
-                  ),
-            loading: () => const _BookshelfLoadingCard(),
-            error: (_, __) => _BookshelfErrorCard(
+                  )
+          else if (isColdLoading)
+            const _BookshelfLoadingHint()
+          else
+            _BookshelfErrorCard(
                 onRetry: () => ref.invalidate(shelfBooksProvider)),
-          ),
           if (showTips) ...[
             const SizedBox(height: 20),
             _LibraryTipsSection(
@@ -1269,20 +1275,58 @@ const _coverPalettes = [
   _CoverPalette(Color(0xFF9A6D45), Color(0xFFE8C99B)),
 ];
 
-class _BookshelfLoadingCard extends StatelessWidget {
-  const _BookshelfLoadingCard();
+class _BookshelfLoadingHint extends StatelessWidget {
+  const _BookshelfLoadingHint();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 160,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: DudoColors.outlineVariant),
+        color: DudoColors.surfaceLow.withValues(alpha: 0.55),
+        borderRadius: AppRadius.full,
       ),
-      alignment: Alignment.center,
-      child: const CircularProgressIndicator(color: DudoColors.primary),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 32,
+            child: ClipRRect(
+              borderRadius: AppRadius.full,
+              child: LinearProgressIndicator(
+                minHeight: 2,
+                backgroundColor: DudoColors.outlineVariant,
+                color: DudoColors.primaryContainerStrong,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            '正在整理书架',
+            style: DudoTextStyles.sans(
+              color: DudoColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BookshelfRefreshLine extends StatelessWidget {
+  const _BookshelfRefreshLine();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ClipRRect(
+      borderRadius: AppRadius.full,
+      child: LinearProgressIndicator(
+        minHeight: 2,
+        backgroundColor: DudoColors.outlineVariant,
+        color: DudoColors.primaryContainerStrong,
+      ),
     );
   }
 }

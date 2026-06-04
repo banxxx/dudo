@@ -7,7 +7,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../features/bookshelf/application/bookshelf_providers.dart';
+import '../../../features/bookshelf/data/bookshelf_repository.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../domain/reader_catalog_item.dart';
 import '../domain/reader_chapter_view.dart';
 import '../domain/reader_overlay_mode.dart';
 import 'layout/reader_page_layout.dart';
@@ -34,6 +36,8 @@ class ReaderPage extends ConsumerStatefulWidget {
 }
 
 class _ReaderPageState extends ConsumerState<ReaderPage> {
+  static const int _catalogPageSize = 30;
+
   final ScrollController _scrollController = ScrollController();
   Timer? _saveProgressTimer;
 
@@ -49,11 +53,22 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   int? _restoredChapterIndex;
   int? _lastSavedChapterIndex;
   int? _lastSavedReadPosition;
+  int? _pendingSaveChapterIndex;
+  int? _pendingSaveReadPosition;
+  bool _pendingSaveBumpRecency = false;
+  _ReaderPaginationKey? _cachedPaginationKey;
+  List<ReaderPageSlice>? _cachedPages;
+  final List<Chapter> _catalogMetas = [];
+  bool _catalogIsLoadingMore = false;
+  bool _catalogHasMore = true;
+  int _catalogLoadedCount = 0;
+  late BookshelfRepository _repository;
   late int _currentChapterIndex;
 
   @override
   void initState() {
     super.initState();
+    _repository = ref.read(bookshelfRepositoryProvider);
     _currentChapterIndex = widget.initialChapterIndex;
     _syncSystemUiMode();
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncSystemUiMode());
@@ -61,7 +76,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
 
   @override
   void dispose() {
-    _saveProgressTimer?.cancel();
+    _flushPendingProgress();
     _scrollController.dispose();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -85,6 +100,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       _pageIndex = 0;
       _currentReadPosition = 0;
       _restoredChapterIndex = null;
+      _resetCatalogPaging();
     }
     _syncSystemUiMode();
   }
@@ -96,7 +112,19 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
         ? SystemUiOverlayStyle.light
         : SystemUiOverlayStyle.dark;
     final bookValue = ref.watch(bookByIdProvider(widget.bookId));
-    final chaptersValue = ref.watch(bookChaptersProvider(widget.bookId));
+    final chapterCountValue =
+        ref.watch(bookChapterCountProvider(widget.bookId));
+    final effectiveChapterIndex = _effectiveChapterIndex(
+      chapterCountValue.valueOrNull,
+    );
+    final currentChapterKey = CurrentBookChapterKey(
+      bookId: widget.bookId,
+      chapterIndex: effectiveChapterIndex,
+    );
+    final currentChapterMetaValue =
+        ref.watch(currentBookChapterMetaProvider(currentChapterKey));
+    final currentChapterValue =
+        ref.watch(currentBookChapterContentProvider(currentChapterKey));
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: statusStyle.copyWith(
@@ -113,7 +141,10 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
               context: context,
               metrics: metrics,
               bookValue: bookValue,
-              chaptersValue: chaptersValue,
+              chapterCountValue: chapterCountValue,
+              currentChapterMetaValue: currentChapterMetaValue,
+              currentChapterValue: currentChapterValue,
+              currentChapterKey: currentChapterKey,
             );
             return Stack(
               children: [
@@ -132,9 +163,15 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     required BuildContext context,
     required ReaderPageMetrics metrics,
     required AsyncValue<Book?> bookValue,
-    required AsyncValue<List<Chapter>> chaptersValue,
+    required AsyncValue<int> chapterCountValue,
+    required AsyncValue<Chapter?> currentChapterMetaValue,
+    required AsyncValue<Chapter?> currentChapterValue,
+    required CurrentBookChapterKey currentChapterKey,
   }) {
-    if (bookValue.hasError || chaptersValue.hasError) {
+    if (bookValue.hasError ||
+        chapterCountValue.hasError ||
+        currentChapterMetaValue.hasError ||
+        currentChapterValue.hasError) {
       return ReaderStateMessage(
         metrics: metrics,
         palette: _palette,
@@ -143,16 +180,18 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
         actionLabel: '重试',
         onAction: () {
           ref.invalidate(bookByIdProvider(widget.bookId));
-          ref.invalidate(bookChaptersProvider(widget.bookId));
+          ref.invalidate(bookChapterCountProvider(widget.bookId));
+          ref.invalidate(currentBookChapterMetaProvider(currentChapterKey));
+          ref.invalidate(currentBookChapterContentProvider(currentChapterKey));
         },
       );
     }
-    if (bookValue.isLoading || chaptersValue.isLoading) {
+    if (bookValue.isLoading || chapterCountValue.isLoading) {
       return ReaderStateMessage(
         metrics: metrics,
         palette: _palette,
         title: '正在打开书籍…',
-        message: '正在读取本地章节内容',
+        message: '正在读取章节目录',
       );
     }
 
@@ -168,8 +207,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       );
     }
 
-    final chapters = chaptersValue.valueOrNull ?? const <Chapter>[];
-    if (chapters.isEmpty) {
+    final chapterCount = chapterCountValue.valueOrNull ?? 0;
+    if (chapterCount == 0) {
       final localPath = book.localPath;
       if (localPath != null) {
         ref.read(localBookChapterAnalysisServiceProvider).analyzeInBackground(
@@ -185,11 +224,31 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       );
     }
 
+    if (currentChapterMetaValue.isLoading || currentChapterValue.isLoading) {
+      return ReaderStateMessage(
+        metrics: metrics,
+        palette: _palette,
+        title: '正在打开章节…',
+        message: '正在读取当前章节内容',
+      );
+    }
+
+    final currentChapterMeta = currentChapterMetaValue.valueOrNull;
+    final currentChapter = currentChapterValue.valueOrNull;
+    if (currentChapterMeta == null || currentChapter == null) {
+      return ReaderStateMessage(
+        metrics: metrics,
+        palette: _palette,
+        title: '章节不存在',
+        message: '这章内容可能已被删除或尚未缓存',
+      );
+    }
+
     final localPath = book.localPath;
-    final firstChapterContentLength = chapters.first.content?.length ?? 0;
+    final currentChapterContentLength = currentChapter.content?.length ?? 0;
     if (localPath != null &&
-        chapters.length == 1 &&
-        firstChapterContentLength > 60000) {
+        chapterCount == 1 &&
+        currentChapterContentLength > 60000) {
       ref.read(localBookChapterAnalysisServiceProvider).analyzeInBackground(
             bookId: book.id,
             localPath: localPath,
@@ -202,11 +261,13 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       );
     }
 
-    final view = ReaderChapterView.fromBook(
+    final view = ReaderChapterView.fromChapter(
       book: book,
-      chapters: chapters,
-      requestedChapterIndex: _currentChapterIndex,
+      chapterMeta: currentChapterMeta,
+      currentChapter: currentChapter,
+      chapterCount: chapterCount,
     );
+    _syncCurrentChapterIndex(view.currentChapterIndex);
     if (view.contentMissing) {
       return ReaderStateMessage(
         metrics: metrics,
@@ -223,12 +284,10 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     final articleHeight = (footerTop - articleTop - metrics.s(18))
         .clamp(metrics.s(520), metrics.height)
         .toDouble();
-    final pages = ReaderPageLayout.paginate(
-      text: view.text,
+    final pages = _pagesFor(
+      view: view,
       metrics: metrics,
-      fontSize: _fontSize,
-      lineHeight: _lineHeight,
-      availableHeight: articleHeight,
+      articleHeight: articleHeight,
     );
     final restoredPosition = _restoreReadPositionIfNeeded(
       book: book,
@@ -243,11 +302,19 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     );
     if (pageIndex != _pageIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _pageIndex = pageIndex);
+        if (mounted) {
+          setState(() => _pageIndex = pageIndex);
+        }
       });
     }
     final chapterProgress = view.chapterProgressForPosition(readPosition);
     final bookProgress = view.bookProgressForPosition(readPosition);
+    final catalogItems = _overlayMode == ReaderOverlayMode.catalog
+        ? _catalogItemsFor(
+            chapterMetas: _catalogMetas,
+            currentChapterIndex: view.currentChapterIndex,
+          )
+        : const <ReaderCatalogItem>[];
 
     return Stack(
       children: [
@@ -312,13 +379,17 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
           isListening: _isListening,
           currentChapterIndex: view.currentChapterIndex,
           chapterCount: view.chapterCount,
-          catalogItems: view.catalogItems,
+          catalogItems: catalogItems,
+          catalogHasMore: _catalogHasMore,
+          catalogIsLoadingMore: _catalogIsLoadingMore,
+          onCatalogLoadMore: () => _loadMoreCatalog(chapterCount),
           onBack: () {
             _saveCurrentProgressNow(view);
             context.pop();
           },
           onClose: () => _setOverlayMode(ReaderOverlayMode.controls),
-          onModeChanged: _setOverlayMode,
+          onModeChanged: (mode) =>
+              _setOverlayMode(mode, chapterCount: chapterCount),
           onChapterSelected: _selectChapter,
           onPreviousChapter: view.previousChapterIndex == null
               ? null
@@ -345,6 +416,97 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     );
   }
 
+  List<ReaderCatalogItem> _catalogItemsFor({
+    required List<Chapter> chapterMetas,
+    required int currentChapterIndex,
+  }) {
+    return [
+      for (var i = 0; i < chapterMetas.length; i++)
+        ReaderCatalogItem(
+          chapterIndex: chapterMetas[i].chapterIndex,
+          title: chapterMetas[i].title,
+          subtitle: chapterMetas[i].chapterIndex == currentChapterIndex
+              ? '正在阅读'
+              : '已缓存',
+        ),
+    ];
+  }
+
+  List<ReaderPageSlice> _pagesFor({
+    required ReaderChapterView view,
+    required ReaderPageMetrics metrics,
+    required double articleHeight,
+  }) {
+    final key = _ReaderPaginationKey(
+      bookId: widget.bookId,
+      chapterIndex: view.currentChapterIndex,
+      textLength: view.text.length,
+      textHash: view.text.hashCode,
+      metricsWidth: metrics.width,
+      metricsHeight: metrics.height,
+      articleHeight: articleHeight,
+      fontSize: _fontSize,
+      lineHeight: _lineHeight,
+    );
+    final cachedPages = _cachedPages;
+    if (_cachedPaginationKey == key && cachedPages != null) {
+      return cachedPages;
+    }
+    final pages = ReaderPageLayout.paginate(
+      text: view.text,
+      metrics: metrics,
+      fontSize: _fontSize,
+      lineHeight: _lineHeight,
+      availableHeight: articleHeight,
+    );
+    _cachedPaginationKey = key;
+    _cachedPages = pages;
+    return pages;
+  }
+
+  int _effectiveChapterIndex(int? chapterCount) {
+    if (chapterCount == null || chapterCount <= 0) return _currentChapterIndex;
+    return _currentChapterIndex.clamp(0, chapterCount - 1).toInt();
+  }
+
+  void _syncCurrentChapterIndex(int chapterIndex) {
+    if (_currentChapterIndex == chapterIndex) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _currentChapterIndex = chapterIndex);
+      }
+    });
+  }
+
+  Future<void> _loadMoreCatalog(int chapterCount) async {
+    if (_catalogIsLoadingMore || !_catalogHasMore) return;
+    if (_catalogLoadedCount >= chapterCount) {
+      setState(() => _catalogHasMore = false);
+      return;
+    }
+    setState(() => _catalogIsLoadingMore = true);
+    final offset = _catalogLoadedCount;
+    final metas = await _repository.fetchChapterMetasPage(
+      bookId: widget.bookId,
+      offset: offset,
+      limit: _catalogPageSize,
+    );
+    if (!mounted) return;
+    setState(() {
+      _catalogMetas.addAll(metas);
+      _catalogLoadedCount += metas.length;
+      _catalogHasMore = _catalogLoadedCount < chapterCount;
+      _catalogIsLoadingMore = false;
+    });
+  }
+
+  void _resetCatalogPaging() {
+    _catalogMetas.clear();
+    _catalogLoadedCount = 0;
+    _catalogHasMore = true;
+    _catalogIsLoadingMore = false;
+  }
+
   void _toggleOverlay() {
     _setOverlayMode(
       _overlayMode == ReaderOverlayMode.hidden
@@ -353,9 +515,12 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     );
   }
 
-  void _setOverlayMode(ReaderOverlayMode mode) {
+  void _setOverlayMode(ReaderOverlayMode mode, {int? chapterCount}) {
     if (_overlayMode == mode) return;
     setState(() => _overlayMode = mode);
+    if (mode == ReaderOverlayMode.catalog && chapterCount != null) {
+      _loadMoreCatalog(chapterCount);
+    }
     _syncSystemUiMode(mode);
   }
 
@@ -379,6 +544,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
         chapterIndex: view.currentChapterIndex,
         readPosition: readPosition,
         force: true,
+        bumpRecency: true,
       );
       return;
     }
@@ -429,6 +595,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       chapterIndex: chapterIndex,
       readPosition: initialReadPosition,
       force: true,
+      bumpRecency: true,
     );
     _syncSystemUiMode(ReaderOverlayMode.hidden);
   }
@@ -449,6 +616,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       chapterIndex: chapterIndex,
       readPosition: 0,
       force: true,
+      bumpRecency: true,
     );
     _syncSystemUiMode(ReaderOverlayMode.controls);
   }
@@ -498,6 +666,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       chapterIndex: view.currentChapterIndex,
       readPosition: _currentReadPosition.clamp(0, view.text.length).toInt(),
       force: true,
+      bumpRecency: true,
     );
   }
 
@@ -505,30 +674,146 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     required int chapterIndex,
     required int readPosition,
     bool force = false,
+    bool bumpRecency = false,
+  }) {
+    _saveProgressTimer?.cancel();
+    _saveProgressTimer = null;
+
+    if (force) {
+      _pendingSaveChapterIndex = null;
+      _pendingSaveReadPosition = null;
+      _pendingSaveBumpRecency = false;
+      _persistReadingProgress(
+        chapterIndex: chapterIndex,
+        readPosition: readPosition,
+        bumpRecency: bumpRecency,
+      );
+      return;
+    }
+
+    if (_lastSavedChapterIndex == chapterIndex &&
+        _lastSavedReadPosition == readPosition) {
+      _pendingSaveChapterIndex = null;
+      _pendingSaveReadPosition = null;
+      _pendingSaveBumpRecency = false;
+      return;
+    }
+
+    _pendingSaveChapterIndex = chapterIndex;
+    _pendingSaveReadPosition = readPosition;
+    _pendingSaveBumpRecency = bumpRecency;
+    _saveProgressTimer = Timer(const Duration(milliseconds: 450), () {
+      final pendingChapterIndex = _pendingSaveChapterIndex;
+      final pendingReadPosition = _pendingSaveReadPosition;
+      final pendingBumpRecency = _pendingSaveBumpRecency;
+      _pendingSaveChapterIndex = null;
+      _pendingSaveReadPosition = null;
+      _pendingSaveBumpRecency = false;
+      if (pendingChapterIndex == null || pendingReadPosition == null) return;
+      _persistReadingProgress(
+        chapterIndex: pendingChapterIndex,
+        readPosition: pendingReadPosition,
+        bumpRecency: pendingBumpRecency,
+      );
+    });
+  }
+
+  void _flushPendingProgress() {
+    _saveProgressTimer?.cancel();
+    _saveProgressTimer = null;
+    final pendingChapterIndex = _pendingSaveChapterIndex;
+    final pendingReadPosition = _pendingSaveReadPosition;
+    final pendingBumpRecency = _pendingSaveBumpRecency;
+    _pendingSaveChapterIndex = null;
+    _pendingSaveReadPosition = null;
+    _pendingSaveBumpRecency = false;
+    if (pendingChapterIndex == null || pendingReadPosition == null) return;
+    _persistReadingProgress(
+      chapterIndex: pendingChapterIndex,
+      readPosition: pendingReadPosition,
+      bumpRecency: pendingBumpRecency,
+    );
+  }
+
+  void _persistReadingProgress({
+    required int chapterIndex,
+    required int readPosition,
+    required bool bumpRecency,
   }) {
     if (_lastSavedChapterIndex == chapterIndex &&
         _lastSavedReadPosition == readPosition) {
       return;
     }
-    _saveProgressTimer?.cancel();
-    void save() {
-      _lastSavedChapterIndex = chapterIndex;
-      _lastSavedReadPosition = readPosition;
-      ref.read(bookshelfRepositoryProvider).updateReadingProgress(
-            bookId: widget.bookId,
-            chapterIndex: chapterIndex,
-            readPosition: readPosition,
-          );
+    _lastSavedChapterIndex = chapterIndex;
+    _lastSavedReadPosition = readPosition;
+    if (bumpRecency) {
+      _repository.markBookRecentlyRead(
+        bookId: widget.bookId,
+        chapterIndex: chapterIndex,
+        readPosition: readPosition,
+      );
+      return;
     }
-
-    if (force) {
-      save();
-    } else {
-      _saveProgressTimer = Timer(const Duration(milliseconds: 450), save);
-    }
+    _repository.updateReadingProgress(
+      bookId: widget.bookId,
+      chapterIndex: chapterIndex,
+      readPosition: readPosition,
+    );
   }
 
   void _syncSystemUiMode([ReaderOverlayMode? mode]) {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
+}
+
+class _ReaderPaginationKey {
+  const _ReaderPaginationKey({
+    required this.bookId,
+    required this.chapterIndex,
+    required this.textLength,
+    required this.textHash,
+    required this.metricsWidth,
+    required this.metricsHeight,
+    required this.articleHeight,
+    required this.fontSize,
+    required this.lineHeight,
+  });
+
+  final String bookId;
+  final int chapterIndex;
+  final int textLength;
+  final int textHash;
+  final double metricsWidth;
+  final double metricsHeight;
+  final double articleHeight;
+  final double fontSize;
+  final double lineHeight;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is _ReaderPaginationKey &&
+            other.bookId == bookId &&
+            other.chapterIndex == chapterIndex &&
+            other.textLength == textLength &&
+            other.textHash == textHash &&
+            other.metricsWidth == metricsWidth &&
+            other.metricsHeight == metricsHeight &&
+            other.articleHeight == articleHeight &&
+            other.fontSize == fontSize &&
+            other.lineHeight == lineHeight;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        bookId,
+        chapterIndex,
+        textLength,
+        textHash,
+        metricsWidth,
+        metricsHeight,
+        articleHeight,
+        fontSize,
+        lineHeight,
+      );
 }

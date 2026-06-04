@@ -43,6 +43,20 @@ class BookshelfRepository {
     return query.watch();
   }
 
+  Stream<Chapter?> watchChapterContentForBookAtIndex({
+    required String bookId,
+    required int chapterIndex,
+  }) {
+    final query = database.select(database.chapters)
+      ..where(
+        (chapter) =>
+            chapter.bookId.equals(bookId) &
+            chapter.chapterIndex.equals(chapterIndex),
+      )
+      ..limit(1);
+    return query.watchSingleOrNull();
+  }
+
   Stream<int> watchChapterCount(String bookId) {
     final count = database.chapters.id.count();
     final query = database.selectOnly(database.chapters)
@@ -84,7 +98,8 @@ class BookshelfRepository {
         );
   }
 
-  JoinedSelectStatement<HasResultSet, dynamic> _chapterMetaQuery(String bookId) {
+  JoinedSelectStatement<HasResultSet, dynamic> _chapterMetaQuery(
+      String bookId) {
     return database.selectOnly(database.chapters)
       ..addColumns([
         database.chapters.id,
@@ -169,6 +184,21 @@ class BookshelfRepository {
   }
 
   Future<void> updateReadingProgress({
+    required String bookId,
+    required int chapterIndex,
+    required int readPosition,
+  }) async {
+    await (database.update(database.books)
+          ..where((book) => book.id.equals(bookId)))
+        .write(
+      BooksCompanion(
+        lastChapterIndex: Value(chapterIndex),
+        lastReadPosition: Value(readPosition),
+      ),
+    );
+  }
+
+  Future<void> markBookRecentlyRead({
     required String bookId,
     required int chapterIndex,
     required int readPosition,

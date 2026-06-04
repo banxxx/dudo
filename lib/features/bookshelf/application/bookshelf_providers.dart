@@ -30,6 +30,16 @@ final bookChapterCountProvider =
   return ref.watch(bookshelfRepositoryProvider).watchChapterCount(bookId);
 });
 
+final currentBookChapterContentProvider =
+    StreamProvider.family<Chapter?, CurrentBookChapterKey>((ref, key) {
+  return ref
+      .watch(bookshelfRepositoryProvider)
+      .watchChapterContentForBookAtIndex(
+        bookId: key.bookId,
+        chapterIndex: key.chapterIndex,
+      );
+});
+
 final currentBookChapterMetaProvider =
     StreamProvider.family<Chapter?, CurrentBookChapterKey>((ref, key) {
   return ref.watch(bookshelfRepositoryProvider).watchChapterMetaForBookAtIndex(
@@ -61,7 +71,9 @@ class CurrentBookChapterKey {
 
 final bookChapterMetasProvider =
     StreamProvider.family<List<Chapter>, String>((ref, bookId) {
-  return ref.watch(bookshelfRepositoryProvider).watchChapterMetasForBook(bookId);
+  return ref
+      .watch(bookshelfRepositoryProvider)
+      .watchChapterMetasForBook(bookId);
 });
 
 final initialBookChapterMetasProvider =

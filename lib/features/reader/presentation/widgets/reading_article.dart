@@ -78,14 +78,24 @@ class ReadingArticle extends StatelessWidget {
                   child: GestureDetector(
                     behavior: HitTestBehavior.translucent,
                     onTap: onTap,
-                    child: SingleChildScrollView(
+                    child: ListView.builder(
                       key: const ValueKey('reader-scroll-view'),
                       controller: scrollController,
                       physics: const BouncingScrollPhysics(),
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: metrics.s(32)),
-                        child: Text(chapter.text, style: style),
-                      ),
+                      padding: EdgeInsets.only(bottom: metrics.s(32)),
+                      itemCount: chapter.paragraphs.length,
+                      itemBuilder: (context, index) {
+                        final paragraph = chapter.paragraphs[index];
+                        return Padding(
+                          key: ValueKey('reader-paragraph-$index'),
+                          padding: EdgeInsets.only(
+                            bottom: index + 1 == chapter.paragraphs.length
+                                ? 0
+                                : metrics.s(fontSize * lineHeight),
+                          ),
+                          child: Text(paragraph, style: style),
+                        );
+                      },
                     ),
                   ),
                 )
