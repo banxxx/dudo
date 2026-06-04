@@ -246,7 +246,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
         if (mounted) setState(() => _pageIndex = pageIndex);
       });
     }
-    final chapterProgress = view.progressForPosition(readPosition);
+    final chapterProgress = view.chapterProgressForPosition(readPosition);
+    final bookProgress = view.bookProgressForPosition(readPosition);
 
     return Stack(
       children: [
@@ -293,7 +294,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
         ReaderProgress(
           metrics: metrics,
           palette: _palette,
-          pageLabel: view.chapterLabel,
+          pageLabel: '${view.chapterLabel} · ${pageIndex + 1}/${pages.length}',
           progress: chapterProgress,
         ),
         ReaderControls(
@@ -301,7 +302,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
           bookTitle: view.bookTitle,
           chapterLabel: view.chapterLabel,
           chapterTitle: view.chapterTitle,
-          progress: chapterProgress,
+          progress: bookProgress,
           remainingText: view.remainingText,
           palette: _palette,
           fontSize: _fontSize,

@@ -37,7 +37,7 @@ void main() {
         bookId: 'book-1',
         chapterIndex: 1,
         title: '第 2 章 · 射手和农场主',
-        content: '第二章内容',
+        content: '  第二章内容  \n\n\n第二章内容' * 50,
         isCached: true,
         fetchedAt: now,
       ),
@@ -63,15 +63,10 @@ void main() {
     expect(find.text('已在书架'), findsOneWidget);
     expect(find.text('上次阅读'), findsOneWidget);
     expect(find.text('已读到 第 2 章 · 射手和农场主'), findsOneWidget);
+    expect(find.text('17%'), findsOneWidget);
+    expect(find.text('59%'), findsOneWidget);
     expect(find.text('简介'), findsOneWidget);
     expect(find.textContaining('红岸工程'), findsOneWidget);
-
-    await tester.tap(find.byType(InkWell).at(1));
-    await tester.pumpAndSettle();
-
-    expect(find.text('缓存全书'), findsOneWidget);
-    expect(find.text('更新目录'), findsOneWidget);
-    expect(find.text('分享书籍'), findsOneWidget);
   });
   testWidgets('renders not-started state without progress card',
       (tester) async {

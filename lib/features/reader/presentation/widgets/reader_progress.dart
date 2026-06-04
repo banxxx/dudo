@@ -110,6 +110,7 @@ class _ReaderProgressState extends State<ReaderProgress> {
               SizedBox(width: widget.metrics.s(16)),
               Text(
                 '${(widget.progress * 100).round()}%',
+                key: const ValueKey('reader-progress-percent'),
                 style: numericStyle,
               ),
             ],

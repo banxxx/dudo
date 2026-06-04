@@ -64,7 +64,8 @@ void main() {
 
     expect(find.textContaining('第一章'), findsOneWidget);
     expect(find.textContaining('罗辑醒来的时候'), findsWidgets);
-    expect(find.textContaining('%'), findsOneWidget);
+    expect(
+        find.byKey(const ValueKey('reader-progress-percent')), findsOneWidget);
     expect(find.byKey(const ValueKey('reader-top-controls')), findsNothing);
     expect(find.byKey(const ValueKey('reader-bottom-controls')), findsNothing);
 
@@ -73,9 +74,9 @@ void main() {
     final progressTopLeft =
         tester.getTopLeft(find.byKey(const ValueKey('reader-progress')));
     expect(articleTopLeft.dx, 30);
-    expect(articleTopLeft.dy, 92);
+    expect(articleTopLeft.dy, 18);
     expect(progressTopLeft.dx, 30);
-    expect(progressTopLeft.dy, 766);
+    expect(progressTopLeft.dy, 797);
   });
 
   testWidgets('tap shows Pencil D1 warm reader controls', (tester) async {

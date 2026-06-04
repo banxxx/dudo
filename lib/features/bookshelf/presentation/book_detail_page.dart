@@ -11,6 +11,7 @@ import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../../../shared/widgets/error_state_view.dart';
+import '../../reader/domain/reader_chapter_view.dart';
 import '../application/bookshelf_providers.dart';
 
 class BookDetailPage extends ConsumerStatefulWidget {
@@ -36,7 +37,7 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   @override
   Widget build(BuildContext context) {
     final bookValue = ref.watch(bookByIdProvider(widget.bookId));
-    final chaptersValue = ref.watch(bookChapterMetasProvider(widget.bookId));
+    final chaptersValue = ref.watch(bookChaptersProvider(widget.bookId));
 
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
@@ -80,7 +81,7 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
         error: (_, __) => _BookDetailErrorState(
           onRetry: () {
             ref.invalidate(bookByIdProvider(widget.bookId));
-            ref.invalidate(bookChapterMetasProvider(widget.bookId));
+            ref.invalidate(bookChaptersProvider(widget.bookId));
           },
         ),
       ),
@@ -196,8 +197,9 @@ class _BookDetailContent extends StatelessWidget {
     final chapterCount = chapters.length;
     final hasStarted = book.lastChapterIndex > 0 || book.lastReadPosition > 0;
     final showProgress = hasStarted;
-    final progress = _progressPercent(book, chapterCount);
     final currentChapter = _currentChapter(book, chapters);
+    final chapterProgress = _chapterProgressPercent(book, currentChapter);
+    final bookProgress = _bookProgressPercent(book, chapters, currentChapter);
 
     return Column(
       children: [
@@ -216,14 +218,14 @@ class _BookDetailContent extends StatelessWidget {
         if (showProgress) ...[
           const SizedBox(height: 10),
           _BookProgressCard(
-            progress: progress,
+            progress: chapterProgress,
             currentChapterTitle: currentChapter?.title,
             chapterIndex: book.lastChapterIndex,
           ),
         ],
         const SizedBox(height: 10),
         _BookStatsRow(
-          progress: progress,
+          progress: bookProgress,
           chapterCount: chapterCount,
           chaptersLoading: chaptersLoading,
           progressLabel: showProgress ? '已读' : '进度',
@@ -240,11 +242,36 @@ class _BookDetailContent extends StatelessWidget {
     );
   }
 
-  int _progressPercent(Book book, int chapterCount) {
+  int _chapterProgressPercent(Book book, Chapter? currentChapter) {
+    if (book.lastChapterIndex <= 0 && book.lastReadPosition <= 0) return 0;
+    final contentLength =
+        normalizeReaderText(currentChapter?.content ?? '').length;
+    if (contentLength <= 0) return 0;
+    return ((book.lastReadPosition.clamp(0, contentLength) / contentLength) *
+            100)
+        .round()
+        .clamp(0, 100);
+  }
+
+  int _bookProgressPercent(
+    Book book,
+    List<Chapter> chapters,
+    Chapter? currentChapter,
+  ) {
+    final chapterCount = chapters.length;
     if (chapterCount <= 0) return 0;
     if (book.lastChapterIndex <= 0 && book.lastReadPosition <= 0) return 0;
+
     final current = book.lastChapterIndex.clamp(0, chapterCount - 1);
-    return (((current + 1) / chapterCount) * 100).round().clamp(1, 99);
+    final contentLength =
+        normalizeReaderText(currentChapter?.content ?? '').length;
+    final chapterProgress = contentLength <= 0
+        ? 0.0
+        : book.lastReadPosition.clamp(0, contentLength).toDouble() /
+            contentLength;
+    return (((current + chapterProgress) / chapterCount) * 100)
+        .round()
+        .clamp(1, 100);
   }
 
   Chapter? _currentChapter(Book book, List<Chapter> chapters) {
@@ -297,14 +324,22 @@ class _BookDetailTopBar extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _RoundActionButton(icon: LucideIcons.chevronLeft, onTap: onBack),
-        _RoundActionButton(icon: LucideIcons.ellipsis, onTap: onMore),
+        _RoundActionButton(
+          key: const ValueKey('book-detail-more-button'),
+          icon: LucideIcons.ellipsis,
+          onTap: onMore,
+        ),
       ],
     );
   }
 }
 
 class _RoundActionButton extends StatelessWidget {
-  const _RoundActionButton({required this.icon, required this.onTap});
+  const _RoundActionButton({
+    super.key,
+    required this.icon,
+    required this.onTap,
+  });
 
   final IconData icon;
   final VoidCallback onTap;

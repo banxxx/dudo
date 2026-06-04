@@ -35,10 +35,15 @@ class ReaderChapterView {
   bool get hasPrevious => previousChapterIndex != null;
   bool get hasNext => nextChapterIndex != null;
 
-  double progressForPosition(int readPosition) {
-    final chapterProgress = text.isEmpty
-        ? 0.0
-        : readPosition.clamp(0, text.length).toDouble() / text.length;
+  double chapterProgressForPosition(int readPosition) {
+    if (text.isEmpty) return 0.0;
+    return (readPosition.clamp(0, text.length).toDouble() / text.length)
+        .clamp(0, 1)
+        .toDouble();
+  }
+
+  double bookProgressForPosition(int readPosition) {
+    final chapterProgress = chapterProgressForPosition(readPosition);
     return ((chapterOrdinal + chapterProgress) / chapterCount)
         .clamp(0, 1)
         .toDouble();
@@ -55,8 +60,9 @@ class ReaderChapterView {
     );
     final position = exactIndex >= 0 ? exactIndex : clampedPosition;
     final chapter = chapters[position];
-    final content = chapter.content?.trim() ?? '';
-    final paragraphs = _splitReaderParagraphs(content);
+    final rawContent = chapter.content ?? '';
+    final text = normalizeReaderText(rawContent);
+    final paragraphs = splitReaderParagraphs(rawContent);
     final isSingleLocalChapter = book.localPath != null && chapters.length == 1;
     final chapterLabel = isSingleLocalChapter ? '全文' : chapter.title;
 
@@ -64,9 +70,9 @@ class ReaderChapterView {
       bookTitle: book.title,
       chapterLabel: chapterLabel,
       chapterTitle: chapter.title,
-      remainingText: _estimateReadingTimeText(content),
+      remainingText: _estimateReadingTimeText(text),
       chapterOrdinal: position,
-      text: paragraphs.join('\n\n'),
+      text: text,
       paragraphs: paragraphs,
       currentChapterIndex: chapter.chapterIndex,
       chapterCount: chapters.length,
@@ -83,12 +89,16 @@ class ReaderChapterView {
             subtitle: i == position ? '正在阅读' : '已缓存',
           ),
       ],
-      contentMissing: content.isEmpty,
+      contentMissing: text.isEmpty,
     );
   }
 }
 
-List<String> _splitReaderParagraphs(String content) {
+String normalizeReaderText(String content) {
+  return splitReaderParagraphs(content).join('\n\n');
+}
+
+List<String> splitReaderParagraphs(String content) {
   return content
       .replaceAll('\r\n', '\n')
       .replaceAll('\r', '\n')
