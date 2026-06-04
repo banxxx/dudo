@@ -14,6 +14,8 @@ class ReadingArticle extends StatelessWidget {
     required this.chapter,
     required this.fontSize,
     required this.lineHeight,
+    required this.top,
+    required this.height,
     required this.pageIndex,
     required this.pages,
     required this.scrollController,
@@ -29,6 +31,8 @@ class ReadingArticle extends StatelessWidget {
   final ReaderChapterView chapter;
   final double fontSize;
   final double lineHeight;
+  final double top;
+  final double height;
   final int pageIndex;
   final List<ReaderPageSlice> pages;
   final ScrollController scrollController;
@@ -51,9 +55,9 @@ class ReadingArticle extends StatelessWidget {
     return Positioned(
       key: const ValueKey('reader-article'),
       left: metrics.x(30),
-      top: metrics.y(92),
+      top: top,
       width: metrics.s(330),
-      height: metrics.s(642),
+      height: height,
       child: IgnorePointer(
         ignoring: !interactive,
         child: Opacity(

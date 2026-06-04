@@ -75,6 +75,7 @@ dependencies:
   background_downloader: ^8.5.5
   package_info_plus: ^8.0.0
   device_info_plus: ^10.1.0
+  battery_plus: ^6.0.2
   url_launcher: ^6.2.6
   share_plus: ^9.0.0
   file_picker: ^8.0.3

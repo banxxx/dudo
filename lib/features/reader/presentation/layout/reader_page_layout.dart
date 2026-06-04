@@ -16,13 +16,18 @@ class ReaderPageSlice {
 }
 
 class ReaderPageLayout {
-  static double pageHeight(ReaderPageMetrics metrics) => metrics.s(642);
+  static double pageHeight(
+    ReaderPageMetrics metrics, {
+    double? availableHeight,
+  }) =>
+      availableHeight ?? metrics.s(642);
 
   static List<ReaderPageSlice> paginate({
     required String text,
     required ReaderPageMetrics metrics,
     required double fontSize,
     required double lineHeight,
+    double? availableHeight,
   }) {
     if (text.isEmpty) {
       return const [ReaderPageSlice(startOffset: 0, endOffset: 0, text: '')];
@@ -34,7 +39,7 @@ class ReaderPageLayout {
       letterSpacing: 0.4,
     );
     final width = metrics.s(330);
-    final height = pageHeight(metrics);
+    final height = pageHeight(metrics, availableHeight: availableHeight);
     final pages = <ReaderPageSlice>[];
     var start = 0;
 

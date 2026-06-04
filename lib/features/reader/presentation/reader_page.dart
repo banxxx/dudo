@@ -216,11 +216,19 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       );
     }
 
+    final topInset = MediaQuery.paddingOf(context).top;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final articleTop = topInset + metrics.s(18);
+    final footerTop = metrics.height - bottomInset - metrics.s(44);
+    final articleHeight = (footerTop - articleTop - metrics.s(18))
+        .clamp(metrics.s(520), metrics.height)
+        .toDouble();
     final pages = ReaderPageLayout.paginate(
       text: view.text,
       metrics: metrics,
       fontSize: _fontSize,
       lineHeight: _lineHeight,
+      availableHeight: articleHeight,
     );
     final restoredPosition = _restoreReadPositionIfNeeded(
       book: book,
@@ -238,7 +246,6 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
         if (mounted) setState(() => _pageIndex = pageIndex);
       });
     }
-    final pageCount = pages.length;
     final chapterProgress = view.progressForPosition(readPosition);
 
     return Stack(
@@ -266,6 +273,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
           chapter: view,
           fontSize: _fontSize,
           lineHeight: _lineHeight,
+          top: articleTop,
+          height: articleHeight,
           pageIndex: pageIndex,
           pages: pages,
           scrollController: _scrollController,
@@ -284,7 +293,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
         ReaderProgress(
           metrics: metrics,
           palette: _palette,
-          pageLabel: '${view.chapterLabel} · ${pageIndex + 1}/$pageCount',
+          pageLabel: view.chapterLabel,
           progress: chapterProgress,
         ),
         ReaderControls(
