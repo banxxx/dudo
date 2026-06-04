@@ -103,9 +103,9 @@ class _TopActions extends StatelessWidget {
           onTap: () => context.pop(),
         ),
         const Spacer(),
-        const _RoundIconButton(
+        _RoundIconButton(
           icon: LucideIcons.info,
-          onTap: _handleOpenHelp,
+          onTap: () => _handleOpenHelp(context),
         ),
       ],
     );
@@ -397,4 +397,6 @@ void _handleOpenSetting(BuildContext context, String? route) {
   }
 }
 
-void _handleOpenHelp() {}
+void _handleOpenHelp(BuildContext context) {
+  context.push(AppRoutes.aboutApp);
+}

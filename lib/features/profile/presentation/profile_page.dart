@@ -218,65 +218,73 @@ class _MonthlyGoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: DudoColors.primaryContainer,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        onTap: () => context.push(AppRoutes.readingGoal),
         borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        child: Container(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: DudoColors.primaryContainer,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  '五月阅读目标',
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '五月阅读目标',
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '78%',
+                    style: DudoTextStyles.numeric(
+                      color: DudoColors.primary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 9),
+              ClipRRect(
+                borderRadius: AppRadius.full,
+                child: Container(
+                  height: 8,
+                  color: DudoColors.paperBackground,
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: 0.78,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: DudoColors.primary,
+                        borderRadius: AppRadius.full,
+                      ),
+                    ),
                   ),
                 ),
               ),
+              const SizedBox(height: 9),
               Text(
-                '78%',
-                style: DudoTextStyles.numeric(
-                  color: DudoColors.primary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                '距离 20 小时目标还差 4 小时 24 分钟。',
+                style: DudoTextStyles.sans(
+                  color: DudoColors.secondaryDark,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 9),
-          ClipRRect(
-            borderRadius: AppRadius.full,
-            child: Container(
-              height: 8,
-              color: DudoColors.paperBackground,
-              alignment: Alignment.centerLeft,
-              child: FractionallySizedBox(
-                widthFactor: 0.78,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: DudoColors.primary,
-                    borderRadius: AppRadius.full,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 9),
-          Text(
-            '距离 20 小时目标还差 4 小时 24 分钟。',
-            style: DudoTextStyles.sans(
-              color: DudoColors.secondaryDark,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

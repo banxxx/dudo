@@ -8,8 +8,10 @@ import '../../features/bookshelf/presentation/bookshelf_library_page.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../../features/reader/presentation/reader_page.dart';
+import '../../features/reading_goal/presentation/reading_goal_page.dart';
 import '../../features/reading_stats/presentation/reading_stats_page.dart';
 import '../../features/search/presentation/search_page.dart';
+import '../../features/settings/about/presentation/about_app_page.dart';
 import '../../features/settings/read_aloud_settings/presentation/read_aloud_settings_page.dart';
 import '../../features/settings/source_add/presentation/source_add_settings_page.dart';
 import '../../features/settings/source_manage/presentation/source_manage_settings_page.dart';
@@ -78,9 +80,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const SettingsPage(),
       ),
       GoRoute(
+        path: AppRoutes.aboutApp,
+        name: AppRoutes.aboutAppName,
+        builder: (_, __) => const AboutAppPage(),
+      ),
+      GoRoute(
         path: AppRoutes.readingStats,
         name: AppRoutes.readingStatsName,
         builder: (_, __) => const ReadingStatsPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.readingGoal,
+        name: AppRoutes.readingGoalName,
+        builder: (_, __) => const ReadingGoalPage(),
       ),
       GoRoute(
         path: AppRoutes.sourceSettings,
@@ -167,8 +179,14 @@ class AppRoutes {
   static const settings = '/settings';
   static const settingsName = 'settings';
 
+  static const aboutApp = '/settings/about';
+  static const aboutAppName = 'settings-about';
+
   static const readingStats = '/reading-stats';
   static const readingStatsName = 'reading-stats';
+
+  static const readingGoal = '/reading-goal';
+  static const readingGoalName = 'reading-goal';
 
   static const sourceSettings = '/settings/sources';
   static const sourceSettingsName = 'settings-sources';
