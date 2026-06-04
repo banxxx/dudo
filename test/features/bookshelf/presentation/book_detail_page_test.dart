@@ -1,5 +1,6 @@
 import 'package:dudo/core/database/app_database.dart';
 import 'package:dudo/features/bookshelf/application/bookshelf_providers.dart';
+import 'package:dudo/features/bookshelf/data/bookshelf_repository.dart';
 import 'package:dudo/features/bookshelf/presentation/book_detail_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -44,11 +45,18 @@ void main() {
         fetchedAt: now,
       ),
     ];
+    final repository = _FakeBookshelfRepository(chapters);
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          bookshelfRepositoryProvider.overrideWithValue(repository),
           bookByIdProvider('book-1').overrideWith((ref) => Stream.value(book)),
+          bookChapterCountProvider('book-1')
+              .overrideWith((ref) => Stream.value(chapters.length)),
+          currentBookChapterMetaProvider(
+            const CurrentBookChapterKey(bookId: 'book-1', chapterIndex: 1),
+          ).overrideWith((ref) => Stream.value(chapters[1])),
           initialBookChapterMetasProvider('book-1')
               .overrideWith((ref) => Stream.value(chapters)),
           bookChapterMetasProvider('book-1')
@@ -100,11 +108,18 @@ void main() {
         fetchedAt: now,
       ),
     ];
+    final repository = _FakeBookshelfRepository(chapters);
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          bookshelfRepositoryProvider.overrideWithValue(repository),
           bookByIdProvider('book-2').overrideWith((ref) => Stream.value(book)),
+          bookChapterCountProvider('book-2')
+              .overrideWith((ref) => Stream.value(chapters.length)),
+          currentBookChapterMetaProvider(
+            const CurrentBookChapterKey(bookId: 'book-2', chapterIndex: 0),
+          ).overrideWith((ref) => Stream.value(chapters[0])),
           initialBookChapterMetasProvider('book-2')
               .overrideWith((ref) => Stream.value(chapters)),
           bookChapterMetasProvider('book-2')
@@ -125,4 +140,25 @@ void main() {
     await tester.scrollUntilVisible(find.text('全文'), 300);
     expect(find.text('全文'), findsOneWidget);
   });
+}
+
+class _FakeBookshelfRepository implements BookshelfRepository {
+  const _FakeBookshelfRepository(this.chapters);
+
+  final List<Chapter> chapters;
+
+  @override
+  Future<List<Chapter>> fetchChapterMetasPage({
+    required String bookId,
+    required int offset,
+    required int limit,
+  }) async {
+    return chapters.skip(offset).take(limit).toList();
+  }
+
+  @override
+  Future<void> backfillNormalizedContentLengths(String bookId) async {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

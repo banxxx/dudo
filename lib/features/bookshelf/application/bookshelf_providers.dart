@@ -25,6 +25,40 @@ final bookChaptersProvider =
   return ref.watch(bookshelfRepositoryProvider).watchChaptersForBook(bookId);
 });
 
+final bookChapterCountProvider =
+    StreamProvider.family<int, String>((ref, bookId) {
+  return ref.watch(bookshelfRepositoryProvider).watchChapterCount(bookId);
+});
+
+final currentBookChapterMetaProvider =
+    StreamProvider.family<Chapter?, CurrentBookChapterKey>((ref, key) {
+  return ref.watch(bookshelfRepositoryProvider).watchChapterMetaForBookAtIndex(
+        bookId: key.bookId,
+        chapterIndex: key.chapterIndex,
+      );
+});
+
+class CurrentBookChapterKey {
+  const CurrentBookChapterKey({
+    required this.bookId,
+    required this.chapterIndex,
+  });
+
+  final String bookId;
+  final int chapterIndex;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is CurrentBookChapterKey &&
+            other.bookId == bookId &&
+            other.chapterIndex == chapterIndex;
+  }
+
+  @override
+  int get hashCode => Object.hash(bookId, chapterIndex);
+}
+
 final bookChapterMetasProvider =
     StreamProvider.family<List<Chapter>, String>((ref, bookId) {
   return ref.watch(bookshelfRepositoryProvider).watchChapterMetasForBook(bookId);

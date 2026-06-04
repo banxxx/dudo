@@ -43,11 +43,49 @@ class BookshelfRepository {
     return query.watch();
   }
 
+  Stream<int> watchChapterCount(String bookId) {
+    final count = database.chapters.id.count();
+    final query = database.selectOnly(database.chapters)
+      ..addColumns([count])
+      ..where(database.chapters.bookId.equals(bookId));
+    return query.watchSingle().map((row) => row.read(count) ?? 0);
+  }
+
+  Stream<Chapter?> watchChapterMetaForBookAtIndex({
+    required String bookId,
+    required int chapterIndex,
+  }) {
+    final query = _chapterMetaQuery(bookId)
+      ..where(database.chapters.chapterIndex.equals(chapterIndex))
+      ..limit(1);
+    return query.watchSingleOrNull().map(
+          (row) => row == null ? null : _readChapterMeta(row),
+        );
+  }
+
+  Future<List<Chapter>> fetchChapterMetasPage({
+    required String bookId,
+    required int offset,
+    required int limit,
+  }) async {
+    final query = _chapterMetaQuery(bookId)..limit(limit, offset: offset);
+    final rows = await query.get();
+    return [for (final row in rows) _readChapterMeta(row)];
+  }
+
   Stream<List<Chapter>> watchChapterMetasForBook(
     String bookId, {
     int? limit,
   }) {
-    final query = database.selectOnly(database.chapters)
+    final query = _chapterMetaQuery(bookId);
+    if (limit != null) query.limit(limit);
+    return query.watch().map(
+          (rows) => [for (final row in rows) _readChapterMeta(row)],
+        );
+  }
+
+  JoinedSelectStatement<HasResultSet, dynamic> _chapterMetaQuery(String bookId) {
+    return database.selectOnly(database.chapters)
       ..addColumns([
         database.chapters.id,
         database.chapters.bookId,
@@ -65,24 +103,21 @@ class BookshelfRepository {
           mode: OrderingMode.asc,
         ),
       ]);
-    if (limit != null) query.limit(limit);
-    return query.watch().map(
-          (rows) => [
-            for (final row in rows)
-              Chapter(
-                id: row.read(database.chapters.id)!,
-                bookId: row.read(database.chapters.bookId)!,
-                chapterIndex: row.read(database.chapters.chapterIndex)!,
-                title: row.read(database.chapters.title)!,
-                url: row.read(database.chapters.url),
-                content: null,
-                normalizedContentLength:
-                    row.read(database.chapters.normalizedContentLength)!,
-                isCached: row.read(database.chapters.isCached)!,
-                fetchedAt: row.read(database.chapters.fetchedAt),
-              ),
-          ],
-        );
+  }
+
+  Chapter _readChapterMeta(TypedResult row) {
+    return Chapter(
+      id: row.read(database.chapters.id)!,
+      bookId: row.read(database.chapters.bookId)!,
+      chapterIndex: row.read(database.chapters.chapterIndex)!,
+      title: row.read(database.chapters.title)!,
+      url: row.read(database.chapters.url),
+      content: null,
+      normalizedContentLength:
+          row.read(database.chapters.normalizedContentLength)!,
+      isCached: row.read(database.chapters.isCached)!,
+      fetchedAt: row.read(database.chapters.fetchedAt),
+    );
   }
 
   Future<void> backfillNormalizedContentLengths(String bookId) async {

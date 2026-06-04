@@ -16,6 +16,9 @@ import '../../../shared/widgets/dudo_page_frame.dart';
 import '../../../shared/widgets/error_state_view.dart';
 import '../application/bookshelf_providers.dart';
 
+const _chapterCatalogPageSize = 80;
+const _chapterCatalogPrefetchExtent = 900.0;
+
 class BookDetailPage extends ConsumerStatefulWidget {
   const BookDetailPage({super.key, required this.bookId});
 
@@ -27,24 +30,28 @@ class BookDetailPage extends ConsumerStatefulWidget {
 
 class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   final ScrollController _scrollController = ScrollController();
+  final List<Chapter> _catalogChapters = [];
   bool _showMoreMenu = false;
   bool _isAddingToShelf = false;
-  bool _loadFullCatalog = false;
+  bool _isLoadingCatalogPage = false;
+  bool _hasMoreCatalogPages = true;
   bool _backfillStarted = false;
   Timer? _backfillTimer;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_maybePrefetchCatalogPage);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      setState(() => _loadFullCatalog = true);
+      unawaited(_loadNextCatalogPage());
     });
   }
 
   @override
   void dispose() {
     _backfillTimer?.cancel();
+    _scrollController.removeListener(_maybePrefetchCatalogPage);
     _scrollController.dispose();
     super.dispose();
   }
@@ -52,39 +59,43 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   @override
   Widget build(BuildContext context) {
     final bookValue = ref.watch(bookByIdProvider(widget.bookId));
-    final initialChaptersValue =
-        ref.watch(initialBookChapterMetasProvider(widget.bookId));
-    final fullChaptersValue = _loadFullCatalog
-        ? ref.watch(bookChapterMetasProvider(widget.bookId))
-        : null;
+    final chapterCountValue = ref.watch(bookChapterCountProvider(widget.bookId));
 
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
       body: bookValue.when(
         data: (book) {
           if (book == null) return _BookMissingState(onBack: _goBack);
-          final initialChapters =
-              initialChaptersValue.valueOrNull ?? const <Chapter>[];
-          final fullChapters = fullChaptersValue?.valueOrNull;
-          final chapters = fullChapters ?? initialChapters;
-          final chaptersLoading = initialChaptersValue.isLoading && chapters.isEmpty;
-          final loadingFullCatalog =
-              _loadFullCatalog && fullChaptersValue != null && fullChapters == null;
-          if (fullChapters != null) _scheduleLengthBackfill();
+          final chapterCount = chapterCountValue.valueOrNull ?? _catalogChapters.length;
+          final chaptersLoading = _catalogChapters.isEmpty &&
+              (_isLoadingCatalogPage || chapterCountValue.isLoading);
+          final currentChapterValue = ref.watch(
+            currentBookChapterMetaProvider(
+              CurrentBookChapterKey(
+                bookId: widget.bookId,
+                chapterIndex: book.lastChapterIndex,
+              ),
+            ),
+          );
+          final currentChapter = currentChapterValue.valueOrNull;
+          if (chapterCount > 0) _scheduleLengthBackfill();
 
           return Stack(
             children: [
               _BookDetailScrollView(
                 controller: _scrollController,
                 book: book,
-                chapters: chapters,
+                chapters: _catalogChapters,
+                chapterCount: chapterCount,
+                currentChapter: currentChapter,
                 chaptersLoading: chaptersLoading,
-                loadingFullCatalog: loadingFullCatalog,
+                loadingMoreChapters: _isLoadingCatalogPage,
+                hasMoreChapters: _hasMoreCatalogPages,
                 isAddingToShelf: _isAddingToShelf,
-                onRead: () => _openReader(book, chapters),
+                onRead: () => _openReader(book, chapterCount),
                 onAddToShelf: () => _addToShelf(book),
                 onChapterTap: (chapterIndex) =>
-                    _openReader(book, chapters, chapterIndex: chapterIndex),
+                    _openReader(book, chapterCount, chapterIndex: chapterIndex),
               ),
               _PinnedBookDetailTopBar(
                 onBack: _goBack,
@@ -102,8 +113,9 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
         loading: () => const _BookDetailLoadingState(),
         error: (_, __) => _BookDetailErrorState(
           onRetry: () {
+            _resetCatalogPaging();
             ref.invalidate(bookByIdProvider(widget.bookId));
-            ref.invalidate(initialBookChapterMetasProvider(widget.bookId));
+            ref.invalidate(bookChapterCountProvider(widget.bookId));
             ref.invalidate(bookChapterMetasProvider(widget.bookId));
           },
         ),
@@ -144,12 +156,47 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
     });
   }
 
+  void _maybePrefetchCatalogPage() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.extentAfter > _chapterCatalogPrefetchExtent) return;
+    unawaited(_loadNextCatalogPage());
+  }
+
+  Future<void> _loadNextCatalogPage() async {
+    if (_isLoadingCatalogPage || !_hasMoreCatalogPages) return;
+    setState(() => _isLoadingCatalogPage = true);
+    try {
+      final page = await ref.read(bookshelfRepositoryProvider).fetchChapterMetasPage(
+            bookId: widget.bookId,
+            offset: _catalogChapters.length,
+            limit: _chapterCatalogPageSize,
+          );
+      if (!mounted) return;
+      setState(() {
+        _catalogChapters.addAll(page);
+        _hasMoreCatalogPages = page.length == _chapterCatalogPageSize;
+        _isLoadingCatalogPage = false;
+      });
+      _maybePrefetchCatalogPage();
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingCatalogPage = false);
+    }
+  }
+
+  void _resetCatalogPaging() {
+    _catalogChapters.clear();
+    _hasMoreCatalogPages = true;
+    _isLoadingCatalogPage = false;
+    unawaited(_loadNextCatalogPage());
+  }
+
   void _openReader(
     Book book,
-    List<Chapter> chapters, {
+    int chapterCount, {
     int? chapterIndex,
   }) {
-    if (chapters.isEmpty) {
+    if (chapterCount <= 0) {
       ref.read(appMessageServiceProvider).warning(
             '导入或刷新章节后再试',
             title: '暂无章节内容',
@@ -216,8 +263,11 @@ class _BookDetailScrollView extends StatelessWidget {
     required this.controller,
     required this.book,
     required this.chapters,
+    required this.chapterCount,
+    required this.currentChapter,
     required this.chaptersLoading,
-    required this.loadingFullCatalog,
+    required this.loadingMoreChapters,
+    required this.hasMoreChapters,
     required this.isAddingToShelf,
     required this.onRead,
     required this.onAddToShelf,
@@ -227,8 +277,11 @@ class _BookDetailScrollView extends StatelessWidget {
   final ScrollController controller;
   final Book book;
   final List<Chapter> chapters;
+  final int chapterCount;
+  final Chapter? currentChapter;
   final bool chaptersLoading;
-  final bool loadingFullCatalog;
+  final bool loadingMoreChapters;
+  final bool hasMoreChapters;
   final bool isAddingToShelf;
   final VoidCallback onRead;
   final VoidCallback onAddToShelf;
@@ -255,6 +308,8 @@ class _BookDetailScrollView extends StatelessWidget {
                   child: _BookDetailHeaderContent(
                     book: book,
                     chapters: chapters,
+                    chapterCount: chapterCount,
+                    currentChapter: currentChapter,
                     chaptersLoading: chaptersLoading,
                     isAddingToShelf: isAddingToShelf,
                     onRead: onRead,
@@ -266,8 +321,9 @@ class _BookDetailScrollView extends StatelessWidget {
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                 sliver: SliverToBoxAdapter(
                   child: _ChapterListHeader(
-                    chapters: chapters,
-                    loadingFullCatalog: loadingFullCatalog,
+                    loadedChapterCount: chapters.length,
+                    chapterCount: chapterCount,
+                    loadingMoreChapters: loadingMoreChapters,
                   ),
                 ),
               ),
@@ -289,7 +345,8 @@ class _BookDetailScrollView extends StatelessWidget {
                 SliverPadding(
                   padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                   sliver: SliverList.builder(
-                    itemCount: chapters.length + (loadingFullCatalog ? 1 : 0),
+                    itemCount: chapters.length +
+                        (loadingMoreChapters || hasMoreChapters ? 1 : 0),
                     itemBuilder: (context, index) {
                       if (index == chapters.length) {
                         return const _RemainingChaptersLoadingTile();
@@ -299,7 +356,8 @@ class _BookDetailScrollView extends StatelessWidget {
                         chapter: chapter,
                         isFirst: index == 0,
                         isLast: index == chapters.length - 1 &&
-                            !loadingFullCatalog,
+                            !loadingMoreChapters &&
+                            !hasMoreChapters,
                         onTap: () => onChapterTap(chapter.chapterIndex),
                       );
                     },
@@ -331,6 +389,8 @@ class _BookDetailHeaderContent extends StatelessWidget {
   const _BookDetailHeaderContent({
     required this.book,
     required this.chapters,
+    required this.chapterCount,
+    required this.currentChapter,
     required this.chaptersLoading,
     required this.isAddingToShelf,
     required this.onRead,
@@ -339,6 +399,8 @@ class _BookDetailHeaderContent extends StatelessWidget {
 
   final Book book;
   final List<Chapter> chapters;
+  final int chapterCount;
+  final Chapter? currentChapter;
   final bool chaptersLoading;
   final bool isAddingToShelf;
   final VoidCallback onRead;
@@ -346,12 +408,10 @@ class _BookDetailHeaderContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chapterCount = chapters.length;
     final hasStarted = book.lastChapterIndex > 0 || book.lastReadPosition > 0;
     final showProgress = hasStarted;
-    final currentChapter = _currentChapter(book, chapters);
     final chapterProgress = _chapterProgressPercent(book, currentChapter);
-    final bookProgress = _bookProgressPercent(book, chapters, currentChapter);
+    final bookProgress = _bookProgressPercent(book, chapterCount, currentChapter);
 
     return Column(
       children: [
@@ -400,19 +460,13 @@ class _BookDetailHeaderContent extends StatelessWidget {
 
   int _bookProgressPercent(
     Book book,
-    List<Chapter> chapters,
+    int chapterCount,
     Chapter? currentChapter,
   ) {
-    final chapterCount = chapters.length;
     if (chapterCount <= 0) return 0;
     if (book.lastChapterIndex <= 0 && book.lastReadPosition <= 0) return 0;
 
-    final currentPosition = chapters.indexWhere(
-      (chapter) => chapter.chapterIndex == book.lastChapterIndex,
-    );
-    final current = currentPosition >= 0
-        ? currentPosition
-        : book.lastChapterIndex.clamp(0, chapterCount - 1);
+    final current = book.lastChapterIndex.clamp(0, chapterCount - 1);
     final contentLength = currentChapter?.normalizedContentLength ?? 0;
     final chapterProgress = contentLength <= 0
         ? 0.0
@@ -421,16 +475,6 @@ class _BookDetailHeaderContent extends StatelessWidget {
     return (((current + chapterProgress) / chapterCount) * 100)
         .round()
         .clamp(1, 100);
-  }
-
-  Chapter? _currentChapter(Book book, List<Chapter> chapters) {
-    if (chapters.isEmpty) return null;
-    final exactIndex = chapters.indexWhere(
-      (chapter) => chapter.chapterIndex == book.lastChapterIndex,
-    );
-    if (exactIndex >= 0) return chapters[exactIndex];
-    final index = book.lastChapterIndex.clamp(0, chapters.length - 1);
-    return chapters[index];
   }
 }
 
@@ -1018,15 +1062,22 @@ class _BookIntroSection extends StatelessWidget {
 
 class _ChapterListHeader extends StatelessWidget {
   const _ChapterListHeader({
-    required this.chapters,
-    required this.loadingFullCatalog,
+    required this.loadedChapterCount,
+    required this.chapterCount,
+    required this.loadingMoreChapters,
   });
 
-  final List<Chapter> chapters;
-  final bool loadingFullCatalog;
+  final int loadedChapterCount;
+  final int chapterCount;
+  final bool loadingMoreChapters;
 
   @override
   Widget build(BuildContext context) {
+    final label = chapterCount <= 0
+        ? ''
+        : loadedChapterCount < chapterCount
+            ? '已加载 $loadedChapterCount / $chapterCount 章'
+            : '共 $chapterCount 章';
     return Column(
       children: [
         Row(
@@ -1041,11 +1092,7 @@ class _ChapterListHeader extends StatelessWidget {
               ),
             ),
             Text(
-              loadingFullCatalog
-                  ? '加载中'
-                  : chapters.isEmpty
-                      ? ''
-                      : '共 ${chapters.length} 章',
+              loadingMoreChapters && label.isEmpty ? '加载中' : label,
               style: DudoTextStyles.sans(
                 color: DudoColors.primary,
                 fontSize: 13,
@@ -1123,7 +1170,7 @@ class _RemainingChaptersLoadingTile extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              '正在加载剩余章节',
+              '正在加载更多章节',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: DudoTextStyles.sans(
