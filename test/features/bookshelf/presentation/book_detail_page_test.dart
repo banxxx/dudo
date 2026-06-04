@@ -29,6 +29,7 @@ void main() {
         chapterIndex: 0,
         title: '第 1 章 · 科学边界',
         content: '第一章内容',
+        normalizedContentLength: 5,
         isCached: true,
         fetchedAt: now,
       ),
@@ -38,6 +39,7 @@ void main() {
         chapterIndex: 1,
         title: '第 2 章 · 射手和农场主',
         content: '  第二章内容  \n\n\n第二章内容' * 50,
+        normalizedContentLength: 699,
         isCached: true,
         fetchedAt: now,
       ),
@@ -47,7 +49,9 @@ void main() {
       ProviderScope(
         overrides: [
           bookByIdProvider('book-1').overrideWith((ref) => Stream.value(book)),
-          bookChaptersProvider('book-1')
+          initialBookChapterMetasProvider('book-1')
+              .overrideWith((ref) => Stream.value(chapters)),
+          bookChapterMetasProvider('book-1')
               .overrideWith((ref) => Stream.value(chapters)),
         ],
         child: const MaterialApp(
@@ -91,6 +95,7 @@ void main() {
         chapterIndex: 0,
         title: '全文',
         content: '全文内容',
+        normalizedContentLength: 4,
         isCached: true,
         fetchedAt: now,
       ),
@@ -100,7 +105,9 @@ void main() {
       ProviderScope(
         overrides: [
           bookByIdProvider('book-2').overrideWith((ref) => Stream.value(book)),
-          bookChaptersProvider('book-2')
+          initialBookChapterMetasProvider('book-2')
+              .overrideWith((ref) => Stream.value(chapters)),
+          bookChapterMetasProvider('book-2')
               .overrideWith((ref) => Stream.value(chapters)),
         ],
         child: const MaterialApp(
@@ -115,6 +122,7 @@ void main() {
     expect(find.text('还未开始阅读'), findsOneWidget);
     expect(find.text('上次阅读'), findsNothing);
     expect(find.text('已读到 全文'), findsNothing);
+    await tester.scrollUntilVisible(find.text('全文'), 300);
     expect(find.text('全文'), findsOneWidget);
   });
 }

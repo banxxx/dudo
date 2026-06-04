@@ -30,6 +30,13 @@ final bookChapterMetasProvider =
   return ref.watch(bookshelfRepositoryProvider).watchChapterMetasForBook(bookId);
 });
 
+final initialBookChapterMetasProvider =
+    StreamProvider.family<List<Chapter>, String>((ref, bookId) {
+  return ref
+      .watch(bookshelfRepositoryProvider)
+      .watchChapterMetasForBook(bookId, limit: 30);
+});
+
 final localBookDuplicateProvider =
     FutureProvider.family<Book?, String>((ref, title) {
   return ref.watch(bookshelfRepositoryProvider).findLocalBookByTitle(title);

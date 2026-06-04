@@ -44,6 +44,8 @@ class Chapters extends Table {
   TextColumn get title => text()();
   TextColumn get url => text().nullable()();
   TextColumn get content => text().nullable()();
+  IntColumn get normalizedContentLength =>
+      integer().withDefault(const Constant(0))();
   BoolColumn get isCached => boolean().withDefault(const Constant(false))();
   DateTimeColumn get fetchedAt => dateTime().nullable()();
 
@@ -122,7 +124,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -130,7 +132,18 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
         },
         onUpgrade: (m, from, to) async {
-          // Place schema migrations here.
+          if (from < 2) {
+            await m.addColumn(
+              chapters,
+              chapters.normalizedContentLength,
+            );
+          }
+          if (from < 3) {
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS chapters_book_id_idx_index '
+              'ON chapters (book_id, idx)',
+            );
+          }
         },
       );
 }

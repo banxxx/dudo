@@ -1,5 +1,6 @@
 import '../../../core/database/app_database.dart';
 import 'reader_catalog_item.dart';
+import 'reader_text_normalizer.dart';
 
 class ReaderChapterView {
   const ReaderChapterView({
@@ -92,20 +93,6 @@ class ReaderChapterView {
       contentMissing: text.isEmpty,
     );
   }
-}
-
-String normalizeReaderText(String content) {
-  return splitReaderParagraphs(content).join('\n\n');
-}
-
-List<String> splitReaderParagraphs(String content) {
-  return content
-      .replaceAll('\r\n', '\n')
-      .replaceAll('\r', '\n')
-      .split('\n')
-      .map((paragraph) => paragraph.trim())
-      .where((paragraph) => paragraph.isNotEmpty)
-      .toList();
 }
 
 String _estimateReadingTimeText(String content) {

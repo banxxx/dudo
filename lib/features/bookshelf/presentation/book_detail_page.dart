@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,13 +7,13 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/utils/breakpoints.dart';
 import '../../../shared/messages/app_message.dart';
 import '../../../shared/messages/app_message_service.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../../../shared/widgets/error_state_view.dart';
-import '../../reader/domain/reader_chapter_view.dart';
 import '../application/bookshelf_providers.dart';
 
 class BookDetailPage extends ConsumerStatefulWidget {
@@ -27,9 +29,22 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   final ScrollController _scrollController = ScrollController();
   bool _showMoreMenu = false;
   bool _isAddingToShelf = false;
+  bool _loadFullCatalog = false;
+  bool _backfillStarted = false;
+  Timer? _backfillTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _loadFullCatalog = true);
+    });
+  }
 
   @override
   void dispose() {
+    _backfillTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -37,32 +52,39 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   @override
   Widget build(BuildContext context) {
     final bookValue = ref.watch(bookByIdProvider(widget.bookId));
-    final chaptersValue = ref.watch(bookChaptersProvider(widget.bookId));
+    final initialChaptersValue =
+        ref.watch(initialBookChapterMetasProvider(widget.bookId));
+    final fullChaptersValue = _loadFullCatalog
+        ? ref.watch(bookChapterMetasProvider(widget.bookId))
+        : null;
 
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
       body: bookValue.when(
         data: (book) {
           if (book == null) return _BookMissingState(onBack: _goBack);
-          final chapters = chaptersValue.valueOrNull ?? const <Chapter>[];
+          final initialChapters =
+              initialChaptersValue.valueOrNull ?? const <Chapter>[];
+          final fullChapters = fullChaptersValue?.valueOrNull;
+          final chapters = fullChapters ?? initialChapters;
+          final chaptersLoading = initialChaptersValue.isLoading && chapters.isEmpty;
+          final loadingFullCatalog =
+              _loadFullCatalog && fullChaptersValue != null && fullChapters == null;
+          if (fullChapters != null) _scheduleLengthBackfill();
 
           return Stack(
             children: [
-              DudoPageFrame(
+              _BookDetailScrollView(
                 controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(20, 64, 20, 14),
-                children: [
-                  _BookDetailContent(
-                    book: book,
-                    chapters: chapters,
-                    chaptersLoading: chaptersValue.isLoading,
-                    isAddingToShelf: _isAddingToShelf,
-                    onRead: () => _openReader(book, chapters),
-                    onAddToShelf: () => _addToShelf(book),
-                    onChapterTap: (chapterIndex) =>
-                        _openReader(book, chapters, chapterIndex: chapterIndex),
-                  ),
-                ],
+                book: book,
+                chapters: chapters,
+                chaptersLoading: chaptersLoading,
+                loadingFullCatalog: loadingFullCatalog,
+                isAddingToShelf: _isAddingToShelf,
+                onRead: () => _openReader(book, chapters),
+                onAddToShelf: () => _addToShelf(book),
+                onChapterTap: (chapterIndex) =>
+                    _openReader(book, chapters, chapterIndex: chapterIndex),
               ),
               _PinnedBookDetailTopBar(
                 onBack: _goBack,
@@ -81,7 +103,8 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
         error: (_, __) => _BookDetailErrorState(
           onRetry: () {
             ref.invalidate(bookByIdProvider(widget.bookId));
-            ref.invalidate(bookChaptersProvider(widget.bookId));
+            ref.invalidate(initialBookChapterMetasProvider(widget.bookId));
+            ref.invalidate(bookChapterMetasProvider(widget.bookId));
           },
         ),
       ),
@@ -105,6 +128,22 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
     );
   }
 
+  void _scheduleLengthBackfill() {
+    if (_backfillStarted) return;
+    _backfillStarted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _backfillTimer = Timer(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        unawaited(
+          ref
+              .read(bookshelfRepositoryProvider)
+              .backfillNormalizedContentLengths(widget.bookId),
+        );
+      });
+    });
+  }
+
   void _openReader(
     Book book,
     List<Chapter> chapters, {
@@ -119,8 +158,7 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
           );
       return;
     }
-    final targetChapter =
-        chapterIndex ?? book.lastChapterIndex.clamp(0, chapters.length - 1);
+    final targetChapter = chapterIndex ?? book.lastChapterIndex;
     context.push('${AppRoutes.reader}/${book.id}?chapter=$targetChapter');
   }
 
@@ -173,15 +211,130 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   }
 }
 
-class _BookDetailContent extends StatelessWidget {
-  const _BookDetailContent({
+class _BookDetailScrollView extends StatelessWidget {
+  const _BookDetailScrollView({
+    required this.controller,
+    required this.book,
+    required this.chapters,
+    required this.chaptersLoading,
+    required this.loadingFullCatalog,
+    required this.isAddingToShelf,
+    required this.onRead,
+    required this.onAddToShelf,
+    required this.onChapterTap,
+  });
+
+  final ScrollController controller;
+  final Book book;
+  final List<Chapter> chapters;
+  final bool chaptersLoading;
+  final bool loadingFullCatalog;
+  final bool isAddingToShelf;
+  final VoidCallback onRead;
+  final VoidCallback onAddToShelf;
+  final ValueChanged<int> onChapterTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final horizontalPadding = _horizontalPaddingForWidth(width);
+    final maxWidth = _maxWidthForWidth(width);
+
+    return SafeArea(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: CustomScrollView(
+            controller: controller,
+            physics: const ClampingScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(horizontalPadding, 64,
+                    horizontalPadding, 10),
+                sliver: SliverToBoxAdapter(
+                  child: _BookDetailHeaderContent(
+                    book: book,
+                    chapters: chapters,
+                    chaptersLoading: chaptersLoading,
+                    isAddingToShelf: isAddingToShelf,
+                    onRead: onRead,
+                    onAddToShelf: onAddToShelf,
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                sliver: SliverToBoxAdapter(
+                  child: _ChapterListHeader(
+                    chapters: chapters,
+                    loadingFullCatalog: loadingFullCatalog,
+                  ),
+                ),
+              ),
+              if (chaptersLoading && chapters.isEmpty)
+                SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  sliver: const SliverToBoxAdapter(
+                    child: _ChapterListMessageTile(message: '正在加载目录...'),
+                  ),
+                )
+              else if (chapters.isEmpty)
+                SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  sliver: const SliverToBoxAdapter(
+                    child: _ChapterListMessageTile(message: '章节计算中'),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  sliver: SliverList.builder(
+                    itemCount: chapters.length + (loadingFullCatalog ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == chapters.length) {
+                        return const _RemainingChaptersLoadingTile();
+                      }
+                      final chapter = chapters[index];
+                      return _ChapterListTile(
+                        chapter: chapter,
+                        isFirst: index == 0,
+                        isLast: index == chapters.length - 1 &&
+                            !loadingFullCatalog,
+                        onTap: () => onChapterTap(chapter.chapterIndex),
+                      );
+                    },
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 14)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  double _horizontalPaddingForWidth(double width) {
+    if (width < DudoLayout.compactPhoneWidth) return 16;
+    if (Breakpoints.isDesktopWidth(width)) return 40;
+    if (Breakpoints.isTabletWidth(width)) return 32;
+    return 20;
+  }
+
+  double _maxWidthForWidth(double width) {
+    if (Breakpoints.isDesktopWidth(width)) return DudoLayout.desktopContentMaxWidth;
+    if (Breakpoints.isTabletWidth(width)) return DudoLayout.tabletContentMaxWidth;
+    return DudoLayout.phoneContentMaxWidth;
+  }
+}
+
+class _BookDetailHeaderContent extends StatelessWidget {
+  const _BookDetailHeaderContent({
     required this.book,
     required this.chapters,
     required this.chaptersLoading,
     required this.isAddingToShelf,
     required this.onRead,
     required this.onAddToShelf,
-    required this.onChapterTap,
   });
 
   final Book book;
@@ -190,7 +343,6 @@ class _BookDetailContent extends StatelessWidget {
   final bool isAddingToShelf;
   final VoidCallback onRead;
   final VoidCallback onAddToShelf;
-  final ValueChanged<int> onChapterTap;
 
   @override
   Widget build(BuildContext context) {
@@ -232,20 +384,13 @@ class _BookDetailContent extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         _BookIntroSection(intro: book.intro),
-        const SizedBox(height: 10),
-        _ChapterListSection(
-          chapters: chapters,
-          chaptersLoading: chaptersLoading,
-          onChapterTap: onChapterTap,
-        ),
       ],
     );
   }
 
   int _chapterProgressPercent(Book book, Chapter? currentChapter) {
     if (book.lastChapterIndex <= 0 && book.lastReadPosition <= 0) return 0;
-    final contentLength =
-        normalizeReaderText(currentChapter?.content ?? '').length;
+    final contentLength = currentChapter?.normalizedContentLength ?? 0;
     if (contentLength <= 0) return 0;
     return ((book.lastReadPosition.clamp(0, contentLength) / contentLength) *
             100)
@@ -262,9 +407,13 @@ class _BookDetailContent extends StatelessWidget {
     if (chapterCount <= 0) return 0;
     if (book.lastChapterIndex <= 0 && book.lastReadPosition <= 0) return 0;
 
-    final current = book.lastChapterIndex.clamp(0, chapterCount - 1);
-    final contentLength =
-        normalizeReaderText(currentChapter?.content ?? '').length;
+    final currentPosition = chapters.indexWhere(
+      (chapter) => chapter.chapterIndex == book.lastChapterIndex,
+    );
+    final current = currentPosition >= 0
+        ? currentPosition
+        : book.lastChapterIndex.clamp(0, chapterCount - 1);
+    final contentLength = currentChapter?.normalizedContentLength ?? 0;
     final chapterProgress = contentLength <= 0
         ? 0.0
         : book.lastReadPosition.clamp(0, contentLength).toDouble() /
@@ -276,6 +425,10 @@ class _BookDetailContent extends StatelessWidget {
 
   Chapter? _currentChapter(Book book, List<Chapter> chapters) {
     if (chapters.isEmpty) return null;
+    final exactIndex = chapters.indexWhere(
+      (chapter) => chapter.chapterIndex == book.lastChapterIndex,
+    );
+    if (exactIndex >= 0) return chapters[exactIndex];
     final index = book.lastChapterIndex.clamp(0, chapters.length - 1);
     return chapters[index];
   }
@@ -863,20 +1016,17 @@ class _BookIntroSection extends StatelessWidget {
   }
 }
 
-class _ChapterListSection extends StatelessWidget {
-  const _ChapterListSection({
+class _ChapterListHeader extends StatelessWidget {
+  const _ChapterListHeader({
     required this.chapters,
-    required this.chaptersLoading,
-    required this.onChapterTap,
+    required this.loadingFullCatalog,
   });
 
   final List<Chapter> chapters;
-  final bool chaptersLoading;
-  final ValueChanged<int> onChapterTap;
+  final bool loadingFullCatalog;
 
   @override
   Widget build(BuildContext context) {
-    final visibleChapters = chapters;
     return Column(
       children: [
         Row(
@@ -891,7 +1041,11 @@ class _ChapterListSection extends StatelessWidget {
               ),
             ),
             Text(
-              chapters.isEmpty ? '' : '共 ${chapters.length} 章',
+              loadingFullCatalog
+                  ? '加载中'
+                  : chapters.isEmpty
+                      ? ''
+                      : '共 ${chapters.length} 章',
               style: DudoTextStyles.sans(
                 color: DudoColors.primary,
                 fontSize: 13,
@@ -900,99 +1054,154 @@ class _ChapterListSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        Container(
-          decoration: BoxDecoration(
-            color: DudoColors.surfaceLow,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: chaptersLoading || chapters.isEmpty
-              ? SizedBox(
-                  height: 54,
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Text(
-                          chaptersLoading ? '正在加载目录...' : '章节计算中',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: DudoTextStyles.sans(
-                            color: DudoColors.textPrimary,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      const Icon(
-                        LucideIcons.chevronRight,
-                        color: DudoColors.secondary,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 14),
-                    ],
-                  ),
-                )
-              : Column(
-                  children: [
-                    for (var i = 0; i < visibleChapters.length; i++) ...[
-                      _ChapterListTile(
-                        chapter: visibleChapters[i],
-                        onTap: () =>
-                            onChapterTap(visibleChapters[i].chapterIndex),
-                      ),
-                      if (i != visibleChapters.length - 1)
-                        const Divider(
-                          height: 1,
-                          indent: 14,
-                          endIndent: 14,
-                          color: DudoColors.outlineVariant,
-                        ),
-                    ],
-                  ],
-                ),
-        ),
       ],
     );
   }
 }
 
+class _ChapterListMessageTile extends StatelessWidget {
+  const _ChapterListMessageTile({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 54,
+      decoration: BoxDecoration(
+        color: DudoColors.surfaceLow,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              message,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: DudoTextStyles.sans(
+                color: DudoColors.textPrimary,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          const Icon(
+            LucideIcons.chevronRight,
+            color: DudoColors.secondary,
+            size: 18,
+          ),
+          const SizedBox(width: 14),
+        ],
+      ),
+    );
+  }
+}
+
+class _RemainingChaptersLoadingTile extends StatelessWidget {
+  const _RemainingChaptersLoadingTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 54,
+      decoration: const BoxDecoration(
+        color: DudoColors.surfaceLow,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 14),
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: DudoColors.primary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '正在加载剩余章节',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: DudoTextStyles.sans(
+                color: DudoColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ChapterListTile extends StatelessWidget {
-  const _ChapterListTile({required this.chapter, required this.onTap});
+  const _ChapterListTile({
+    required this.chapter,
+    required this.isFirst,
+    required this.isLast,
+    required this.onTap,
+  });
 
   final Chapter chapter;
+  final bool isFirst;
+  final bool isLast;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final borderRadius = BorderRadius.vertical(
+      top: isFirst ? const Radius.circular(18) : Radius.zero,
+      bottom: isLast ? const Radius.circular(18) : Radius.zero,
+    );
+
     return Material(
-      color: Colors.transparent,
+      color: DudoColors.surfaceLow,
+      borderRadius: borderRadius,
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          height: 54,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  chapter.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.textPrimary,
-                    fontSize: 14,
-                  ),
+        child: Column(
+          children: [
+            SizedBox(
+              height: 54,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        chapter.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: DudoTextStyles.sans(
+                          color: DudoColors.textPrimary,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      LucideIcons.chevronRight,
+                      color: DudoColors.secondary,
+                      size: 18,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              const Icon(
-                LucideIcons.chevronRight,
-                color: DudoColors.secondary,
-                size: 18,
+            ),
+            if (!isLast)
+              const Divider(
+                height: 1,
+                indent: 14,
+                endIndent: 14,
+                color: DudoColors.outlineVariant,
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );

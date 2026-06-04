@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../reader/domain/reader_text_normalizer.dart';
 
 class BookshelfRepository {
   const BookshelfRepository(this.database);
@@ -42,7 +43,10 @@ class BookshelfRepository {
     return query.watch();
   }
 
-  Stream<List<Chapter>> watchChapterMetasForBook(String bookId) {
+  Stream<List<Chapter>> watchChapterMetasForBook(
+    String bookId, {
+    int? limit,
+  }) {
     final query = database.selectOnly(database.chapters)
       ..addColumns([
         database.chapters.id,
@@ -50,6 +54,7 @@ class BookshelfRepository {
         database.chapters.chapterIndex,
         database.chapters.title,
         database.chapters.url,
+        database.chapters.normalizedContentLength,
         database.chapters.isCached,
         database.chapters.fetchedAt,
       ])
@@ -60,6 +65,7 @@ class BookshelfRepository {
           mode: OrderingMode.asc,
         ),
       ]);
+    if (limit != null) query.limit(limit);
     return query.watch().map(
           (rows) => [
             for (final row in rows)
@@ -70,11 +76,50 @@ class BookshelfRepository {
                 title: row.read(database.chapters.title)!,
                 url: row.read(database.chapters.url),
                 content: null,
+                normalizedContentLength:
+                    row.read(database.chapters.normalizedContentLength)!,
                 isCached: row.read(database.chapters.isCached)!,
                 fetchedAt: row.read(database.chapters.fetchedAt),
               ),
           ],
         );
+  }
+
+  Future<void> backfillNormalizedContentLengths(String bookId) async {
+    const batchSize = 50;
+    while (true) {
+      final query = database.select(database.chapters)
+        ..where(
+          (chapter) =>
+              chapter.bookId.equals(bookId) &
+              chapter.normalizedContentLength.equals(0) &
+              chapter.content.isNotNull(),
+        )
+        ..orderBy([
+          (chapter) => OrderingTerm(
+                expression: chapter.chapterIndex,
+                mode: OrderingMode.asc,
+              ),
+        ])
+        ..limit(batchSize);
+      final chapters = await query.get();
+      if (chapters.isEmpty) return;
+
+      await database.batch((batch) {
+        for (final chapter in chapters) {
+          batch.update(
+            database.chapters,
+            ChaptersCompanion(
+              normalizedContentLength: Value(
+                normalizedReaderTextLength(chapter.content ?? ''),
+              ),
+            ),
+            where: (table) => table.id.equals(chapter.id),
+          );
+        }
+      });
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+    }
   }
 
   Future<void> addBookToShelf(String bookId) async {

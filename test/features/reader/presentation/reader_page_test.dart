@@ -36,6 +36,7 @@ void main() {
         content: index == 0
             ? List.filled(200, '罗辑醒来的时候，旧世界的回声仍在窗外回荡。').join('\n')
             : '这是$title的正文内容。',
+        normalizedContentLength: index == 0 ? 4598 : 10 + title.length,
         isCached: true,
         fetchedAt: now,
       );

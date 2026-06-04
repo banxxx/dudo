@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'package:drift/drift.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../reader/domain/reader_text_normalizer.dart';
 import 'bookshelf_repository.dart';
 import 'txt_chapter_parser.dart';
 
@@ -40,6 +41,9 @@ class LocalBookChapterAnalysisService {
             chapterIndex: i,
             title: result.chapters[i].title,
             content: Value(result.chapters[i].content),
+            normalizedContentLength: Value(
+              normalizedReaderTextLength(result.chapters[i].content),
+            ),
             isCached: const Value(true),
             fetchedAt: Value(now),
           ),
