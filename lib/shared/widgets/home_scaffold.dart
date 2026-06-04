@@ -53,6 +53,7 @@ class HomeScaffold extends StatelessWidget {
     }
 
     return Scaffold(
+      extendBody: true,
       body: body,
       bottomNavigationBar: DudoBottomTabBar(
         currentIndex: navigationShell.currentIndex,

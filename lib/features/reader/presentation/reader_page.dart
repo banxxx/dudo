@@ -56,13 +56,23 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     super.initState();
     _currentChapterIndex = widget.initialChapterIndex;
     _syncSystemUiMode();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncSystemUiMode());
   }
 
   @override
   void dispose() {
     _saveProgressTimer?.cancel();
     _scrollController.dispose();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+        ),
+      );
+    });
     super.dispose();
   }
 
@@ -91,7 +101,6 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: statusStyle.copyWith(
         statusBarColor: Colors.transparent,
-        systemNavigationBarColor: _palette.backgroundEnd ?? _palette.background,
       ),
       child: Scaffold(
         key: const ValueKey('reader-page'),

@@ -1,5 +1,6 @@
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -30,7 +31,18 @@ class DudoApp extends ConsumerWidget {
           darkTheme: AppTheme.build(darkScheme),
           locale: const Locale('zh', 'CN'),
           builder: (context, child) {
-            return AppMessageHost(child: child ?? const SizedBox.shrink());
+            final theme = Theme.of(context);
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              value: const SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                systemNavigationBarColor: Colors.transparent,
+                systemNavigationBarContrastEnforced: false,
+              ),
+              child: ColoredBox(
+                color: theme.scaffoldBackgroundColor,
+                child: AppMessageHost(child: child ?? const SizedBox.shrink()),
+              ),
+            );
           },
           supportedLocales: AppLocalizations.supportedLocales,
           localizationsDelegates: const <LocalizationsDelegate<Object>>[
