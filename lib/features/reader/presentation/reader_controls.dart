@@ -621,8 +621,8 @@ class _CatalogBottomSheet extends StatelessWidget {
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(metrics.s(28)),
           topRight: Radius.circular(metrics.s(28)),
-          bottomLeft: Radius.circular(metrics.s(32)),
-          bottomRight: Radius.circular(metrics.s(32)),
+          bottomLeft: Radius.zero,
+          bottomRight: Radius.zero,
         ),
         shadowColor: const Color(0x2625251F),
         shadowOffset: Offset(0, -metrics.s(12)),
@@ -632,56 +632,66 @@ class _CatalogBottomSheet extends StatelessWidget {
               metrics.s(20), metrics.s(14), metrics.s(20), metrics.s(18)),
           child: Column(
             children: [
-              Container(
-                width: metrics.s(42),
-                height: metrics.s(4),
-                decoration: BoxDecoration(
-                  color: (palette.outline ?? DudoColors.outline)
-                      .withValues(alpha: 0.7),
-                  borderRadius: AppRadius.full,
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragEnd: (details) {
+                  if ((details.primaryVelocity ?? 0) > 260) onClose();
+                },
+                child: Column(
+                  children: [
+                    Container(
+                      width: metrics.s(42),
+                      height: metrics.s(4),
+                      decoration: BoxDecoration(
+                        color: (palette.outline ?? DudoColors.outline)
+                            .withValues(alpha: 0.7),
+                        borderRadius: AppRadius.full,
+                      ),
+                    ),
+                    SizedBox(height: metrics.s(18)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$bookTitle · 共 $chapterCount 章',
+                              style: DudoTextStyles.sans(
+                                color: const Color(0xFF8A735A),
+                                fontSize: metrics.s(12),
+                              ),
+                            ),
+                            SizedBox(height: metrics.s(4)),
+                            Text(
+                              '目录',
+                              style: DudoTextStyles.serif(
+                                color: const Color(0xFF25251F),
+                                fontSize: metrics.s(26),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          '倒序',
+                          style: DudoTextStyles.sans(
+                            color: const Color(0xFF5E6F5B),
+                            fontSize: metrics.s(13),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: metrics.s(14)),
+                    _SegmentTabs(
+                        metrics: metrics,
+                        labels: const ['目录', '书签', '笔记'],
+                        selected: 0,
+                        palette: palette),
+                  ],
                 ),
               ),
-              SizedBox(height: metrics.s(18)),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$bookTitle · 共 $chapterCount 章',
-                        style: DudoTextStyles.sans(
-                          color: const Color(0xFF8A735A),
-                          fontSize: metrics.s(12),
-                        ),
-                      ),
-                      SizedBox(height: metrics.s(4)),
-                      Text(
-                        '目录',
-                        style: DudoTextStyles.serif(
-                          color: const Color(0xFF25251F),
-                          fontSize: metrics.s(26),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    '倒序',
-                    style: DudoTextStyles.sans(
-                      color: const Color(0xFF5E6F5B),
-                      fontSize: metrics.s(13),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: metrics.s(14)),
-              _SegmentTabs(
-                  metrics: metrics,
-                  labels: const ['目录', '书签', '笔记'],
-                  selected: 0,
-                  palette: palette),
               SizedBox(height: metrics.s(14)),
               Expanded(
                 child: NotificationListener<ScrollNotification>(

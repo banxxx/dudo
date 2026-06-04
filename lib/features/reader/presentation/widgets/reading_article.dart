@@ -5,6 +5,7 @@ import '../../../../shared/theme/app_theme.dart';
 import '../../domain/reader_chapter_view.dart';
 import '../layout/reader_page_layout.dart';
 import '../layout/reader_page_metrics.dart';
+import '../layout/reader_scroll_position_mapper.dart';
 
 class ReadingArticle extends StatelessWidget {
   const ReadingArticle({
@@ -18,6 +19,7 @@ class ReadingArticle extends StatelessWidget {
     required this.height,
     required this.pageIndex,
     required this.pages,
+    required this.paragraphLayoutRanges,
     required this.scrollController,
     required this.scrollable,
     required this.interactive,
@@ -35,6 +37,7 @@ class ReadingArticle extends StatelessWidget {
   final double height;
   final int pageIndex;
   final List<ReaderPageSlice> pages;
+  final List<ReaderParagraphLayoutRange> paragraphLayoutRanges;
   final ScrollController scrollController;
   final bool scrollable;
   final bool interactive;
@@ -64,49 +67,47 @@ class ReadingArticle extends StatelessWidget {
           opacity: preview ? 0.42 : 1,
           child: scrollable
               ? NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    final maxScrollExtent =
-                        notification.metrics.maxScrollExtent;
-                    final ratio = maxScrollExtent <= 0
-                        ? 0.0
-                        : notification.metrics.pixels / maxScrollExtent;
-                    onScrollPositionChanged(
-                      (chapter.text.length * ratio.clamp(0.0, 1.0)).round(),
-                    );
-                    return false;
-                  },
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: onTap,
-                    child: ListView.builder(
-                      key: const ValueKey('reader-scroll-view'),
-                      controller: scrollController,
-                      physics: const BouncingScrollPhysics(),
-                      padding: EdgeInsets.only(bottom: metrics.s(32)),
-                      itemCount: chapter.paragraphs.length,
-                      itemBuilder: (context, index) {
-                        final paragraph = chapter.paragraphs[index];
-                        return Padding(
-                          key: ValueKey('reader-paragraph-$index'),
-                          padding: EdgeInsets.only(
-                            bottom: index + 1 == chapter.paragraphs.length
-                                ? 0
-                                : metrics.s(fontSize * lineHeight),
-                          ),
-                          child: Text(paragraph, style: style),
-                        );
-                      },
-                    ),
-                  ),
-                )
-              : ClipRect(
-                  child: Text(
-                    currentPage.text,
-                    key: ValueKey('reader-page-text-$pageIndex'),
-                    overflow: TextOverflow.clip,
-                    style: style,
-                  ),
+            onNotification: (notification) {
+              onScrollPositionChanged(
+                ReaderScrollPositionMapper.readPositionForScrollOffset(
+                  ranges: paragraphLayoutRanges,
+                  scrollOffset: notification.metrics.pixels,
                 ),
+              );
+              return false;
+            },
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: onTap,
+              child: ListView.builder(
+                key: const ValueKey('reader-scroll-view'),
+                controller: scrollController,
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.only(bottom: metrics.s(32)),
+                itemCount: chapter.paragraphSpans.length,
+                itemBuilder: (context, index) {
+                  final span = chapter.paragraphSpans[index];
+                  return Padding(
+                    key: ValueKey('reader-paragraph-$index'),
+                    padding: EdgeInsets.only(
+                      bottom: index + 1 == chapter.paragraphSpans.length
+                          ? 0
+                          : metrics.s(fontSize * lineHeight),
+                    ),
+                    child: Text(span.text, style: style),
+                  );
+                },
+              ),
+            ),
+          )
+              : ClipRect(
+            child: Text(
+              currentPage.text,
+              key: ValueKey('reader-page-text-$pageIndex'),
+              overflow: TextOverflow.clip,
+              style: style,
+            ),
+          ),
         ),
       ),
     );

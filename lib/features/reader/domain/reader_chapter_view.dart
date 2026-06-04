@@ -1,4 +1,5 @@
 import '../../../core/database/app_database.dart';
+import 'reader_paragraph_span.dart';
 import 'reader_text_normalizer.dart';
 
 class ReaderChapterView {
@@ -10,6 +11,7 @@ class ReaderChapterView {
     required this.chapterOrdinal,
     required this.text,
     required this.paragraphs,
+    required this.paragraphSpans,
     required this.currentChapterIndex,
     required this.chapterCount,
     required this.previousChapterIndex,
@@ -24,6 +26,7 @@ class ReaderChapterView {
   final int chapterOrdinal;
   final String text;
   final List<String> paragraphs;
+  final List<ReaderParagraphSpan> paragraphSpans;
   final int currentChapterIndex;
   final int chapterCount;
   final int? previousChapterIndex;
@@ -55,7 +58,8 @@ class ReaderChapterView {
   }) {
     final rawContent = currentChapter.content ?? '';
     final text = normalizeReaderText(rawContent);
-    final paragraphs = splitReaderParagraphs(rawContent);
+    final paragraphSpans = buildReaderParagraphSpans(rawContent);
+    final paragraphs = [for (final span in paragraphSpans) span.text];
     final isSingleLocalChapter = book.localPath != null && chapterCount == 1;
     final chapterLabel = isSingleLocalChapter ? '全文' : chapterMeta.title;
     final chapterIndex = chapterMeta.chapterIndex;
@@ -68,6 +72,7 @@ class ReaderChapterView {
       chapterOrdinal: chapterIndex.clamp(0, chapterCount - 1),
       text: text,
       paragraphs: paragraphs,
+      paragraphSpans: paragraphSpans,
       currentChapterIndex: chapterIndex,
       chapterCount: chapterCount,
       previousChapterIndex: chapterIndex > 0 ? chapterIndex - 1 : null,

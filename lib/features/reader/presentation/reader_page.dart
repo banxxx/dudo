@@ -8,12 +8,14 @@ import 'package:go_router/go_router.dart';
 import '../../../core/database/app_database.dart';
 import '../../../features/bookshelf/application/bookshelf_providers.dart';
 import '../../../features/bookshelf/data/bookshelf_repository.dart';
+import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../domain/reader_catalog_item.dart';
 import '../domain/reader_chapter_view.dart';
 import '../domain/reader_overlay_mode.dart';
 import 'layout/reader_page_layout.dart';
 import 'layout/reader_page_metrics.dart';
+import 'layout/reader_scroll_position_mapper.dart';
 import 'reader_controls.dart';
 import 'widgets/reader_background.dart';
 import 'widgets/reader_gesture_layer.dart';
@@ -58,6 +60,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   bool _pendingSaveBumpRecency = false;
   _ReaderPaginationKey? _cachedPaginationKey;
   List<ReaderPageSlice>? _cachedPages;
+  _ReaderScrollLayoutKey? _cachedScrollLayoutKey;
+  List<ReaderParagraphLayoutRange>? _cachedScrollLayoutRanges;
   final List<Chapter> _catalogMetas = [];
   bool _catalogIsLoadingMore = false;
   bool _catalogHasMore = true;
@@ -289,10 +293,15 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       metrics: metrics,
       articleHeight: articleHeight,
     );
+    final paragraphLayoutRanges = _paragraphLayoutRangesFor(
+      view: view,
+      metrics: metrics,
+    );
     final restoredPosition = _restoreReadPositionIfNeeded(
       book: book,
       view: view,
       pages: pages,
+      paragraphLayoutRanges: paragraphLayoutRanges,
     );
     final readPosition = restoredPosition ??
         _currentReadPosition.clamp(0, view.text.length).toInt();
@@ -345,6 +354,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
           height: articleHeight,
           pageIndex: pageIndex,
           pages: pages,
+          paragraphLayoutRanges: paragraphLayoutRanges,
           scrollController: _scrollController,
           scrollable: _pageTurnMode == '滚动',
           interactive:
@@ -430,6 +440,39 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
               : '已缓存',
         ),
     ];
+  }
+
+  List<ReaderParagraphLayoutRange> _paragraphLayoutRangesFor({
+    required ReaderChapterView view,
+    required ReaderPageMetrics metrics,
+  }) {
+    final key = _ReaderScrollLayoutKey(
+      bookId: widget.bookId,
+      chapterIndex: view.currentChapterIndex,
+      textLength: view.text.length,
+      textHash: view.text.hashCode,
+      contentWidth: metrics.s(330),
+      fontSize: _fontSize,
+      lineHeight: _lineHeight,
+    );
+    final cachedRanges = _cachedScrollLayoutRanges;
+    if (_cachedScrollLayoutKey == key && cachedRanges != null) {
+      return cachedRanges;
+    }
+    final style = DudoTextStyles.serif(
+      fontSize: metrics.s(_fontSize),
+      height: _lineHeight,
+      letterSpacing: 0.4,
+    );
+    final ranges = ReaderScrollPositionMapper.buildRanges(
+      spans: view.paragraphSpans,
+      style: style,
+      width: metrics.s(330),
+      paragraphSpacing: metrics.s(_fontSize * _lineHeight),
+    );
+    _cachedScrollLayoutKey = key;
+    _cachedScrollLayoutRanges = ranges;
+    return ranges;
   }
 
   List<ReaderPageSlice> _pagesFor({
@@ -625,6 +668,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     required Book book,
     required ReaderChapterView view,
     required List<ReaderPageSlice> pages,
+    required List<ReaderParagraphLayoutRange> paragraphLayoutRanges,
   }) {
     if (_restoredChapterIndex == view.currentChapterIndex) return null;
     final readPosition = book.lastChapterIndex == view.currentChapterIndex
@@ -639,9 +683,10 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
       final maxScrollExtent = _scrollController.position.maxScrollExtent;
-      final offset = view.text.isEmpty
-          ? 0.0
-          : maxScrollExtent * (readPosition / view.text.length);
+      final offset = ReaderScrollPositionMapper.scrollOffsetForReadPosition(
+        ranges: paragraphLayoutRanges,
+        readPosition: readPosition,
+      );
       _scrollController.jumpTo(offset.clamp(0.0, maxScrollExtent));
     });
     return readPosition;
@@ -813,6 +858,50 @@ class _ReaderPaginationKey {
         metricsWidth,
         metricsHeight,
         articleHeight,
+        fontSize,
+        lineHeight,
+      );
+}
+
+class _ReaderScrollLayoutKey {
+  const _ReaderScrollLayoutKey({
+    required this.bookId,
+    required this.chapterIndex,
+    required this.textLength,
+    required this.textHash,
+    required this.contentWidth,
+    required this.fontSize,
+    required this.lineHeight,
+  });
+
+  final String bookId;
+  final int chapterIndex;
+  final int textLength;
+  final int textHash;
+  final double contentWidth;
+  final double fontSize;
+  final double lineHeight;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is _ReaderScrollLayoutKey &&
+            other.bookId == bookId &&
+            other.chapterIndex == chapterIndex &&
+            other.textLength == textLength &&
+            other.textHash == textHash &&
+            other.contentWidth == contentWidth &&
+            other.fontSize == fontSize &&
+            other.lineHeight == lineHeight;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        bookId,
+        chapterIndex,
+        textLength,
+        textHash,
+        contentWidth,
         fontSize,
         lineHeight,
       );
