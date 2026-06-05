@@ -8,6 +8,8 @@ import '../../features/bookshelf/presentation/bookshelf_library_page.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../../features/reader/presentation/reader_page.dart';
+import '../../features/reader_engine/application/reader_engine_providers.dart';
+import '../../features/reader_engine/presentation/reader_screen.dart';
 import '../../features/reading_goal/presentation/reading_goal_page.dart';
 import '../../features/reading_stats/presentation/reading_stats_page.dart';
 import '../../features/search/presentation/search_page.dart';
@@ -135,6 +137,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final bookId = state.pathParameters['bookId']!;
           final chapterIndex =
               int.tryParse(state.uri.queryParameters['chapter'] ?? '0') ?? 0;
+          final useReaderEngineV2 = ref.watch(useReaderEngineV2Provider);
+          if (useReaderEngineV2) {
+            return ReaderScreen(
+              bookId: bookId,
+              initialChapterIndex: chapterIndex,
+            );
+          }
           return ReaderPage(
             bookId: bookId,
             initialChapterIndex: chapterIndex,

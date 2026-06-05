@@ -1,5 +1,7 @@
 import 'package:dudo/app/router/app_router.dart';
 import 'package:dudo/core/utils/breakpoints.dart';
+import 'package:dudo/features/reading_stats/application/reading_stats_provider.dart';
+import 'package:dudo/features/reading_stats/domain/reading_stats_models.dart';
 import 'package:dudo/shared/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -29,6 +31,11 @@ void main() {
   Future<void> pumpApp(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          readingStatsSummaryProvider.overrideWith(
+            (_) async => _routerReadingStatsSummary(),
+          ),
+        ],
         child: Consumer(
           builder: (context, ref, _) {
             return MaterialApp.router(
@@ -181,4 +188,37 @@ void main() {
     expect(find.text('阅读统计'), findsOneWidget);
     expect(find.text('6h 40m'), findsOneWidget);
   });
+}
+
+ReadingStatsSummary _routerReadingStatsSummary() {
+  final range = ReadingStatsRange.weekOf(DateTime(2024, 5, 22));
+  return ReadingStatsSummary(
+    range: range,
+    totalLabel: '6h 40m',
+    description: '本周阅读总时长',
+    stats: const [
+      ReadingStatMetric(value: '5天', label: '阅读'),
+      ReadingStatMetric(value: '57分', label: '日均'),
+      ReadingStatMetric(value: '3本', label: '读过'),
+    ],
+    rhythmStats: [
+      ReadingRhythmStat(
+        label: '三',
+        minutes: 82,
+        start: DateTime(2024, 5, 22),
+        end: DateTime(2024, 5, 22),
+      ),
+    ],
+    rhythmGranularity: range.rhythmGranularity,
+    rhythmSubtitle: range.rhythmSubtitle,
+    contributions: const [
+      BookReadingContribution(
+        title: '三体',
+        durationLabel: '2h 30m',
+        ratio: 1,
+      ),
+    ],
+    sheetSummary: range.rhythmSubtitle,
+    hasData: true,
+  );
 }
