@@ -381,10 +381,12 @@ class _BookDetailScrollView extends StatelessWidget {
   }
 
   double _maxWidthForWidth(double width) {
-    if (Breakpoints.isDesktopWidth(width))
+    if (Breakpoints.isDesktopWidth(width)) {
       return DudoLayout.desktopContentMaxWidth;
-    if (Breakpoints.isTabletWidth(width))
+    }
+    if (Breakpoints.isTabletWidth(width)) {
       return DudoLayout.tabletContentMaxWidth;
+    }
     return DudoLayout.phoneContentMaxWidth;
   }
 }

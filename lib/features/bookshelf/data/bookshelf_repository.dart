@@ -57,6 +57,20 @@ class BookshelfRepository {
     return query.watchSingleOrNull();
   }
 
+  Future<Chapter?> fetchChapterContentForBookAtIndex({
+    required String bookId,
+    required int chapterIndex,
+  }) {
+    final query = database.select(database.chapters)
+      ..where(
+        (chapter) =>
+            chapter.bookId.equals(bookId) &
+            chapter.chapterIndex.equals(chapterIndex),
+      )
+      ..limit(1);
+    return query.getSingleOrNull();
+  }
+
   Stream<int> watchChapterCount(String bookId) {
     final count = database.chapters.id.count();
     final query = database.selectOnly(database.chapters)
@@ -75,6 +89,17 @@ class BookshelfRepository {
     return query.watchSingleOrNull().map(
           (row) => row == null ? null : _readChapterMeta(row),
         );
+  }
+
+  Future<Chapter?> fetchChapterMetaForBookAtIndex({
+    required String bookId,
+    required int chapterIndex,
+  }) async {
+    final query = _chapterMetaQuery(bookId)
+      ..where(database.chapters.chapterIndex.equals(chapterIndex))
+      ..limit(1);
+    final row = await query.getSingleOrNull();
+    return row == null ? null : _readChapterMeta(row);
   }
 
   Future<List<Chapter>> fetchChapterMetasPage({

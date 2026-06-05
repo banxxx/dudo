@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../domain/reader_overlay_mode.dart';
+import '../modes/reader_turn_mode.dart';
 
 class ReaderGestureLayer extends StatelessWidget {
   const ReaderGestureLayer({
@@ -13,7 +14,7 @@ class ReaderGestureLayer extends StatelessWidget {
   });
 
   final ReaderOverlayMode overlayMode;
-  final String pageTurnMode;
+  final ReaderTurnMode pageTurnMode;
   final VoidCallback onToggleOverlay;
   final VoidCallback onPreviousPage;
   final VoidCallback onNextPage;
@@ -24,7 +25,7 @@ class ReaderGestureLayer extends StatelessWidget {
       key: const ValueKey('reader-gesture-layer'),
       behavior: HitTestBehavior.opaque,
       onTapUp: (details) => _handleTap(context, details.localPosition),
-      onHorizontalDragEnd: pageTurnMode == '滚动'
+      onHorizontalDragEnd: pageTurnMode == ReaderTurnMode.scroll
           ? null
           : (details) => _handleHorizontalDragEnd(details.primaryVelocity ?? 0),
     );
@@ -42,7 +43,7 @@ class ReaderGestureLayer extends StatelessWidget {
       return;
     }
 
-    if (pageTurnMode == '滚动') {
+    if (pageTurnMode == ReaderTurnMode.scroll) {
       onToggleOverlay();
       return;
     }

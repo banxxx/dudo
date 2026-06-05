@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../domain/reader_catalog_item.dart';
 import '../domain/reader_overlay_mode.dart';
+import 'modes/reader_turn_mode.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/app_tokens.dart';
@@ -52,7 +53,7 @@ class ReaderControls extends StatelessWidget {
   final double fontSize;
   final double lineHeight;
   final double brightness;
-  final String pageTurnMode;
+  final ReaderTurnMode pageTurnMode;
   final bool isListening;
   final int currentChapterIndex;
   final int chapterCount;
@@ -70,7 +71,7 @@ class ReaderControls extends StatelessWidget {
   final ValueChanged<double> onFontSizeChanged;
   final ValueChanged<double> onLineHeightChanged;
   final ValueChanged<double> onBrightnessChanged;
-  final ValueChanged<String> onPageTurnModeChanged;
+  final ValueChanged<ReaderTurnMode> onPageTurnModeChanged;
   final ValueChanged<bool> onListeningChanged;
 
   bool get _showsBars => mode != ReaderOverlayMode.hidden;
@@ -1659,24 +1660,24 @@ class _PageTurnPanel extends StatelessWidget {
 
   final _ReaderOverlayMetrics metrics;
   final ReaderPalette palette;
-  final String selectedMode;
-  final ValueChanged<String> onModeChanged;
+  final ReaderTurnMode selectedMode;
+  final ValueChanged<ReaderTurnMode> onModeChanged;
 
   @override
   Widget build(BuildContext context) {
     final modes = <_PageTurnModeData>[
       const _PageTurnModeData(
-        label: '仿真',
+        mode: ReaderTurnMode.simulation,
         description: '像纸书一样翻动',
         icon: LucideIcons.bookOpen,
       ),
       const _PageTurnModeData(
-        label: '滑动',
+        mode: ReaderTurnMode.slide,
         description: '左右滑动切页',
         icon: LucideIcons.moveHorizontal,
       ),
       const _PageTurnModeData(
-        label: '滚动',
+        mode: ReaderTurnMode.scroll,
         description: '连续纵向阅读',
         icon: LucideIcons.scrollText,
       ),
@@ -1706,8 +1707,8 @@ class _PageTurnPanel extends StatelessWidget {
                     child: _PageTurnModeCard(
                       metrics: metrics,
                       data: modes[i],
-                      selected: modes[i].label == selectedMode,
-                      onTap: () => onModeChanged(modes[i].label),
+                      selected: modes[i].mode == selectedMode,
+                      onTap: () => onModeChanged(modes[i].mode),
                     ),
                   ),
                 ],
@@ -1742,12 +1743,12 @@ class _PageTurnPanel extends StatelessWidget {
 
 class _PageTurnModeData {
   const _PageTurnModeData({
-    required this.label,
+    required this.mode,
     required this.description,
     required this.icon,
   });
 
-  final String label;
+  final ReaderTurnMode mode;
   final String description;
   final IconData icon;
 }
@@ -1791,7 +1792,7 @@ class _PageTurnModeCard extends StatelessWidget {
           children: [
             Icon(data.icon, size: metrics.s(20), color: iconColor),
             SizedBox(height: metrics.s(8)),
-            Text(data.label,
+            Text(data.mode.label,
                 style: DudoTextStyles.sans(
                     color: labelColor,
                     fontSize: metrics.s(13),

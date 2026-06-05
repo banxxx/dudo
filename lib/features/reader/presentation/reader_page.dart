@@ -8,14 +8,16 @@ import 'package:go_router/go_router.dart';
 import '../../../core/database/app_database.dart';
 import '../../../features/bookshelf/application/bookshelf_providers.dart';
 import '../../../features/bookshelf/data/bookshelf_repository.dart';
-import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../domain/reader_catalog_item.dart';
 import '../domain/reader_chapter_view.dart';
 import '../domain/reader_overlay_mode.dart';
 import 'layout/reader_page_layout.dart';
 import 'layout/reader_page_metrics.dart';
-import 'layout/reader_scroll_position_mapper.dart';
+import 'modes/reader_turn_mode.dart';
+import 'modes/scroll/reader_scroll_block.dart';
+import 'modes/scroll/reader_scroll_chapter_entry.dart';
+import 'modes/scroll/reader_scroll_mode_view.dart';
 import 'reader_controls.dart';
 import 'widgets/reader_background.dart';
 import 'widgets/reader_gesture_layer.dart';
@@ -40,7 +42,6 @@ class ReaderPage extends ConsumerStatefulWidget {
 class _ReaderPageState extends ConsumerState<ReaderPage> {
   static const int _catalogPageSize = 30;
 
-  final ScrollController _scrollController = ScrollController();
   Timer? _saveProgressTimer;
 
   ReaderOverlayMode _overlayMode = ReaderOverlayMode.hidden;
@@ -48,11 +49,14 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   double _fontSize = 19;
   double _lineHeight = 1.72;
   double _brightness = 0.72;
-  String _pageTurnMode = '滑动';
+  ReaderTurnMode _pageTurnMode = ReaderTurnMode.slide;
   bool _isListening = false;
   int _pageIndex = 0;
   int _currentReadPosition = 0;
   int? _restoredChapterIndex;
+  int? _currentScrollChapterIndex;
+  int? _currentScrollContentLength;
+  String? _currentScrollChapterTitle;
   int? _lastSavedChapterIndex;
   int? _lastSavedReadPosition;
   int? _pendingSaveChapterIndex;
@@ -60,12 +64,11 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   bool _pendingSaveBumpRecency = false;
   _ReaderPaginationKey? _cachedPaginationKey;
   List<ReaderPageSlice>? _cachedPages;
-  _ReaderScrollLayoutKey? _cachedScrollLayoutKey;
-  List<ReaderParagraphLayoutRange>? _cachedScrollLayoutRanges;
   final List<Chapter> _catalogMetas = [];
   bool _catalogIsLoadingMore = false;
   bool _catalogHasMore = true;
   int _catalogLoadedCount = 0;
+  int? _providerChapterIndex;
   late BookshelfRepository _repository;
   late int _currentChapterIndex;
 
@@ -81,7 +84,6 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   @override
   void dispose() {
     _flushPendingProgress();
-    _scrollController.dispose();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       SystemChrome.setSystemUIOverlayStyle(
@@ -101,6 +103,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     if (oldWidget.bookId != widget.bookId ||
         oldWidget.initialChapterIndex != widget.initialChapterIndex) {
       _currentChapterIndex = widget.initialChapterIndex;
+      _providerChapterIndex = null;
       _pageIndex = 0;
       _currentReadPosition = 0;
       _restoredChapterIndex = null;
@@ -120,6 +123,9 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
         ref.watch(bookChapterCountProvider(widget.bookId));
     final effectiveChapterIndex = _effectiveChapterIndex(
       chapterCountValue.valueOrNull,
+      preferredChapterIndex: _pageTurnMode == ReaderTurnMode.scroll
+          ? _providerChapterIndex ?? _currentChapterIndex
+          : _currentChapterIndex,
     );
     final currentChapterKey = CurrentBookChapterKey(
       bookId: widget.bookId,
@@ -271,7 +277,12 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       currentChapter: currentChapter,
       chapterCount: chapterCount,
     );
-    _syncCurrentChapterIndex(view.currentChapterIndex);
+    final isScrollMode = _pageTurnMode == ReaderTurnMode.scroll;
+    _providerChapterIndex ??= view.currentChapterIndex;
+    _syncCurrentChapterIndex(
+      view.currentChapterIndex,
+      syncProvider: !isScrollMode,
+    );
     if (view.contentMissing) {
       return ReaderStateMessage(
         metrics: metrics,
@@ -288,36 +299,57 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     final articleHeight = (footerTop - articleTop - metrics.s(18))
         .clamp(metrics.s(520), metrics.height)
         .toDouble();
-    final pages = _pagesFor(
-      view: view,
-      metrics: metrics,
-      articleHeight: articleHeight,
-    );
-    final paragraphLayoutRanges = _paragraphLayoutRangesFor(
-      view: view,
-      metrics: metrics,
-    );
-    final restoredPosition = _restoreReadPositionIfNeeded(
-      book: book,
-      view: view,
-      pages: pages,
-      paragraphLayoutRanges: paragraphLayoutRanges,
-    );
+    final pages = isScrollMode
+        ? const <ReaderPageSlice>[]
+        : _pagesFor(
+            view: view,
+            metrics: metrics,
+            articleHeight: articleHeight,
+          );
+    final restoredPosition = isScrollMode
+        ? _restoreScrollReadPositionIfNeeded(book: book, view: view)
+        : _restoreReadPositionIfNeeded(
+            book: book,
+            view: view,
+            pages: pages,
+          );
     final readPosition = restoredPosition ??
         _currentReadPosition.clamp(0, view.text.length).toInt();
-    final pageIndex = ReaderPageLayout.pageIndexForPosition(
-      pages: pages,
-      readPosition: readPosition,
-    );
-    if (pageIndex != _pageIndex) {
+    final pageIndex = isScrollMode
+        ? 0
+        : ReaderPageLayout.pageIndexForPosition(
+            pages: pages,
+            readPosition: readPosition,
+          );
+    if (!isScrollMode && pageIndex != _pageIndex) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           setState(() => _pageIndex = pageIndex);
         }
       });
     }
-    final chapterProgress = view.chapterProgressForPosition(readPosition);
-    final bookProgress = view.bookProgressForPosition(readPosition);
+    final progressChapterIndex = isScrollMode
+        ? _currentScrollChapterIndex ?? view.currentChapterIndex
+        : view.currentChapterIndex;
+    final progressContentLength = isScrollMode
+        ? _currentScrollContentLength ?? view.text.length
+        : view.text.length;
+    final progressChapterTitle = isScrollMode
+        ? _currentScrollChapterTitle ?? view.chapterLabel
+        : view.chapterLabel;
+    final progressReadPosition = isScrollMode
+        ? _currentReadPosition.clamp(0, progressContentLength).toInt()
+        : readPosition;
+    final chapterProgress = progressContentLength <= 0
+        ? 0.0
+        : (progressReadPosition.clamp(0, progressContentLength).toDouble() /
+                progressContentLength)
+            .clamp(0.0, 1.0)
+            .toDouble();
+    final bookProgress =
+        ((progressChapterIndex + chapterProgress) / view.chapterCount)
+            .clamp(0.0, 1.0)
+            .toDouble();
     final catalogItems = _overlayMode == ReaderOverlayMode.catalog
         ? _catalogItemsFor(
             chapterMetas: _catalogMetas,
@@ -344,34 +376,51 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
             ),
           ),
         ),
-        ReadingArticle(
-          metrics: metrics,
-          palette: _palette,
-          chapter: view,
-          fontSize: _fontSize,
-          lineHeight: _lineHeight,
-          top: articleTop,
-          height: articleHeight,
-          pageIndex: pageIndex,
-          pages: pages,
-          paragraphLayoutRanges: paragraphLayoutRanges,
-          scrollController: _scrollController,
-          scrollable: _pageTurnMode == '滚动',
-          interactive:
-              _pageTurnMode == '滚动' && _overlayMode == ReaderOverlayMode.hidden,
-          preview: _overlayMode != ReaderOverlayMode.hidden &&
-              _overlayMode != ReaderOverlayMode.controls,
-          onScrollPositionChanged: (position) => _updateReadPosition(
-            chapterIndex: view.currentChapterIndex,
-            readPosition: position,
-            contentLength: view.text.length,
+        if (isScrollMode)
+          ReaderScrollModeView(
+            bookId: widget.bookId,
+            chapterCount: view.chapterCount,
+            initialChapterIndex: view.currentChapterIndex,
+            initialReadPosition: readPosition,
+            initialChapter: ReaderScrollChapterEntry(
+              chapterIndex: view.currentChapterIndex,
+              title: view.chapterTitle,
+              text: view.text,
+              paragraphSpans: view.paragraphSpans,
+            ),
+            repository: _repository,
+            metrics: metrics,
+            palette: _palette,
+            fontSize: _fontSize,
+            lineHeight: _lineHeight,
+            top: articleTop,
+            height: articleHeight,
+            interactive: _overlayMode == ReaderOverlayMode.hidden,
+            preview: _overlayMode != ReaderOverlayMode.hidden &&
+                _overlayMode != ReaderOverlayMode.controls,
+            onProgressChanged: _updateScrollProgress,
+            onTap: _toggleOverlay,
+          )
+        else
+          ReadingArticle(
+            metrics: metrics,
+            palette: _palette,
+            fontSize: _fontSize,
+            lineHeight: _lineHeight,
+            top: articleTop,
+            height: articleHeight,
+            pageIndex: pageIndex,
+            pages: pages,
+            interactive: false,
+            preview: _overlayMode != ReaderOverlayMode.hidden &&
+                _overlayMode != ReaderOverlayMode.controls,
           ),
-          onTap: _toggleOverlay,
-        ),
         ReaderProgress(
           metrics: metrics,
           palette: _palette,
-          pageLabel: '${view.chapterLabel} · ${pageIndex + 1}/${pages.length}',
+          pageLabel: isScrollMode
+              ? progressChapterTitle
+              : '${view.chapterLabel} · ${pageIndex + 1}/${pages.length}',
           progress: chapterProgress,
         ),
         ReaderControls(
@@ -411,10 +460,16 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
           onFontSizeChanged: (fontSize) => setState(() {
             _fontSize = fontSize;
             _restoredChapterIndex = null;
+            _currentScrollChapterIndex = null;
+            _currentScrollContentLength = null;
+            _currentScrollChapterTitle = null;
           }),
           onLineHeightChanged: (lineHeight) => setState(() {
             _lineHeight = lineHeight;
             _restoredChapterIndex = null;
+            _currentScrollChapterIndex = null;
+            _currentScrollContentLength = null;
+            _currentScrollChapterTitle = null;
           }),
           onBrightnessChanged: (brightness) =>
               setState(() => _brightness = brightness),
@@ -440,39 +495,6 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
               : '已缓存',
         ),
     ];
-  }
-
-  List<ReaderParagraphLayoutRange> _paragraphLayoutRangesFor({
-    required ReaderChapterView view,
-    required ReaderPageMetrics metrics,
-  }) {
-    final key = _ReaderScrollLayoutKey(
-      bookId: widget.bookId,
-      chapterIndex: view.currentChapterIndex,
-      textLength: view.text.length,
-      textHash: view.text.hashCode,
-      contentWidth: metrics.s(330),
-      fontSize: _fontSize,
-      lineHeight: _lineHeight,
-    );
-    final cachedRanges = _cachedScrollLayoutRanges;
-    if (_cachedScrollLayoutKey == key && cachedRanges != null) {
-      return cachedRanges;
-    }
-    final style = DudoTextStyles.serif(
-      fontSize: metrics.s(_fontSize),
-      height: _lineHeight,
-      letterSpacing: 0.4,
-    );
-    final ranges = ReaderScrollPositionMapper.buildRanges(
-      spans: view.paragraphSpans,
-      style: style,
-      width: metrics.s(330),
-      paragraphSpacing: metrics.s(_fontSize * _lineHeight),
-    );
-    _cachedScrollLayoutKey = key;
-    _cachedScrollLayoutRanges = ranges;
-    return ranges;
   }
 
   List<ReaderPageSlice> _pagesFor({
@@ -507,16 +529,29 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     return pages;
   }
 
-  int _effectiveChapterIndex(int? chapterCount) {
-    if (chapterCount == null || chapterCount <= 0) return _currentChapterIndex;
-    return _currentChapterIndex.clamp(0, chapterCount - 1).toInt();
+  int _effectiveChapterIndex(
+    int? chapterCount, {
+    int? preferredChapterIndex,
+  }) {
+    final chapterIndex = preferredChapterIndex ?? _currentChapterIndex;
+    if (chapterCount == null || chapterCount <= 0) return chapterIndex;
+    return chapterIndex.clamp(0, chapterCount - 1).toInt();
   }
 
-  void _syncCurrentChapterIndex(int chapterIndex) {
-    if (_currentChapterIndex == chapterIndex) return;
+  void _syncCurrentChapterIndex(
+    int chapterIndex, {
+    bool syncProvider = true,
+  }) {
+    if (_currentChapterIndex == chapterIndex &&
+        (!syncProvider || _providerChapterIndex == chapterIndex)) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        setState(() => _currentChapterIndex = chapterIndex);
+        setState(() {
+          _currentChapterIndex = chapterIndex;
+          if (syncProvider) _providerChapterIndex = chapterIndex;
+        });
       }
     });
   }
@@ -572,8 +607,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     required ReaderChapterView view,
     required int direction,
   }) {
-    if (_pageTurnMode == '滚动') {
-      _scrollPage(view: view, direction: direction);
+    if (_pageTurnMode == ReaderTurnMode.scroll) {
       return;
     }
     final nextPageIndex = _pageIndex + direction;
@@ -592,7 +626,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       return;
     }
     if (direction < 0 && view.previousChapterIndex != null) {
-      _turnChapter(view.previousChapterIndex!, initialReadPosition: 0);
+      _turnChapter(view.previousChapterIndex!, initialReadPosition: 1 << 30);
       return;
     }
     if (direction > 0 && view.nextChapterIndex != null) {
@@ -600,46 +634,27 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     }
   }
 
-  void _scrollPage({
-    required ReaderChapterView view,
-    required int direction,
-  }) {
-    if (!_scrollController.hasClients) return;
-    final position = _scrollController.position;
-    final pageDelta = position.viewportDimension * 0.92 * direction;
-    final target = (position.pixels + pageDelta)
-        .clamp(position.minScrollExtent, position.maxScrollExtent)
-        .toDouble();
-    if (target == position.pixels) {
-      if (direction < 0 && view.previousChapterIndex != null) {
-        _turnChapter(view.previousChapterIndex!, initialReadPosition: 0);
-      } else if (direction > 0 && view.nextChapterIndex != null) {
-        _turnChapter(view.nextChapterIndex!, initialReadPosition: 0);
-      }
-      return;
-    }
-    _scrollController.animateTo(
-      target,
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
   void _turnChapter(int chapterIndex, {required int initialReadPosition}) {
     if (_currentChapterIndex == chapterIndex) return;
     setState(() {
       _currentChapterIndex = chapterIndex;
+      _providerChapterIndex = chapterIndex;
       _pageIndex = 0;
       _currentReadPosition = initialReadPosition;
       _restoredChapterIndex = null;
+      _currentScrollChapterIndex = null;
+      _currentScrollContentLength = null;
+      _currentScrollChapterTitle = null;
       _overlayMode = ReaderOverlayMode.hidden;
     });
-    _saveReadingProgress(
-      chapterIndex: chapterIndex,
-      readPosition: initialReadPosition,
-      force: true,
-      bumpRecency: true,
-    );
+    if (initialReadPosition < 1 << 30) {
+      _saveReadingProgress(
+        chapterIndex: chapterIndex,
+        readPosition: initialReadPosition,
+        force: true,
+        bumpRecency: true,
+      );
+    }
     _syncSystemUiMode(ReaderOverlayMode.hidden);
   }
 
@@ -650,9 +665,13 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     }
     setState(() {
       _currentChapterIndex = chapterIndex;
+      _providerChapterIndex = chapterIndex;
       _pageIndex = 0;
       _currentReadPosition = 0;
       _restoredChapterIndex = null;
+      _currentScrollChapterIndex = null;
+      _currentScrollContentLength = null;
+      _currentScrollChapterTitle = null;
       _overlayMode = ReaderOverlayMode.controls;
     });
     _saveReadingProgress(
@@ -668,7 +687,6 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     required Book book,
     required ReaderChapterView view,
     required List<ReaderPageSlice> pages,
-    required List<ReaderParagraphLayoutRange> paragraphLayoutRanges,
   }) {
     if (_restoredChapterIndex == view.currentChapterIndex) return null;
     final readPosition = book.lastChapterIndex == view.currentChapterIndex
@@ -680,29 +698,39 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       pages: pages,
       readPosition: readPosition,
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_scrollController.hasClients) return;
-      final maxScrollExtent = _scrollController.position.maxScrollExtent;
-      final offset = ReaderScrollPositionMapper.scrollOffsetForReadPosition(
-        ranges: paragraphLayoutRanges,
-        readPosition: readPosition,
-      );
-      _scrollController.jumpTo(offset.clamp(0.0, maxScrollExtent));
-    });
     return readPosition;
   }
 
-  void _updateReadPosition({
-    required int chapterIndex,
-    required int readPosition,
-    required int contentLength,
+  int? _restoreScrollReadPositionIfNeeded({
+    required Book book,
+    required ReaderChapterView view,
   }) {
-    final normalized = readPosition.clamp(0, contentLength).toInt();
-    if (_currentReadPosition == normalized) return;
-    setState(() => _currentReadPosition = normalized);
+    if (_restoredChapterIndex == view.currentChapterIndex) return null;
+    final readPosition = book.lastChapterIndex == view.currentChapterIndex
+        ? book.lastReadPosition.clamp(0, view.text.length).toInt()
+        : _currentReadPosition.clamp(0, view.text.length).toInt();
+    _restoredChapterIndex = view.currentChapterIndex;
+    _currentScrollChapterIndex = view.currentChapterIndex;
+    _currentScrollContentLength = view.text.length;
+    _currentScrollChapterTitle = view.chapterLabel;
+    _currentReadPosition = readPosition;
+    return readPosition;
+  }
+
+  void _updateScrollProgress(ReaderScrollProgress progress) {
+    if (_currentScrollChapterIndex == progress.chapterIndex &&
+        _currentReadPosition == progress.readPosition) {
+      return;
+    }
+    setState(() {
+      _currentScrollChapterIndex = progress.chapterIndex;
+      _currentScrollContentLength = progress.contentLength;
+      _currentScrollChapterTitle = progress.chapterTitle;
+      _currentReadPosition = progress.readPosition;
+    });
     _saveReadingProgress(
-      chapterIndex: chapterIndex,
-      readPosition: normalized,
+      chapterIndex: progress.chapterIndex,
+      readPosition: progress.readPosition,
     );
   }
 
@@ -858,50 +886,6 @@ class _ReaderPaginationKey {
         metricsWidth,
         metricsHeight,
         articleHeight,
-        fontSize,
-        lineHeight,
-      );
-}
-
-class _ReaderScrollLayoutKey {
-  const _ReaderScrollLayoutKey({
-    required this.bookId,
-    required this.chapterIndex,
-    required this.textLength,
-    required this.textHash,
-    required this.contentWidth,
-    required this.fontSize,
-    required this.lineHeight,
-  });
-
-  final String bookId;
-  final int chapterIndex;
-  final int textLength;
-  final int textHash;
-  final double contentWidth;
-  final double fontSize;
-  final double lineHeight;
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        other is _ReaderScrollLayoutKey &&
-            other.bookId == bookId &&
-            other.chapterIndex == chapterIndex &&
-            other.textLength == textLength &&
-            other.textHash == textHash &&
-            other.contentWidth == contentWidth &&
-            other.fontSize == fontSize &&
-            other.lineHeight == lineHeight;
-  }
-
-  @override
-  int get hashCode => Object.hash(
-        bookId,
-        chapterIndex,
-        textLength,
-        textHash,
-        contentWidth,
         fontSize,
         lineHeight,
       );
