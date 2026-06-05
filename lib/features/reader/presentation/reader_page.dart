@@ -16,7 +16,6 @@ import 'layout/reader_page_layout.dart';
 import 'layout/reader_page_metrics.dart';
 import 'modes/reader_turn_mode.dart';
 import 'modes/scroll/reader_scroll_block.dart';
-import 'modes/scroll/reader_scroll_chapter_entry.dart';
 import 'modes/scroll/reader_scroll_mode_view.dart';
 import 'reader_controls.dart';
 import 'widgets/reader_background.dart';
@@ -382,12 +381,9 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
             chapterCount: view.chapterCount,
             initialChapterIndex: view.currentChapterIndex,
             initialReadPosition: readPosition,
-            initialChapter: ReaderScrollChapterEntry(
-              chapterIndex: view.currentChapterIndex,
-              title: view.chapterTitle,
-              text: view.text,
-              paragraphSpans: view.paragraphSpans,
-            ),
+            initialChapterTitle: view.chapterTitle,
+            initialChapterText: view.text,
+            initialChapterRawContent: currentChapter.content ?? '',
             repository: _repository,
             metrics: metrics,
             palette: _palette,
@@ -443,7 +439,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
           catalogIsLoadingMore: _catalogIsLoadingMore,
           onCatalogLoadMore: () => _loadMoreCatalog(chapterCount),
           onBack: () {
-            _saveCurrentProgressNow(view);
+            _saveCurrentProgressNow(view, isScrollMode: isScrollMode);
             context.pop();
           },
           onClose: () => _setOverlayMode(ReaderOverlayMode.controls),
@@ -718,26 +714,52 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   }
 
   void _updateScrollProgress(ReaderScrollProgress progress) {
-    if (_currentScrollChapterIndex == progress.chapterIndex &&
-        _currentReadPosition == progress.readPosition) {
+    final previousChapterIndex = _currentScrollChapterIndex;
+    final previousContentLength = _currentScrollContentLength;
+    final previousReadPosition = _currentReadPosition;
+    if (previousChapterIndex == progress.chapterIndex &&
+        previousReadPosition == progress.readPosition) {
       return;
     }
-    setState(() {
-      _currentScrollChapterIndex = progress.chapterIndex;
-      _currentScrollContentLength = progress.contentLength;
-      _currentScrollChapterTitle = progress.chapterTitle;
-      _currentReadPosition = progress.readPosition;
-    });
+
+    _currentScrollChapterIndex = progress.chapterIndex;
+    _currentScrollContentLength = progress.contentLength;
+    _currentScrollChapterTitle = progress.chapterTitle;
+    _currentReadPosition = progress.readPosition;
+
+    final previousChapterTitle = _currentScrollChapterTitle;
+    final previousPercent =
+        previousContentLength == null || previousContentLength <= 0
+            ? -1
+            : (previousReadPosition / previousContentLength * 100).round();
+    final nextPercent = progress.contentLength <= 0
+        ? -1
+        : (progress.readPosition / progress.contentLength * 100).round();
+    final shouldRefreshProgress =
+        previousChapterIndex != progress.chapterIndex ||
+            previousPercent != nextPercent ||
+            previousChapterTitle != progress.chapterTitle;
+    if (shouldRefreshProgress) setState(() {});
+
     _saveReadingProgress(
       chapterIndex: progress.chapterIndex,
       readPosition: progress.readPosition,
     );
   }
 
-  void _saveCurrentProgressNow(ReaderChapterView view) {
+  void _saveCurrentProgressNow(
+    ReaderChapterView view, {
+    required bool isScrollMode,
+  }) {
+    final chapterIndex = isScrollMode
+        ? _currentScrollChapterIndex ?? view.currentChapterIndex
+        : view.currentChapterIndex;
+    final contentLength = isScrollMode
+        ? _currentScrollContentLength ?? view.text.length
+        : view.text.length;
     _saveReadingProgress(
-      chapterIndex: view.currentChapterIndex,
-      readPosition: _currentReadPosition.clamp(0, view.text.length).toInt(),
+      chapterIndex: chapterIndex,
+      readPosition: _currentReadPosition.clamp(0, contentLength).toInt(),
       force: true,
       bumpRecency: true,
     );

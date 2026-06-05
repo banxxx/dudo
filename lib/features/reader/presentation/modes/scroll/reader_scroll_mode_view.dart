@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../../../features/bookshelf/data/bookshelf_repository.dart';
 import '../../../../../shared/theme/app_fonts.dart';
 import '../../../../../shared/theme/app_theme.dart';
+import '../../../domain/reader_paragraph_span.dart';
 import '../../../domain/reader_text_normalizer.dart';
 import '../../layout/reader_page_metrics.dart';
 import 'reader_scroll_block.dart';
@@ -18,7 +19,9 @@ class ReaderScrollModeView extends StatefulWidget {
     required this.chapterCount,
     required this.initialChapterIndex,
     required this.initialReadPosition,
-    required this.initialChapter,
+    required this.initialChapterTitle,
+    required this.initialChapterText,
+    required this.initialChapterRawContent,
     required this.repository,
     required this.metrics,
     required this.palette,
@@ -36,7 +39,9 @@ class ReaderScrollModeView extends StatefulWidget {
   final int chapterCount;
   final int initialChapterIndex;
   final int initialReadPosition;
-  final ReaderScrollChapterEntry initialChapter;
+  final String initialChapterTitle;
+  final String initialChapterText;
+  final String initialChapterRawContent;
   final BookshelfRepository repository;
   final ReaderPageMetrics metrics;
   final ReaderPalette palette;
@@ -208,7 +213,14 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
     if (_isLoadingInitialWindow) return;
     _isLoadingInitialWindow = true;
     final center = widget.initialChapterIndex.clamp(0, widget.chapterCount - 1);
-    final entries = <ReaderScrollChapterEntry>[widget.initialChapter];
+    final entries = <ReaderScrollChapterEntry>[
+      _entryFromContent(
+        chapterIndex: center,
+        title: widget.initialChapterTitle,
+        text: widget.initialChapterText,
+        rawContent: widget.initialChapterRawContent,
+      ),
+    ];
     for (final index in [
       if (center > 0) center - 1,
       if (center + 1 < widget.chapterCount) center + 1,
@@ -249,17 +261,54 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
 
       final rawContent = content.content ?? '';
       final text = normalizeReaderText(rawContent);
-      return ReaderScrollChapterEntry(
+      return _entryFromContent(
         chapterIndex: chapterIndex,
         title: meta.title,
         text: text,
-        paragraphSpans: buildReaderParagraphSpans(rawContent),
+        rawContent: rawContent,
       );
     } on NoSuchMethodError {
       return null;
     } finally {
       _loadingChapters.remove(chapterIndex);
     }
+  }
+
+  ReaderScrollChapterEntry _entryFromContent({
+    required int chapterIndex,
+    required String title,
+    required String text,
+    required String rawContent,
+  }) {
+    final spans = buildReaderParagraphSpans(rawContent);
+    return ReaderScrollChapterEntry(
+      chapterIndex: chapterIndex,
+      title: title,
+      text: text,
+      paragraphSpans: _withoutDuplicateTitleSpan(
+        title: title,
+        spans: spans,
+      ),
+    );
+  }
+
+  List<ReaderParagraphSpan> _withoutDuplicateTitleSpan({
+    required String title,
+    required List<ReaderParagraphSpan> spans,
+  }) {
+    if (spans.isEmpty) return spans;
+    final first = spans.first.text.trim();
+    final normalizedTitle = _normalizedTitleForCompare(title);
+    final normalizedFirst = _normalizedTitleForCompare(first);
+    final duplicated = normalizedTitle.isNotEmpty &&
+        (normalizedFirst == normalizedTitle ||
+            (normalizedFirst.startsWith(normalizedTitle) &&
+                normalizedFirst.length <= normalizedTitle.length + 4));
+    return duplicated ? spans.skip(1).toList(growable: false) : spans;
+  }
+
+  String _normalizedTitleForCompare(String value) {
+    return value.trim().replaceAll(RegExp(r'[\s　:：。．.]+'), '').toLowerCase();
   }
 
   void _jumpToInitialPosition() {
