@@ -31,6 +31,7 @@ class ReaderScrollModeView extends StatefulWidget {
     required this.height,
     required this.interactive,
     required this.preview,
+    required this.jumpRequest,
     required this.onProgressChanged,
     required this.onTap,
   });
@@ -51,6 +52,7 @@ class ReaderScrollModeView extends StatefulWidget {
   final double height;
   final bool interactive;
   final bool preview;
+  final ReaderScrollJumpRequest? jumpRequest;
   final ValueChanged<ReaderScrollProgress> onProgressChanged;
   final VoidCallback onTap;
 
@@ -61,7 +63,7 @@ class ReaderScrollModeView extends StatefulWidget {
 class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
   static const int _maxWindowChapters = 5;
 
-  final ScrollController _controller = ScrollController();
+  late ScrollController _controller;
   final List<ReaderScrollChapterEntry> _entries = [];
   final Set<int> _loadingChapters = {};
   final Map<String, double> _heightCache = {};
@@ -69,6 +71,9 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
   bool _didInitialJump = false;
   bool _isLoadingInitialWindow = false;
   Timer? _settleTimer;
+  int _windowVersion = 0;
+  int _viewportGeneration = 0;
+  int? _handledJumpRequestId;
   int? _lastReportedChapterIndex;
   int? _lastReportedReadPosition;
   double? _lastReportedScrollOffset;
@@ -76,8 +81,12 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_handleScroll);
+    _controller = _createScrollController();
     _loadInitialWindow();
+    final jumpRequest = widget.jumpRequest;
+    if (jumpRequest != null) {
+      _handleJumpRequest(jumpRequest);
+    }
   }
 
   @override
@@ -96,6 +105,11 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
         oldWidget.initialChapterIndex != widget.initialChapterIndex) {
       _resetWindow();
       _loadInitialWindow();
+    }
+    final jumpRequest = widget.jumpRequest;
+    if (jumpRequest != null &&
+        oldWidget.jumpRequest?.requestId != jumpRequest.requestId) {
+      _handleJumpRequest(jumpRequest);
     }
   }
 
@@ -124,37 +138,40 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
           child: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: widget.onTap,
-            child: ListView.builder(
+            child: KeyedSubtree(
               key: const ValueKey('reader-scroll-view'),
-              controller: _controller,
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.only(bottom: widget.metrics.s(32)),
-              itemCount: blocks.length,
-              itemBuilder: (context, index) {
-                final block = blocks[index];
-                return switch (block) {
-                  ReaderScrollChapterHeader() => Padding(
-                      key: ValueKey(
-                          'reader-scroll-chapter-${block.chapterIndex}'),
-                      padding: EdgeInsets.only(
-                        top: widget.metrics.s(20),
-                        bottom: widget.metrics.s(16),
+              child: ListView.builder(
+                key: ValueKey('reader-scroll-view-$_viewportGeneration'),
+                controller: _controller,
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.only(bottom: widget.metrics.s(32)),
+                itemCount: blocks.length,
+                itemBuilder: (context, index) {
+                  final block = blocks[index];
+                  return switch (block) {
+                    ReaderScrollChapterHeader() => Padding(
+                        key: ValueKey(
+                            'reader-scroll-chapter-${block.chapterIndex}'),
+                        padding: EdgeInsets.only(
+                          top: widget.metrics.s(20),
+                          bottom: widget.metrics.s(16),
+                        ),
+                        child: Text(
+                          block.title,
+                          style: _chapterTitleStyle,
+                        ),
                       ),
-                      child: Text(
-                        block.title,
-                        style: _chapterTitleStyle,
+                    ReaderScrollParagraphBlock() => Padding(
+                        key: ValueKey('reader-paragraph-${block.span.index}'),
+                        padding: EdgeInsets.only(
+                          bottom: widget.metrics
+                              .s(widget.fontSize * widget.lineHeight),
+                        ),
+                        child: Text(block.span.text, style: style),
                       ),
-                    ),
-                  ReaderScrollParagraphBlock() => Padding(
-                      key: ValueKey('reader-paragraph-${block.span.index}'),
-                      padding: EdgeInsets.only(
-                        bottom: widget.metrics
-                            .s(widget.fontSize * widget.lineHeight),
-                      ),
-                      child: Text(block.span.text, style: style),
-                    ),
-                };
-              },
+                  };
+                },
+              ),
             ),
           ),
         ),
@@ -175,6 +192,27 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
         fontWeight: FontWeight.w700,
         height: 1.35,
       );
+
+  ScrollController _createScrollController({
+    double initialScrollOffset = 0.0,
+  }) {
+    final controller =
+        ScrollController(initialScrollOffset: initialScrollOffset);
+    controller.addListener(_handleScroll);
+    return controller;
+  }
+
+  void _replaceViewport({double initialScrollOffset = 0.0}) {
+    final previousController = _controller;
+    previousController.removeListener(_handleScroll);
+    _controller = _createScrollController(
+      initialScrollOffset: initialScrollOffset,
+    );
+    _viewportGeneration++;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      previousController.dispose();
+    });
+  }
 
   List<ReaderScrollBlock> get _blocks {
     return [
@@ -212,32 +250,57 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
   Future<void> _loadInitialWindow() async {
     if (_isLoadingInitialWindow) return;
     _isLoadingInitialWindow = true;
+    final version = ++_windowVersion;
     final center = widget.initialChapterIndex.clamp(0, widget.chapterCount - 1);
-    final entries = <ReaderScrollChapterEntry>[
-      _entryFromContent(
-        chapterIndex: center,
-        title: widget.initialChapterTitle,
-        text: widget.initialChapterText,
-        rawContent: widget.initialChapterRawContent,
-      ),
-    ];
-    for (final index in [
-      if (center > 0) center - 1,
-      if (center + 1 < widget.chapterCount) center + 1,
-    ]) {
-      final entry = await _fetchEntry(index);
-      if (entry != null) entries.add(entry);
-    }
-    _isLoadingInitialWindow = false;
-    if (!mounted) return;
+    final initialEntry = _entryFromContent(
+      chapterIndex: center,
+      title: widget.initialChapterTitle,
+      text: widget.initialChapterText,
+      rawContent: widget.initialChapterRawContent,
+    );
     setState(() {
       _entries
         ..clear()
-        ..addAll(
-            entries..sort((a, b) => a.chapterIndex.compareTo(b.chapterIndex)));
+        ..add(initialEntry);
     });
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _jumpToInitialPosition());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || version != _windowVersion) return;
+      _jumpToInitialPosition();
+      _loadAdjacentInitialChapters(center, version);
+    });
+    _isLoadingInitialWindow = false;
+  }
+
+  Future<void> _loadAdjacentInitialChapters(
+    int center,
+    int version, {
+    bool includePrevious = true,
+  }) async {
+    final previousEntry =
+        includePrevious && center > 0 ? await _fetchEntry(center - 1) : null;
+    if (mounted && version == _windowVersion && previousEntry != null) {
+      final insertedHeight = _heightForEntry(previousEntry);
+      final oldOffset = _controller.hasClients ? _controller.offset : 0.0;
+      setState(() => _entries.insert(0, previousEntry));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_controller.hasClients || version != _windowVersion) {
+          return;
+        }
+        _controller.jumpTo(
+          (oldOffset + insertedHeight).clamp(
+            _controller.position.minScrollExtent,
+            _controller.position.maxScrollExtent,
+          ),
+        );
+      });
+    }
+
+    final nextEntry =
+        center + 1 < widget.chapterCount ? await _fetchEntry(center + 1) : null;
+    if (mounted && version == _windowVersion && nextEntry != null) {
+      setState(() => _entries.add(nextEntry));
+    }
+    _scheduleSettleTrim();
   }
 
   Future<ReaderScrollChapterEntry?> _fetchEntry(int chapterIndex) async {
@@ -249,29 +312,33 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
 
     _loadingChapters.add(chapterIndex);
     try {
-      final meta = await widget.repository.fetchChapterMetaForBookAtIndex(
-        bookId: widget.bookId,
-        chapterIndex: chapterIndex,
-      );
-      final content = await widget.repository.fetchChapterContentForBookAtIndex(
-        bookId: widget.bookId,
-        chapterIndex: chapterIndex,
-      );
-      if (meta == null || content == null) return null;
-
-      final rawContent = content.content ?? '';
-      final text = normalizeReaderText(rawContent);
-      return _entryFromContent(
-        chapterIndex: chapterIndex,
-        title: meta.title,
-        text: text,
-        rawContent: rawContent,
-      );
+      return await _readEntry(chapterIndex);
     } on NoSuchMethodError {
       return null;
     } finally {
       _loadingChapters.remove(chapterIndex);
     }
+  }
+
+  Future<ReaderScrollChapterEntry?> _readEntry(int chapterIndex) async {
+    final meta = await widget.repository.fetchChapterMetaForBookAtIndex(
+      bookId: widget.bookId,
+      chapterIndex: chapterIndex,
+    );
+    final content = await widget.repository.fetchChapterContentForBookAtIndex(
+      bookId: widget.bookId,
+      chapterIndex: chapterIndex,
+    );
+    if (meta == null || content == null) return null;
+
+    final rawContent = content.content ?? '';
+    final text = normalizeReaderText(rawContent);
+    return _entryFromContent(
+      chapterIndex: chapterIndex,
+      title: meta.title,
+      text: text,
+      rawContent: rawContent,
+    );
   }
 
   ReaderScrollChapterEntry _entryFromContent({
@@ -320,7 +387,104 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
     );
     final maxScrollExtent = _controller.position.maxScrollExtent;
     _controller.jumpTo(target.clamp(0.0, maxScrollExtent));
-    _reportProgressForOffset(_controller.offset, force: true);
+    _reportProgress(
+      chapterIndex: widget.initialChapterIndex,
+      readPosition: widget.initialReadPosition,
+      scrollOffset: _controller.offset,
+      force: true,
+    );
+  }
+
+  Future<void> _handleJumpRequest(ReaderScrollJumpRequest request) async {
+    if (_handledJumpRequestId == request.requestId) return;
+    _handledJumpRequestId = request.requestId;
+    if (widget.chapterCount <= 0) return;
+
+    final chapterIndex =
+        request.chapterIndex.clamp(0, widget.chapterCount - 1).toInt();
+    final existingEntry = _entryForChapter(chapterIndex);
+    if (existingEntry != null) {
+      final version = ++_windowVersion;
+      _settleTimer?.cancel();
+      _replaceViewport();
+      setState(() {
+        _entries
+          ..clear()
+          ..add(existingEntry);
+        _didInitialJump = true;
+        _lastReportedChapterIndex = null;
+        _lastReportedReadPosition = null;
+        _lastReportedScrollOffset = null;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || version != _windowVersion) return;
+        _reportJumpedChapterProgress(
+          chapterIndex: chapterIndex,
+          readPosition: request.readPosition,
+        );
+        _loadAdjacentInitialChapters(
+          chapterIndex,
+          version,
+          includePrevious: false,
+        );
+      });
+      return;
+    }
+
+    final version = ++_windowVersion;
+    _settleTimer?.cancel();
+    final ReaderScrollChapterEntry? entry;
+    try {
+      entry = await _readEntry(chapterIndex);
+    } on NoSuchMethodError {
+      return;
+    }
+    if (!mounted || version != _windowVersion || entry == null) return;
+    final loadedEntry = entry;
+
+    _replaceViewport();
+    setState(() {
+      _entries
+        ..clear()
+        ..add(loadedEntry);
+      _didInitialJump = true;
+      _lastReportedChapterIndex = null;
+      _lastReportedReadPosition = null;
+      _lastReportedScrollOffset = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || version != _windowVersion) return;
+      _reportJumpedChapterProgress(
+        chapterIndex: chapterIndex,
+        readPosition: request.readPosition,
+      );
+      _loadAdjacentInitialChapters(
+        chapterIndex,
+        version,
+        includePrevious: false,
+      );
+    });
+  }
+
+  void _reportJumpedChapterProgress({
+    required int chapterIndex,
+    required int readPosition,
+  }) {
+    if (!_controller.hasClients || _entries.isEmpty) return;
+    if (readPosition > 0) {
+      final target = _offsetForProgress(
+        chapterIndex: chapterIndex,
+        readPosition: readPosition,
+      );
+      final maxScrollExtent = _controller.position.maxScrollExtent;
+      _controller.jumpTo(target.clamp(0.0, maxScrollExtent));
+    }
+    _reportProgress(
+      chapterIndex: chapterIndex,
+      readPosition: readPosition,
+      scrollOffset: _controller.offset,
+      force: true,
+    );
   }
 
   void _handleScroll() {
@@ -335,21 +499,25 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
 
   Future<void> _loadNext() async {
     if (_entries.isEmpty) return;
+    final version = _windowVersion;
     final entry = await _fetchEntry(_entries.last.chapterIndex + 1);
-    if (!mounted || entry == null) return;
+    if (!mounted || version != _windowVersion || entry == null) return;
     setState(() => _entries.add(entry));
     _scheduleSettleTrim();
   }
 
   Future<void> _loadPrevious() async {
     if (_entries.isEmpty) return;
+    final version = _windowVersion;
     final entry = await _fetchEntry(_entries.first.chapterIndex - 1);
-    if (!mounted || entry == null) return;
+    if (!mounted || version != _windowVersion || entry == null) return;
     final insertedHeight = _heightForEntry(entry);
     final oldOffset = _controller.hasClients ? _controller.offset : 0.0;
     setState(() => _entries.insert(0, entry));
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_controller.hasClients) return;
+      if (!mounted || !_controller.hasClients || version != _windowVersion) {
+        return;
+      }
       _controller.jumpTo(
         (oldOffset + insertedHeight).clamp(
           _controller.position.minScrollExtent,
@@ -407,24 +575,42 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
             .round()
             .clamp(block.span.startOffset, block.span.endOffset)
             .toInt();
+    _reportProgress(
+      chapterIndex: block.chapterIndex,
+      readPosition: readPosition,
+      scrollOffset: offset,
+      force: force,
+    );
+  }
+
+  void _reportProgress({
+    required int chapterIndex,
+    required int readPosition,
+    required double scrollOffset,
+    bool force = false,
+  }) {
+    final entry = _entryForChapter(chapterIndex);
+    if (entry == null) return;
+    final normalizedReadPosition =
+        readPosition.clamp(0, entry.text.length).toInt();
     if (!force && _lastReportedScrollOffset != null) {
       final minDelta = math.max(widget.metrics.s(72), widget.height * 0.08);
-      if ((offset - _lastReportedScrollOffset!).abs() < minDelta &&
-          _lastReportedChapterIndex == block.chapterIndex) {
+      if ((scrollOffset - _lastReportedScrollOffset!).abs() < minDelta &&
+          _lastReportedChapterIndex == chapterIndex) {
         return;
       }
     }
-    if (_lastReportedChapterIndex == block.chapterIndex &&
-        _lastReportedReadPosition == readPosition) {
+    if (_lastReportedChapterIndex == chapterIndex &&
+        _lastReportedReadPosition == normalizedReadPosition) {
       return;
     }
-    _lastReportedChapterIndex = block.chapterIndex;
-    _lastReportedReadPosition = readPosition;
-    _lastReportedScrollOffset = offset;
+    _lastReportedChapterIndex = chapterIndex;
+    _lastReportedReadPosition = normalizedReadPosition;
+    _lastReportedScrollOffset = scrollOffset;
     widget.onProgressChanged(
       ReaderScrollProgress(
-        chapterIndex: block.chapterIndex,
-        readPosition: readPosition,
+        chapterIndex: chapterIndex,
+        readPosition: normalizedReadPosition,
         chapterTitle: entry.title,
         contentLength: entry.text.length,
       ),
@@ -552,6 +738,7 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
   }
 
   void _resetWindow() {
+    _windowVersion++;
     _didInitialJump = false;
     _lastReportedChapterIndex = null;
     _lastReportedReadPosition = null;
@@ -560,6 +747,18 @@ class _ReaderScrollModeViewState extends State<ReaderScrollModeView> {
     _loadingChapters.clear();
     _heightCache.clear();
   }
+}
+
+class ReaderScrollJumpRequest {
+  const ReaderScrollJumpRequest({
+    required this.requestId,
+    required this.chapterIndex,
+    required this.readPosition,
+  });
+
+  final int requestId;
+  final int chapterIndex;
+  final int readPosition;
 }
 
 class _ScrollBlockLayoutRange {

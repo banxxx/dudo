@@ -61,6 +61,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   int? _pendingSaveChapterIndex;
   int? _pendingSaveReadPosition;
   bool _pendingSaveBumpRecency = false;
+  int _scrollJumpRequestId = 0;
+  ReaderScrollJumpRequest? _scrollJumpRequest;
   _ReaderPaginationKey? _cachedPaginationKey;
   List<ReaderPageSlice>? _cachedPages;
   final List<Chapter> _catalogMetas = [];
@@ -394,6 +396,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
             interactive: _overlayMode == ReaderOverlayMode.hidden,
             preview: _overlayMode != ReaderOverlayMode.hidden &&
                 _overlayMode != ReaderOverlayMode.controls,
+            jumpRequest: _scrollJumpRequest,
             onProgressChanged: _updateScrollProgress,
             onTap: _toggleOverlay,
           )
@@ -432,7 +435,8 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
           brightness: _brightness,
           pageTurnMode: _pageTurnMode,
           isListening: _isListening,
-          currentChapterIndex: view.currentChapterIndex,
+          currentChapterIndex:
+              isScrollMode ? progressChapterIndex : view.currentChapterIndex,
           chapterCount: view.chapterCount,
           catalogItems: catalogItems,
           catalogHasMore: _catalogHasMore,
@@ -446,12 +450,24 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
           onModeChanged: (mode) =>
               _setOverlayMode(mode, chapterCount: chapterCount),
           onChapterSelected: _selectChapter,
-          onPreviousChapter: view.previousChapterIndex == null
+          onPreviousChapter: (isScrollMode
+                  ? progressChapterIndex <= 0
+                  : view.previousChapterIndex == null)
               ? null
-              : () => _selectChapter(view.previousChapterIndex!),
-          onNextChapter: view.nextChapterIndex == null
+              : () => _selectChapter(
+                    isScrollMode
+                        ? progressChapterIndex - 1
+                        : view.previousChapterIndex!,
+                  ),
+          onNextChapter: (isScrollMode
+                  ? progressChapterIndex + 1 >= view.chapterCount
+                  : view.nextChapterIndex == null)
               ? null
-              : () => _selectChapter(view.nextChapterIndex!),
+              : () => _selectChapter(
+                    isScrollMode
+                        ? progressChapterIndex + 1
+                        : view.nextChapterIndex!,
+                  ),
           onPaletteChanged: (palette) => setState(() => _palette = palette),
           onFontSizeChanged: (fontSize) => setState(() {
             _fontSize = fontSize;
@@ -469,7 +485,11 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
           }),
           onBrightnessChanged: (brightness) =>
               setState(() => _brightness = brightness),
-          onPageTurnModeChanged: (mode) => setState(() => _pageTurnMode = mode),
+          onPageTurnModeChanged: (mode) => setState(() {
+            if (_pageTurnMode == mode) return;
+            _pageTurnMode = mode;
+            _restoredChapterIndex = null;
+          }),
           onListeningChanged: (listening) =>
               setState(() => _isListening = listening),
         ),
@@ -655,8 +675,35 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   }
 
   void _selectChapter(int chapterIndex) {
-    if (_currentChapterIndex == chapterIndex) {
-      _setOverlayMode(ReaderOverlayMode.controls);
+    final isScrollMode = _pageTurnMode == ReaderTurnMode.scroll;
+    final currentChapterIndex = isScrollMode
+        ? _currentScrollChapterIndex ?? _currentChapterIndex
+        : _currentChapterIndex;
+    if (currentChapterIndex == chapterIndex) {
+      _setOverlayMode(ReaderOverlayMode.hidden);
+      return;
+    }
+    if (isScrollMode) {
+      setState(() {
+        _currentChapterIndex = chapterIndex;
+        _currentReadPosition = 0;
+        _currentScrollChapterIndex = chapterIndex;
+        _currentScrollContentLength = null;
+        _currentScrollChapterTitle = _catalogTitleFor(chapterIndex);
+        _overlayMode = ReaderOverlayMode.hidden;
+        _scrollJumpRequest = ReaderScrollJumpRequest(
+          requestId: ++_scrollJumpRequestId,
+          chapterIndex: chapterIndex,
+          readPosition: 0,
+        );
+      });
+      _saveReadingProgress(
+        chapterIndex: chapterIndex,
+        readPosition: 0,
+        force: true,
+        bumpRecency: true,
+      );
+      _syncSystemUiMode(ReaderOverlayMode.hidden);
       return;
     }
     setState(() {
@@ -668,7 +715,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       _currentScrollChapterIndex = null;
       _currentScrollContentLength = null;
       _currentScrollChapterTitle = null;
-      _overlayMode = ReaderOverlayMode.controls;
+      _overlayMode = ReaderOverlayMode.hidden;
     });
     _saveReadingProgress(
       chapterIndex: chapterIndex,
@@ -676,7 +723,14 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
       force: true,
       bumpRecency: true,
     );
-    _syncSystemUiMode(ReaderOverlayMode.controls);
+    _syncSystemUiMode(ReaderOverlayMode.hidden);
+  }
+
+  String? _catalogTitleFor(int chapterIndex) {
+    for (final meta in _catalogMetas) {
+      if (meta.chapterIndex == chapterIndex) return meta.title;
+    }
+    return null;
   }
 
   int? _restoreReadPositionIfNeeded({
@@ -717,17 +771,21 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     final previousChapterIndex = _currentScrollChapterIndex;
     final previousContentLength = _currentScrollContentLength;
     final previousReadPosition = _currentReadPosition;
-    if (previousChapterIndex == progress.chapterIndex &&
-        previousReadPosition == progress.readPosition) {
+    final previousChapterTitle = _currentScrollChapterTitle;
+    final positionChanged = previousChapterIndex != progress.chapterIndex ||
+        previousReadPosition != progress.readPosition;
+    if (!positionChanged &&
+        previousContentLength == progress.contentLength &&
+        previousChapterTitle == progress.chapterTitle) {
       return;
     }
 
+    _currentChapterIndex = progress.chapterIndex;
     _currentScrollChapterIndex = progress.chapterIndex;
     _currentScrollContentLength = progress.contentLength;
     _currentScrollChapterTitle = progress.chapterTitle;
     _currentReadPosition = progress.readPosition;
 
-    final previousChapterTitle = _currentScrollChapterTitle;
     final previousPercent =
         previousContentLength == null || previousContentLength <= 0
             ? -1
@@ -741,10 +799,12 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
             previousChapterTitle != progress.chapterTitle;
     if (shouldRefreshProgress) setState(() {});
 
-    _saveReadingProgress(
-      chapterIndex: progress.chapterIndex,
-      readPosition: progress.readPosition,
-    );
+    if (positionChanged) {
+      _saveReadingProgress(
+        chapterIndex: progress.chapterIndex,
+        readPosition: progress.readPosition,
+      );
+    }
   }
 
   void _saveCurrentProgressNow(

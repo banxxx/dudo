@@ -2,6 +2,9 @@ import 'package:dudo/core/database/app_database.dart';
 import 'package:dudo/features/bookshelf/application/bookshelf_providers.dart';
 import 'package:dudo/features/bookshelf/data/bookshelf_repository.dart';
 import 'package:dudo/features/reader/presentation/reader_page.dart';
+import 'package:dudo/features/reader/presentation/layout/reader_page_metrics.dart';
+import 'package:dudo/features/reader/presentation/modes/scroll/reader_scroll_mode_view.dart';
+import 'package:dudo/shared/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -58,6 +61,7 @@ void main() {
       );
     });
     repository.chapterMetas = chapterMetas;
+    repository.chaptersByIndex = chaptersByIndex;
 
     await tester.pumpWidget(
       ProviderScope(
@@ -108,7 +112,7 @@ void main() {
   testWidgets('tap shows Pencil D1 warm reader controls', (tester) async {
     await pumpReader(tester);
 
-    await tester.tap(find.byKey(const ValueKey('reader-gesture-layer')));
+    await tester.tapAt(const Offset(195, 422));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('reader-top-controls')), findsOneWidget);
@@ -157,8 +161,11 @@ void main() {
     expect(repository.catalogPageRequests, hasLength(2));
     expect(repository.catalogPageRequests.last.offset, 30);
 
-    await tester.tapAt(const Offset(195, 120));
+    await tester.tapAt(const Offset(195, 422));
     await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('reader-top-controls')), findsNothing);
+    expect(find.byKey(const ValueKey('reader-bottom-controls')), findsNothing);
+
     await tester.tap(find.byKey(const ValueKey('reader-gesture-layer')));
     await tester.pumpAndSettle();
 
@@ -287,6 +294,113 @@ void main() {
     expect(repository.progressUpdates.last.readPosition, greaterThan(0));
     expect(repository.recentlyReadUpdates, isEmpty);
   });
+
+  testWidgets('scroll mode jumps adjacent chapter with target header at top',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.reset);
+
+    final repository = _RecordingBookshelfRepository();
+    final now = DateTime(2026, 6, 3);
+    final chaptersByIndex = <int, Chapter>{};
+    final chapterMetas = List.generate(3, (index) {
+      final chapter = Chapter(
+        id: 'near-chapter-$index',
+        bookId: 'near-book',
+        chapterIndex: index,
+        title: 'Near Chapter $index',
+        content: 'Near Chapter $index\n\nBody for near chapter $index.',
+        normalizedContentLength: 44,
+        isCached: true,
+        fetchedAt: now,
+      );
+      chaptersByIndex[index] = chapter;
+      return Chapter(
+        id: chapter.id,
+        bookId: chapter.bookId,
+        chapterIndex: chapter.chapterIndex,
+        title: chapter.title,
+        content: null,
+        normalizedContentLength: chapter.normalizedContentLength,
+        isCached: chapter.isCached,
+        fetchedAt: chapter.fetchedAt,
+      );
+    });
+    repository
+      ..chapterMetas = chapterMetas
+      ..chaptersByIndex = chaptersByIndex;
+
+    Widget buildHarness(ReaderScrollJumpRequest? jumpRequest) {
+      final metrics = ReaderPageMetrics.fromSize(const Size(390, 844));
+      final initial = chaptersByIndex[0]!;
+      return MaterialApp(
+        home: SizedBox(
+          width: 390,
+          height: 844,
+          child: Stack(
+            children: [
+              ReaderScrollModeView(
+                bookId: 'near-book',
+                chapterCount: chapterMetas.length,
+                initialChapterIndex: 0,
+                initialReadPosition: 0,
+                initialChapterTitle: initial.title,
+                initialChapterText: initial.content!,
+                initialChapterRawContent: initial.content!,
+                repository: repository,
+                metrics: metrics,
+                palette: ReaderTheme.parchment,
+                fontSize: 19,
+                lineHeight: 1.72,
+                top: 0,
+                height: 760,
+                interactive: true,
+                preview: false,
+                jumpRequest: jumpRequest,
+                onProgressChanged: (_) {},
+                onTap: () {},
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildHarness(null));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('reader-scroll-chapter-1')),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(
+      buildHarness(
+        const ReaderScrollJumpRequest(
+          requestId: 1,
+          chapterIndex: 1,
+          readPosition: 0,
+        ),
+      ),
+    );
+    expect(
+      tester
+          .getTopLeft(find.byKey(const ValueKey('reader-scroll-chapter-1')))
+          .dy,
+      0,
+    );
+    expect(
+      find.byKey(const ValueKey('reader-scroll-chapter-0')),
+      findsNothing,
+    );
+
+    await tester.pumpAndSettle();
+
+    final headerTop = tester
+        .getTopLeft(find.byKey(const ValueKey('reader-scroll-chapter-1')))
+        .dy;
+    expect(headerTop, 0);
+  });
 }
 
 class _ProgressUpdate {
@@ -315,6 +429,7 @@ class _CatalogPageRequest {
 
 class _RecordingBookshelfRepository implements BookshelfRepository {
   List<Chapter> chapterMetas = const [];
+  Map<int, Chapter> chaptersByIndex = const {};
   final catalogPageRequests = <_CatalogPageRequest>[];
   final progressUpdates = <_ProgressUpdate>[];
   final recentlyReadUpdates = <_ProgressUpdate>[];
@@ -329,6 +444,23 @@ class _RecordingBookshelfRepository implements BookshelfRepository {
       _CatalogPageRequest(bookId: bookId, offset: offset, limit: limit),
     );
     return chapterMetas.skip(offset).take(limit).toList();
+  }
+
+  @override
+  Future<Chapter?> fetchChapterMetaForBookAtIndex({
+    required String bookId,
+    required int chapterIndex,
+  }) async {
+    if (chapterIndex < 0 || chapterIndex >= chapterMetas.length) return null;
+    return chapterMetas[chapterIndex];
+  }
+
+  @override
+  Future<Chapter?> fetchChapterContentForBookAtIndex({
+    required String bookId,
+    required int chapterIndex,
+  }) async {
+    return chaptersByIndex[chapterIndex];
   }
 
   @override
