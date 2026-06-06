@@ -41,6 +41,7 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
 
     var scrollOffset = 0.0;
     var pageIndex = 0;
+    var pageContentHeight = 0.0;
     var pageStartOffset = 0;
     var pageEndOffset = 0;
     var pageStartLocation = ReaderLocation.startOfChapter(
@@ -56,7 +57,7 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
       );
 
       if (pageBlocks.isNotEmpty &&
-          scrollOffset + blockHeight - pageIndex * pageHeight > pageHeight) {
+          pageContentHeight + blockHeight > pageHeight) {
         pages.add(
           _buildPageSlice(
             chapter: chapter,
@@ -68,6 +69,7 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
           ),
         );
         pageIndex += 1;
+        pageContentHeight = 0;
         pageBlocks.clear();
         pageStartOffset = _blockStartOffset(block);
         pageStartLocation = ReaderLocation(
@@ -92,6 +94,7 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
         ),
       );
       pageBlocks.add(block);
+      pageContentHeight += blockHeight;
       pageEndOffset = _blockEndOffset(block);
       scrollOffset = scrollEnd;
     }

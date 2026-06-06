@@ -72,6 +72,24 @@ void main() {
       );
       expect(pageIndex, greaterThanOrEqualTo(0));
     });
+
+    test('does not overpack page slices after a short page', () async {
+      const engine = FlutterReaderLayoutEngine(
+        textMeasure: _FixedTextMeasure(height: 20),
+      );
+      final chapter = _chapterWithContent('A\nB\nC\nD\nE\nF\nG');
+      final layout = await engine.layoutChapter(
+        chapter: chapter,
+        settings: _settings(),
+        viewportSize: const Size(320, 80),
+      );
+
+      expect(layout.pages.length, greaterThan(2));
+      expect(
+        layout.pages.every((page) => page.blocks.length <= 2),
+        isTrue,
+      );
+    });
   });
 
   group('ReaderLayoutCache', () {

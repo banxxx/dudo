@@ -4,7 +4,8 @@ import '../../../../shared/theme/app_theme.dart';
 import '../../domain/reader_location.dart';
 import '../../domain/reader_settings.dart';
 import '../../domain/reader_viewport_state.dart';
-import '../widgets/reader_text_layer.dart';
+import 'reader_page_surface.dart';
+import 'reader_paged_window.dart';
 
 class PagedReaderView extends StatefulWidget {
   const PagedReaderView({
@@ -33,21 +34,24 @@ class PagedReaderView extends StatefulWidget {
 }
 
 class _PagedReaderViewState extends State<PagedReaderView> {
-  var _pageIndex = 0;
+  int? _pageIndex;
 
   @override
   void didUpdateWidget(covariant PagedReaderView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.viewport.center.chapter.index !=
-        widget.viewport.center.chapter.index) {
-      _pageIndex = 0;
+            widget.viewport.center.chapter.index ||
+        oldWidget.viewport.currentLocation != widget.viewport.currentLocation) {
+      _pageIndex = null;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final pages = widget.viewport.currentLayout.pages;
-    final page = pages[_pageIndex.clamp(0, pages.length - 1)];
+    final window = ReaderPagedWindow.fromViewport(
+      widget.viewport,
+      pageIndex: _pageIndex,
+    );
     return SizedBox.expand(
       child: GestureDetector(
         key: const ValueKey('reader-engine-paged-view'),
@@ -60,18 +64,10 @@ class _PagedReaderViewState extends State<PagedReaderView> {
                 if (velocity.abs() < 260) return;
                 _turnPage(velocity < 0 ? 1 : -1);
               },
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            widget.settings.pagePadding.left,
-            widget.settings.pagePadding.top,
-            widget.settings.pagePadding.right,
-            widget.settings.pagePadding.bottom,
-          ),
-          child: ReaderTextLayer(
-            blocks: page.blocks,
-            settings: widget.settings,
-            palette: widget.palette,
-          ),
+        child: ReaderPageSurface(
+          resolvedPage: window.current,
+          settings: widget.settings,
+          palette: widget.palette,
         ),
       ),
     );
@@ -96,11 +92,16 @@ class _PagedReaderViewState extends State<PagedReaderView> {
   }
 
   void _turnPage(int direction) {
-    final pages = widget.viewport.currentLayout.pages;
-    final nextPageIndex = _pageIndex + direction;
-    if (nextPageIndex >= 0 && nextPageIndex < pages.length) {
-      setState(() => _pageIndex = nextPageIndex);
-      widget.onLocationChanged(pages[_pageIndex].start);
+    final window = ReaderPagedWindow.fromViewport(
+      widget.viewport,
+      pageIndex: _pageIndex,
+    );
+    final target = window.pageForDirection(direction);
+    if (target != null) {
+      if (target.chapterIndex == widget.viewport.center.chapter.index) {
+        setState(() => _pageIndex = target.pageIndex);
+      }
+      widget.onLocationChanged(target.page.start);
       return;
     }
     if (direction < 0) {

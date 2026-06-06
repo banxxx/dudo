@@ -33,12 +33,12 @@ void main() {
 
     expect(find.byKey(const ValueKey('reader-engine-screen')), findsOneWidget);
     expect(
-        find.byKey(const ValueKey('reader-engine-paged-view')), findsOneWidget);
+        find.byKey(const ValueKey('reader-engine-slide-view')), findsOneWidget);
     expect(find.byKey(const ValueKey('reader-progress')), findsOneWidget);
     expect(find.byKey(const ValueKey('reader-top-controls')), findsNothing);
     expect(find.text('第一章'), findsWidgets);
     final articleTitle = find.descendant(
-      of: find.byKey(const ValueKey('reader-engine-paged-view')),
+      of: find.byKey(const ValueKey('reader-engine-slide-view')),
       matching: find.text('第一章'),
     );
     expect(tester.getTopLeft(articleTitle).dy, greaterThan(18));
@@ -106,7 +106,7 @@ void main() {
 
     await tester.pumpAndSettle();
     expect(
-        find.byKey(const ValueKey('reader-engine-paged-view')), findsOneWidget);
+        find.byKey(const ValueKey('reader-engine-slide-view')), findsOneWidget);
 
     await tester.tapAt(const Offset(195, 420));
     await tester.pumpAndSettle();
@@ -125,13 +125,64 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('reader-engine-paged-view')),
+      find.byKey(const ValueKey('reader-engine-slide-view')),
       findsNothing,
     );
     final chapterTop = tester.getTopLeft(
       find.byKey(const ValueKey('reader-engine-scroll-chapter-0')),
     );
     expect(chapterTop.dy, greaterThanOrEqualTo(17));
+  });
+
+  testWidgets('ReaderScreen switches to simulated mode through reader controls',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerDocumentSourceProvider.overrideWithValue(
+            _FakeReaderDocumentSource(),
+          ),
+          readerProgressRepositoryProvider.overrideWithValue(
+            _MemoryProgressRepository(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ReaderScreen(bookId: 'book-1'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('reader-engine-slide-view')),
+      findsOneWidget,
+    );
+
+    await tester.tapAt(const Offset(195, 420));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(229, 786));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('reader-page-turn-panel')),
+      findsOneWidget,
+    );
+
+    await tester.tapAt(const Offset(78, 546));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('reader-engine-simulated-view')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('reader-engine-slide-view')),
+      findsNothing,
+    );
   });
 
   testWidgets('ReaderScreen scroll mode progress label follows visible chapter',
@@ -175,7 +226,7 @@ void main() {
 
     await tester.drag(
       find.byKey(const ValueKey('reader-engine-scroll-view')),
-      const Offset(0, -760),
+      const Offset(0, -1200),
     );
     await tester.pumpAndSettle();
 

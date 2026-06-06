@@ -9,8 +9,8 @@ import '../../domain/reader_viewport_state.dart';
 import 'reader_page_surface.dart';
 import 'reader_paged_window.dart';
 
-class SimulatedReaderView extends StatefulWidget {
-  const SimulatedReaderView({
+class SlideReaderView extends StatefulWidget {
+  const SlideReaderView({
     super.key,
     required this.viewport,
     required this.settings,
@@ -32,14 +32,13 @@ class SimulatedReaderView extends StatefulWidget {
   final ValueChanged<ReaderLocation> onLocationChanged;
 
   @override
-  State<SimulatedReaderView> createState() => _SimulatedReaderViewState();
+  State<SlideReaderView> createState() => _SlideReaderViewState();
 }
 
-class _SimulatedReaderViewState extends State<SimulatedReaderView>
+class _SlideReaderViewState extends State<SlideReaderView>
     with SingleTickerProviderStateMixin {
-  static const double _minDragCommitRatio = 0.2;
-  static const double _minFlingVelocity = 420;
-  static const double _maxFoldAngle = math.pi / 2;
+  static const double _minDragCommitRatio = 0.22;
+  static const double _minFlingVelocity = 450;
 
   late final AnimationController _controller;
   Animation<double>? _offsetAnimation;
@@ -55,12 +54,12 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 340),
+      duration: const Duration(milliseconds: 260),
     );
   }
 
   @override
-  void didUpdateWidget(covariant SimulatedReaderView oldWidget) {
+  void didUpdateWidget(covariant SlideReaderView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.viewport.center.chapter.index !=
             widget.viewport.center.chapter.index ||
@@ -81,22 +80,21 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = math.max(1.0, constraints.maxWidth);
-        _viewportWidth = width;
-
         final window = ReaderPagedWindow.fromViewport(
           widget.viewport,
           pageIndex: _pageIndex,
         );
+        final width = math.max(1.0, constraints.maxWidth);
+        _viewportWidth = width;
         final direction = _directionForOffset(_dragOffset);
         final target = _transitionTarget ?? window.pageForDirection(direction);
-        final progress = target == null
-            ? (_dragOffset.abs() / width).clamp(0.0, 1.0) * 0.28
-            : (_dragOffset.abs() / width).clamp(0.0, 1.0);
+        final visibleOffset = target == null
+            ? _dragOffset * 0.28
+            : _dragOffset.clamp(-width, width);
 
         return SizedBox.expand(
           child: GestureDetector(
-            key: const ValueKey('reader-engine-simulated-view'),
+            key: const ValueKey('reader-engine-slide-view'),
             behavior: HitTestBehavior.opaque,
             onTapUp: (details) => _handleTap(details.localPosition),
             onHorizontalDragUpdate:
@@ -109,22 +107,29 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  ReaderPageSurface(
-                    key: ValueKey(
-                      'reader-engine-simulated-under-'
-                      '${(target ?? window.current).chapterIndex}-'
-                      '${(target ?? window.current).pageIndex}',
+                  if (target != null && direction != 0)
+                    _TranslatedPage(
+                      offset: Offset(
+                        direction > 0
+                            ? width + visibleOffset
+                            : -width + visibleOffset,
+                        0,
+                      ),
+                      child: ReaderPageSurface(
+                        key: ValueKey(
+                          'reader-engine-slide-target-'
+                          '${target.chapterIndex}-${target.pageIndex}',
+                        ),
+                        resolvedPage: target,
+                        settings: widget.settings,
+                        palette: widget.palette,
+                      ),
                     ),
-                    resolvedPage: target ?? window.current,
-                    settings: widget.settings,
-                    palette: widget.palette,
-                  ),
-                  _TurningPage(
-                    direction: direction,
-                    progress: progress,
+                  _TranslatedPage(
+                    offset: Offset(visibleOffset, 0),
                     child: ReaderPageSurface(
                       key: ValueKey(
-                        'reader-engine-simulated-current-'
+                        'reader-engine-slide-current-'
                         '${window.current.chapterIndex}-'
                         '${window.current.pageIndex}',
                       ),
@@ -200,11 +205,12 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       return;
     }
 
+    final width = _viewportWidth;
     _transitionTarget = target;
     _committingDirection = direction;
     _animateOffset(
       from: fromOffset ?? 0,
-      to: direction > 0 ? -_viewportWidth : _viewportWidth,
+      to: direction > 0 ? -width : width,
     );
   }
 
@@ -265,74 +271,20 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   }
 }
 
-class _TurningPage extends StatelessWidget {
-  const _TurningPage({
-    required this.direction,
-    required this.progress,
+class _TranslatedPage extends StatelessWidget {
+  const _TranslatedPage({
+    required this.offset,
     required this.child,
   });
 
-  final int direction;
-  final double progress;
+  final Offset offset;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    if (direction == 0 || progress <= 0) {
-      return SizedBox.expand(child: child);
-    }
-
-    final angle = direction > 0
-        ? -_SimulatedReaderViewState._maxFoldAngle * progress
-        : _SimulatedReaderViewState._maxFoldAngle * progress;
-    final alignment =
-        direction > 0 ? Alignment.centerLeft : Alignment.centerRight;
-    final transform = Matrix4.identity()
-      ..setEntry(3, 2, 0.0014)
-      ..rotateY(angle);
-
-    return Transform(
-      alignment: alignment,
-      transform: transform,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(
-                alpha: (0.08 + progress * 0.22).clamp(0.0, 0.32),
-              ),
-              blurRadius: 18 + progress * 22,
-              offset: Offset(direction > 0 ? 12 : -12, 0),
-            ),
-          ],
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            child,
-            IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: direction > 0
-                        ? Alignment.centerLeft
-                        : Alignment.centerRight,
-                    end: direction > 0
-                        ? Alignment.centerRight
-                        : Alignment.centerLeft,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(
-                        alpha: (0.04 + progress * 0.26).clamp(0.0, 0.3),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return Transform.translate(
+      offset: offset,
+      child: SizedBox.expand(child: child),
     );
   }
 }
