@@ -194,6 +194,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         child: ReaderViewport(
           state: state,
           palette: _palette,
+          brightness: _brightness,
           controlsVisible: _overlayMode != legacy.ReaderOverlayMode.hidden,
           source: controller.source,
           layoutEngine: controller.viewportController.layoutEngine,

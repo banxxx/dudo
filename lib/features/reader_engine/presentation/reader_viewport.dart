@@ -8,7 +8,7 @@ import '../domain/reader_turn_mode.dart';
 import '../layout/reader_layout_engine.dart';
 import 'modes/paged_reader_view.dart';
 import 'modes/scroll_reader_view.dart';
-import 'modes/simulated_reader_view.dart';
+import 'modes/simulated/simulated_reader_view.dart';
 import 'modes/slide_reader_view.dart';
 
 class ReaderViewport extends StatelessWidget {
@@ -16,6 +16,7 @@ class ReaderViewport extends StatelessWidget {
     super.key,
     required this.state,
     required this.palette,
+    this.brightness = 1,
     required this.controlsVisible,
     required this.source,
     required this.layoutEngine,
@@ -29,6 +30,7 @@ class ReaderViewport extends StatelessWidget {
 
   final ReaderSessionState state;
   final ReaderPalette palette;
+  final double brightness;
   final bool controlsVisible;
   final ReaderDocumentSource source;
   final ReaderLayoutEngine layoutEngine;
@@ -72,6 +74,7 @@ class ReaderViewport extends StatelessWidget {
           viewport: viewport,
           settings: state.settings,
           palette: palette,
+          brightness: brightness,
           controlsVisible: controlsVisible,
           onContentTap: onContentTap,
           onPreviousBoundary: onPreviousBoundary,
