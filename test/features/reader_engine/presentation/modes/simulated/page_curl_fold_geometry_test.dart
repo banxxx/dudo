@@ -40,13 +40,38 @@ void main() {
 
     expect(gesture.anchor, PageCurlAnchor.middle);
     expect(geometry.corner, PageCurlFoldCorner.middleRight);
+    expect(geometry.outerEdgePath.getBounds().left, 170);
+    expect(geometry.foldLineStart.dx, 245);
     expect(geometry.foldLineStart.dx, geometry.foldLineEnd.dx);
     expect(geometry.foldLineStart.dy, 0);
     expect(geometry.foldLineEnd.dy, 520);
+    expect(geometry.foldCurvePath.getBounds().width, 0);
+    expect(geometry.turningPath.getBounds().left, geometry.foldLineStart.dx);
     expect(geometry.foldedPath.getBounds().isEmpty, isFalse);
   });
 
-  test('previousPageIn uses a left-side folded page model', () {
+  test('nextPageOut middle page edge follows the pointer x position', () {
+    PageCurlFoldGeometry build(double currentX) {
+      final gesture = PageCurlGesture.fromPoints(
+        pageSize: const Size(320, 520),
+        start: const Offset(300, 260),
+        current: Offset(currentX, 260),
+      );
+      return PageCurlFoldGeometry.fromGesture(
+        gesture: gesture,
+        turnType: PageCurlTurnType.nextPageOut,
+        pageSize: const Size(320, 520),
+      );
+    }
+
+    expect(build(240).outerEdgePath.getBounds().left, 240);
+    expect(build(240).foldLineStart.dx, 280);
+    expect(build(120).outerEdgePath.getBounds().left, 120);
+    expect(build(120).foldLineStart.dx, 220);
+  });
+
+  test('previousPageIn uses the same middle curl relationship as next page',
+      () {
     final gesture = PageCurlGesture.fromPoints(
       pageSize: const Size(320, 520),
       start: const Offset(20, 430),
@@ -60,13 +85,13 @@ void main() {
     );
 
     expect(geometry.turnType, PageCurlTurnType.previousPageIn);
-    expect(geometry.corner, PageCurlFoldCorner.bottomLeft);
+    expect(geometry.corner, PageCurlFoldCorner.middleRight);
     expect(geometry.foldedPath.getBounds().isEmpty, isFalse);
     expect(geometry.turningPath.getBounds().isEmpty, isFalse);
-    expect(geometry.isRightCorner, isFalse);
+    expect(geometry.isRightCorner, isTrue);
   });
 
-  test('previousPageIn enters from the left with a vertical leading fold', () {
+  test('previousPageIn keeps page edge left of the fold edge', () {
     final gesture = PageCurlGesture.fromPoints(
       pageSize: const Size(320, 520),
       start: const Offset(20, 260),
@@ -79,14 +104,42 @@ void main() {
       pageSize: const Size(320, 520),
     );
 
-    final incomingBounds = geometry.foldedPath.getBounds();
-    final foldBounds = geometry.turningPath.getBounds();
+    final frontBounds = geometry.unturnedPath.getBounds();
+    final turningBounds = geometry.turningPath.getBounds();
+    final foldedBounds = geometry.foldedPath.getBounds();
 
-    expect(incomingBounds.left, 0);
-    expect(incomingBounds.right, greaterThan(150));
-    expect(foldBounds.left, greaterThanOrEqualTo(0));
-    expect(foldBounds.width, lessThan(90));
+    expect(frontBounds.left, 0);
+    expect(frontBounds.right, 120);
+    expect(turningBounds.left, 220);
+    expect(turningBounds.right, 320);
+    expect(foldedBounds.left, 120);
+    expect(foldedBounds.right, 220);
+    expect(geometry.outerEdgePath.getBounds().left, 120);
+    expect(geometry.foldLineStart.dx, 220);
+    expect(geometry.outerEdgePath.getBounds().left,
+        lessThan(geometry.foldLineStart.dx));
     expect(geometry.foldLineStart.dx, geometry.foldLineEnd.dx);
+  });
+
+  test('previousPageIn completion moves the fold past the right edge', () {
+    final gesture = PageCurlGesture.fromPoints(
+      pageSize: const Size(320, 520),
+      start: const Offset(0, 260),
+      current: const Offset(648, 260),
+    );
+
+    final geometry = PageCurlFoldGeometry.fromGesture(
+      gesture: gesture,
+      turnType: PageCurlTurnType.previousPageIn,
+      pageSize: const Size(320, 520),
+    );
+    final frontBounds = geometry.unturnedPath.getBounds();
+
+    expect(geometry.corner, PageCurlFoldCorner.middleRight);
+    expect(frontBounds.left, 0);
+    expect(frontBounds.right, 320);
+    expect(geometry.foldLineStart.dx, greaterThanOrEqualTo(320));
+    expect(geometry.outerEdgePath.getBounds().left, greaterThan(320));
   });
 
   test('nextPageOut keeps its corner stable across vertical pointer noise', () {
@@ -137,6 +190,30 @@ void main() {
     );
   });
 
+  test('nextPageOut fold shadow path follows the real fold line', () {
+    final gesture = PageCurlGesture.fromPoints(
+      pageSize: const Size(320, 520),
+      start: const Offset(300, 430),
+      current: const Offset(150, 360),
+    );
+
+    final geometry = PageCurlFoldGeometry.fromGesture(
+      gesture: gesture,
+      turnType: PageCurlTurnType.nextPageOut,
+      pageSize: const Size(320, 520),
+    );
+    final lineBounds = Rect.fromPoints(
+      geometry.foldLineStart,
+      geometry.foldLineEnd,
+    );
+    final foldPathBounds = geometry.foldCurvePath.getBounds();
+
+    expect((foldPathBounds.left - lineBounds.left).abs(), lessThan(1));
+    expect((foldPathBounds.top - lineBounds.top).abs(), lessThan(1));
+    expect((foldPathBounds.right - lineBounds.right).abs(), lessThan(1));
+    expect((foldPathBounds.bottom - lineBounds.bottom).abs(), lessThan(1));
+  });
+
   test('nextPageOut completion moves the fold past the left edge', () {
     final gesture = PageCurlGesture.fromPoints(
       pageSize: const Size(320, 520),
@@ -163,7 +240,7 @@ void main() {
     final gesture = PageCurlGesture.fromPoints(
       pageSize: const Size(320, 520),
       start: const Offset(300, 260),
-      current: const Offset(-20, 260),
+      current: const Offset(-340, 260),
     );
 
     final geometry = PageCurlFoldGeometry.fromGesture(

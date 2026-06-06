@@ -115,22 +115,9 @@ class PageCurlFoldGeometry {
       lineDirection: fold.direction,
       keepPoint: cornerPoint,
     );
-    final foldCurveControl = _curveControlForEdge(
-      start: fold.start,
-      end: fold.end,
-      toward: contactPoint,
-      pageRect: pageRect,
-      progress: progress,
-      strengthScale: 0.9,
-    );
     final foldCurvePath = Path()
       ..moveTo(fold.start.dx, fold.start.dy)
-      ..quadraticBezierTo(
-        foldCurveControl.dx,
-        foldCurveControl.dy,
-        fold.end.dx,
-        fold.end.dy,
-      );
+      ..lineTo(fold.end.dx, fold.end.dy);
     final turningPath = _curvedPathFromPolygon(
       polygon: turningPolygon,
       contactPoint: contactPoint,
@@ -180,74 +167,54 @@ class PageCurlFoldGeometry {
   }) {
     final width = math.max(1.0, pageSize.width);
     final height = math.max(1.0, pageSize.height);
-    final pageRect = Rect.fromLTWH(0, 0, width, height);
     final rawProgress = gesture.progress.clamp(0.001, 1.0).toDouble();
-    final progress = _easeOutCubic(rawProgress);
-    final corner = _cornerForPreviousGesture(gesture);
-    final foldWidth = (width * (0.12 + 0.08 * (1 - progress)))
-        .clamp(18.0, math.min(54.0, width * 0.28))
+    final edgeX = _snap(gesture.current.dx.clamp(-width * 3.5, width * 3.5));
+    final visibleEdgeX = edgeX.clamp(0.0, width).toDouble();
+    final foldX = _snap(((edgeX + width) / 2).clamp(-width * 1.25, width * 2));
+    final visibleFoldX = foldX.clamp(0.0, width).toDouble();
+    final centerBias = ((gesture.start.dy - height / 2) / math.max(1.0, height))
+        .clamp(-0.10, 0.10)
         .toDouble();
-    final leadingX = _snap(width * progress);
-    final leftFoldX = _snap(math.max(0, leadingX - foldWidth));
-    final curve = math.sin(math.pi * progress).clamp(0.0, 1.0).toDouble();
-    final curvePull = math.min(width * 0.085, 34) * curve;
-    final verticalBias =
-        ((gesture.start.dy - height / 2) / math.max(1.0, height))
-            .clamp(-0.12, 0.12)
-            .toDouble();
-    final curveCenterY = height / 2 + verticalBias * height;
+    final centerY = height / 2 + centerBias * height;
 
     final foldCurvePath = Path()
-      ..moveTo(leadingX, 0)
-      ..quadraticBezierTo(
-        _snap(leadingX + curvePull),
-        _snap(curveCenterY),
-        leadingX,
-        height,
-      );
-    final incomingPath = Path()
+      ..moveTo(foldX, 0)
+      ..lineTo(foldX, height);
+    final frontPath = Path()
       ..moveTo(0, 0)
-      ..lineTo(leadingX, 0)
-      ..quadraticBezierTo(
-        _snap(leadingX + curvePull),
-        _snap(curveCenterY),
-        leadingX,
-        height,
-      )
+      ..lineTo(visibleEdgeX, 0)
+      ..lineTo(visibleEdgeX, height)
       ..lineTo(0, height)
       ..close();
-    final foldStripPath = Path()
-      ..moveTo(leftFoldX, 0)
-      ..quadraticBezierTo(
-        _snap(leftFoldX + curvePull * 0.42),
-        _snap(curveCenterY),
-        leftFoldX,
-        height,
-      )
-      ..lineTo(leadingX, height)
-      ..quadraticBezierTo(
-        _snap(leadingX + curvePull),
-        _snap(curveCenterY),
-        leadingX,
-        0,
-      )
+    final turningPath = Path()
+      ..moveTo(visibleFoldX, 0)
+      ..lineTo(width, 0)
+      ..lineTo(width, height)
+      ..lineTo(visibleFoldX, height)
       ..close();
-    final fullPath = Path()..addRect(pageRect);
+    final reflectionMatrix = _reflectionMatrix(
+      linePoint: Offset(foldX, centerY),
+      lineUnit: const Offset(0, 1),
+    );
+    final foldedPath = turningPath.transform(reflectionMatrix.storage);
+    final outerEdgePath = Path()
+      ..moveTo(edgeX, 0)
+      ..lineTo(edgeX, height);
 
     return PageCurlFoldGeometry._(
       turnType: PageCurlTurnType.previousPageIn,
       pageSize: pageSize,
-      corner: corner,
+      corner: PageCurlFoldCorner.middleRight,
       progress: rawProgress,
-      unturnedPath: fullPath,
-      turningPath: foldStripPath,
-      foldedPath: incomingPath,
-      foldLineStart: Offset(leadingX, 0),
-      foldLineEnd: Offset(leadingX, height),
+      unturnedPath: frontPath,
+      turningPath: turningPath,
+      foldedPath: foldedPath,
+      foldLineStart: Offset(foldX, 0),
+      foldLineEnd: Offset(foldX, height),
       foldCurvePath: foldCurvePath,
-      outerEdgePath: foldCurvePath,
-      contactShadowCenter: Offset(leadingX, curveCenterY),
-      reflectionMatrix: Matrix4.identity(),
+      outerEdgePath: outerEdgePath,
+      contactShadowCenter: Offset(foldX, centerY),
+      reflectionMatrix: reflectionMatrix,
     );
   }
 
@@ -258,32 +225,20 @@ class PageCurlFoldGeometry {
     final width = math.max(1.0, pageSize.width);
     final height = math.max(1.0, pageSize.height);
     final rawProgress = gesture.progress.clamp(0.001, 1.0).toDouble();
-    final travel = width * _completionTravelRatio(rawProgress);
-    final foldX = _snap((width - travel).clamp(-width * 2.75, width));
-    final curve = math.sin(math.pi * rawProgress).clamp(0.0, 1.0).toDouble();
+    final edgeX = _snap(gesture.current.dx.clamp(-width * 3.5, width));
+    final foldX = _snap(((edgeX + width) / 2).clamp(-width * 1.25, width));
     final centerBias = ((gesture.start.dy - height / 2) / math.max(1.0, height))
         .clamp(-0.10, 0.10)
         .toDouble();
     final centerY = height / 2 + centerBias * height;
-    final curvePull = math.min(width * 0.075, 30) * curve;
     final rightX = width;
     final foldCurvePath = Path()
       ..moveTo(foldX, 0)
-      ..quadraticBezierTo(
-        _snap(foldX - curvePull),
-        _snap(centerY),
-        foldX,
-        height,
-      );
+      ..lineTo(foldX, height);
     final unturnedPath = Path()
       ..moveTo(0, 0)
       ..lineTo(foldX.clamp(0.0, width).toDouble(), 0)
-      ..quadraticBezierTo(
-        _snap((foldX - curvePull).clamp(0.0, width)),
-        _snap(centerY),
-        foldX.clamp(0.0, width).toDouble(),
-        height,
-      )
+      ..lineTo(foldX.clamp(0.0, width).toDouble(), height)
       ..lineTo(0, height)
       ..close();
     final turningPath = Path()
@@ -291,18 +246,16 @@ class PageCurlFoldGeometry {
       ..lineTo(rightX, 0)
       ..lineTo(rightX, height)
       ..lineTo(foldX, height)
-      ..quadraticBezierTo(
-        _snap(foldX - curvePull),
-        _snap(centerY),
-        foldX,
-        0,
-      )
+      ..lineTo(foldX, 0)
       ..close();
     final reflectionMatrix = _reflectionMatrix(
       linePoint: Offset(foldX, centerY),
       lineUnit: const Offset(0, 1),
     );
     final foldedPath = turningPath.transform(reflectionMatrix.storage);
+    final outerEdgePath = Path()
+      ..moveTo(edgeX, 0)
+      ..lineTo(edgeX, height);
 
     return PageCurlFoldGeometry._(
       turnType: PageCurlTurnType.nextPageOut,
@@ -315,7 +268,7 @@ class PageCurlFoldGeometry {
       foldLineStart: Offset(foldX, 0),
       foldLineEnd: Offset(foldX, height),
       foldCurvePath: foldCurvePath,
-      outerEdgePath: foldCurvePath,
+      outerEdgePath: outerEdgePath,
       contactShadowCenter: Offset(foldX, centerY),
       reflectionMatrix: reflectionMatrix,
     );
@@ -353,16 +306,6 @@ class PageCurlFoldGeometry {
       (PageCurlDirection.next, false) => PageCurlFoldCorner.bottomRight,
       (PageCurlDirection.previous, true) => PageCurlFoldCorner.topLeft,
       (PageCurlDirection.previous, false) => PageCurlFoldCorner.bottomLeft,
-    };
-  }
-
-  static PageCurlFoldCorner _cornerForPreviousGesture(PageCurlGesture gesture) {
-    return switch (gesture.anchor) {
-      PageCurlAnchor.top => PageCurlFoldCorner.topLeft,
-      PageCurlAnchor.middle
-          when gesture.start.dy < gesture.pageSize.height / 2 =>
-        PageCurlFoldCorner.topLeft,
-      _ => PageCurlFoldCorner.bottomLeft,
     };
   }
 
@@ -788,11 +731,6 @@ class PageCurlFoldGeometry {
     final distance = value.distance;
     if (distance < 0.001) return const Offset(1, 0);
     return Offset(value.dx / distance, value.dy / distance);
-  }
-
-  static double _easeOutCubic(double value) {
-    final t = value.clamp(0.0, 1.0).toDouble();
-    return 1 - math.pow(1 - t, 3).toDouble();
   }
 
   static double _snap(num value) {

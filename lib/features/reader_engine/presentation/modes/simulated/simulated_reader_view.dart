@@ -61,6 +61,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   int? _pageIndex;
   double _viewportWidth = 1;
   double _viewportHeight = 1;
+  Offset? _pendingDragStart;
   Offset? _dragStart;
   PageCurlDirection? _dragDirection;
   double _dragOffset = 0;
@@ -136,6 +137,8 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
             key: const ValueKey('reader-engine-simulated-view'),
             behavior: HitTestBehavior.opaque,
             onTapUp: (details) => _handleTap(details.localPosition),
+            onHorizontalDragDown:
+                widget.controlsVisible ? null : _handleHorizontalDragDown,
             onHorizontalDragStart:
                 widget.controlsVisible ? null : _handleHorizontalDragStart,
             onHorizontalDragUpdate:
@@ -229,18 +232,26 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   }
 
   void _handleHorizontalDragStart(DragStartDetails details) {
-    _beginTurn(start: details.localPosition, current: details.localPosition);
+    final start = _pendingDragStart ?? details.localPosition;
+    _beginTurn(start: start, current: details.localPosition);
   }
 
   void _handleHorizontalDragUpdate(DragUpdateDetails details) {
     if (_controller.isAnimating) return;
-    final start = _dragStart ?? details.localPosition;
+    final start = _dragStart ?? _pendingDragStart ?? details.localPosition;
     _beginTurn(start: start, current: details.localPosition);
+  }
+
+  void _handleHorizontalDragDown(DragDownDetails details) {
+    _pendingDragStart = details.localPosition;
   }
 
   void _handleHorizontalDragEnd(DragEndDetails details) {
     final gesture = _gesture;
-    if (gesture == null) return;
+    if (gesture == null) {
+      _pendingDragStart = null;
+      return;
+    }
     if (!gesture.isTurning) {
       _animateBackToRest();
       return;
@@ -251,8 +262,12 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     }
     final velocity = details.primaryVelocity ?? 0;
     final direction = _directionForGesture(gesture.direction);
-    final shouldCommit = gesture.progress >= _minDragCommitRatio ||
-        velocity.abs() >= _minFlingVelocity;
+    final velocityCommits = switch (gesture.direction) {
+      PageCurlDirection.next => velocity <= -_minFlingVelocity,
+      PageCurlDirection.previous => velocity >= _minFlingVelocity,
+    };
+    final shouldCommit =
+        gesture.progress >= _minDragCommitRatio || velocityCommits;
 
     if (!shouldCommit) {
       _animateBackToRest();
@@ -272,9 +287,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     required Offset start,
     required Offset current,
   }) {
-    final pageSize = Size(_viewportWidth, context.size?.height ?? 1);
-    final gesture = PageCurlGesture.fromPoints(
-      pageSize: pageSize,
+    final gesture = _gestureFromPoints(
       start: start,
       current: current,
       lockedDirection: _dragDirection,
@@ -369,19 +382,35 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       _animateBackToRest();
       return;
     }
+    final startX = _dragStart?.dx ?? (direction > 0 ? _viewportWidth : 0);
     _animateOffset(
       from: fromOffset,
-      to: direction > 0 ? -_viewportWidth : _viewportWidth,
+      to: direction > 0
+          ? -_viewportWidth - startX - 8
+          : _viewportWidth * 2 - startX + 8,
     );
   }
 
   void _animateBackToRest() {
-    if (_dragOffset == 0) {
+    final restOffset = _restOffsetForCancel();
+    if ((_dragOffset - restOffset).abs() < 0.5) {
       setState(() => _resetTurnState(disposeSnapshots: true));
       return;
     }
     _committingDirection = null;
-    _animateOffset(from: _dragOffset, to: 0);
+    _animateOffset(from: _dragOffset, to: restOffset);
+  }
+
+  double _restOffsetForCancel() {
+    final start = _dragStart;
+    final direction = _dragDirection;
+    if (_transitionTarget == null || start == null || direction == null) {
+      return 0;
+    }
+    return switch (direction) {
+      PageCurlDirection.next => _viewportWidth - start.dx,
+      PageCurlDirection.previous => -start.dx,
+    };
   }
 
   void _animateOffset({
@@ -405,9 +434,9 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     if (start == null) return;
     final value = _offsetAnimation!.value;
     final current = Offset(start.dx + value, start.dy);
-    final gesture = PageCurlGesture.fromPoints(
-      pageSize: Size(_viewportWidth, context.size?.height ?? 1),
-      start: start,
+    final gestureStart = _gestureStartForAnimatedOffset(start);
+    final gesture = _gestureFromPoints(
+      start: gestureStart,
       current: current,
       lockedDirection: _dragDirection,
     );
@@ -424,6 +453,53 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       direction:
           _committingDirection ?? _directionForGesture(gesture.direction),
     );
+  }
+
+  Offset _gestureStartForAnimatedOffset(Offset start) {
+    if (_committingDirection != null || _transitionTarget == null) {
+      return start;
+    }
+    return switch (_dragDirection) {
+      PageCurlDirection.next => Offset(_viewportWidth, start.dy),
+      PageCurlDirection.previous => Offset(0, start.dy),
+      null => start,
+    };
+  }
+
+  PageCurlGesture _gestureFromPoints({
+    required Offset start,
+    required Offset current,
+    PageCurlDirection? lockedDirection,
+  }) {
+    final pageSize = Size(_viewportWidth, context.size?.height ?? 1);
+    final gesture = PageCurlGesture.fromPoints(
+      pageSize: pageSize,
+      start: start,
+      current: current,
+      lockedDirection: lockedDirection,
+    );
+    final visualStart = _visualStartForGesture(gesture);
+    if (visualStart == start) return gesture;
+    return PageCurlGesture.fromPoints(
+      pageSize: pageSize,
+      start: visualStart,
+      current: current,
+      lockedDirection: gesture.direction,
+    );
+  }
+
+  Offset _visualStartForGesture(PageCurlGesture gesture) {
+    if (gesture.anchor != PageCurlAnchor.middle) {
+      return gesture.start;
+    }
+    final isRightMiddleTrigger = gesture.start.dx >= _viewportWidth * 0.67;
+    if (!isRightMiddleTrigger) {
+      return gesture.start;
+    }
+    return switch (gesture.direction) {
+      PageCurlDirection.next => Offset(_viewportWidth, gesture.start.dy),
+      PageCurlDirection.previous => gesture.start,
+    };
   }
 
   void _completeAnimation() {
@@ -495,6 +571,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     _offsetAnimation?.removeListener(_handleAnimatedOffset);
     _offsetAnimation = null;
     _dragStart = null;
+    _pendingDragStart = null;
     _dragDirection = null;
     _dragOffset = 0;
     _gesture = null;

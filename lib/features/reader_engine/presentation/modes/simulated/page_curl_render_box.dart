@@ -5,10 +5,18 @@ import 'package:flutter/rendering.dart';
 
 import 'page_curl_controller.dart';
 import 'page_curl_fold_geometry.dart';
+import 'page_curl_gesture.dart';
 import 'page_curl_quality.dart';
 import 'page_curl_snapshot.dart';
 
 class PageCurlRenderBox extends RenderBox {
+  static const double _backsideInkFadeOpacity = 0.28;
+
+  @visibleForTesting
+  static Color backsideInkFadeColorFor(Color pageColor) {
+    return pageColor.withValues(alpha: _backsideInkFadeOpacity);
+  }
+
   PageCurlRenderBox({
     required PageCurlController controller,
     required PageCurlSnapshotPair? snapshots,
@@ -25,6 +33,7 @@ class PageCurlRenderBox extends RenderBox {
   PageCurlQuality _quality;
 
   Color get pageColor => _pageColor;
+  PageCurlGesture? get gesture => _controller.gesture;
   PageCurlTurnType? get turnType => _controller.turnType;
   PageCurlQuality get quality => _quality;
 
@@ -126,13 +135,14 @@ class PageCurlRenderBox extends RenderBox {
   ) {
     _paintPageBase(canvas);
     _drawImageFull(canvas, snapshots.target);
-    _drawContactShadow(canvas, geometry, isPrevious: false);
+    _drawNextFoldCastShadow(canvas, geometry);
     canvas.save();
     canvas.clipPath(geometry.unturnedPath);
     _paintPageBase(canvas);
     _drawImageFull(canvas, snapshots.current);
     canvas.restore();
     _drawFoldedPage(canvas, snapshots.current, geometry);
+    _drawBacksideInkFade(canvas, geometry);
     _drawPaperBackTone(canvas, geometry);
     _drawFoldShadow(canvas, geometry);
     _drawPaperEdge(canvas, geometry);
@@ -145,10 +155,12 @@ class PageCurlRenderBox extends RenderBox {
   ) {
     _paintPageBase(canvas);
     _drawImageFull(canvas, snapshots.current);
-    _drawContactShadow(canvas, geometry, isPrevious: true);
-    _drawPreviousIncomingPage(canvas, snapshots.target, geometry);
-    _drawPreviousFoldBack(canvas, geometry);
-    _drawPreviousLeadingShadow(canvas, geometry);
+    _drawNextFoldCastShadow(canvas, geometry);
+    _drawImageClipped(canvas, snapshots.target, geometry.unturnedPath);
+    _drawFoldedPage(canvas, snapshots.target, geometry);
+    _drawBacksideInkFade(canvas, geometry);
+    _drawPaperBackTone(canvas, geometry);
+    _drawFoldShadow(canvas, geometry);
     _drawPaperEdge(canvas, geometry);
   }
 
@@ -177,43 +189,6 @@ class PageCurlRenderBox extends RenderBox {
     canvas.restore();
   }
 
-  void _drawPreviousIncomingPage(
-    Canvas canvas,
-    ui.Image image,
-    PageCurlFoldGeometry geometry,
-  ) {
-    _drawImageClipped(canvas, image, geometry.foldedPath);
-  }
-
-  void _drawPreviousFoldBack(
-    Canvas canvas,
-    PageCurlFoldGeometry geometry,
-  ) {
-    final progress = geometry.progress;
-    final bounds = geometry.turningPath.getBounds();
-    if (bounds.isEmpty) return;
-
-    canvas.save();
-    canvas.clipPath(geometry.turningPath);
-    canvas.drawRect(
-      bounds,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            _tintToward(_pageColor, const Color(0xFFFFF8EA), 0.42)
-                .withValues(alpha: 0.20),
-            _tintToward(_pageColor, const Color(0xFFFFF2D8), 0.30)
-                .withValues(alpha: 0.12),
-            Colors.black.withValues(alpha: 0.11 * progress),
-          ],
-          stops: const [0, 0.56, 1],
-        ).createShader(bounds),
-    );
-    canvas.restore();
-  }
-
   void _drawFoldedPage(
     Canvas canvas,
     ui.Image image,
@@ -228,49 +203,41 @@ class PageCurlRenderBox extends RenderBox {
     canvas.restore();
   }
 
-  void _drawContactShadow(
+  void _drawBacksideInkFade(
     Canvas canvas,
-    PageCurlFoldGeometry geometry, {
-    required bool isPrevious,
-  }) {
-    final progress = geometry.progress;
-    final shadowPath = isPrevious ? geometry.turningPath : geometry.foldedPath;
-    if (shadowPath.getBounds().isEmpty) return;
+    PageCurlFoldGeometry geometry,
+  ) {
+    final bounds = geometry.foldedPath.getBounds();
+    if (bounds.isEmpty) return;
 
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+    canvas.clipPath(geometry.foldedPath);
+    canvas.drawRect(
+      bounds,
+      Paint()..color = backsideInkFadeColorFor(_pageColor),
+    );
+    canvas.restore();
+  }
+
+  void _drawNextFoldCastShadow(
+    Canvas canvas,
+    PageCurlFoldGeometry geometry,
+  ) {
+    final progress = geometry.progress;
+    final shadowPath = Path()
+      ..moveTo(geometry.foldLineStart.dx, geometry.foldLineStart.dy)
+      ..lineTo(geometry.foldLineEnd.dx, geometry.foldLineEnd.dy);
     canvas.save();
     canvas.clipRect(Offset.zero & size);
     canvas.drawPath(
       shadowPath,
       Paint()
         ..color = Colors.black.withValues(alpha: 0.16 * progress)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-    );
-    canvas.restore();
-  }
-
-  void _drawPreviousLeadingShadow(
-    Canvas canvas,
-    PageCurlFoldGeometry geometry,
-  ) {
-    final progress = geometry.progress;
-    final bounds = geometry.turningPath.getBounds();
-    if (bounds.isEmpty) return;
-
-    canvas.save();
-    canvas.clipPath(geometry.turningPath);
-    canvas.drawRect(
-      bounds.inflate(10),
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            Colors.transparent,
-            Colors.black.withValues(alpha: 0.10 * progress),
-            Colors.black.withValues(alpha: 0.20 * progress),
-          ],
-          stops: const [0, 0.58, 1],
-        ).createShader(bounds.inflate(10)),
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 14 + progress * 10
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
     );
     canvas.restore();
   }
@@ -283,9 +250,7 @@ class PageCurlRenderBox extends RenderBox {
     if (bounds.isEmpty) return;
 
     final progress = geometry.progress;
-    final warmPaper = _tintToward(_pageColor, const Color(0xFFFFF2D8), 0.34);
-    final warmHighlight =
-        _tintToward(_pageColor, const Color(0xFFFFF8EA), 0.46);
+    final paperBack = _tintToward(_pageColor, const Color(0xFFFFF2D8), 0.16);
 
     canvas.save();
     canvas.clipRect(Offset.zero & size);
@@ -301,11 +266,11 @@ class PageCurlRenderBox extends RenderBox {
               ? Alignment.centerRight
               : Alignment.centerLeft,
           colors: [
-            warmHighlight.withValues(alpha: 0.20),
-            warmPaper.withValues(alpha: 0.28),
-            Colors.black.withValues(alpha: 0.08 * progress),
+            paperBack.withValues(alpha: 0.10),
+            Colors.black.withValues(alpha: 0.035 * progress),
+            Colors.black.withValues(alpha: 0.13 * progress),
           ],
-          stops: const [0, 0.62, 1],
+          stops: const [0, 0.58, 1],
         ).createShader(bounds),
     );
     canvas.restore();
@@ -313,40 +278,112 @@ class PageCurlRenderBox extends RenderBox {
 
   void _drawFoldShadow(Canvas canvas, PageCurlFoldGeometry geometry) {
     final progress = geometry.progress;
+    if (geometry.corner == PageCurlFoldCorner.middleRight ||
+        geometry.corner == PageCurlFoldCorner.middleLeft) {
+      _drawMiddleFoldShadow(canvas, geometry);
+      return;
+    }
+    final shadowPath = Path()
+      ..moveTo(geometry.foldLineStart.dx, geometry.foldLineStart.dy)
+      ..lineTo(geometry.foldLineEnd.dx, geometry.foldLineEnd.dy);
+
     canvas.drawPath(
-      geometry.foldCurvePath,
+      shadowPath,
       Paint()
-        ..color = Colors.black.withValues(alpha: 0.22 * progress)
+        ..color = Colors.black.withValues(alpha: 0.30 * progress)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 10 + progress * 7
+        ..strokeWidth = 7 + progress * 7
         ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
     );
+    canvas.drawPath(
+      shadowPath,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.14 * progress)
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = 1.4 + progress * 1.2,
+    );
+  }
+
+  void _drawMiddleFoldShadow(Canvas canvas, PageCurlFoldGeometry geometry) {
+    final progress = geometry.progress;
+    final x = geometry.foldLineStart.dx;
+    if (x <= -size.width || x >= size.width) return;
+
+    final bandWidth = 26 + progress * 18;
+    final rect = Rect.fromLTWH(
+      x - bandWidth * 0.55,
+      0,
+      bandWidth,
+      size.height,
+    );
+
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            Colors.transparent,
+            Colors.black.withValues(alpha: 0.20 * progress),
+            Colors.black.withValues(alpha: 0.32 * progress),
+            Colors.black.withValues(alpha: 0.12 * progress),
+            Colors.transparent,
+          ],
+          stops: const [0, 0.28, 0.48, 0.68, 1],
+        ).createShader(rect),
+    );
+    canvas.drawLine(
+      Offset(x, 0),
+      Offset(x, size.height),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.16 * progress)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+    canvas.restore();
   }
 
   void _drawPaperEdge(Canvas canvas, PageCurlFoldGeometry geometry) {
     final progress = geometry.progress;
-    final isPrevious = geometry.turnType == PageCurlTurnType.previousPageIn;
+    final edgePath = geometry.outerEdgePath;
+    final outwardOffset =
+        geometry.isRightCorner ? const Offset(-2.5, 0) : const Offset(2.5, 0);
+
+    canvas.save();
+    canvas.clipPath(_outsideFoldedPagePath(geometry));
+    canvas.translate(outwardOffset.dx, outwardOffset.dy);
     canvas.drawPath(
-      geometry.outerEdgePath,
+      edgePath,
       Paint()
-        ..color = Colors.black.withValues(
-          alpha: (isPrevious ? 0.16 : 0.14) * progress,
-        )
+        ..color = Colors.black.withValues(alpha: 0.20 * progress)
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
-        ..strokeWidth = isPrevious ? 2.6 + progress * 2.4 : 2.2 + progress * 2
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+        ..strokeWidth = 20 + progress * 12
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
     );
-    if (!isPrevious) return;
     canvas.drawPath(
-      geometry.outerEdgePath,
+      edgePath,
       Paint()
-        ..color = _tintToward(_pageColor, const Color(0xFFFFF2D8), 0.32)
-            .withValues(alpha: 0.20 * progress)
+        ..color = Colors.black.withValues(alpha: 0.14 * progress)
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
-        ..strokeWidth = 0.8,
+        ..strokeWidth = 8 + progress * 5
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+    );
+    canvas.restore();
+  }
+
+  Path _outsideFoldedPagePath(PageCurlFoldGeometry geometry) {
+    final pagePath = Path()..addRect(Offset.zero & size);
+    return Path.combine(
+      PathOperation.difference,
+      pagePath,
+      geometry.foldedPath,
     );
   }
 

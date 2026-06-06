@@ -6,6 +6,7 @@ import 'package:dudo/features/reader_engine/domain/reader_viewport_state.dart';
 import 'package:dudo/features/reader_engine/layout/reader_layout_models.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/simulated/page_curl_controller.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/simulated/page_curl_fold_geometry.dart';
+import 'package:dudo/features/reader_engine/presentation/modes/simulated/page_curl_gesture.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/simulated/page_curl_render_box.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/simulated/simulated_reader_view.dart';
 import 'package:dudo/shared/theme/app_theme.dart';
@@ -661,6 +662,84 @@ void main() {
 
     await gesture.up();
     await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+      'SimulatedReaderView retracts middle curl to page edge after inner start cancel',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 520);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final center = _item(0, pageCount: 2);
+    final reportedLocations = <ReaderLocation>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 520,
+          child: SimulatedReaderView(
+            viewport: ReaderViewportState(
+              center: center,
+              currentLocation: ReaderLocation.startOfChapter(
+                bookId: 'book-1',
+                chapterIndex: 0,
+              ),
+              currentLayout: center.layout,
+            ),
+            settings: ReaderSettings.defaults(),
+            palette: ReaderTheme.parchment,
+            controlsVisible: false,
+            onContentTap: () {},
+            onPreviousBoundary: () {},
+            onNextBoundary: () {},
+            onLocationChanged: reportedLocations.add,
+          ),
+        ),
+      ),
+    );
+
+    final view = find.byKey(const ValueKey('reader-engine-simulated-view'));
+    final start = tester.getTopLeft(view) + const Offset(270, 260);
+    final gesture = await tester.startGesture(start);
+
+    await gesture.moveBy(const Offset(-80, 0));
+    await tester.pump();
+    await tester.pump();
+
+    var renderBox = tester.renderObject<PageCurlRenderBox>(
+      find.byKey(const ValueKey('reader-engine-page-curl-painter')),
+    );
+    expect(renderBox.turnType, PageCurlTurnType.nextPageOut);
+    expect(renderBox.gesture!.anchor, PageCurlAnchor.middle);
+
+    await gesture.moveBy(const Offset(80, 0));
+    await tester.pump();
+
+    renderBox = tester.renderObject<PageCurlRenderBox>(
+      find.byKey(const ValueKey('reader-engine-page-curl-painter')),
+    );
+    expect(renderBox.turnType, PageCurlTurnType.nextPageOut);
+    expect(renderBox.gesture!.current.dx, 270);
+
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+
+    renderBox = tester.renderObject<PageCurlRenderBox>(
+      find.byKey(const ValueKey('reader-engine-page-curl-painter')),
+    );
+    expect(renderBox.turnType, PageCurlTurnType.nextPageOut);
+    expect(renderBox.gesture!.current.dx, greaterThan(270));
+    expect(renderBox.gesture!.current.dx, lessThanOrEqualTo(320));
+
+    await tester.pumpAndSettle();
+
+    expect(reportedLocations, isEmpty);
+    expect(find.byKey(const ValueKey('reader-engine-simulated-current-0-0')),
+        findsOneWidget);
   });
 
   testWidgets('SimulatedReaderView clips oversized page content',
