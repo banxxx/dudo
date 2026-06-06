@@ -36,10 +36,12 @@ class ReaderParagraphBlock extends ReaderContentBlock {
     required super.endOffset,
     required this.text,
     required this.paragraphIndex,
+    this.addBottomSpacing = true,
   });
 
   final String text;
   final int paragraphIndex;
+  final bool addBottomSpacing;
 }
 
 class ReaderImageBlock extends ReaderContentBlock {

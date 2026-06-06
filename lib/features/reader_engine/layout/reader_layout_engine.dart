@@ -49,7 +49,145 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
       chapterIndex: chapter.index,
     );
 
+    void startPageAt(ReaderContentBlock block) {
+      if (pageBlocks.isNotEmpty) return;
+      pageStartOffset = _blockStartOffset(block);
+      pageStartLocation = ReaderLocation(
+        bookId: chapter.bookId,
+        chapterIndex: chapter.index,
+        offset: pageStartOffset,
+        blockId: block.blockId,
+      );
+    }
+
+    void finishPage() {
+      if (pageBlocks.isEmpty) return;
+      pages.add(
+        _buildPageSlice(
+          chapter: chapter,
+          pageIndex: pageIndex,
+          startOffset: pageStartOffset,
+          endOffset: pageEndOffset,
+          start: pageStartLocation,
+          blocks: List.unmodifiable(pageBlocks),
+        ),
+      );
+      pageIndex += 1;
+      pageContentHeight = 0;
+      pageBlocks.clear();
+    }
+
     for (final block in chapter.blocks) {
+      if (block is ReaderParagraphBlock) {
+        final blockHeight = _measureBlock(
+          block: block,
+          settings: settings,
+          maxWidth: contentWidth,
+        );
+        final scrollStart = scrollOffset;
+        final scrollEnd = scrollStart + blockHeight;
+        blockLayouts.add(
+          ReaderBlockLayout(
+            blockId: block.blockId,
+            chapterIndex: chapter.index,
+            textStartOffset: block.startOffset,
+            textEndOffset: block.endOffset,
+            scrollStart: scrollStart,
+            scrollEnd: scrollEnd,
+            pageIndex: pageIndex,
+          ),
+        );
+
+        var localStart = 0;
+        while (localStart < block.text.length) {
+          final remainingText = block.text.substring(localStart);
+          final remainingHeight = _measureText(
+                text: remainingText,
+                style: _styleForBlock(block, settings),
+                maxWidth: contentWidth,
+              ) +
+              settings.paragraphSpacing;
+          var availableHeight = pageHeight - pageContentHeight;
+
+          if (remainingHeight > availableHeight && pageBlocks.isNotEmpty) {
+            final fittingLength = _maxTextPrefixThatFits(
+              text: remainingText,
+              style: _styleForBlock(block, settings),
+              maxWidth: contentWidth,
+              maxHeight: availableHeight,
+            );
+            if (fittingLength <= 0) {
+              finishPage();
+              continue;
+            }
+
+            final fragment = _paragraphFragment(
+              block: block,
+              localStart: localStart,
+              localEnd: localStart + fittingLength,
+              addBottomSpacing: false,
+            );
+            startPageAt(fragment);
+            final fragmentHeight = _measureBlock(
+              block: fragment,
+              settings: settings,
+              maxWidth: contentWidth,
+            );
+            pageBlocks.add(fragment);
+            pageContentHeight += fragmentHeight;
+            pageEndOffset = _blockEndOffset(fragment);
+            localStart += fittingLength;
+            finishPage();
+            continue;
+          }
+
+          if (remainingHeight <= availableHeight) {
+            final fragment = _paragraphFragment(
+              block: block,
+              localStart: localStart,
+              localEnd: block.text.length,
+              addBottomSpacing: true,
+            );
+            startPageAt(fragment);
+            pageBlocks.add(fragment);
+            pageContentHeight += remainingHeight;
+            pageEndOffset = _blockEndOffset(fragment);
+            localStart = block.text.length;
+            continue;
+          }
+
+          availableHeight = pageHeight;
+          final fittingLength = _maxTextPrefixThatFits(
+            text: remainingText,
+            style: _styleForBlock(block, settings),
+            maxWidth: contentWidth,
+            maxHeight: availableHeight,
+          );
+          final safeLength = math.max(1, fittingLength);
+          final fragment = _paragraphFragment(
+            block: block,
+            localStart: localStart,
+            localEnd: math.min(block.text.length, localStart + safeLength),
+            addBottomSpacing: localStart + safeLength >= block.text.length,
+          );
+          startPageAt(fragment);
+          final fragmentHeight = _measureBlock(
+            block: fragment,
+            settings: settings,
+            maxWidth: contentWidth,
+          );
+          pageBlocks.add(fragment);
+          pageContentHeight += fragmentHeight;
+          pageEndOffset = _blockEndOffset(fragment);
+          localStart = fragment.endOffset - block.startOffset;
+          if (localStart < block.text.length) {
+            finishPage();
+          }
+        }
+        scrollOffset = scrollEnd;
+        continue;
+      }
+
       final blockHeight = _measureBlock(
         block: block,
         settings: settings,
@@ -58,28 +196,10 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
 
       if (pageBlocks.isNotEmpty &&
           pageContentHeight + blockHeight > pageHeight) {
-        pages.add(
-          _buildPageSlice(
-            chapter: chapter,
-            pageIndex: pageIndex,
-            startOffset: pageStartOffset,
-            endOffset: pageEndOffset,
-            start: pageStartLocation,
-            blocks: List.unmodifiable(pageBlocks),
-          ),
-        );
-        pageIndex += 1;
-        pageContentHeight = 0;
-        pageBlocks.clear();
-        pageStartOffset = _blockStartOffset(block);
-        pageStartLocation = ReaderLocation(
-          bookId: chapter.bookId,
-          chapterIndex: chapter.index,
-          offset: pageStartOffset,
-          blockId: block.blockId,
-        );
+        finishPage();
       }
 
+      startPageAt(block);
       final scrollStart = scrollOffset;
       final scrollEnd = scrollStart + blockHeight;
       blockLayouts.add(
@@ -129,7 +249,31 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
     required ReaderSettings settings,
     required double maxWidth,
   }) {
-    final style = switch (block) {
+    return _measureText(
+          text: _textForBlock(block),
+          style: _styleForBlock(block, settings),
+          maxWidth: maxWidth,
+        ) +
+        _bottomSpacingForBlock(block, settings);
+  }
+
+  double _measureText({
+    required String text,
+    required TextStyle style,
+    required double maxWidth,
+  }) {
+    return textMeasure.measureHeight(
+      text: text,
+      style: style,
+      maxWidth: maxWidth,
+    );
+  }
+
+  TextStyle _styleForBlock(
+    ReaderContentBlock block,
+    ReaderSettings settings,
+  ) {
+    return switch (block) {
       ReaderHeadingBlock() => DudoTextStyles.serif(
           fontSize: settings.fontSize * (24 / 19),
           height: settings.lineHeight,
@@ -145,17 +289,68 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
           height: settings.lineHeight,
         ),
     };
-    final text = switch (block) {
+  }
+
+  String _textForBlock(ReaderContentBlock block) {
+    return switch (block) {
       ReaderHeadingBlock(:final text) => text,
       ReaderParagraphBlock(:final text) => text,
       ReaderImageBlock(:final alt) => alt ?? '',
     };
-    final measured = textMeasure.measureHeight(
-      text: text,
-      style: style,
-      maxWidth: maxWidth,
+  }
+
+  double _bottomSpacingForBlock(
+    ReaderContentBlock block,
+    ReaderSettings settings,
+  ) {
+    if (block is ReaderParagraphBlock && !block.addBottomSpacing) {
+      return 0;
+    }
+    return settings.paragraphSpacing;
+  }
+
+  int _maxTextPrefixThatFits({
+    required String text,
+    required TextStyle style,
+    required double maxWidth,
+    required double maxHeight,
+  }) {
+    if (text.isEmpty || maxHeight <= 0) return 0;
+    var low = 0;
+    var high = text.length;
+    while (low < high) {
+      final mid = ((low + high + 1) / 2).floor();
+      final measured = _measureText(
+        text: text.substring(0, mid),
+        style: style,
+        maxWidth: maxWidth,
+      );
+      if (measured <= maxHeight) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+    return low;
+  }
+
+  ReaderParagraphBlock _paragraphFragment({
+    required ReaderParagraphBlock block,
+    required int localStart,
+    required int localEnd,
+    required bool addBottomSpacing,
+  }) {
+    final safeStart = localStart.clamp(0, block.text.length).toInt();
+    final safeEnd = localEnd.clamp(safeStart, block.text.length).toInt();
+    return ReaderParagraphBlock(
+      blockId: block.blockId,
+      chapterIndex: block.chapterIndex,
+      startOffset: block.startOffset + safeStart,
+      endOffset: block.startOffset + safeEnd,
+      text: block.text.substring(safeStart, safeEnd),
+      paragraphIndex: block.paragraphIndex,
+      addBottomSpacing: addBottomSpacing,
     );
-    return measured + settings.paragraphSpacing;
   }
 
   ReaderPageSlice _buildPageSlice({

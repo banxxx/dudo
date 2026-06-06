@@ -46,14 +46,19 @@ class _BlockText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = switch (block) {
+    final currentBlock = block;
+    final text = switch (currentBlock) {
       ReaderHeadingBlock(:final text) => text,
       ReaderParagraphBlock(:final text) => text,
       ReaderImageBlock(:final alt) => alt ?? '',
     };
-    final isHeading = block is ReaderHeadingBlock;
+    final isHeading = currentBlock is ReaderHeadingBlock;
+    final bottomSpacing =
+        currentBlock is ReaderParagraphBlock && !currentBlock.addBottomSpacing
+            ? 0.0
+            : settings.paragraphSpacing;
     return Padding(
-      padding: EdgeInsets.only(bottom: settings.paragraphSpacing),
+      padding: EdgeInsets.only(bottom: bottomSpacing),
       child: Text(
         text,
         style: DudoTextStyles.serif(

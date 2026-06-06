@@ -1,5 +1,6 @@
 import 'package:dudo/features/reader_engine/data/reader_content_parser.dart';
 import 'package:dudo/features/reader_engine/domain/reader_chapter.dart';
+import 'package:dudo/features/reader_engine/domain/reader_content_block.dart';
 import 'package:dudo/features/reader_engine/domain/reader_insets.dart';
 import 'package:dudo/features/reader_engine/domain/reader_location.dart';
 import 'package:dudo/features/reader_engine/domain/reader_settings.dart';
@@ -86,8 +87,40 @@ void main() {
 
       expect(layout.pages.length, greaterThan(2));
       expect(
-        layout.pages.every((page) => page.blocks.length <= 2),
+        layout.pages.every(
+          (page) => _measuredPageHeight(page.blocks) <= 80,
+        ),
         isTrue,
+      );
+    });
+
+    test('splits a long paragraph across page slices', () async {
+      const engine = FlutterReaderLayoutEngine(
+        textMeasure: _LengthTextMeasure(charsPerLine: 5, lineHeight: 20),
+      );
+      final chapter = _chapterWithContent('ABCDEFGHIJKLMNOPQRST');
+      final layout = await engine.layoutChapter(
+        chapter: chapter,
+        settings: _settings().copyWith(paragraphSpacing: 0),
+        viewportSize: const Size(320, 80),
+      );
+
+      final paragraphPages = [
+        for (final page in layout.pages)
+          if (page.blocks.any((block) => block is ReaderParagraphBlock)) page,
+      ];
+      expect(paragraphPages.length, greaterThan(1));
+      expect(
+        paragraphPages
+            .expand((page) => page.blocks)
+            .whereType<ReaderParagraphBlock>(),
+        everyElement(
+          isA<ReaderParagraphBlock>().having(
+            (block) => block.text.length,
+            'fragment length',
+            lessThan(20),
+          ),
+        ),
       );
     });
   });
@@ -165,4 +198,35 @@ class _FixedTextMeasure implements ReaderTextMeasure {
   }) {
     return height;
   }
+}
+
+class _LengthTextMeasure implements ReaderTextMeasure {
+  const _LengthTextMeasure({
+    required this.charsPerLine,
+    required this.lineHeight,
+  });
+
+  final int charsPerLine;
+  final double lineHeight;
+
+  @override
+  double measureHeight({
+    required String text,
+    required TextStyle style,
+    required double maxWidth,
+  }) {
+    if (text.isEmpty) return 0;
+    return (text.length / charsPerLine).ceil() * lineHeight;
+  }
+}
+
+double _measuredPageHeight(List<ReaderContentBlock> blocks) {
+  var height = 0.0;
+  for (final block in blocks) {
+    height += 20;
+    if (block is! ReaderParagraphBlock || block.addBottomSpacing) {
+      height += 10;
+    }
+  }
+  return height;
 }
