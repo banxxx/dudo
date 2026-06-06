@@ -1,5 +1,6 @@
 import '../../../core/database/app_database.dart';
 import 'reader_paragraph_span.dart';
+import 'reader_reading_time.dart';
 import 'reader_text_normalizer.dart';
 
 class ReaderChapterView {
@@ -68,7 +69,7 @@ class ReaderChapterView {
       bookTitle: book.title,
       chapterLabel: chapterLabel,
       chapterTitle: chapterMeta.title,
-      remainingText: _estimateReadingTimeText(text),
+      remainingText: estimateReaderReadingTimeText(text),
       chapterOrdinal: chapterIndex.clamp(0, chapterCount - 1),
       text: text,
       paragraphs: paragraphs,
@@ -81,11 +82,4 @@ class ReaderChapterView {
       contentMissing: text.isEmpty,
     );
   }
-}
-
-String _estimateReadingTimeText(String content) {
-  final readableLength = content.replaceAll(RegExp(r'\s+'), '').length;
-  if (readableLength == 0) return '暂无进度';
-  final minutes = (readableLength / 450).ceil().clamp(1, 9999);
-  return '约 $minutes 分钟';
 }

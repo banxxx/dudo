@@ -51,6 +51,34 @@ void main() {
     expect(
         find.byKey(const ValueKey('reader-bottom-controls')), findsOneWidget);
     expect(find.text('测试书'), findsOneWidget);
+    expect(find.text('约 1 分钟'), findsOneWidget);
+    expect(find.textContaining('本章'), findsNothing);
+  });
+
+  testWidgets('ReaderScreen progress percent shows chapter progress',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerDocumentSourceProvider.overrideWithValue(
+            _FakeReaderDocumentSource(),
+          ),
+          readerProgressRepositoryProvider.overrideWithValue(
+            _MemoryProgressRepository(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ReaderScreen(bookId: 'book-1', initialChapterIndex: 1),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    final progressText = tester.widget<Text>(
+      find.byKey(const ValueKey('reader-progress-percent')),
+    );
+    expect(progressText.data, '0%');
   });
 
   testWidgets('ReaderScreen switches to scroll mode through reader controls',
@@ -104,6 +132,67 @@ void main() {
       find.byKey(const ValueKey('reader-engine-scroll-chapter-0')),
     );
     expect(chapterTop.dy, greaterThanOrEqualTo(17));
+  });
+
+  testWidgets('ReaderScreen scroll mode progress label follows visible chapter',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerDocumentSourceProvider.overrideWithValue(
+            _FakeReaderDocumentSource(),
+          ),
+          readerProgressRepositoryProvider.overrideWithValue(
+            _MemoryProgressRepository(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ReaderScreen(bookId: 'book-1'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(195, 420));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(229, 786));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(307, 546));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('reader-progress')),
+        matching: find.text('第一章'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.drag(
+      find.byKey(const ValueKey('reader-engine-scroll-view')),
+      const Offset(0, -760),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('reader-progress')),
+        matching: find.text('第二章'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('reader-progress')),
+        matching: find.text('第一章'),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('ReaderScreen next chapter button works in scroll mode',

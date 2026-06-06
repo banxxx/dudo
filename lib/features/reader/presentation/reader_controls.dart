@@ -1462,6 +1462,8 @@ class _ListeningPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bars = <double>[18, 34, 26, 44, 22, 38, 28, 16, 30];
+    final subtitle =
+        remainingText.isEmpty ? chapterTitle : '$chapterTitle · $remainingText';
     return _FloatingPanel(
       key: const ValueKey('reader-listening-panel'),
       metrics: metrics,
@@ -1483,7 +1485,7 @@ class _ListeningPanel extends StatelessWidget {
                           fontSize: metrics.s(22),
                           fontWeight: FontWeight.w700)),
                   SizedBox(height: metrics.s(4)),
-                  Text('$chapterTitle · $remainingText',
+                  Text(subtitle,
                       style: DudoTextStyles.sans(
                           color: const Color(0xFF8A735A),
                           fontSize: metrics.s(12))),

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_theme.dart';
 import '../../reader/domain/reader_catalog_item.dart' as legacy;
 import '../../reader/domain/reader_overlay_mode.dart' as legacy;
+import '../../reader/domain/reader_reading_time.dart';
 import '../../reader/presentation/layout/reader_page_metrics.dart' as legacy;
 import '../../reader/presentation/modes/reader_turn_mode.dart' as legacy;
 import '../../reader/presentation/reader_controls.dart' as legacy;
@@ -15,8 +17,10 @@ import '../application/reader_engine_state.dart';
 import '../controller/reader_session_controller.dart';
 import '../controller/reader_viewport_controller.dart';
 import '../domain/reader_insets.dart';
+import '../domain/reader_location.dart';
 import '../domain/reader_settings.dart';
 import '../domain/reader_turn_mode.dart';
+import '../domain/reader_viewport_state.dart';
 import '../layout/reader_layout_engine.dart';
 import 'reader_viewport.dart';
 
@@ -52,62 +56,97 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   bool _catalogLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    _syncSystemUiMode();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncSystemUiMode());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+        ),
+      );
+    });
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant ReaderScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncSystemUiMode();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: const ValueKey('reader-engine-screen'),
-      extendBodyBehindAppBar: true,
-      backgroundColor: _palette.background,
-      body: SizedBox.expand(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final size = Size(constraints.maxWidth, constraints.maxHeight);
-            final safePadding = MediaQuery.paddingOf(context);
-            final metrics = legacy.ReaderPageMetrics.fromSize(size);
-            _ensureController(size, safePadding);
-            return FutureBuilder<void>(
-              future: _initialization,
-              builder: (context, snapshot) {
-                final controller = _controller;
-                final state = controller?.state;
-                return Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    legacy.ReaderPaperBackground(palette: _palette),
-                    legacy.ReaderSoftPageEdge(metrics: metrics),
-                    if (_brightness < 0.98)
-                      IgnorePointer(
-                        child: ColoredBox(
-                          color: Colors.black.withValues(
-                            alpha: (1 - _brightness).clamp(0.0, 0.65),
+    final foreground = _palette.foreground;
+    final statusStyle = foreground.computeLuminance() > 0.5
+        ? SystemUiOverlayStyle.light
+        : SystemUiOverlayStyle.dark;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: statusStyle.copyWith(statusBarColor: Colors.transparent),
+      child: Scaffold(
+        key: const ValueKey('reader-engine-screen'),
+        extendBodyBehindAppBar: true,
+        backgroundColor: _palette.background,
+        body: SizedBox.expand(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final size = Size(constraints.maxWidth, constraints.maxHeight);
+              final safePadding = MediaQuery.paddingOf(context);
+              final metrics = legacy.ReaderPageMetrics.fromSize(size);
+              _ensureController(size, safePadding);
+              return FutureBuilder<void>(
+                future: _initialization,
+                builder: (context, snapshot) {
+                  final controller = _controller;
+                  final state = controller?.state;
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      legacy.ReaderPaperBackground(palette: _palette),
+                      legacy.ReaderSoftPageEdge(metrics: metrics),
+                      if (_brightness < 0.98)
+                        IgnorePointer(
+                          child: ColoredBox(
+                            color: Colors.black.withValues(
+                              alpha: (1 - _brightness).clamp(0.0, 0.65),
+                            ),
                           ),
                         ),
-                      ),
-                    if (controller == null ||
-                        state == null ||
-                        state.loadStatus == ReaderLoadStatus.loading)
-                      Center(
-                        child:
-                            CircularProgressIndicator(color: _palette.accent),
-                      )
-                    else if (state.loadStatus == ReaderLoadStatus.error)
-                      Center(
-                        child: Text(
-                          '阅读器加载失败：${state.error}',
-                          style: TextStyle(color: _palette.foreground),
+                      if (controller == null ||
+                          state == null ||
+                          state.loadStatus == ReaderLoadStatus.loading)
+                        Center(
+                          child:
+                              CircularProgressIndicator(color: _palette.accent),
+                        )
+                      else if (state.loadStatus == ReaderLoadStatus.error)
+                        Center(
+                          child: Text(
+                            '阅读器加载失败：${state.error}',
+                            style: TextStyle(color: _palette.foreground),
+                          ),
+                        )
+                      else
+                        ..._readerLayers(
+                          context: context,
+                          metrics: metrics,
+                          controller: controller,
+                          state: state,
                         ),
-                      )
-                    else
-                      ..._readerLayers(
-                        context: context,
-                        metrics: metrics,
-                        controller: controller,
-                        state: state,
-                      ),
-                  ],
-                );
-              },
-            );
-          },
+                    ],
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -130,7 +169,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       ];
     }
 
-    final chapter = viewport.center.chapter;
+    final isScrollMode = state.settings.turnMode == ReaderTurnMode.scroll;
+    final displayItem = isScrollMode
+        ? _chapterItemForLocation(viewport, location)
+        : viewport.center;
+    final chapter = displayItem.chapter;
+    final remainingText = estimateReaderReadingTimeText(chapter.normalizedText);
     final chapterProgress = chapter.textLength <= 0
         ? 0.0
         : (location.offset / chapter.textLength).clamp(0.0, 1.0).toDouble();
@@ -139,7 +183,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         : ((location.chapterIndex + chapterProgress) / document.chapterCount)
             .clamp(0.0, 1.0)
             .toDouble();
-    final pageLabel = state.settings.turnMode == ReaderTurnMode.scroll
+    final pageLabel = isScrollMode
         ? chapter.title
         : '${chapter.title} · ${_pageIndexFor(state) + 1}/'
             '${viewport.currentLayout.pages.length}';
@@ -174,7 +218,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         metrics: metrics,
         palette: _palette,
         pageLabel: pageLabel,
-        progress: bookProgress,
+        progress: chapterProgress,
       ),
       legacy.ReaderControls(
         mode: _overlayMode,
@@ -182,7 +226,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         chapterLabel: chapter.title,
         chapterTitle: chapter.title,
         progress: bookProgress,
-        remainingText: '本章 ${(chapterProgress * 100).round()}%',
+        remainingText: remainingText,
         palette: _palette,
         fontSize: _fontSize,
         lineHeight: _lineHeight,
@@ -237,6 +281,24 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         },
       ),
     ];
+  }
+
+  ReaderChapterWindowItem _chapterItemForLocation(
+    ReaderViewportState viewport,
+    ReaderLocation location,
+  ) {
+    if (viewport.center.chapter.index == location.chapterIndex) {
+      return viewport.center;
+    }
+    final previous = viewport.previous;
+    if (previous != null && previous.chapter.index == location.chapterIndex) {
+      return previous;
+    }
+    final next = viewport.next;
+    if (next != null && next.chapter.index == location.chapterIndex) {
+      return next;
+    }
+    return viewport.center;
   }
 
   int _pageIndexFor(ReaderSessionState state) {
@@ -415,5 +477,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         await controller.jumpToChapter(widget.initialChapterIndex);
       }
     });
+  }
+
+  void _syncSystemUiMode() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 }
