@@ -117,7 +117,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tapAt(const Offset(307, 546));
+    await tester.tap(find.text('滚动'));
     await tester.pumpAndSettle();
 
     expect(
@@ -172,11 +172,62 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tapAt(const Offset(78, 546));
+    await tester.tap(find.text('仿真'));
     await tester.pumpAndSettle();
 
     expect(
       find.byKey(const ValueKey('reader-engine-simulated-view')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('reader-engine-slide-view')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('ReaderScreen switches to cover mode through reader controls',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerDocumentSourceProvider.overrideWithValue(
+            _FakeReaderDocumentSource(),
+          ),
+          readerProgressRepositoryProvider.overrideWithValue(
+            _MemoryProgressRepository(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ReaderScreen(bookId: 'book-1'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('reader-engine-slide-view')),
+      findsOneWidget,
+    );
+
+    await tester.tapAt(const Offset(195, 420));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(229, 786));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('reader-page-turn-panel')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('覆盖'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('reader-engine-cover-view')),
       findsOneWidget,
     );
     expect(
@@ -213,7 +264,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(229, 786));
     await tester.pumpAndSettle();
-    await tester.tapAt(const Offset(307, 546));
+    await tester.tap(find.text('滚动'));
     await tester.pumpAndSettle();
 
     expect(
@@ -275,7 +326,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tapAt(const Offset(229, 786));
     await tester.pumpAndSettle();
-    await tester.tapAt(const Offset(307, 546));
+    await tester.tap(find.text('滚动'));
     await tester.pumpAndSettle();
 
     expect(

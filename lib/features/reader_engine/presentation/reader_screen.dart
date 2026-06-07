@@ -393,17 +393,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   legacy.ReaderTurnMode _legacyTurnMode(ReaderTurnMode mode) {
     return switch (mode) {
+      ReaderTurnMode.paged => legacy.ReaderTurnMode.noAnimation,
+      ReaderTurnMode.cover => legacy.ReaderTurnMode.cover,
+      ReaderTurnMode.slide => legacy.ReaderTurnMode.slide,
       ReaderTurnMode.scroll => legacy.ReaderTurnMode.scroll,
       ReaderTurnMode.simulated => legacy.ReaderTurnMode.simulation,
-      _ => legacy.ReaderTurnMode.slide,
     };
   }
 
   ReaderTurnMode _engineTurnMode(legacy.ReaderTurnMode mode) {
     return switch (mode) {
+      legacy.ReaderTurnMode.noAnimation => ReaderTurnMode.paged,
+      legacy.ReaderTurnMode.cover => ReaderTurnMode.cover,
+      legacy.ReaderTurnMode.slide => ReaderTurnMode.slide,
       legacy.ReaderTurnMode.scroll => ReaderTurnMode.scroll,
       legacy.ReaderTurnMode.simulation => ReaderTurnMode.simulated,
-      legacy.ReaderTurnMode.slide => ReaderTurnMode.slide,
     };
   }
 

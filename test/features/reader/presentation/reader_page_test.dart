@@ -191,6 +191,12 @@ void main() {
     expect(
         find.byKey(const ValueKey('reader-page-turn-panel')), findsOneWidget);
     expect(find.text('翻页方式'), findsOneWidget);
+    expect(find.text('仿真'), findsOneWidget);
+    expect(find.text('覆盖'), findsOneWidget);
+    expect(find.text('滑动'), findsOneWidget);
+    expect(find.text('滚动'), findsOneWidget);
+    expect(find.text('无动画'), findsOneWidget);
+    expect(find.text('音量翻页'), findsOneWidget);
   });
 
   testWidgets('top more opens Pencil D6 popover', (tester) async {

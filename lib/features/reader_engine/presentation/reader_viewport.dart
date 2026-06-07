@@ -6,6 +6,7 @@ import '../data/reader_document_source.dart';
 import '../domain/reader_location.dart';
 import '../domain/reader_turn_mode.dart';
 import '../layout/reader_layout_engine.dart';
+import 'modes/cover_reader_view.dart';
 import 'modes/paged_reader_view.dart';
 import 'modes/scroll_reader_view.dart';
 import 'modes/simulated/simulated_reader_view.dart';
@@ -81,7 +82,18 @@ class ReaderViewport extends StatelessWidget {
           onNextBoundary: onNextBoundary,
           onLocationChanged: onLocationChanged,
         ),
-      ReaderTurnMode.paged || ReaderTurnMode.cover => PagedReaderView(
+      ReaderTurnMode.cover => CoverReaderView(
+          viewport: viewport,
+          settings: state.settings,
+          palette: palette,
+          brightness: brightness,
+          controlsVisible: controlsVisible,
+          onContentTap: onContentTap,
+          onPreviousBoundary: onPreviousBoundary,
+          onNextBoundary: onNextBoundary,
+          onLocationChanged: onLocationChanged,
+        ),
+      ReaderTurnMode.paged => PagedReaderView(
           viewport: viewport,
           settings: state.settings,
           palette: palette,

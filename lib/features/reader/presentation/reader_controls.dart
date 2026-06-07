@@ -1652,7 +1652,7 @@ class _MoreMenuPopover extends StatelessWidget {
   }
 }
 
-class _PageTurnPanel extends StatelessWidget {
+class _PageTurnPanel extends StatefulWidget {
   const _PageTurnPanel({
     required this.metrics,
     required this.palette,
@@ -1666,30 +1666,44 @@ class _PageTurnPanel extends StatelessWidget {
   final ValueChanged<ReaderTurnMode> onModeChanged;
 
   @override
+  State<_PageTurnPanel> createState() => _PageTurnPanelState();
+}
+
+class _PageTurnPanelState extends State<_PageTurnPanel> {
+  bool _volumePageTurnEnabled = true;
+
+  @override
   Widget build(BuildContext context) {
+    final metrics = widget.metrics;
     final modes = <_PageTurnModeData>[
       const _PageTurnModeData(
         mode: ReaderTurnMode.simulation,
-        description: '像纸书一样翻动',
         icon: LucideIcons.bookOpen,
       ),
       const _PageTurnModeData(
+        mode: ReaderTurnMode.cover,
+        icon: LucideIcons.layers,
+      ),
+      const _PageTurnModeData(
         mode: ReaderTurnMode.slide,
-        description: '左右滑动切页',
         icon: LucideIcons.moveHorizontal,
       ),
       const _PageTurnModeData(
         mode: ReaderTurnMode.scroll,
-        description: '连续纵向阅读',
         icon: LucideIcons.scrollText,
+      ),
+      const _PageTurnModeData(
+        mode: ReaderTurnMode.noAnimation,
+        icon: LucideIcons.ban,
       ),
     ];
     return _FloatingPanel(
       key: const ValueKey('reader-page-turn-panel'),
-      metrics: metrics,
-      top: 428,
-      height: 252,
-      palette: palette,
+      metrics: widget.metrics,
+      top: 474,
+      height: 206,
+      padding: EdgeInsets.all(metrics.s(16)),
+      palette: widget.palette,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1700,42 +1714,27 @@ class _PageTurnPanel extends StatelessWidget {
                   fontWeight: FontWeight.w700)),
           SizedBox(height: metrics.s(12)),
           SizedBox(
-            height: metrics.s(118),
+            height: metrics.s(76),
             child: Row(
               children: [
                 for (var i = 0; i < modes.length; i++) ...[
-                  if (i > 0) SizedBox(width: metrics.s(10)),
-                  Expanded(
-                    child: _PageTurnModeCard(
-                      metrics: metrics,
-                      data: modes[i],
-                      selected: modes[i].mode == selectedMode,
-                      onTap: () => onModeChanged(modes[i].mode),
-                    ),
+                  if (i > 0) SizedBox(width: metrics.s(6)),
+                  _PageTurnModeCard(
+                    metrics: metrics,
+                    data: modes[i],
+                    selected: modes[i].mode == widget.selectedMode,
+                    onTap: () => widget.onModeChanged(modes[i].mode),
                   ),
                 ],
               ],
             ),
           ),
           SizedBox(height: metrics.s(12)),
-          SizedBox(
-            height: metrics.s(34),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('点击区域',
-                    style: DudoTextStyles.sans(
-                        color: const Color(0xFF25251F),
-                        fontSize: metrics.s(14),
-                        fontWeight: FontWeight.w600)),
-                _TapAreaSegments(
-                  metrics: metrics,
-                  labels: const ['左右', '上下'],
-                  selected: '左右',
-                  onSelected: (_) {},
-                ),
-              ],
-            ),
+          _VolumePageTurnRow(
+            metrics: metrics,
+            enabled: _volumePageTurnEnabled,
+            onChanged: (value) =>
+                setState(() => _volumePageTurnEnabled = value),
           ),
         ],
       ),
@@ -1746,12 +1745,10 @@ class _PageTurnPanel extends StatelessWidget {
 class _PageTurnModeData {
   const _PageTurnModeData({
     required this.mode,
-    required this.description,
     required this.icon,
   });
 
   final ReaderTurnMode mode;
-  final String description;
   final IconData icon;
 }
 
@@ -1777,88 +1774,144 @@ class _PageTurnModeCard extends StatelessWidget {
         selected ? const Color(0xFF5E6F5B) : const Color(0xFF8A735A);
     final labelColor =
         selected ? const Color(0xFF1B2918) : const Color(0xFF25251F);
-    final descColor =
-        selected ? const Color(0xFF5E6F5B) : const Color(0xFF8A735A);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: EdgeInsets.all(metrics.s(10)),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(metrics.s(20)),
-          border: Border.all(color: borderColor, width: selected ? 2 : 1),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(data.icon, size: metrics.s(20), color: iconColor),
-            SizedBox(height: metrics.s(8)),
-            Text(data.mode.label,
+      child: SizedBox(
+        width: metrics.s(60),
+        height: metrics.s(76),
+        child: Container(
+          padding: EdgeInsets.only(
+            top: metrics.s(12),
+            left: metrics.s(8),
+            right: metrics.s(8),
+            bottom: metrics.s(10),
+          ),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(metrics.s(18)),
+            border: Border.all(color: borderColor, width: selected ? 2 : 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(data.icon, size: metrics.s(18), color: iconColor),
+              SizedBox(height: metrics.s(8)),
+              Text(
+                data.mode.label,
+                maxLines: 1,
+                textAlign: TextAlign.center,
                 style: DudoTextStyles.sans(
-                    color: labelColor,
-                    fontSize: metrics.s(13),
-                    fontWeight: FontWeight.w600)),
-            SizedBox(height: metrics.s(8)),
-            Text(data.description,
-                style: DudoTextStyles.sans(
-                    color: descColor, fontSize: metrics.s(11), height: 1.25)),
-          ],
+                  color: labelColor,
+                  fontSize: metrics
+                      .s(data.mode == ReaderTurnMode.noAnimation ? 11.5 : 12),
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _TapAreaSegments extends StatelessWidget {
-  const _TapAreaSegments({
+class _VolumePageTurnRow extends StatelessWidget {
+  const _VolumePageTurnRow({
     required this.metrics,
-    required this.labels,
-    required this.selected,
-    required this.onSelected,
+    required this.enabled,
+    required this.onChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
-  final List<String> labels;
-  final String selected;
-  final ValueChanged<String> onSelected;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(metrics.s(4)),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3ECDD),
-        borderRadius: BorderRadius.circular(metrics.s(17)),
-      ),
+    return SizedBox(
+      height: metrics.s(42),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          for (var i = 0; i < labels.length; i++) ...[
-            if (i > 0) SizedBox(width: metrics.s(4)),
-            GestureDetector(
-              onTap: () => onSelected(labels[i]),
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: metrics.s(12)),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: labels[i] == selected
-                      ? const Color(0xFF25251F)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(metrics.s(14)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '音量翻页',
+                  style: DudoTextStyles.sans(
+                    color: const Color(0xFF25251F),
+                    fontSize: metrics.s(14),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                child: Text(labels[i],
-                    style: DudoTextStyles.sans(
-                        color: labels[i] == selected
-                            ? const Color(0xFFFFF8EA)
-                            : const Color(0xFF8A735A),
-                        fontSize: metrics.s(12),
-                        fontWeight: FontWeight.w600)),
-              ),
+                SizedBox(height: metrics.s(4)),
+                Text(
+                  '使用音量键切换上一页 / 下一页',
+                  style: DudoTextStyles.sans(
+                    color: const Color(0xFF8A735A),
+                    fontSize: metrics.s(11),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
+          _VolumePageTurnSwitch(
+            metrics: metrics,
+            enabled: enabled,
+            onTap: () => onChanged(!enabled),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _VolumePageTurnSwitch extends StatelessWidget {
+  const _VolumePageTurnSwitch({
+    required this.metrics,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        width: metrics.s(54),
+        height: metrics.s(30),
+        padding: EdgeInsets.all(metrics.s(3)),
+        decoration: BoxDecoration(
+          color: enabled ? const Color(0xFF5E6F5B) : const Color(0xFFE7DCC8),
+          borderRadius: BorderRadius.circular(metrics.s(15)),
+        ),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutCubic,
+          alignment: enabled ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: metrics.s(24),
+            height: metrics.s(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF8EA),
+              borderRadius: BorderRadius.circular(metrics.s(12)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0x3325251F),
+                  blurRadius: metrics.s(5),
+                  offset: Offset(0, metrics.s(2)),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1872,6 +1925,7 @@ class _FloatingPanel extends StatelessWidget {
     required this.height,
     required this.palette,
     required this.child,
+    this.padding,
   });
 
   final _ReaderOverlayMetrics metrics;
@@ -1879,6 +1933,7 @@ class _FloatingPanel extends StatelessWidget {
   final double height;
   final ReaderPalette palette;
   final Widget child;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
@@ -1893,7 +1948,7 @@ class _FloatingPanel extends StatelessWidget {
         shadowOffset: Offset(0, metrics.s(12)),
         shadowBlur: metrics.s(34),
         child: Padding(
-          padding: EdgeInsets.all(metrics.s(16)),
+          padding: padding ?? EdgeInsets.all(metrics.s(16)),
           child: child,
         ),
       ),
