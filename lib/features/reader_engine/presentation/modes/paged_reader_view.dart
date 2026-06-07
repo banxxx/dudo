@@ -14,6 +14,8 @@ class PagedReaderView extends StatefulWidget {
     required this.settings,
     required this.palette,
     required this.controlsVisible,
+    this.externalPageTurnRequestId = 0,
+    this.externalPageTurnDirection = 0,
     required this.onContentTap,
     required this.onPreviousBoundary,
     required this.onNextBoundary,
@@ -24,6 +26,8 @@ class PagedReaderView extends StatefulWidget {
   final ReaderSettings settings;
   final ReaderPalette palette;
   final bool controlsVisible;
+  final int externalPageTurnRequestId;
+  final int externalPageTurnDirection;
   final VoidCallback onContentTap;
   final VoidCallback onPreviousBoundary;
   final VoidCallback onNextBoundary;
@@ -35,6 +39,7 @@ class PagedReaderView extends StatefulWidget {
 
 class _PagedReaderViewState extends State<PagedReaderView> {
   int? _pageIndex;
+  int _handledExternalPageTurnRequestId = 0;
 
   @override
   void didUpdateWidget(covariant PagedReaderView oldWidget) {
@@ -44,6 +49,13 @@ class _PagedReaderViewState extends State<PagedReaderView> {
         oldWidget.viewport.currentLocation != widget.viewport.currentLocation) {
       _pageIndex = null;
     }
+    _handleExternalPageTurnIfNeeded();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _handleExternalPageTurnIfNeeded();
   }
 
   @override
@@ -109,5 +121,20 @@ class _PagedReaderViewState extends State<PagedReaderView> {
     } else {
       widget.onNextBoundary();
     }
+  }
+
+  void _handleExternalPageTurnIfNeeded() {
+    final requestId = widget.externalPageTurnRequestId;
+    final direction = widget.externalPageTurnDirection;
+    if (requestId == 0 ||
+        requestId == _handledExternalPageTurnRequestId ||
+        direction == 0 ||
+        widget.controlsVisible) {
+      return;
+    }
+    _handledExternalPageTurnRequestId = requestId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _turnPage(direction);
+    });
   }
 }

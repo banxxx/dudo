@@ -12,6 +12,8 @@ import '../../reader/presentation/modes/reader_turn_mode.dart' as legacy;
 import '../../reader/presentation/reader_controls.dart' as legacy;
 import '../../reader/presentation/widgets/reader_background.dart' as legacy;
 import '../../reader/presentation/widgets/reader_progress.dart' as legacy;
+import '../../reader/presentation/widgets/reader_volume_page_turn_listener.dart'
+    as legacy;
 import '../application/reader_engine_providers.dart';
 import '../application/reader_engine_state.dart';
 import '../controller/reader_session_controller.dart';
@@ -51,7 +53,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   double _fontSize = 19;
   double _lineHeight = 1.72;
   double _brightness = 0.72;
+  bool _volumePageTurnEnabled = true;
   bool _isListening = false;
+  int _volumePageTurnRequestId = 0;
+  int _volumePageTurnDirection = 0;
   List<legacy.ReaderCatalogItem> _catalogItems = const [];
   bool _catalogLoading = false;
 
@@ -95,57 +100,63 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         key: const ValueKey('reader-engine-screen'),
         extendBodyBehindAppBar: true,
         backgroundColor: _palette.background,
-        body: SizedBox.expand(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final size = Size(constraints.maxWidth, constraints.maxHeight);
-              final safePadding = MediaQuery.paddingOf(context);
-              final metrics = legacy.ReaderPageMetrics.fromSize(size);
-              _ensureController(size, safePadding);
-              return FutureBuilder<void>(
-                future: _initialization,
-                builder: (context, snapshot) {
-                  final controller = _controller;
-                  final state = controller?.state;
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      legacy.ReaderPaperBackground(palette: _palette),
-                      legacy.ReaderSoftPageEdge(metrics: metrics),
-                      if (_brightness < 0.98)
-                        IgnorePointer(
-                          child: ColoredBox(
-                            color: Colors.black.withValues(
-                              alpha: (1 - _brightness).clamp(0.0, 0.65),
+        body: legacy.ReaderVolumePageTurnListener(
+          enabled: _volumePageTurnEnabled &&
+              _overlayMode == legacy.ReaderOverlayMode.hidden,
+          onPreviousPage: () => _requestVolumePageTurn(-1),
+          onNextPage: () => _requestVolumePageTurn(1),
+          child: SizedBox.expand(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final size = Size(constraints.maxWidth, constraints.maxHeight);
+                final safePadding = MediaQuery.paddingOf(context);
+                final metrics = legacy.ReaderPageMetrics.fromSize(size);
+                _ensureController(size, safePadding);
+                return FutureBuilder<void>(
+                  future: _initialization,
+                  builder: (context, snapshot) {
+                    final controller = _controller;
+                    final state = controller?.state;
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        legacy.ReaderPaperBackground(palette: _palette),
+                        legacy.ReaderSoftPageEdge(metrics: metrics),
+                        if (_brightness < 0.98)
+                          IgnorePointer(
+                            child: ColoredBox(
+                              color: Colors.black.withValues(
+                                alpha: (1 - _brightness).clamp(0.0, 0.65),
+                              ),
                             ),
                           ),
-                        ),
-                      if (controller == null ||
-                          state == null ||
-                          state.loadStatus == ReaderLoadStatus.loading)
-                        Center(
-                          child:
-                              CircularProgressIndicator(color: _palette.accent),
-                        )
-                      else if (state.loadStatus == ReaderLoadStatus.error)
-                        Center(
-                          child: Text(
-                            '阅读器加载失败：${state.error}',
-                            style: TextStyle(color: _palette.foreground),
+                        if (controller == null ||
+                            state == null ||
+                            state.loadStatus == ReaderLoadStatus.loading)
+                          Center(
+                            child: CircularProgressIndicator(
+                                color: _palette.accent),
+                          )
+                        else if (state.loadStatus == ReaderLoadStatus.error)
+                          Center(
+                            child: Text(
+                              '阅读器加载失败：${state.error}',
+                              style: TextStyle(color: _palette.foreground),
+                            ),
+                          )
+                        else
+                          ..._readerLayers(
+                            context: context,
+                            metrics: metrics,
+                            controller: controller,
+                            state: state,
                           ),
-                        )
-                      else
-                        ..._readerLayers(
-                          context: context,
-                          metrics: metrics,
-                          controller: controller,
-                          state: state,
-                        ),
-                    ],
-                  );
-                },
-              );
-            },
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -200,6 +211,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           layoutEngine: controller.viewportController.layoutEngine,
           viewportSize: controller.viewportSize,
           chapterCount: document.chapterCount,
+          externalPageTurnRequestId: _volumePageTurnRequestId,
+          externalPageTurnDirection: _volumePageTurnDirection,
           onContentTap: _toggleOverlay,
           onPreviousBoundary: () => _previousChapter(controller),
           onNextBoundary: () => _nextChapter(controller),
@@ -233,6 +246,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         lineHeight: _lineHeight,
         brightness: _brightness,
         pageTurnMode: oldTurnMode,
+        volumePageTurnEnabled: _volumePageTurnEnabled,
         isListening: _isListening,
         currentChapterIndex: location.chapterIndex,
         chapterCount: document.chapterCount,
@@ -276,6 +290,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           if (mounted) {
             setState(() => _overlayMode = legacy.ReaderOverlayMode.hidden);
           }
+        },
+        onVolumePageTurnChanged: (value) {
+          setState(() => _volumePageTurnEnabled = value);
         },
         onListeningChanged: (value) {
           setState(() => _isListening = value);
@@ -389,6 +406,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   void _setOverlayMode(legacy.ReaderOverlayMode mode) {
     if (_overlayMode == mode) return;
     setState(() => _overlayMode = mode);
+  }
+
+  void _requestVolumePageTurn(int direction) {
+    if (!_volumePageTurnEnabled ||
+        _overlayMode != legacy.ReaderOverlayMode.hidden ||
+        direction == 0) {
+      return;
+    }
+    setState(() {
+      _volumePageTurnDirection = direction;
+      _volumePageTurnRequestId++;
+    });
   }
 
   legacy.ReaderTurnMode _legacyTurnMode(ReaderTurnMode mode) {

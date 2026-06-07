@@ -147,6 +147,58 @@ void main() {
     expect(reportedLocations.single.chapterIndex, 0);
     expect(reportedLocations.single.offset, 0);
   });
+
+  testWidgets('CoverReaderView keeps adjacent chapter page after commit',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 520);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final center = _item(0, pageCount: 1);
+    final next = _item(1, pageCount: 1);
+    final reportedLocations = <ReaderLocation>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 520,
+          child: CoverReaderView(
+            viewport: ReaderViewportState(
+              center: center,
+              currentLocation: ReaderLocation.startOfChapter(
+                bookId: 'book-1',
+                chapterIndex: 0,
+              ),
+              currentLayout: center.layout,
+              next: next,
+            ),
+            settings: ReaderSettings.defaults(),
+            palette: ReaderTheme.parchment,
+            controlsVisible: false,
+            onContentTap: () {},
+            onPreviousBoundary: () {},
+            onNextBoundary: () {},
+            onLocationChanged: reportedLocations.add,
+          ),
+        ),
+      ),
+    );
+
+    await tester.drag(
+      find.byKey(const ValueKey('reader-engine-cover-view')),
+      const Offset(-140, 0),
+    );
+    await tester.pumpAndSettle();
+
+    expect(reportedLocations, hasLength(1));
+    expect(reportedLocations.single.chapterIndex, 1);
+    expect(find.byKey(const ValueKey('reader-engine-cover-committed-1-0')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('reader-engine-cover-current-0-0')),
+        findsNothing);
+  });
 }
 
 ReaderChapterWindowItem _item(int chapterIndex, {required int pageCount}) {

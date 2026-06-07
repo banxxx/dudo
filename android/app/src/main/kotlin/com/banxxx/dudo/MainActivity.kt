@@ -3,9 +3,12 @@ package com.banxxx.dudo
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowManager
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import com.ryanheise.audioservice.AudioServiceActivity
 
 /**
@@ -15,9 +18,50 @@ import com.ryanheise.audioservice.AudioServiceActivity
  *    or has not provided the correct FlutterEngine."
  */
 class MainActivity : AudioServiceActivity() {
+    private var volumeEventSink: EventChannel.EventSink? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         configureEdgeToEdge()
         super.onCreate(savedInstanceState)
+    }
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "dudo.reader/volume_page_turn"
+        ).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    volumeEventSink = events
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    volumeEventSink = null
+                }
+            }
+        )
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val sink = volumeEventSink
+        if (
+            sink != null &&
+            event.action == KeyEvent.ACTION_DOWN &&
+            event.repeatCount == 0
+        ) {
+            when (event.keyCode) {
+                KeyEvent.KEYCODE_VOLUME_UP -> {
+                    sink.success("volumeUp")
+                    return true
+                }
+                KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                    sink.success("volumeDown")
+                    return true
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     private fun configureEdgeToEdge() {

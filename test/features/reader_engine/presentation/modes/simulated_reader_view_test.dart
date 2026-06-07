@@ -116,6 +116,14 @@ void main() {
     expect(reportedLocations, hasLength(1));
     expect(reportedLocations.single.chapterIndex, 1);
     expect(reportedLocations.single.offset, 0);
+    expect(
+      find.byKey(const ValueKey('reader-engine-simulated-committed-1-0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('reader-engine-simulated-current-0-0')),
+      findsNothing,
+    );
   });
 
   testWidgets(

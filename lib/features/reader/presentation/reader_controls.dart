@@ -22,6 +22,7 @@ class ReaderControls extends StatelessWidget {
     required this.lineHeight,
     required this.brightness,
     required this.pageTurnMode,
+    required this.volumePageTurnEnabled,
     required this.isListening,
     required this.currentChapterIndex,
     required this.chapterCount,
@@ -40,6 +41,7 @@ class ReaderControls extends StatelessWidget {
     required this.onLineHeightChanged,
     required this.onBrightnessChanged,
     required this.onPageTurnModeChanged,
+    required this.onVolumePageTurnChanged,
     required this.onListeningChanged,
   });
 
@@ -54,6 +56,7 @@ class ReaderControls extends StatelessWidget {
   final double lineHeight;
   final double brightness;
   final ReaderTurnMode pageTurnMode;
+  final bool volumePageTurnEnabled;
   final bool isListening;
   final int currentChapterIndex;
   final int chapterCount;
@@ -72,6 +75,7 @@ class ReaderControls extends StatelessWidget {
   final ValueChanged<double> onLineHeightChanged;
   final ValueChanged<double> onBrightnessChanged;
   final ValueChanged<ReaderTurnMode> onPageTurnModeChanged;
+  final ValueChanged<bool> onVolumePageTurnChanged;
   final ValueChanged<bool> onListeningChanged;
 
   bool get _showsBars => mode != ReaderOverlayMode.hidden;
@@ -196,7 +200,9 @@ class ReaderControls extends StatelessWidget {
                   metrics: metrics,
                   palette: palette,
                   selectedMode: pageTurnMode,
+                  volumePageTurnEnabled: volumePageTurnEnabled,
                   onModeChanged: onPageTurnModeChanged,
+                  onVolumePageTurnChanged: onVolumePageTurnChanged,
                 ),
               );
             case ReaderOverlayMode.hidden:
@@ -1657,21 +1663,23 @@ class _PageTurnPanel extends StatefulWidget {
     required this.metrics,
     required this.palette,
     required this.selectedMode,
+    required this.volumePageTurnEnabled,
     required this.onModeChanged,
+    required this.onVolumePageTurnChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
   final ReaderPalette palette;
   final ReaderTurnMode selectedMode;
+  final bool volumePageTurnEnabled;
   final ValueChanged<ReaderTurnMode> onModeChanged;
+  final ValueChanged<bool> onVolumePageTurnChanged;
 
   @override
   State<_PageTurnPanel> createState() => _PageTurnPanelState();
 }
 
 class _PageTurnPanelState extends State<_PageTurnPanel> {
-  bool _volumePageTurnEnabled = true;
-
   @override
   Widget build(BuildContext context) {
     final metrics = widget.metrics;
@@ -1732,9 +1740,8 @@ class _PageTurnPanelState extends State<_PageTurnPanel> {
           SizedBox(height: metrics.s(12)),
           _VolumePageTurnRow(
             metrics: metrics,
-            enabled: _volumePageTurnEnabled,
-            onChanged: (value) =>
-                setState(() => _volumePageTurnEnabled = value),
+            enabled: widget.volumePageTurnEnabled,
+            onChanged: widget.onVolumePageTurnChanged,
           ),
         ],
       ),

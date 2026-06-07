@@ -23,6 +23,8 @@ class SimulatedReaderView extends StatefulWidget {
     required this.palette,
     this.brightness = 1,
     required this.controlsVisible,
+    this.externalPageTurnRequestId = 0,
+    this.externalPageTurnDirection = 0,
     required this.onContentTap,
     required this.onPreviousBoundary,
     required this.onNextBoundary,
@@ -34,6 +36,8 @@ class SimulatedReaderView extends StatefulWidget {
   final ReaderPalette palette;
   final double brightness;
   final bool controlsVisible;
+  final int externalPageTurnRequestId;
+  final int externalPageTurnDirection;
   final VoidCallback onContentTap;
   final VoidCallback onPreviousBoundary;
   final VoidCallback onNextBoundary;
@@ -67,11 +71,13 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   double _dragOffset = 0;
   PageCurlGesture? _gesture;
   ReaderResolvedPage? _transitionTarget;
+  ReaderResolvedPage? _committedTarget;
   int? _committingDirection;
   PageCurlSnapshotPair? _snapshots;
   bool _captureInFlight = false;
   Future<void>? _snapshotCaptureFuture;
   int _turnRequestId = 0;
+  int _handledExternalPageTurnRequestId = 0;
 
   @override
   void initState() {
@@ -86,12 +92,29 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   @override
   void didUpdateWidget(covariant SimulatedReaderView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final committedTarget = _committedTarget;
+    if (committedTarget != null) {
+      if (committedTarget.chapterIndex ==
+          widget.viewport.center.chapter.index) {
+        _committedTarget = null;
+        _pageIndex = null;
+        _resetTurnState(stopAnimation: true, disposeSnapshots: true);
+      }
+      return;
+    }
     if (oldWidget.viewport.center.chapter.index !=
             widget.viewport.center.chapter.index ||
         oldWidget.viewport.currentLocation != widget.viewport.currentLocation) {
       _pageIndex = null;
       _resetTurnState(stopAnimation: true, disposeSnapshots: true);
     }
+    _handleExternalPageTurnIfNeeded();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _handleExternalPageTurnIfNeeded();
   }
 
   @override
@@ -122,6 +145,31 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
           widget.palette.background,
           widget.brightness,
         );
+        final committedTarget = _committedTarget;
+        if (committedTarget != null) {
+          return SizedBox.expand(
+            child: GestureDetector(
+              key: const ValueKey('reader-engine-simulated-view'),
+              behavior: HitTestBehavior.opaque,
+              onTapUp: (details) => _handleTap(details.localPosition),
+              child: ClipRect(
+                child: ColoredBox(
+                  color: pageColor,
+                  child: ReaderPageSurface(
+                    key: ValueKey(
+                      'reader-engine-simulated-committed-'
+                      '${committedTarget.chapterIndex}-'
+                      '${committedTarget.pageIndex}',
+                    ),
+                    resolvedPage: committedTarget,
+                    settings: widget.settings,
+                    palette: widget.palette,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
         final gesture = _gesture;
         final snapshots = _snapshots;
         final canPaintCurl = gesture != null &&
@@ -509,6 +557,8 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     if (target != null && direction != null) {
       if (target.chapterIndex == widget.viewport.center.chapter.index) {
         _pageIndex = target.pageIndex;
+      } else {
+        _committedTarget = target;
       }
       widget.onLocationChanged(target.page.start);
     }
@@ -622,5 +672,27 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     if (first == null || second == null) return first == second;
     return first.chapterIndex == second.chapterIndex &&
         first.pageIndex == second.pageIndex;
+  }
+
+  void _handleExternalPageTurnIfNeeded() {
+    final requestId = widget.externalPageTurnRequestId;
+    final direction = widget.externalPageTurnDirection;
+    if (requestId == 0 ||
+        requestId == _handledExternalPageTurnRequestId ||
+        direction == 0 ||
+        widget.controlsVisible ||
+        _committedTarget != null ||
+        _controller.isAnimating) {
+      return;
+    }
+    _handledExternalPageTurnRequestId = requestId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final start = Offset(
+        direction > 0 ? _viewportWidth : 0,
+        _viewportHeight / 2,
+      );
+      _startProgrammaticTurn(direction, start);
+    });
   }
 }

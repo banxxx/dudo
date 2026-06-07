@@ -22,6 +22,7 @@ import 'widgets/reader_background.dart';
 import 'widgets/reader_gesture_layer.dart';
 import 'widgets/reader_progress.dart';
 import 'widgets/reader_state_message.dart';
+import 'widgets/reader_volume_page_turn_listener.dart';
 import 'widgets/reading_article.dart';
 
 class ReaderPage extends ConsumerStatefulWidget {
@@ -49,7 +50,10 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   double _lineHeight = 1.72;
   double _brightness = 0.72;
   ReaderTurnMode _pageTurnMode = ReaderTurnMode.slide;
+  bool _volumePageTurnEnabled = true;
   bool _isListening = false;
+  int _volumePageTurnRequestId = 0;
+  int _volumePageTurnDirection = 0;
   int _pageIndex = 0;
   int _currentReadPosition = 0;
   int? _restoredChapterIndex;
@@ -358,142 +362,163 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
           )
         : const <ReaderCatalogItem>[];
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: ReaderGestureLayer(
-            overlayMode: _overlayMode,
+    return ReaderVolumePageTurnListener(
+      enabled:
+          _volumePageTurnEnabled && _overlayMode == ReaderOverlayMode.hidden,
+      onPreviousPage: () => _handleVolumePageTurn(
+        pages: pages,
+        view: view,
+        isScrollMode: isScrollMode,
+        direction: -1,
+      ),
+      onNextPage: () => _handleVolumePageTurn(
+        pages: pages,
+        view: view,
+        isScrollMode: isScrollMode,
+        direction: 1,
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ReaderGestureLayer(
+              overlayMode: _overlayMode,
+              pageTurnMode: _pageTurnMode,
+              onToggleOverlay: _toggleOverlay,
+              onPreviousPage: () => _turnPage(
+                pages: pages,
+                view: view,
+                direction: -1,
+              ),
+              onNextPage: () => _turnPage(
+                pages: pages,
+                view: view,
+                direction: 1,
+              ),
+            ),
+          ),
+          if (isScrollMode)
+            ReaderScrollModeView(
+              bookId: widget.bookId,
+              chapterCount: view.chapterCount,
+              initialChapterIndex: view.currentChapterIndex,
+              initialReadPosition: readPosition,
+              initialChapterTitle: view.chapterTitle,
+              initialChapterText: view.text,
+              initialChapterRawContent: currentChapter.content ?? '',
+              repository: _repository,
+              metrics: metrics,
+              palette: _palette,
+              fontSize: _fontSize,
+              lineHeight: _lineHeight,
+              top: articleTop,
+              height: articleHeight,
+              interactive: _overlayMode == ReaderOverlayMode.hidden,
+              preview: _overlayMode != ReaderOverlayMode.hidden &&
+                  _overlayMode != ReaderOverlayMode.controls,
+              jumpRequest: _scrollJumpRequest,
+              externalPageTurnRequestId: _volumePageTurnRequestId,
+              externalPageTurnDirection: _volumePageTurnDirection,
+              onProgressChanged: _updateScrollProgress,
+              onTap: _toggleOverlay,
+            )
+          else
+            ReadingArticle(
+              metrics: metrics,
+              palette: _palette,
+              fontSize: _fontSize,
+              lineHeight: _lineHeight,
+              top: articleTop,
+              height: articleHeight,
+              pageIndex: pageIndex,
+              pages: pages,
+              interactive: false,
+              preview: _overlayMode != ReaderOverlayMode.hidden &&
+                  _overlayMode != ReaderOverlayMode.controls,
+            ),
+          ReaderProgress(
+            metrics: metrics,
+            palette: _palette,
+            pageLabel: isScrollMode
+                ? progressChapterTitle
+                : '${view.chapterLabel} · ${pageIndex + 1}/${pages.length}',
+            progress: chapterProgress,
+          ),
+          ReaderControls(
+            mode: _overlayMode,
+            bookTitle: view.bookTitle,
+            chapterLabel: view.chapterLabel,
+            chapterTitle: view.chapterTitle,
+            progress: bookProgress,
+            remainingText: view.remainingText,
+            palette: _palette,
+            fontSize: _fontSize,
+            lineHeight: _lineHeight,
+            brightness: _brightness,
             pageTurnMode: _pageTurnMode,
-            onToggleOverlay: _toggleOverlay,
-            onPreviousPage: () => _turnPage(
-              pages: pages,
-              view: view,
-              direction: -1,
-            ),
-            onNextPage: () => _turnPage(
-              pages: pages,
-              view: view,
-              direction: 1,
-            ),
-          ),
-        ),
-        if (isScrollMode)
-          ReaderScrollModeView(
-            bookId: widget.bookId,
+            volumePageTurnEnabled: _volumePageTurnEnabled,
+            isListening: _isListening,
+            currentChapterIndex:
+                isScrollMode ? progressChapterIndex : view.currentChapterIndex,
             chapterCount: view.chapterCount,
-            initialChapterIndex: view.currentChapterIndex,
-            initialReadPosition: readPosition,
-            initialChapterTitle: view.chapterTitle,
-            initialChapterText: view.text,
-            initialChapterRawContent: currentChapter.content ?? '',
-            repository: _repository,
-            metrics: metrics,
-            palette: _palette,
-            fontSize: _fontSize,
-            lineHeight: _lineHeight,
-            top: articleTop,
-            height: articleHeight,
-            interactive: _overlayMode == ReaderOverlayMode.hidden,
-            preview: _overlayMode != ReaderOverlayMode.hidden &&
-                _overlayMode != ReaderOverlayMode.controls,
-            jumpRequest: _scrollJumpRequest,
-            onProgressChanged: _updateScrollProgress,
-            onTap: _toggleOverlay,
-          )
-        else
-          ReadingArticle(
-            metrics: metrics,
-            palette: _palette,
-            fontSize: _fontSize,
-            lineHeight: _lineHeight,
-            top: articleTop,
-            height: articleHeight,
-            pageIndex: pageIndex,
-            pages: pages,
-            interactive: false,
-            preview: _overlayMode != ReaderOverlayMode.hidden &&
-                _overlayMode != ReaderOverlayMode.controls,
+            catalogItems: catalogItems,
+            catalogHasMore: _catalogHasMore,
+            catalogIsLoadingMore: _catalogIsLoadingMore,
+            onCatalogLoadMore: () => _loadMoreCatalog(chapterCount),
+            onBack: () {
+              _saveCurrentProgressNow(view, isScrollMode: isScrollMode);
+              context.pop();
+            },
+            onClose: () => _setOverlayMode(ReaderOverlayMode.controls),
+            onModeChanged: (mode) =>
+                _setOverlayMode(mode, chapterCount: chapterCount),
+            onChapterSelected: _selectChapter,
+            onPreviousChapter: (isScrollMode
+                    ? progressChapterIndex <= 0
+                    : view.previousChapterIndex == null)
+                ? null
+                : () => _selectChapter(
+                      isScrollMode
+                          ? progressChapterIndex - 1
+                          : view.previousChapterIndex!,
+                    ),
+            onNextChapter: (isScrollMode
+                    ? progressChapterIndex + 1 >= view.chapterCount
+                    : view.nextChapterIndex == null)
+                ? null
+                : () => _selectChapter(
+                      isScrollMode
+                          ? progressChapterIndex + 1
+                          : view.nextChapterIndex!,
+                    ),
+            onPaletteChanged: (palette) => setState(() => _palette = palette),
+            onFontSizeChanged: (fontSize) => setState(() {
+              _fontSize = fontSize;
+              _restoredChapterIndex = null;
+              _currentScrollChapterIndex = null;
+              _currentScrollContentLength = null;
+              _currentScrollChapterTitle = null;
+            }),
+            onLineHeightChanged: (lineHeight) => setState(() {
+              _lineHeight = lineHeight;
+              _restoredChapterIndex = null;
+              _currentScrollChapterIndex = null;
+              _currentScrollContentLength = null;
+              _currentScrollChapterTitle = null;
+            }),
+            onBrightnessChanged: (brightness) =>
+                setState(() => _brightness = brightness),
+            onPageTurnModeChanged: (mode) => setState(() {
+              if (_pageTurnMode == mode) return;
+              _pageTurnMode = mode;
+              _restoredChapterIndex = null;
+            }),
+            onVolumePageTurnChanged: (enabled) =>
+                setState(() => _volumePageTurnEnabled = enabled),
+            onListeningChanged: (listening) =>
+                setState(() => _isListening = listening),
           ),
-        ReaderProgress(
-          metrics: metrics,
-          palette: _palette,
-          pageLabel: isScrollMode
-              ? progressChapterTitle
-              : '${view.chapterLabel} · ${pageIndex + 1}/${pages.length}',
-          progress: chapterProgress,
-        ),
-        ReaderControls(
-          mode: _overlayMode,
-          bookTitle: view.bookTitle,
-          chapterLabel: view.chapterLabel,
-          chapterTitle: view.chapterTitle,
-          progress: bookProgress,
-          remainingText: view.remainingText,
-          palette: _palette,
-          fontSize: _fontSize,
-          lineHeight: _lineHeight,
-          brightness: _brightness,
-          pageTurnMode: _pageTurnMode,
-          isListening: _isListening,
-          currentChapterIndex:
-              isScrollMode ? progressChapterIndex : view.currentChapterIndex,
-          chapterCount: view.chapterCount,
-          catalogItems: catalogItems,
-          catalogHasMore: _catalogHasMore,
-          catalogIsLoadingMore: _catalogIsLoadingMore,
-          onCatalogLoadMore: () => _loadMoreCatalog(chapterCount),
-          onBack: () {
-            _saveCurrentProgressNow(view, isScrollMode: isScrollMode);
-            context.pop();
-          },
-          onClose: () => _setOverlayMode(ReaderOverlayMode.controls),
-          onModeChanged: (mode) =>
-              _setOverlayMode(mode, chapterCount: chapterCount),
-          onChapterSelected: _selectChapter,
-          onPreviousChapter: (isScrollMode
-                  ? progressChapterIndex <= 0
-                  : view.previousChapterIndex == null)
-              ? null
-              : () => _selectChapter(
-                    isScrollMode
-                        ? progressChapterIndex - 1
-                        : view.previousChapterIndex!,
-                  ),
-          onNextChapter: (isScrollMode
-                  ? progressChapterIndex + 1 >= view.chapterCount
-                  : view.nextChapterIndex == null)
-              ? null
-              : () => _selectChapter(
-                    isScrollMode
-                        ? progressChapterIndex + 1
-                        : view.nextChapterIndex!,
-                  ),
-          onPaletteChanged: (palette) => setState(() => _palette = palette),
-          onFontSizeChanged: (fontSize) => setState(() {
-            _fontSize = fontSize;
-            _restoredChapterIndex = null;
-            _currentScrollChapterIndex = null;
-            _currentScrollContentLength = null;
-            _currentScrollChapterTitle = null;
-          }),
-          onLineHeightChanged: (lineHeight) => setState(() {
-            _lineHeight = lineHeight;
-            _restoredChapterIndex = null;
-            _currentScrollChapterIndex = null;
-            _currentScrollContentLength = null;
-            _currentScrollChapterTitle = null;
-          }),
-          onBrightnessChanged: (brightness) =>
-              setState(() => _brightness = brightness),
-          onPageTurnModeChanged: (mode) => setState(() {
-            if (_pageTurnMode == mode) return;
-            _pageTurnMode = mode;
-            _restoredChapterIndex = null;
-          }),
-          onListeningChanged: (listening) =>
-              setState(() => _isListening = listening),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -648,6 +673,27 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
     if (direction > 0 && view.nextChapterIndex != null) {
       _turnChapter(view.nextChapterIndex!, initialReadPosition: 0);
     }
+  }
+
+  void _handleVolumePageTurn({
+    required List<ReaderPageSlice> pages,
+    required ReaderChapterView view,
+    required bool isScrollMode,
+    required int direction,
+  }) {
+    if (!_volumePageTurnEnabled ||
+        _overlayMode != ReaderOverlayMode.hidden ||
+        direction == 0) {
+      return;
+    }
+    if (isScrollMode) {
+      setState(() {
+        _volumePageTurnDirection = direction;
+        _volumePageTurnRequestId++;
+      });
+      return;
+    }
+    _turnPage(pages: pages, view: view, direction: direction);
   }
 
   void _turnChapter(int chapterIndex, {required int initialReadPosition}) {

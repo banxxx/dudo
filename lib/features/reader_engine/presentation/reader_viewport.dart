@@ -27,6 +27,8 @@ class ReaderViewport extends StatelessWidget {
     required this.onPreviousBoundary,
     required this.onNextBoundary,
     required this.onLocationChanged,
+    this.externalPageTurnRequestId = 0,
+    this.externalPageTurnDirection = 0,
   });
 
   final ReaderSessionState state;
@@ -41,6 +43,8 @@ class ReaderViewport extends StatelessWidget {
   final VoidCallback onPreviousBoundary;
   final VoidCallback onNextBoundary;
   final ValueChanged<ReaderLocation> onLocationChanged;
+  final int externalPageTurnRequestId;
+  final int externalPageTurnDirection;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +62,8 @@ class ReaderViewport extends StatelessWidget {
           viewport: viewport,
           settings: state.settings,
           palette: palette,
+          externalPageTurnRequestId: externalPageTurnRequestId,
+          externalPageTurnDirection: externalPageTurnDirection,
           onContentTap: onContentTap,
           onLocationChanged: onLocationChanged,
         ),
@@ -66,6 +72,8 @@ class ReaderViewport extends StatelessWidget {
           settings: state.settings,
           palette: palette,
           controlsVisible: controlsVisible,
+          externalPageTurnRequestId: externalPageTurnRequestId,
+          externalPageTurnDirection: externalPageTurnDirection,
           onContentTap: onContentTap,
           onPreviousBoundary: onPreviousBoundary,
           onNextBoundary: onNextBoundary,
@@ -77,6 +85,8 @@ class ReaderViewport extends StatelessWidget {
           palette: palette,
           brightness: brightness,
           controlsVisible: controlsVisible,
+          externalPageTurnRequestId: externalPageTurnRequestId,
+          externalPageTurnDirection: externalPageTurnDirection,
           onContentTap: onContentTap,
           onPreviousBoundary: onPreviousBoundary,
           onNextBoundary: onNextBoundary,
@@ -88,6 +98,8 @@ class ReaderViewport extends StatelessWidget {
           palette: palette,
           brightness: brightness,
           controlsVisible: controlsVisible,
+          externalPageTurnRequestId: externalPageTurnRequestId,
+          externalPageTurnDirection: externalPageTurnDirection,
           onContentTap: onContentTap,
           onPreviousBoundary: onPreviousBoundary,
           onNextBoundary: onNextBoundary,
@@ -98,6 +110,8 @@ class ReaderViewport extends StatelessWidget {
           settings: state.settings,
           palette: palette,
           controlsVisible: controlsVisible,
+          externalPageTurnRequestId: externalPageTurnRequestId,
+          externalPageTurnDirection: externalPageTurnDirection,
           onContentTap: onContentTap,
           onPreviousBoundary: onPreviousBoundary,
           onNextBoundary: onNextBoundary,

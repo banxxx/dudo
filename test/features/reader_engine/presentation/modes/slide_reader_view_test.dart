@@ -111,6 +111,68 @@ void main() {
     expect(reportedLocations, hasLength(1));
     expect(reportedLocations.single.chapterIndex, 1);
     expect(reportedLocations.single.offset, 0);
+    expect(find.byKey(const ValueKey('reader-engine-slide-committed-1-0')),
+        findsOneWidget);
+    expect(find.byKey(const ValueKey('reader-engine-slide-current-0-0')),
+        findsNothing);
+  });
+
+  testWidgets(
+      'SlideReaderView releases committed page after parent viewport update',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 520);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final center = _item(0, pageCount: 1);
+    final next = _item(1, pageCount: 1);
+    final reportedLocations = <ReaderLocation>[];
+
+    Widget buildView(ReaderChapterWindowItem item) {
+      return MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 520,
+          child: SlideReaderView(
+            viewport: ReaderViewportState(
+              center: item,
+              currentLocation: ReaderLocation.startOfChapter(
+                bookId: 'book-1',
+                chapterIndex: item.chapter.index,
+              ),
+              currentLayout: item.layout,
+              next: item.chapter.index == 0 ? next : null,
+            ),
+            settings: ReaderSettings.defaults(),
+            palette: ReaderTheme.parchment,
+            controlsVisible: false,
+            onContentTap: () {},
+            onPreviousBoundary: () {},
+            onNextBoundary: () {},
+            onLocationChanged: reportedLocations.add,
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildView(center));
+    await tester.drag(
+      find.byKey(const ValueKey('reader-engine-slide-view')),
+      const Offset(-140, 0),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('reader-engine-slide-committed-1-0')),
+        findsOneWidget);
+
+    await tester.pumpWidget(buildView(next));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('reader-engine-slide-committed-1-0')),
+        findsNothing);
+    expect(find.byKey(const ValueKey('reader-engine-slide-current-1-0')),
+        findsOneWidget);
   });
 
   testWidgets('SlideReaderView clips oversized page content', (tester) async {

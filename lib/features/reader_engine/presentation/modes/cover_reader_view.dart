@@ -17,6 +17,8 @@ class CoverReaderView extends StatefulWidget {
     required this.palette,
     this.brightness = 1,
     required this.controlsVisible,
+    this.externalPageTurnRequestId = 0,
+    this.externalPageTurnDirection = 0,
     required this.onContentTap,
     required this.onPreviousBoundary,
     required this.onNextBoundary,
@@ -28,6 +30,8 @@ class CoverReaderView extends StatefulWidget {
   final ReaderPalette palette;
   final double brightness;
   final bool controlsVisible;
+  final int externalPageTurnRequestId;
+  final int externalPageTurnDirection;
   final VoidCallback onContentTap;
   final VoidCallback onPreviousBoundary;
   final VoidCallback onNextBoundary;
@@ -49,7 +53,9 @@ class _CoverReaderViewState extends State<CoverReaderView>
   double _dragOffset = 0;
   double _viewportWidth = 1;
   ReaderResolvedPage? _transitionTarget;
+  ReaderResolvedPage? _committedTarget;
   int? _committingDirection;
+  int _handledExternalPageTurnRequestId = 0;
 
   @override
   void initState() {
@@ -63,12 +69,29 @@ class _CoverReaderViewState extends State<CoverReaderView>
   @override
   void didUpdateWidget(covariant CoverReaderView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final committedTarget = _committedTarget;
+    if (committedTarget != null) {
+      if (committedTarget.chapterIndex ==
+          widget.viewport.center.chapter.index) {
+        _committedTarget = null;
+        _pageIndex = null;
+        _resetTransitionState(stopAnimation: true);
+      }
+      return;
+    }
     if (oldWidget.viewport.center.chapter.index !=
             widget.viewport.center.chapter.index ||
         oldWidget.viewport.currentLocation != widget.viewport.currentLocation) {
       _pageIndex = null;
       _resetTransitionState(stopAnimation: true);
     }
+    _handleExternalPageTurnIfNeeded();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _handleExternalPageTurnIfNeeded();
   }
 
   @override
@@ -88,6 +111,34 @@ class _CoverReaderViewState extends State<CoverReaderView>
         );
         final width = math.max(1.0, constraints.maxWidth);
         _viewportWidth = width;
+        final committedTarget = _committedTarget;
+        if (committedTarget != null) {
+          return SizedBox.expand(
+            child: GestureDetector(
+              key: const ValueKey('reader-engine-cover-view'),
+              behavior: HitTestBehavior.opaque,
+              onTapUp: (details) => _handleTap(details.localPosition),
+              onHorizontalDragUpdate:
+                  widget.controlsVisible ? null : _handleHorizontalDragUpdate,
+              onHorizontalDragEnd:
+                  widget.controlsVisible ? null : _handleHorizontalDragEnd,
+              onHorizontalDragCancel:
+                  widget.controlsVisible ? null : _animateBackToRest,
+              child: ClipRect(
+                child: ReaderPageSurface(
+                  key: ValueKey(
+                    'reader-engine-cover-committed-'
+                    '${committedTarget.chapterIndex}-'
+                    '${committedTarget.pageIndex}',
+                  ),
+                  resolvedPage: committedTarget,
+                  settings: widget.settings,
+                  palette: widget.palette,
+                ),
+              ),
+            ),
+          );
+        }
         final direction = _directionForOffset(_dragOffset);
         final target = _transitionTarget ?? window.pageForDirection(direction);
         final activeOffset = target == null
@@ -231,6 +282,8 @@ class _CoverReaderViewState extends State<CoverReaderView>
     if (target != null && direction != null) {
       if (target.chapterIndex == widget.viewport.center.chapter.index) {
         _pageIndex = target.pageIndex;
+      } else {
+        _committedTarget = target;
       }
       widget.onLocationChanged(target.page.start);
     }
@@ -252,6 +305,22 @@ class _CoverReaderViewState extends State<CoverReaderView>
     if (offset < 0) return 1;
     if (offset > 0) return -1;
     return 0;
+  }
+
+  void _handleExternalPageTurnIfNeeded() {
+    final requestId = widget.externalPageTurnRequestId;
+    final direction = widget.externalPageTurnDirection;
+    if (requestId == 0 ||
+        requestId == _handledExternalPageTurnRequestId ||
+        direction == 0 ||
+        widget.controlsVisible ||
+        _committedTarget != null) {
+      return;
+    }
+    _handledExternalPageTurnRequestId = requestId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _turnPage(direction);
+    });
   }
 }
 

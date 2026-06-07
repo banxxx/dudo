@@ -23,6 +23,8 @@ class ScrollReaderView extends StatefulWidget {
     required this.viewport,
     required this.settings,
     required this.palette,
+    this.externalPageTurnRequestId = 0,
+    this.externalPageTurnDirection = 0,
     required this.onContentTap,
     required this.onLocationChanged,
   });
@@ -35,6 +37,8 @@ class ScrollReaderView extends StatefulWidget {
   final ReaderViewportState viewport;
   final ReaderSettings settings;
   final ReaderPalette palette;
+  final int externalPageTurnRequestId;
+  final int externalPageTurnDirection;
   final VoidCallback onContentTap;
   final ValueChanged<ReaderLocation> onLocationChanged;
 
@@ -57,6 +61,7 @@ class _ScrollReaderViewState extends State<ScrollReaderView> {
   int? _lastReportedOffset;
   double? _lastReportedScrollOffset;
   String? _settingsKey;
+  int _handledExternalPageTurnRequestId = 0;
 
   @override
   void initState() {
@@ -78,6 +83,13 @@ class _ScrollReaderViewState extends State<ScrollReaderView> {
     if (needsReset) {
       _resetWindowFromViewport();
     }
+    _handleExternalPageTurnIfNeeded();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _handleExternalPageTurnIfNeeded();
   }
 
   @override
@@ -401,6 +413,31 @@ class _ScrollReaderViewState extends State<ScrollReaderView> {
       widget.viewportSize.width,
       widget.viewportSize.height,
     ].join('|');
+  }
+
+  void _handleExternalPageTurnIfNeeded() {
+    final requestId = widget.externalPageTurnRequestId;
+    final direction = widget.externalPageTurnDirection;
+    if (requestId == 0 ||
+        requestId == _handledExternalPageTurnRequestId ||
+        direction == 0) {
+      return;
+    }
+    _handledExternalPageTurnRequestId = requestId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_controller.hasClients) return;
+      final position = _controller.position;
+      final pageDistance = math.max(_readerHeight * 0.9, 1.0);
+      final target = (_controller.offset + direction * pageDistance).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      _controller.animateTo(
+        target,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 }
 
