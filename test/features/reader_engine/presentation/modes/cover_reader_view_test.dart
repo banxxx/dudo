@@ -148,6 +148,131 @@ void main() {
     expect(reportedLocations.single.offset, 0);
   });
 
+  testWidgets('CoverReaderView locks direction during one drag gesture',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 520);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final center = _item(0, pageCount: 3);
+    final reportedLocations = <ReaderLocation>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 520,
+          child: CoverReaderView(
+            viewport: ReaderViewportState(
+              center: center,
+              currentLocation: const ReaderLocation(
+                bookId: 'book-1',
+                chapterIndex: 0,
+                offset: 10,
+              ),
+              currentLayout: center.layout,
+            ),
+            settings: ReaderSettings.defaults(),
+            palette: ReaderTheme.parchment,
+            controlsVisible: false,
+            onContentTap: () {},
+            onPreviousBoundary: () {},
+            onNextBoundary: () {},
+            onLocationChanged: reportedLocations.add,
+          ),
+        ),
+      ),
+    );
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('reader-engine-cover-view'))),
+    );
+    await gesture.moveBy(const Offset(-20, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-120, 0));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('reader-engine-cover-target-0-2')),
+      findsOneWidget,
+    );
+
+    await gesture.moveBy(const Offset(260, 0));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey('reader-engine-cover-target-0-0')),
+      findsNothing,
+    );
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(reportedLocations, isEmpty);
+    expect(
+      find.byKey(const ValueKey('reader-engine-cover-current-0-1')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('CoverReaderView ignores a new drag while settling back',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 520);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final center = _item(0, pageCount: 3);
+    final reportedLocations = <ReaderLocation>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 520,
+          child: CoverReaderView(
+            viewport: ReaderViewportState(
+              center: center,
+              currentLocation: const ReaderLocation(
+                bookId: 'book-1',
+                chapterIndex: 0,
+                offset: 10,
+              ),
+              currentLayout: center.layout,
+            ),
+            settings: ReaderSettings.defaults(),
+            palette: ReaderTheme.parchment,
+            controlsVisible: false,
+            onContentTap: () {},
+            onPreviousBoundary: () {},
+            onNextBoundary: () {},
+            onLocationChanged: reportedLocations.add,
+          ),
+        ),
+      ),
+    );
+
+    await tester.drag(
+      find.byKey(const ValueKey('reader-engine-cover-view')),
+      const Offset(-60, 0),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('reader-engine-cover-view'))),
+    );
+    await gesture.moveBy(const Offset(180, 0));
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(reportedLocations, isEmpty);
+    expect(
+      find.byKey(const ValueKey('reader-engine-cover-current-0-1')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('CoverReaderView keeps adjacent chapter page after commit',
       (tester) async {
     tester.view.devicePixelRatio = 1;

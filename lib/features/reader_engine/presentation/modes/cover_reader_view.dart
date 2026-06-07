@@ -52,8 +52,10 @@ class _CoverReaderViewState extends State<CoverReaderView>
   double _viewportWidth = 1;
   ReaderResolvedPage? _transitionTarget;
   ReaderResolvedPage? _committedTarget;
+  int? _dragDirection;
   int? _committingDirection;
   int _handledExternalPageTurnRequestId = 0;
+  bool _ignoreActiveDrag = false;
 
   @override
   void initState() {
@@ -116,12 +118,14 @@ class _CoverReaderViewState extends State<CoverReaderView>
               key: const ValueKey('reader-engine-cover-view'),
               behavior: HitTestBehavior.opaque,
               onTapUp: (details) => _handleTap(details.localPosition),
+              onHorizontalDragStart:
+                  widget.controlsVisible ? null : _handleHorizontalDragStart,
               onHorizontalDragUpdate:
                   widget.controlsVisible ? null : _handleHorizontalDragUpdate,
               onHorizontalDragEnd:
                   widget.controlsVisible ? null : _handleHorizontalDragEnd,
               onHorizontalDragCancel:
-                  widget.controlsVisible ? null : _animateBackToRest,
+                  widget.controlsVisible ? null : _handleHorizontalDragCancel,
               child: ClipRect(
                 child: ReaderPageSurface(
                   key: ValueKey(
@@ -137,7 +141,7 @@ class _CoverReaderViewState extends State<CoverReaderView>
             ),
           );
         }
-        final direction = _directionForOffset(_dragOffset);
+        final direction = _activeDirectionForOffset(_dragOffset);
         final target = _transitionTarget ?? window.pageForDirection(direction);
         final activeOffset = target == null
             ? _dragOffset * 0.22
@@ -148,12 +152,14 @@ class _CoverReaderViewState extends State<CoverReaderView>
             key: const ValueKey('reader-engine-cover-view'),
             behavior: HitTestBehavior.opaque,
             onTapUp: (details) => _handleTap(details.localPosition),
+            onHorizontalDragStart:
+                widget.controlsVisible ? null : _handleHorizontalDragStart,
             onHorizontalDragUpdate:
                 widget.controlsVisible ? null : _handleHorizontalDragUpdate,
             onHorizontalDragEnd:
                 widget.controlsVisible ? null : _handleHorizontalDragEnd,
             onHorizontalDragCancel:
-                widget.controlsVisible ? null : _animateBackToRest,
+                widget.controlsVisible ? null : _handleHorizontalDragCancel,
             child: ClipRect(
               child: Stack(
                 fit: StackFit.expand,
@@ -194,31 +200,63 @@ class _CoverReaderViewState extends State<CoverReaderView>
     widget.onContentTap();
   }
 
+  void _handleHorizontalDragStart(DragStartDetails details) {
+    _ignoreActiveDrag = _controller.isAnimating;
+    if (_ignoreActiveDrag) return;
+    _dragDirection = null;
+  }
+
   void _handleHorizontalDragUpdate(DragUpdateDetails details) {
-    if (_controller.isAnimating) return;
+    if (_ignoreActiveDrag || _controller.isAnimating) return;
     final width = _viewportWidth;
-    final nextOffset = (_dragOffset + details.delta.dx).clamp(-width, width);
+    final nextDirection =
+        _dragDirection ?? _directionForDelta(details.delta.dx);
+    if (nextDirection == 0) return;
+    final nextOffset = _dragOffsetForDirection(
+      direction: nextDirection,
+      offset: _dragOffset + details.delta.dx,
+      width: width,
+    );
     setState(() {
-      if (_directionForOffset(nextOffset) != _directionForOffset(_dragOffset)) {
+      if (_dragDirection != nextDirection || nextOffset == 0) {
         _transitionTarget = null;
       }
+      _dragDirection = nextDirection;
       _dragOffset = nextOffset;
     });
   }
 
   void _handleHorizontalDragEnd(DragEndDetails details) {
-    if (_dragOffset == 0) return;
+    if (_ignoreActiveDrag || _controller.isAnimating) {
+      _ignoreActiveDrag = false;
+      return;
+    }
+    if (_dragOffset == 0) {
+      _resetTransitionState();
+      return;
+    }
     final width = _viewportWidth;
     final velocity = details.primaryVelocity ?? 0;
-    final direction = _directionForOffset(_dragOffset);
-    final shouldCommit = _dragOffset.abs() >= width * _minDragCommitRatio ||
-        velocity.abs() >= _minFlingVelocity;
+    final direction = _dragDirection ?? _directionForOffset(_dragOffset);
+    final velocityCommits = direction > 0
+        ? velocity <= -_minFlingVelocity
+        : velocity >= _minFlingVelocity;
+    final shouldCommit =
+        _dragOffset.abs() >= width * _minDragCommitRatio || velocityCommits;
 
     if (!shouldCommit || direction == 0) {
       _animateBackToRest();
       return;
     }
     _turnPage(direction, fromOffset: _dragOffset);
+  }
+
+  void _handleHorizontalDragCancel() {
+    if (_ignoreActiveDrag || _controller.isAnimating) {
+      _ignoreActiveDrag = false;
+      return;
+    }
+    _animateBackToRest();
   }
 
   void _turnPage(int direction, {double? fromOffset}) {
@@ -295,12 +333,38 @@ class _CoverReaderViewState extends State<CoverReaderView>
     _offsetAnimation = null;
     _dragOffset = 0;
     _transitionTarget = null;
+    _dragDirection = null;
     _committingDirection = null;
+    _ignoreActiveDrag = false;
+  }
+
+  int _activeDirectionForOffset(double offset) {
+    final lockedDirection = _committingDirection ?? _dragDirection;
+    if (lockedDirection != null && (offset != 0 || _controller.isAnimating)) {
+      return lockedDirection;
+    }
+    return _directionForOffset(offset);
   }
 
   int _directionForOffset(double offset) {
     if (offset < 0) return 1;
     if (offset > 0) return -1;
+    return 0;
+  }
+
+  int _directionForDelta(double delta) {
+    if (delta < 0) return 1;
+    if (delta > 0) return -1;
+    return 0;
+  }
+
+  double _dragOffsetForDirection({
+    required int direction,
+    required double offset,
+    required double width,
+  }) {
+    if (direction > 0) return offset.clamp(-width, 0);
+    if (direction < 0) return offset.clamp(0, width);
     return 0;
   }
 
