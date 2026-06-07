@@ -49,6 +49,10 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     with SingleTickerProviderStateMixin {
   static const double _minDragCommitRatio = 0.2;
   static const double _dragExitTolerance = 8;
+  static Duration get _commitTravelDuration =>
+      const Duration(milliseconds: 380);
+  static Duration get _cancelTravelDuration =>
+      const Duration(milliseconds: 300);
 
   final GlobalKey _currentPageKey = GlobalKey();
   final GlobalKey _targetPageKey = GlobalKey();
@@ -57,7 +61,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
 
   late final AnimationController _controller;
   late final PageCurlController _curlController;
-  Animation<double>? _offsetAnimation;
+  Animation<double>? _travelAnimation;
 
   int? _pageIndex;
   double _viewportWidth = 1;
@@ -81,7 +85,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 340),
+      duration: _commitTravelDuration,
     );
     _curlController = PageCurlController();
   }
@@ -116,7 +120,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
 
   @override
   void dispose() {
-    _offsetAnimation?.removeListener(_handleAnimatedOffset);
+    _travelAnimation?.removeListener(_handleAnimatedTravel);
     _snapshots?.dispose();
     _curlController.dispose();
     _controller.dispose();
@@ -409,65 +413,118 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       _animateBackToRest();
       return;
     }
-    final startX = _dragStart?.dx ?? (direction > 0 ? _viewportWidth : 0);
-    _animateOffset(
-      from: fromOffset,
-      to: direction > 0
-          ? -_viewportWidth - startX - 8
-          : _viewportWidth * 2 - startX + 8,
+    final gesture = _gesture;
+    final fromTravel = gesture == null
+        ? _travelRatioForOffset(direction: direction, offset: fromOffset)
+        : _travelRatioForGesture(gesture);
+    _animateTravel(
+      from: fromTravel,
+      to: _completionTravelRatioFor(direction: direction, gesture: gesture),
+      curve: Curves.linear,
+      duration: _commitTravelDuration,
     );
   }
 
+  double _completionTravelRatioFor({
+    required int direction,
+    required PageCurlGesture? gesture,
+  }) {
+    if (direction > 0) {
+      return gesture?.anchor == PageCurlAnchor.middle ? 2.025 : 1.0;
+    }
+    final startX = gesture?.start.dx ?? _dragStart?.dx ?? 0;
+    return ((_viewportWidth * 2 + 8 - startX) / _viewportWidth)
+        .clamp(1.0, 2.025)
+        .toDouble();
+  }
+
   void _animateBackToRest() {
-    final restOffset = _restOffsetForCancel();
-    if ((_dragOffset - restOffset).abs() < 0.5) {
+    final gesture = _gesture;
+    final currentTravel =
+        gesture == null ? 0.0 : _travelRatioForAnimatedStart(gesture);
+    if (currentTravel < 0.001) {
       setState(() => _resetTurnState(disposeSnapshots: true));
       return;
     }
     _committingDirection = null;
-    _animateOffset(from: _dragOffset, to: restOffset);
+    _animateTravel(
+      from: currentTravel,
+      to: 0,
+      curve: Curves.easeOutCubic,
+      duration: _cancelTravelDuration,
+    );
   }
 
-  double _restOffsetForCancel() {
-    final start = _dragStart;
-    final direction = _dragDirection;
-    if (_transitionTarget == null || start == null || direction == null) {
-      return 0;
-    }
-    return switch (direction) {
-      PageCurlDirection.next => _viewportWidth - start.dx,
-      PageCurlDirection.previous => -start.dx,
+  double _travelRatioForOffset({
+    required int direction,
+    required double offset,
+  }) {
+    final width = math.max(1.0, _viewportWidth);
+    if (direction > 0) return (-offset / width).clamp(0.0, 2.025).toDouble();
+    if (direction < 0) return (offset / width).clamp(0.0, 2.025).toDouble();
+    return 0;
+  }
+
+  double _travelRatioForGesture(PageCurlGesture gesture) {
+    final width = math.max(1.0, _viewportWidth);
+    final travel = switch (gesture.direction) {
+      PageCurlDirection.next => gesture.start.dx - gesture.current.dx,
+      PageCurlDirection.previous => gesture.current.dx - gesture.start.dx,
     };
+    return (travel / width).clamp(0.0, 2.025).toDouble();
   }
 
-  void _animateOffset({
+  double _travelRatioForAnimatedStart(PageCurlGesture gesture) {
+    final start = _gestureStartForAnimatedTravel() ?? gesture.start;
+    final width = math.max(1.0, _viewportWidth);
+    final travel = switch (gesture.direction) {
+      PageCurlDirection.next => start.dx - gesture.current.dx,
+      PageCurlDirection.previous => gesture.current.dx - start.dx,
+    };
+    return (travel / width).clamp(0.0, 2.025).toDouble();
+  }
+
+  void _animateTravel({
     required double from,
     required double to,
+    required Duration duration,
+    Curve curve = Curves.easeOutCubic,
   }) {
-    _offsetAnimation?.removeListener(_handleAnimatedOffset);
+    _travelAnimation?.removeListener(_handleAnimatedTravel);
     _controller.stop();
+    _controller.duration = duration;
     _controller.reset();
-    _dragOffset = from;
-    _offsetAnimation = Tween<double>(begin: from, end: to)
-        .chain(CurveTween(curve: Curves.easeOutCubic))
+    _applyAnimatedTravel(from);
+    _travelAnimation = Tween<double>(begin: from, end: to)
+        .chain(CurveTween(curve: curve))
         .animate(_controller)
-      ..addListener(_handleAnimatedOffset);
+      ..addListener(_handleAnimatedTravel);
     _controller.forward().whenComplete(_completeAnimation);
   }
 
-  void _handleAnimatedOffset() {
-    if (!mounted || _offsetAnimation == null) return;
-    final start = _dragStart;
-    if (start == null) return;
-    final value = _offsetAnimation!.value;
-    final current = Offset(start.dx + value, start.dy);
-    final gestureStart = _gestureStartForAnimatedOffset(start);
+  void _handleAnimatedTravel() {
+    if (!mounted || _travelAnimation == null) return;
+    _applyAnimatedTravel(_travelAnimation!.value);
+  }
+
+  void _applyAnimatedTravel(double travelRatio) {
+    final gestureStart = _gestureStartForAnimatedTravel();
+    final direction = _dragDirection;
+    if (gestureStart == null || direction == null) return;
+
+    final signedTravel = _viewportWidth * travelRatio;
+    final current = switch (direction) {
+      PageCurlDirection.next =>
+        Offset(gestureStart.dx - signedTravel, gestureStart.dy),
+      PageCurlDirection.previous =>
+        Offset(gestureStart.dx + signedTravel, gestureStart.dy),
+    };
     final gesture = _gestureFromPoints(
       start: gestureStart,
       current: current,
-      lockedDirection: _dragDirection,
+      lockedDirection: direction,
     );
-    _dragOffset = value;
+    _dragOffset = current.dx - (_dragStart?.dx ?? gestureStart.dx);
     _gesture = gesture;
     final target = _transitionTarget;
     if (target == null) {
@@ -482,11 +539,19 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     );
   }
 
-  Offset _gestureStartForAnimatedOffset(Offset start) {
-    if (_committingDirection != null || _transitionTarget == null) {
-      return start;
+  Offset? _gestureStartForAnimatedTravel() {
+    final start = _dragStart;
+    final direction = _dragDirection;
+    if (_committingDirection == null && start != null && direction != null) {
+      return switch (direction) {
+        PageCurlDirection.next => Offset(_viewportWidth, start.dy),
+        PageCurlDirection.previous => Offset(0, start.dy),
+      };
     }
-    return switch (_dragDirection) {
+    final gesture = _gesture;
+    if (gesture != null) return gesture.start;
+    if (start == null) return null;
+    return switch (direction) {
       PageCurlDirection.next => Offset(_viewportWidth, start.dy),
       PageCurlDirection.previous => Offset(0, start.dy),
       null => start,
@@ -597,8 +662,8 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     if (stopAnimation) {
       _controller.stop();
     }
-    _offsetAnimation?.removeListener(_handleAnimatedOffset);
-    _offsetAnimation = null;
+    _travelAnimation?.removeListener(_handleAnimatedTravel);
+    _travelAnimation = null;
     _dragStart = null;
     _pendingDragStart = null;
     _dragDirection = null;

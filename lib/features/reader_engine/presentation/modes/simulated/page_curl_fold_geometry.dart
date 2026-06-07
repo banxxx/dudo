@@ -352,13 +352,8 @@ class PageCurlFoldGeometry {
 
   static double _completionTravelRatio(double progress) {
     final p = progress.clamp(0.0, 1.0).toDouble();
-    const handControlledEnd = 0.72;
-    final early =
-        (p.clamp(0.0, handControlledEnd) / handControlledEnd).toDouble();
-    final late = ((p - handControlledEnd) / (1 - handControlledEnd))
-        .clamp(0.0, 1.0)
-        .toDouble();
-    return early * 1.02 + late * 2.40;
+    const completionTravel = 3.42;
+    return p * completionTravel;
   }
 
   static double _stableDragY({

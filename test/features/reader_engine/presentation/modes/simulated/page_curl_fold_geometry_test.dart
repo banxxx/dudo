@@ -236,6 +236,31 @@ void main() {
     expect(foldedBounds.right, lessThanOrEqualTo(0));
   });
 
+  test('nextPageOut corner contact point advances linearly', () {
+    PageCurlFoldGeometry build(double progress) {
+      final width = 320.0;
+      final start = const Offset(320, 430);
+      final gesture = PageCurlGesture.fromPoints(
+        pageSize: const Size(320, 520),
+        start: start,
+        current: Offset(start.dx - width * progress, start.dy),
+      );
+      return PageCurlFoldGeometry.fromGesture(
+        gesture: gesture,
+        turnType: PageCurlTurnType.nextPageOut,
+        pageSize: const Size(320, 520),
+      );
+    }
+
+    final first = build(0.25).contactShadowCenter.dx;
+    final second = build(0.50).contactShadowCenter.dx;
+    final third = build(0.75).contactShadowCenter.dx;
+    final fourth = build(1.00).contactShadowCenter.dx;
+
+    expect((second - first).abs(), closeTo((third - second).abs(), 1));
+    expect((third - second).abs(), closeTo((fourth - third).abs(), 1));
+  });
+
   test('nextPageOut middle completion moves the folded page offscreen', () {
     final gesture = PageCurlGesture.fromPoints(
       pageSize: const Size(320, 520),
