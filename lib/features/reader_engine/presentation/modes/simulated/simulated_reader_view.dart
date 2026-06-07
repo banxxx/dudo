@@ -48,7 +48,6 @@ class SimulatedReaderView extends StatefulWidget {
 class _SimulatedReaderViewState extends State<SimulatedReaderView>
     with SingleTickerProviderStateMixin {
   static const double _minDragCommitRatio = 0.2;
-  static const double _minFlingVelocity = 420;
   static const double _dragExitTolerance = 8;
 
   final GlobalKey _currentPageKey = GlobalKey();
@@ -294,14 +293,8 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       _animateBackToRest();
       return;
     }
-    final velocity = details.primaryVelocity ?? 0;
     final direction = _directionForGesture(gesture.direction);
-    final velocityCommits = switch (gesture.direction) {
-      PageCurlDirection.next => velocity <= -_minFlingVelocity,
-      PageCurlDirection.previous => velocity >= _minFlingVelocity,
-    };
-    final shouldCommit =
-        gesture.progress >= _minDragCommitRatio || velocityCommits;
+    final shouldCommit = gesture.progress >= _minDragCommitRatio;
 
     if (!shouldCommit) {
       _animateBackToRest();

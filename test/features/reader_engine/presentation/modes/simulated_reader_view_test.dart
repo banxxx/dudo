@@ -276,6 +276,56 @@ void main() {
         findsNothing);
   });
 
+  testWidgets('SimulatedReaderView cancels short fling below commit range',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 520);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final center = _item(0, pageCount: 2);
+    final reportedLocations = <ReaderLocation>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 520,
+          child: SimulatedReaderView(
+            viewport: ReaderViewportState(
+              center: center,
+              currentLocation: ReaderLocation.startOfChapter(
+                bookId: 'book-1',
+                chapterIndex: 0,
+              ),
+              currentLayout: center.layout,
+            ),
+            settings: ReaderSettings.defaults(),
+            palette: ReaderTheme.parchment,
+            controlsVisible: false,
+            onContentTap: () {},
+            onPreviousBoundary: () {},
+            onNextBoundary: () {},
+            onLocationChanged: reportedLocations.add,
+          ),
+        ),
+      ),
+    );
+
+    await tester.fling(
+      find.byKey(const ValueKey('reader-engine-simulated-view')),
+      const Offset(-48, 0),
+      1600,
+    );
+    await tester.pumpAndSettle();
+
+    expect(reportedLocations, isEmpty);
+    expect(find.byKey(const ValueKey('reader-engine-page-curl-painter')),
+        findsNothing);
+    expect(find.byKey(const ValueKey('reader-engine-simulated-current-0-0')),
+        findsOneWidget);
+  });
+
   testWidgets('SimulatedReaderView keeps curl painter during same-page drag',
       (tester) async {
     tester.view.devicePixelRatio = 1;
