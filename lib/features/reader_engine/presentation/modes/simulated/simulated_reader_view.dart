@@ -7,13 +7,14 @@ import '../../../../../shared/theme/app_theme.dart';
 import '../../../domain/reader_location.dart';
 import '../../../domain/reader_settings.dart';
 import '../../../domain/reader_viewport_state.dart';
-import '../reader_page_surface.dart';
+import '../reader_page_slice_canvas_surface.dart';
 import '../reader_paged_window.dart';
 import 'page_curl_controller.dart';
 import 'page_curl_gesture.dart';
 import 'page_curl_quality.dart';
 import 'page_curl_render_widget.dart';
 import 'page_curl_snapshot.dart';
+import 'reader_line_page_snapshot.dart';
 
 class SimulatedReaderView extends StatefulWidget {
   const SimulatedReaderView({
@@ -58,6 +59,8 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   final GlobalKey _targetPageKey = GlobalKey();
   final PageCurlSnapshotController _snapshotController =
       const PageCurlSnapshotController(quality: PageCurlQuality.high);
+  final ReaderPageSliceSnapshotController _pageSliceSnapshotController =
+      const ReaderPageSliceSnapshotController();
 
   late final AnimationController _controller;
   late final PageCurlController _curlController;
@@ -160,7 +163,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
               child: ClipRect(
                 child: ColoredBox(
                   color: pageColor,
-                  child: ReaderPageSurface(
+                  child: ReaderPageSliceCanvasSurface(
                     key: ValueKey(
                       'reader-engine-simulated-committed-'
                       '${committedTarget.chapterIndex}-'
@@ -208,7 +211,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
                     key: _targetPageKey,
                     child: ColoredBox(
                       color: pageColor,
-                      child: ReaderPageSurface(
+                      child: ReaderPageSliceCanvasSurface(
                         key: ValueKey(
                           'reader-engine-simulated-under-'
                           '${target.chapterIndex}-${target.pageIndex}',
@@ -225,7 +228,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
                       key: _currentPageKey,
                       child: ColoredBox(
                         color: pageColor,
-                        child: ReaderPageSurface(
+                        child: ReaderPageSliceCanvasSurface(
                           key: ValueKey(
                             'reader-engine-simulated-current-'
                             '${window.current.chapterIndex}-'
@@ -600,7 +603,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     required Offset current,
     PageCurlDirection? lockedDirection,
   }) {
-    final pageSize = Size(_viewportWidth, context.size?.height ?? 1);
+    final pageSize = Size(_viewportWidth, _viewportHeight);
     final gesture = PageCurlGesture.fromPoints(
       pageSize: pageSize,
       start: start,
@@ -663,15 +666,28 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     final completer = Completer<void>();
     _snapshotCaptureFuture = completer.future;
     final captureTarget = _transitionTarget;
+    final captureCurrent = ReaderPagedWindow.fromViewport(
+      widget.viewport,
+      pageIndex: _pageIndex,
+    ).current;
     _captureInFlight = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       PageCurlSnapshotPair? pair;
       try {
-        if (!mounted) return;
-        pair = await _snapshotController.capturePair(
+        if (!mounted || captureTarget == null) return;
+        final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+        pair = await _pageSliceSnapshotController.capturePair(
+          currentPage: captureCurrent,
+          targetPage: captureTarget,
+          settings: widget.settings,
+          palette: widget.palette,
+          viewportSize: Size(_viewportWidth, _viewportHeight),
+          devicePixelRatio: devicePixelRatio,
+        );
+        pair ??= await _snapshotController.capturePair(
           currentKey: _currentPageKey,
           targetKey: _targetPageKey,
-          devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+          devicePixelRatio: devicePixelRatio,
         );
         if (!mounted) {
           pair?.dispose();
@@ -728,17 +744,20 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   }
 
   void _scheduleSnapshotHandoffClear(ReaderResolvedPage target) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    final binding = WidgetsBinding.instance;
+    binding.addPostFrameCallback((_) {
       if (!mounted || !_isSameResolvedPage(_snapshotHandoffTarget, target)) {
         return;
       }
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      binding.addPostFrameCallback((_) {
         if (!mounted || !_isSameResolvedPage(_snapshotHandoffTarget, target)) {
           return;
         }
         setState(() => _resetTurnState(disposeSnapshots: true));
       });
+      binding.ensureVisualUpdate();
     });
+    binding.ensureVisualUpdate();
   }
 
   void _disposeSnapshots() {

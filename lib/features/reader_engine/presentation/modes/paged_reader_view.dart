@@ -4,7 +4,7 @@ import '../../../../shared/theme/app_theme.dart';
 import '../../domain/reader_location.dart';
 import '../../domain/reader_settings.dart';
 import '../../domain/reader_viewport_state.dart';
-import 'reader_page_surface.dart';
+import 'reader_page_slice_canvas_surface.dart';
 import 'reader_paged_window.dart';
 
 class PagedReaderView extends StatefulWidget {
@@ -76,7 +76,7 @@ class _PagedReaderViewState extends State<PagedReaderView> {
                 if (velocity.abs() < 260) return;
                 _turnPage(velocity < 0 ? 1 : -1);
               },
-        child: ReaderPageSurface(
+        child: ReaderPageSliceCanvasSurface(
           resolvedPage: window.current,
           settings: widget.settings,
           palette: widget.palette,

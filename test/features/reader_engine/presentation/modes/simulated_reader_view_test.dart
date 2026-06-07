@@ -127,8 +127,15 @@ void main() {
     expect(find.byKey(const ValueKey('reader-engine-page-curl-painter')),
         findsOneWidget);
 
-    await tester.pump();
-    await tester.pump();
+    for (var i = 0;
+        i < 6 &&
+            find
+                .byKey(const ValueKey('reader-engine-page-curl-painter'))
+                .evaluate()
+                .isNotEmpty;
+        i++) {
+      await tester.pump();
+    }
 
     expect(find.byKey(const ValueKey('reader-engine-page-curl-painter')),
         findsNothing);
