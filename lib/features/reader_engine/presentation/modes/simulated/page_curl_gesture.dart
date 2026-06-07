@@ -64,7 +64,7 @@ class PageCurlGesture {
   final PageCurlAnchor anchor;
   final double progress;
 
-  bool get isTurning => progress > 0;
+  bool get isTurning => progress > 0 || (current.dx - start.dx).abs() > 0.5;
 
   static PageCurlAnchor _anchorForStart({
     required Offset start,

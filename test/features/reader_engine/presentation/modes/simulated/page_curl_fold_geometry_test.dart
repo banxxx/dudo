@@ -5,6 +5,30 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('locked previous-page reverse drag remains an active curl', () {
+    final gesture = PageCurlGesture.fromPoints(
+      pageSize: const Size(320, 520),
+      start: const Offset(20, 260),
+      current: const Offset(5, 260),
+      lockedDirection: PageCurlDirection.previous,
+    );
+
+    expect(gesture.progress, 0);
+    expect(gesture.isTurning, isTrue);
+  });
+
+  test('stationary gesture is not an active curl', () {
+    final gesture = PageCurlGesture.fromPoints(
+      pageSize: const Size(320, 520),
+      start: const Offset(20, 260),
+      current: const Offset(20, 260),
+      lockedDirection: PageCurlDirection.previous,
+    );
+
+    expect(gesture.progress, 0);
+    expect(gesture.isTurning, isFalse);
+  });
+
   test('nextPageOut uses a right-side folded page model', () {
     final gesture = PageCurlGesture.fromPoints(
       pageSize: const Size(320, 520),
@@ -23,6 +47,124 @@ void main() {
     expect(geometry.foldedPath.getBounds().isEmpty, isFalse);
     expect(geometry.unturnedPath.getBounds().isEmpty, isFalse);
     expect(geometry.isRightCorner, isTrue);
+  });
+
+  test('nextPageOut builds separate bezier corner surfaces', () {
+    final gesture = PageCurlGesture.fromPoints(
+      pageSize: const Size(320, 520),
+      start: const Offset(300, 430),
+      current: const Offset(150, 360),
+    );
+
+    final geometry = PageCurlBezierGeometry.fromGesture(
+      gesture: gesture,
+      turnType: PageCurlTurnType.nextPageOut,
+      pageSize: const Size(320, 520),
+    );
+
+    expect(geometry.corner, PageCurlFoldCorner.bottomRight);
+    expect(geometry.foldPath.getBounds().isEmpty, isFalse);
+    expect(geometry.backPath.getBounds().isEmpty, isFalse);
+    expect(geometry.currentPagePath.getBounds().isEmpty, isFalse);
+    expect(geometry.foldCurvePath.getBounds().isEmpty, isFalse);
+    expect(geometry.outerEdgePath.getBounds().isEmpty, isFalse);
+    expect(geometry.backPath.contains(geometry.touch), isTrue);
+  });
+
+  test('previousPageIn builds a right-side bezier entering page', () {
+    final gesture = PageCurlGesture.fromPoints(
+      pageSize: const Size(320, 520),
+      start: const Offset(20, 430),
+      current: const Offset(170, 360),
+    );
+
+    final geometry = PageCurlBezierGeometry.fromGesture(
+      gesture: gesture,
+      turnType: PageCurlTurnType.previousPageIn,
+      pageSize: const Size(320, 520),
+    );
+
+    expect(geometry.corner, PageCurlFoldCorner.bottomRight);
+    expect(geometry.foldPath.getBounds().isEmpty, isFalse);
+    expect(geometry.backPath.getBounds().isEmpty, isFalse);
+    expect(geometry.currentPagePath.getBounds().isEmpty, isFalse);
+    expect(geometry.isRightCorner, isTrue);
+  });
+
+  test('bezier middle next-page drag maps to stable top and bottom corners',
+      () {
+    PageCurlBezierGeometry build(double startY) {
+      final gesture = PageCurlGesture.fromPoints(
+        pageSize: const Size(320, 520),
+        start: Offset(300, startY),
+        current: const Offset(170, 260),
+      );
+      return PageCurlBezierGeometry.fromGesture(
+        gesture: gesture,
+        turnType: PageCurlTurnType.nextPageOut,
+        pageSize: const Size(320, 520),
+      );
+    }
+
+    final upperMiddle = build(210);
+    final lowerMiddle = build(300);
+
+    expect(upperMiddle.corner, PageCurlFoldCorner.topRight);
+    expect(upperMiddle.touch.dy, 1);
+    expect(lowerMiddle.corner, PageCurlFoldCorner.bottomRight);
+    expect(lowerMiddle.touch.dy, 519);
+  });
+
+  test('bezier previous-page drag uses the bottom-right retreat path', () {
+    final gesture = PageCurlGesture.fromPoints(
+      pageSize: const Size(320, 520),
+      start: const Offset(20, 260),
+      current: const Offset(170, 260),
+    );
+
+    final geometry = PageCurlBezierGeometry.fromGesture(
+      gesture: gesture,
+      turnType: PageCurlTurnType.previousPageIn,
+      pageSize: const Size(320, 520),
+    );
+
+    expect(gesture.anchor, PageCurlAnchor.middle);
+    expect(geometry.corner, PageCurlFoldCorner.bottomRight);
+    expect(geometry.touch.dy, 519);
+  });
+
+  test('bezier completion keeps moving the touch past screen edges', () {
+    PageCurlBezierGeometry build({
+      required PageCurlTurnType turnType,
+      required Offset start,
+      required Offset current,
+    }) {
+      final gesture = PageCurlGesture.fromPoints(
+        pageSize: const Size(320, 520),
+        start: start,
+        current: current,
+      );
+      return PageCurlBezierGeometry.fromGesture(
+        gesture: gesture,
+        turnType: turnType,
+        phase: PageCurlMotionPhase.completion,
+        pageSize: const Size(320, 520),
+      );
+    }
+
+    final next = build(
+      turnType: PageCurlTurnType.nextPageOut,
+      start: const Offset(320, 430),
+      current: const Offset(-328, 430),
+    );
+    final previous = build(
+      turnType: PageCurlTurnType.previousPageIn,
+      start: const Offset(0, 260),
+      current: const Offset(648, 260),
+    );
+
+    expect(next.touch.dx, lessThan(0));
+    expect(previous.touch.dx, greaterThan(320));
   });
 
   test('nextPageOut uses a middle cylinder model from the right side', () {
@@ -307,8 +449,8 @@ void main() {
 
   test('nextPageOut corner contact point advances linearly', () {
     PageCurlFoldGeometry build(double progress) {
-      final width = 320.0;
-      final start = const Offset(320, 430);
+      const width = 320.0;
+      const start = Offset(320, 430);
       final gesture = PageCurlGesture.fromPoints(
         pageSize: const Size(320, 520),
         start: start,

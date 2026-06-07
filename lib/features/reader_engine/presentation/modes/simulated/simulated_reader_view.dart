@@ -47,7 +47,7 @@ class SimulatedReaderView extends StatefulWidget {
 
 class _SimulatedReaderViewState extends State<SimulatedReaderView>
     with SingleTickerProviderStateMixin {
-  static const double _minDragCommitRatio = 0.2;
+  static const double _minDragCommitRatio = 0.22;
   static const double _dragExitTolerance = 8;
   static Duration get _commitTravelDuration =>
       const Duration(milliseconds: 380);
@@ -61,20 +61,23 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
 
   late final AnimationController _controller;
   late final PageCurlController _curlController;
-  Animation<double>? _travelAnimation;
+  Animation<Offset>? _touchAnimation;
 
   int? _pageIndex;
   double _viewportWidth = 1;
   double _viewportHeight = 1;
   Offset? _pendingDragStart;
   Offset? _dragStart;
+  Offset? _lastDragPosition;
   PageCurlDirection? _dragDirection;
   double _dragOffset = 0;
+  bool _isCancelingTurn = false;
   PageCurlGesture? _gesture;
   ReaderResolvedPage? _transitionTarget;
   ReaderResolvedPage? _committedTarget;
   ReaderResolvedPage? _snapshotHandoffTarget;
   int? _committingDirection;
+  int? _cancelingDirection;
   PageCurlSnapshotPair? _snapshots;
   bool _captureInFlight = false;
   Future<void>? _snapshotCaptureFuture;
@@ -124,7 +127,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
 
   @override
   void dispose() {
-    _travelAnimation?.removeListener(_handleAnimatedTravel);
+    _touchAnimation?.removeListener(_handleAnimatedTouch);
     _snapshots?.dispose();
     _curlController.dispose();
     _controller.dispose();
@@ -302,13 +305,11 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       return;
     }
     final direction = _directionForGesture(gesture.direction);
-    final shouldCommit = gesture.progress >= _minDragCommitRatio;
-
-    if (!shouldCommit) {
+    if (_isCancelingTurn || gesture.progress < _minDragCommitRatio) {
       _animateBackToRest();
       return;
     }
-    _turnPage(direction, fromOffset: _dragOffset);
+    _turnPage(direction);
   }
 
   bool _isOutsideInteractivePage(Offset position) {
@@ -331,6 +332,13 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     final lockedDirection =
         _dragDirection ?? (horizontalDelta >= 1 ? gesture.direction : null);
     final direction = _directionForGesture(gesture.direction);
+    final lastPosition = _lastDragPosition ?? start;
+    final isCancelingTurn = lockedDirection == null
+        ? false
+        : switch (gesture.direction) {
+            PageCurlDirection.next => current.dx > lastPosition.dx,
+            PageCurlDirection.previous => current.dx < lastPosition.dx,
+          };
     final window = ReaderPagedWindow.fromViewport(
       widget.viewport,
       pageIndex: _pageIndex,
@@ -340,14 +348,17 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
 
     setState(() {
       _dragStart = start;
+      _lastDragPosition = current;
       _dragDirection = lockedDirection;
       _dragOffset = dragOffset;
+      _isCancelingTurn = isCancelingTurn;
       _gesture = gesture;
       if (!_isSameResolvedPage(_transitionTarget, target)) {
         _disposeSnapshots();
       }
       _transitionTarget = target;
       _committingDirection = null;
+      _cancelingDirection = null;
     });
     _updateCurlController(
         gesture: gesture, target: target, direction: direction);
@@ -370,10 +381,10 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       return;
     }
     _queueSnapshotCapture();
-    _turnPage(direction, fromOffset: 0);
+    _turnPage(direction);
   }
 
-  void _turnPage(int direction, {double? fromOffset}) {
+  void _turnPage(int direction) {
     final window = ReaderPagedWindow.fromViewport(
       widget.viewport,
       pageIndex: _pageIndex,
@@ -386,6 +397,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
 
     _transitionTarget = target;
     _committingDirection = direction;
+    _cancelingDirection = null;
     final requestId = ++_turnRequestId;
     _updateCurlController(
       gesture: _gesture,
@@ -396,7 +408,6 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       requestId: requestId,
       direction: direction,
       target: target,
-      fromOffset: fromOffset ?? _dragOffset,
     );
   }
 
@@ -404,7 +415,6 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     required int requestId,
     required int direction,
     required ReaderResolvedPage target,
-    required double fromOffset,
   }) async {
     await _queueSnapshotCapture();
     if (!mounted ||
@@ -418,111 +428,71 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       return;
     }
     final gesture = _gesture;
-    final fromTravel = gesture == null
-        ? _travelRatioForOffset(direction: direction, offset: fromOffset)
-        : _travelRatioForGesture(gesture);
-    _animateTravel(
-      from: fromTravel,
-      to: _completionTravelRatioFor(direction: direction, gesture: gesture),
+    if (gesture == null) {
+      _animateBackToRest();
+      return;
+    }
+    _animateTouch(
+      from: gesture.current,
+      to: _simulationAnimationEndPoint(
+        gesture: gesture,
+        direction: direction,
+        cancel: false,
+      ),
       curve: Curves.linear,
       duration: _commitTravelDuration,
     );
   }
 
-  double _completionTravelRatioFor({
-    required int direction,
-    required PageCurlGesture? gesture,
-  }) {
-    if (direction > 0) {
-      return gesture?.anchor == PageCurlAnchor.middle ? 2.025 : 1.0;
-    }
-    final startX = gesture?.start.dx ?? _dragStart?.dx ?? 0;
-    return ((_viewportWidth * 2 + 8 - startX) / _viewportWidth)
-        .clamp(1.0, 2.025)
-        .toDouble();
-  }
-
   void _animateBackToRest() {
     final gesture = _gesture;
-    final currentTravel =
-        gesture == null ? 0.0 : _travelRatioForAnimatedStart(gesture);
-    if (currentTravel < 0.001) {
+    final direction = _dragDirection;
+    if (gesture == null || direction == null || !gesture.isTurning) {
       setState(() => _resetTurnState(disposeSnapshots: true));
       return;
     }
     _committingDirection = null;
-    _animateTravel(
-      from: currentTravel,
-      to: 0,
+    _cancelingDirection = _directionForGesture(direction);
+    _animateTouch(
+      from: gesture.current,
+      to: _simulationAnimationEndPoint(
+        gesture: gesture,
+        direction: _cancelingDirection!,
+        cancel: true,
+      ),
       curve: Curves.easeOutCubic,
       duration: _cancelTravelDuration,
     );
   }
 
-  double _travelRatioForOffset({
-    required int direction,
-    required double offset,
-  }) {
-    final width = math.max(1.0, _viewportWidth);
-    if (direction > 0) return (-offset / width).clamp(0.0, 2.025).toDouble();
-    if (direction < 0) return (offset / width).clamp(0.0, 2.025).toDouble();
-    return 0;
-  }
-
-  double _travelRatioForGesture(PageCurlGesture gesture) {
-    final width = math.max(1.0, _viewportWidth);
-    final travel = switch (gesture.direction) {
-      PageCurlDirection.next => gesture.start.dx - gesture.current.dx,
-      PageCurlDirection.previous => gesture.current.dx - gesture.start.dx,
-    };
-    return (travel / width).clamp(0.0, 2.025).toDouble();
-  }
-
-  double _travelRatioForAnimatedStart(PageCurlGesture gesture) {
-    final start = _gestureStartForAnimatedTravel() ?? gesture.start;
-    final width = math.max(1.0, _viewportWidth);
-    final travel = switch (gesture.direction) {
-      PageCurlDirection.next => start.dx - gesture.current.dx,
-      PageCurlDirection.previous => gesture.current.dx - start.dx,
-    };
-    return (travel / width).clamp(0.0, 2.025).toDouble();
-  }
-
-  void _animateTravel({
-    required double from,
-    required double to,
+  void _animateTouch({
+    required Offset from,
+    required Offset to,
     required Duration duration,
     Curve curve = Curves.easeOutCubic,
   }) {
-    _travelAnimation?.removeListener(_handleAnimatedTravel);
+    _touchAnimation?.removeListener(_handleAnimatedTouch);
     _controller.stop();
     _controller.duration = duration;
     _controller.reset();
-    _applyAnimatedTravel(from);
-    _travelAnimation = Tween<double>(begin: from, end: to)
+    _applyAnimatedTouch(from);
+    _touchAnimation = Tween<Offset>(begin: from, end: to)
         .chain(CurveTween(curve: curve))
         .animate(_controller)
-      ..addListener(_handleAnimatedTravel);
+      ..addListener(_handleAnimatedTouch);
     _controller.forward().whenComplete(_completeAnimation);
   }
 
-  void _handleAnimatedTravel() {
-    if (!mounted || _travelAnimation == null) return;
-    _applyAnimatedTravel(_travelAnimation!.value);
+  void _handleAnimatedTouch() {
+    if (!mounted || _touchAnimation == null) return;
+    _applyAnimatedTouch(_touchAnimation!.value);
   }
 
-  void _applyAnimatedTravel(double travelRatio) {
+  void _applyAnimatedTouch(Offset current) {
     final gestureStart = _gestureStartForAnimatedTravel();
     final direction = _dragDirection;
     if (gestureStart == null || direction == null) return;
 
-    final signedTravel = _viewportWidth * travelRatio;
-    final current = switch (direction) {
-      PageCurlDirection.next =>
-        Offset(gestureStart.dx - signedTravel, gestureStart.dy),
-      PageCurlDirection.previous =>
-        Offset(gestureStart.dx + signedTravel, gestureStart.dy),
-    };
     final gesture = _gestureFromPoints(
       start: gestureStart,
       current: current,
@@ -538,15 +508,49 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     _updateCurlController(
       gesture: gesture,
       target: target,
-      direction:
-          _committingDirection ?? _directionForGesture(gesture.direction),
+      direction: _committingDirection ??
+          _cancelingDirection ??
+          _directionForGesture(gesture.direction),
     );
+  }
+
+  Offset _simulationAnimationEndPoint({
+    required PageCurlGesture gesture,
+    required int direction,
+    required bool cancel,
+  }) {
+    final height = math.max(1.0, _viewportHeight);
+    final width = math.max(1.0, _viewportWidth);
+    final cornerY = _simulationCornerY(gesture: gesture, direction: direction);
+
+    final endX = switch ((cancel, direction > 0)) {
+      (true, true) => width,
+      (true, false) => -width,
+      (false, true) => -width,
+      (false, false) => width,
+    };
+    final endY = cornerY > height / 2 ? height : math.min(1.0, height);
+    return Offset(endX, endY);
+  }
+
+  double _simulationCornerY({
+    required PageCurlGesture gesture,
+    required int direction,
+  }) {
+    if (direction < 0) return _viewportHeight;
+    if (gesture.anchor == PageCurlAnchor.middle) {
+      return gesture.start.dy < _viewportHeight / 2 ? 0 : _viewportHeight;
+    }
+    return gesture.anchor == PageCurlAnchor.top ? 0 : _viewportHeight;
   }
 
   Offset? _gestureStartForAnimatedTravel() {
     final start = _dragStart;
     final direction = _dragDirection;
-    if (_committingDirection == null && start != null && direction != null) {
+    if (_committingDirection == null &&
+        _cancelingDirection == null &&
+        start != null &&
+        direction != null) {
       return switch (direction) {
         PageCurlDirection.next => Offset(_viewportWidth, start.dy),
         PageCurlDirection.previous => Offset(0, start.dy),
@@ -672,16 +676,19 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     if (stopAnimation) {
       _controller.stop();
     }
-    _travelAnimation?.removeListener(_handleAnimatedTravel);
-    _travelAnimation = null;
+    _touchAnimation?.removeListener(_handleAnimatedTouch);
+    _touchAnimation = null;
     _dragStart = null;
     _pendingDragStart = null;
+    _lastDragPosition = null;
     _dragDirection = null;
     _dragOffset = 0;
+    _isCancelingTurn = false;
     _gesture = null;
     _transitionTarget = null;
     _snapshotHandoffTarget = null;
     _committingDirection = null;
+    _cancelingDirection = null;
     _captureInFlight = false;
     _snapshotCaptureFuture = null;
     _turnRequestId++;
@@ -731,7 +738,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       turnType: direction > 0
           ? PageCurlTurnType.nextPageOut
           : PageCurlTurnType.previousPageIn,
-      phase: _committingDirection == null
+      phase: _committingDirection == null && _cancelingDirection == null
           ? PageCurlMotionPhase.interactive
           : PageCurlMotionPhase.completion,
     );
