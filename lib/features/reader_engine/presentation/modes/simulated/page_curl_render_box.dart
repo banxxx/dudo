@@ -115,6 +115,7 @@ class PageCurlRenderBox extends RenderBox {
     final geometry = PageCurlFoldGeometry.fromGesture(
       gesture: gesture,
       turnType: turnType,
+      phase: _controller.phase,
       pageSize: size,
     );
 

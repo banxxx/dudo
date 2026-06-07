@@ -706,6 +706,9 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       turnType: direction > 0
           ? PageCurlTurnType.nextPageOut
           : PageCurlTurnType.previousPageIn,
+      phase: _committingDirection == null
+          ? PageCurlMotionPhase.interactive
+          : PageCurlMotionPhase.completion,
     );
   }
 

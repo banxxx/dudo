@@ -34,11 +34,13 @@ class PageCurlFoldGeometry {
   factory PageCurlFoldGeometry.fromGesture({
     required PageCurlGesture gesture,
     required PageCurlTurnType turnType,
+    PageCurlMotionPhase phase = PageCurlMotionPhase.interactive,
     required Size pageSize,
   }) {
     return switch (turnType) {
       PageCurlTurnType.nextPageOut => _buildNextPageOut(
           gesture: gesture,
+          phase: phase,
           pageSize: pageSize,
         ),
       PageCurlTurnType.previousPageIn => _buildPreviousPageIn(
@@ -82,6 +84,7 @@ class PageCurlFoldGeometry {
 
   static PageCurlFoldGeometry _buildNextPageOut({
     required PageCurlGesture gesture,
+    required PageCurlMotionPhase phase,
     required Size pageSize,
   }) {
     if (gesture.anchor == PageCurlAnchor.middle) {
@@ -99,6 +102,7 @@ class PageCurlFoldGeometry {
     final cornerPoint = _cornerPoint(corner, width, height);
     final contactPoint = _contactPointFor(
       gesture: gesture,
+      phase: phase,
       cornerPoint: cornerPoint,
       width: width,
       height: height,
@@ -326,11 +330,21 @@ class PageCurlFoldGeometry {
 
   static Offset _contactPointFor({
     required PageCurlGesture gesture,
+    required PageCurlMotionPhase phase,
     required Offset cornerPoint,
     required double width,
     required double height,
     required double progress,
   }) {
+    if (phase == PageCurlMotionPhase.interactive) {
+      return _interactiveContactPointFor(
+        gesture: gesture,
+        cornerPoint: cornerPoint,
+        width: width,
+        height: height,
+      );
+    }
+
     final direction = switch (gesture.direction) {
       PageCurlDirection.next => -1.0,
       PageCurlDirection.previous => 1.0,
@@ -347,6 +361,31 @@ class PageCurlFoldGeometry {
       _snap((cornerPoint.dx + direction * travel)
           .clamp(-width * 2.75, width * 3.75)),
       _snap(stableY.clamp(0.0, height)),
+    );
+  }
+
+  static Offset _interactiveContactPointFor({
+    required PageCurlGesture gesture,
+    required Offset cornerPoint,
+    required double width,
+    required double height,
+  }) {
+    final candidate = Offset(
+      gesture.current.dx.clamp(0.0, width).toDouble(),
+      gesture.current.dy.clamp(0.0, height).toDouble(),
+    );
+    final spinePoint = Offset(0, cornerPoint.dy);
+    final fromSpine = candidate - spinePoint;
+    final maxDistance = math.max(1.0, width - 1);
+    if (fromSpine.distance <= maxDistance) {
+      return Offset(_snap(candidate.dx), _snap(candidate.dy));
+    }
+
+    final direction = _normalize(fromSpine);
+    final constrained = spinePoint + direction * maxDistance;
+    return Offset(
+      _snap(constrained.dx.clamp(0.0, width)),
+      _snap(constrained.dy.clamp(0.0, height)),
     );
   }
 
