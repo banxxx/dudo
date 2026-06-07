@@ -16,6 +16,7 @@ import '../domain/reader_reading_time.dart';
 import '../domain/reader_settings.dart';
 import '../domain/reader_turn_mode.dart';
 import '../domain/reader_viewport_state.dart';
+import '../layout/reader_layout_cache.dart';
 import '../layout/reader_layout_engine.dart';
 import 'layout/reader_page_metrics.dart';
 import 'reader_controls.dart';
@@ -46,6 +47,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Future<void>? _initialization;
   Size? _lastViewportSize;
   EdgeInsets? _lastViewportPadding;
+  final ReaderLayoutCache _layoutCache = ReaderLayoutCache(maximumEntries: 96);
+  bool _controllerRefreshScheduled = false;
 
   ReaderOverlayMode _overlayMode = ReaderOverlayMode.hidden;
   ReaderPalette _palette = ReaderTheme.parchment;
@@ -125,8 +128,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                             state == null ||
                             state.loadStatus == ReaderLoadStatus.loading)
                           Center(
-                            child: CircularProgressIndicator(
-                                color: _palette.accent),
+                            child: _ReaderLoadingBar(
+                              palette: _palette,
+                              width: metrics.s(118),
+                            ),
                           )
                         else if (state.loadStatus == ReaderLoadStatus.error)
                           Center(
@@ -466,6 +471,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final viewportController = ReaderViewportController(
       source: source,
       layoutEngine: const FlutterReaderLayoutEngine(),
+      layoutCache: _layoutCache,
     );
     final controller = ReaderSessionController(
       bookId: widget.bookId,
@@ -474,6 +480,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       progressRepository: progressRepository,
       initialSettings: _initialSettings(size, safePadding),
       viewportSize: size,
+      onStateChanged: _scheduleControllerRefresh,
     );
     _controller = controller;
     _initialization = controller.initialize().then((_) async {
@@ -485,5 +492,43 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   void _syncSystemUiMode() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  void _scheduleControllerRefresh() {
+    if (_controllerRefreshScheduled) return;
+    _controllerRefreshScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controllerRefreshScheduled = false;
+      if (mounted) setState(() {});
+    });
+  }
+}
+
+class _ReaderLoadingBar extends StatelessWidget {
+  const _ReaderLoadingBar({
+    required this.palette,
+    required this.width,
+  });
+
+  final ReaderPalette palette;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: '阅读器加载中',
+      child: SizedBox(
+        width: width.clamp(96.0, 136.0),
+        height: 4,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            minHeight: 4,
+            color: palette.accent,
+            backgroundColor: palette.foreground.withValues(alpha: 0.12),
+          ),
+        ),
+      ),
+    );
   }
 }

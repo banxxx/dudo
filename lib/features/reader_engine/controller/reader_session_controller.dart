@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 import '../application/reader_engine_state.dart';
@@ -5,6 +6,7 @@ import '../data/reader_document_source.dart';
 import '../data/reader_progress_repository.dart';
 import '../domain/reader_location.dart';
 import '../domain/reader_settings.dart';
+import '../domain/reader_viewport_state.dart';
 import 'reader_navigation_controller.dart';
 import 'reader_progress_controller.dart';
 import 'reader_viewport_controller.dart';
@@ -17,6 +19,7 @@ class ReaderSessionController {
     required ReaderProgressRepository progressRepository,
     required ReaderSettings initialSettings,
     required this.viewportSize,
+    this.onStateChanged,
   })  : _progressController = ReaderProgressController(progressRepository),
         state = ReaderSessionState.initial(initialSettings);
 
@@ -25,11 +28,14 @@ class ReaderSessionController {
   final ReaderViewportController viewportController;
   final ReaderProgressController _progressController;
   final Size viewportSize;
+  final void Function()? onStateChanged;
 
   ReaderSessionState state;
+  int _loadGeneration = 0;
 
   Future<void> initialize() async {
-    state = state.copyWith(loadStatus: ReaderLoadStatus.loading);
+    final generation = ++_loadGeneration;
+    _updateState(state.copyWith(loadStatus: ReaderLoadStatus.loading));
     try {
       final document = await source.loadDocument(bookId);
       final saved = await _progressController.repository.loadProgress(bookId);
@@ -46,20 +52,28 @@ class ReaderSessionController {
           viewportSize: viewportSize,
           chapterCount: document.chapterCount,
           cause: ReaderNavigationCause.restoreProgress,
+          preloadAdjacent: false,
         ),
       );
-      state = state.copyWith(
+      if (generation != _loadGeneration) return;
+      _updateState(state.copyWith(
         document: document,
         location: viewport.currentLocation,
         viewport: viewport,
         overlay: state.overlay.hideAll(),
         loadStatus: ReaderLoadStatus.ready,
-      );
+      ));
+      unawaited(_warmAdjacentChapters(
+        generation: generation,
+        documentChapterCount: document.chapterCount,
+        centerLocation: viewport.currentLocation,
+      ));
     } catch (error) {
-      state = state.copyWith(
+      if (generation != _loadGeneration) return;
+      _updateState(state.copyWith(
         loadStatus: ReaderLoadStatus.error,
         error: error,
-      );
+      ));
     }
   }
 
@@ -120,22 +134,22 @@ class ReaderSessionController {
     final current = state.location;
     final document = state.document;
     if (current == null || document == null) {
-      state = state.copyWith(settings: settings);
+      _updateState(state.copyWith(settings: settings));
       return;
     }
 
-    state = state.copyWith(settings: settings);
+    _updateState(state.copyWith(settings: settings));
     await _loadLocation(
       documentChapterCount: document.chapterCount,
       location: current,
       cause: ReaderNavigationCause.restoreProgress,
-      preloadAdjacent: true,
+      preloadAdjacent: false,
       saveProgress: false,
     );
   }
 
   Future<void> reportUserLocation(ReaderLocation location) async {
-    state = state.copyWith(location: location);
+    _updateState(state.copyWith(location: location));
     await _progressController.saveIfAllowed(
       location: location,
       isProgrammaticChange: false,
@@ -163,10 +177,12 @@ class ReaderSessionController {
     required bool preloadAdjacent,
     required bool saveProgress,
   }) async {
-    state = state.copyWith(
-      loadStatus: ReaderLoadStatus.loading,
+    final generation = ++_loadGeneration;
+    _updateState(state.copyWith(
+      loadStatus:
+          state.viewport == null ? ReaderLoadStatus.loading : state.loadStatus,
       overlay: state.overlay.hideAll(),
-    );
+    ));
     try {
       final viewport = await _progressController.runWithoutSaving(
         () => viewportController.loadAtLocation(
@@ -178,22 +194,74 @@ class ReaderSessionController {
           preloadAdjacent: preloadAdjacent,
         ),
       );
-      state = state.copyWith(
+      if (generation != _loadGeneration) return;
+      _updateState(state.copyWith(
         location: viewport.currentLocation,
         viewport: viewport,
         loadStatus: ReaderLoadStatus.ready,
-      );
+      ));
       if (saveProgress) {
         await _progressController.saveIfAllowed(
           location: viewport.currentLocation,
           isProgrammaticChange: false,
         );
       }
+      if (!preloadAdjacent) {
+        unawaited(_warmAdjacentChapters(
+          generation: generation,
+          documentChapterCount: documentChapterCount,
+          centerLocation: viewport.currentLocation,
+        ));
+      }
     } catch (error) {
-      state = state.copyWith(
+      if (generation != _loadGeneration) return;
+      _updateState(state.copyWith(
         loadStatus: ReaderLoadStatus.error,
         error: error,
-      );
+      ));
     }
+  }
+
+  Future<void> _warmAdjacentChapters({
+    required int generation,
+    required int documentChapterCount,
+    required ReaderLocation centerLocation,
+  }) async {
+    final viewport = state.viewport;
+    if (viewport == null ||
+        viewport.center.chapter.index != centerLocation.chapterIndex) {
+      return;
+    }
+
+    final adjacent = await viewportController.loadAdjacent(
+      bookId: centerLocation.bookId,
+      chapterIndex: centerLocation.chapterIndex,
+      chapterCount: documentChapterCount,
+      settings: state.settings,
+      viewportSize: viewportSize,
+    );
+    if (generation != _loadGeneration) return;
+
+    final currentViewport = state.viewport;
+    if (currentViewport == null ||
+        currentViewport.center.chapter.index != centerLocation.chapterIndex) {
+      return;
+    }
+
+    _updateState(state.copyWith(
+      viewport: ReaderViewportState(
+        center: currentViewport.center,
+        currentLocation: currentViewport.currentLocation,
+        currentLayout: currentViewport.currentLayout,
+        previous: adjacent.previous,
+        next: adjacent.next,
+        isProgrammaticChange: currentViewport.isProgrammaticChange,
+      ),
+    ));
+  }
+
+  void _updateState(ReaderSessionState nextState) {
+    state = nextState;
+    onStateChanged?.call();
   }
 }
