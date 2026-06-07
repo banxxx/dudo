@@ -1242,7 +1242,7 @@ class _ThemePanel extends StatelessWidget {
                     label: '跟随系统',
                     background: const Color(0xFFF3ECDD),
                     foreground: const Color(0xFF8A735A),
-                    onTap: () {},
+                    onTap: () => onBrightnessChanged(1),
                   ),
                 ),
                 SizedBox(width: metrics.s(8)),

@@ -11,6 +11,8 @@ import '../../reader/presentation/layout/reader_page_metrics.dart' as legacy;
 import '../../reader/presentation/modes/reader_turn_mode.dart' as legacy;
 import '../../reader/presentation/reader_controls.dart' as legacy;
 import '../../reader/presentation/widgets/reader_background.dart' as legacy;
+import '../../reader/presentation/widgets/reader_brightness_overlay.dart'
+    as legacy;
 import '../../reader/presentation/widgets/reader_progress.dart' as legacy;
 import '../../reader/presentation/widgets/reader_volume_page_turn_listener.dart'
     as legacy;
@@ -52,7 +54,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   ReaderPalette _palette = ReaderTheme.parchment;
   double _fontSize = 19;
   double _lineHeight = 1.72;
-  double _brightness = 0.72;
+  double _brightness = 1;
   bool _volumePageTurnEnabled = true;
   bool _isListening = false;
   int _volumePageTurnRequestId = 0;
@@ -122,14 +124,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                       children: [
                         legacy.ReaderPaperBackground(palette: _palette),
                         legacy.ReaderSoftPageEdge(metrics: metrics),
-                        if (_brightness < 0.98)
-                          IgnorePointer(
-                            child: ColoredBox(
-                              color: Colors.black.withValues(
-                                alpha: (1 - _brightness).clamp(0.0, 0.65),
-                              ),
-                            ),
-                          ),
                         if (controller == null ||
                             state == null ||
                             state.loadStatus == ReaderLoadStatus.loading)
@@ -151,6 +145,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                             controller: controller,
                             state: state,
                           ),
+                        legacy.ReaderBrightnessOverlay(
+                          brightness: _brightness,
+                        ),
                       ],
                     );
                   },
@@ -205,7 +202,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         child: ReaderViewport(
           state: state,
           palette: _palette,
-          brightness: _brightness,
           controlsVisible: _overlayMode != legacy.ReaderOverlayMode.hidden,
           source: controller.source,
           layoutEngine: controller.viewportController.layoutEngine,

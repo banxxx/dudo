@@ -19,6 +19,7 @@ import 'modes/scroll/reader_scroll_block.dart';
 import 'modes/scroll/reader_scroll_mode_view.dart';
 import 'reader_controls.dart';
 import 'widgets/reader_background.dart';
+import 'widgets/reader_brightness_overlay.dart';
 import 'widgets/reader_gesture_layer.dart';
 import 'widgets/reader_progress.dart';
 import 'widgets/reader_state_message.dart';
@@ -48,7 +49,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
   ReaderPalette _palette = ReaderTheme.parchment;
   double _fontSize = 19;
   double _lineHeight = 1.72;
-  double _brightness = 0.72;
+  double _brightness = 1;
   ReaderTurnMode _pageTurnMode = ReaderTurnMode.slide;
   bool _volumePageTurnEnabled = true;
   bool _isListening = false;
@@ -166,6 +167,7 @@ class _ReaderPageState extends ConsumerState<ReaderPage> {
                 ReaderPaperBackground(palette: _palette),
                 ReaderSoftPageEdge(metrics: metrics),
                 content,
+                ReaderBrightnessOverlay(brightness: _brightness),
               ],
             );
           },
