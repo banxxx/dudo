@@ -216,7 +216,7 @@ class PageCurlRenderBox extends RenderBox {
     canvas.save();
     canvas.clipRect(Offset.zero & size);
     _clipBezierBackArea(canvas, geometry);
-    canvas.drawRect(bounds, Paint()..color = _pageColor);
+    canvas.drawRect(Offset.zero & size, Paint()..color = _pageColor);
     canvas.transform(geometry.reflectionMatrix.storage);
     _drawImageFullWithPaint(
       canvas,
@@ -237,14 +237,13 @@ class PageCurlRenderBox extends RenderBox {
       ..lineTo(geometry.start2.dx, geometry.start2.dy)
       ..lineTo(geometry.cornerPoint.dx, geometry.cornerPoint.dy)
       ..close();
-    final bandWidth =
-        (geometry.touchToCornerDistance / 4).clamp(12.0, 96.0).toDouble();
+    final bandWidth = geometry.touchToCornerDistance / 4;
     final left = geometry.isRightTopOrLeftBottom
-        ? geometry.start1.dx
-        : geometry.start1.dx - bandWidth;
+        ? _trunc(geometry.start1.dx)
+        : _trunc(geometry.start1.dx - bandWidth);
     final right = geometry.isRightTopOrLeftBottom
-        ? geometry.start1.dx + bandWidth
-        : geometry.start1.dx;
+        ? _trunc(geometry.start1.dx + bandWidth)
+        : _trunc(geometry.start1.dx);
     final radians = math.atan2(
       geometry.control1.dx - geometry.cornerPoint.dx,
       geometry.control2.dy - geometry.cornerPoint.dy,
@@ -260,9 +259,9 @@ class PageCurlRenderBox extends RenderBox {
       radians: radians,
       rect: Rect.fromLTRB(
         left,
-        geometry.start1.dy,
+        _trunc(geometry.start1.dy),
         right,
-        geometry.start1.dy + _maxShadowLength,
+        _trunc(geometry.start1.dy + _maxShadowLength),
       ),
       colors: geometry.isRightTopOrLeftBottom
           ? [_legadoBackShadow, _legadoTransparentPageShadow]
@@ -307,11 +306,11 @@ class PageCurlRenderBox extends RenderBox {
         ..close(),
     );
     final verticalLeft = geometry.isRightTopOrLeftBottom
-        ? geometry.control1.dx
-        : geometry.control1.dx - 25;
+        ? _trunc(geometry.control1.dx)
+        : _trunc(geometry.control1.dx - 25);
     final verticalRight = geometry.isRightTopOrLeftBottom
-        ? geometry.control1.dx + 25
-        : geometry.control1.dx + 1;
+        ? _trunc(geometry.control1.dx + 25)
+        : _trunc(geometry.control1.dx + 1);
     _drawRotatedBand(
       canvas,
       pivot: geometry.control1,
@@ -321,9 +320,9 @@ class PageCurlRenderBox extends RenderBox {
       ),
       rect: Rect.fromLTRB(
         verticalLeft,
-        geometry.control1.dy - _maxShadowLength,
+        _trunc(geometry.control1.dy - _maxShadowLength),
         verticalRight,
-        geometry.control1.dy,
+        _trunc(geometry.control1.dy),
       ),
       colors: geometry.isRightTopOrLeftBottom
           ? [_legadoFrontShadow, _legadoTransparentPageShadow]
@@ -344,11 +343,11 @@ class PageCurlRenderBox extends RenderBox {
         ..close(),
     );
     final horizontalTop = geometry.isRightTopOrLeftBottom
-        ? geometry.control2.dy
-        : geometry.control2.dy - 25;
+        ? _trunc(geometry.control2.dy)
+        : _trunc(geometry.control2.dy - 25);
     final horizontalBottom = geometry.isRightTopOrLeftBottom
-        ? geometry.control2.dy + 25
-        : geometry.control2.dy + 1;
+        ? _trunc(geometry.control2.dy + 25)
+        : _trunc(geometry.control2.dy + 1);
     final temp = geometry.control2.dy < 0
         ? geometry.control2.dy - size.height
         : geometry.control2.dy;
@@ -356,11 +355,11 @@ class PageCurlRenderBox extends RenderBox {
       geometry.control2.dx * geometry.control2.dx + temp * temp,
     );
     final horizontalLeft = hmg > _maxShadowLength
-        ? geometry.control2.dx - 25 - hmg
-        : geometry.control2.dx - _maxShadowLength;
+        ? _trunc(geometry.control2.dx - 25 - hmg)
+        : _trunc(geometry.control2.dx - _maxShadowLength);
     final horizontalRight = hmg > _maxShadowLength
-        ? geometry.control2.dx + _maxShadowLength - hmg
-        : geometry.control2.dx;
+        ? _trunc(geometry.control2.dx + _maxShadowLength - hmg)
+        : _trunc(geometry.control2.dx);
     _drawRotatedBand(
       canvas,
       pivot: geometry.control2,
@@ -386,19 +385,17 @@ class PageCurlRenderBox extends RenderBox {
     Canvas canvas,
     PageCurlBezierGeometry geometry,
   ) {
-    final f1 = (((geometry.start1.dx + geometry.control1.dx) / 2) -
-            geometry.control1.dx)
-        .abs();
-    final f2 = (((geometry.start2.dy + geometry.control2.dy) / 2) -
-            geometry.control2.dy)
-        .abs();
-    final bandWidth = math.min(f1, f2).clamp(8.0, 72.0).toDouble();
+    final i = _trunc((geometry.start1.dx + geometry.control1.dx) / 2);
+    final f1 = (i - geometry.control1.dx).abs();
+    final i1 = _trunc((geometry.start2.dy + geometry.control2.dy) / 2);
+    final f2 = (i1 - geometry.control2.dy).abs();
+    final bandWidth = math.min(f1, f2);
     final left = geometry.isRightTopOrLeftBottom
-        ? geometry.start1.dx - 1
-        : geometry.start1.dx - bandWidth - 1;
+        ? _trunc(geometry.start1.dx - 1)
+        : _trunc(geometry.start1.dx - bandWidth - 1);
     final right = geometry.isRightTopOrLeftBottom
-        ? geometry.start1.dx + bandWidth + 1
-        : geometry.start1.dx + 1;
+        ? _trunc(geometry.start1.dx + bandWidth + 1)
+        : _trunc(geometry.start1.dx + 1);
     final radians = math.atan2(
       geometry.control1.dx - geometry.cornerPoint.dx,
       geometry.control2.dy - geometry.cornerPoint.dy,
@@ -413,9 +410,9 @@ class PageCurlRenderBox extends RenderBox {
       radians: radians,
       rect: Rect.fromLTRB(
         left,
-        geometry.start1.dy,
+        _trunc(geometry.start1.dy),
         right,
-        geometry.start1.dy + _maxShadowLength,
+        _trunc(geometry.start1.dy + _maxShadowLength),
       ),
       colors: geometry.isRightTopOrLeftBottom
           ? [_legadoTransparentFolderShadow, _legadoFolderShadow]
@@ -427,6 +424,10 @@ class PageCurlRenderBox extends RenderBox {
 
   double get _maxShadowLength {
     return math.sqrt(size.width * size.width + size.height * size.height);
+  }
+
+  double _trunc(double value) {
+    return value.truncateToDouble();
   }
 
   Path _outsideBezierFoldPath(PageCurlBezierGeometry geometry) {

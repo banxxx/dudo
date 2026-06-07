@@ -432,15 +432,17 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       _animateBackToRest();
       return;
     }
+    final travel = _simulationAnimationTravel(
+      gesture: gesture,
+      direction: direction,
+      cancel: false,
+      baseDuration: _commitTravelDuration,
+    );
     _animateTouch(
       from: gesture.current,
-      to: _simulationAnimationEndPoint(
-        gesture: gesture,
-        direction: direction,
-        cancel: false,
-      ),
+      to: travel.to,
       curve: Curves.linear,
-      duration: _commitTravelDuration,
+      duration: travel.duration,
     );
   }
 
@@ -453,15 +455,17 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     }
     _committingDirection = null;
     _cancelingDirection = _directionForGesture(direction);
+    final travel = _simulationAnimationTravel(
+      gesture: gesture,
+      direction: _cancelingDirection!,
+      cancel: true,
+      baseDuration: _cancelTravelDuration,
+    );
     _animateTouch(
       from: gesture.current,
-      to: _simulationAnimationEndPoint(
-        gesture: gesture,
-        direction: _cancelingDirection!,
-        cancel: true,
-      ),
-      curve: Curves.easeOutCubic,
-      duration: _cancelTravelDuration,
+      to: travel.to,
+      curve: Curves.linear,
+      duration: travel.duration,
     );
   }
 
@@ -514,23 +518,48 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     );
   }
 
-  Offset _simulationAnimationEndPoint({
+  _PageCurlTravel _simulationAnimationTravel({
     required PageCurlGesture gesture,
     required int direction,
     required bool cancel,
+    required Duration baseDuration,
   }) {
     final height = math.max(1.0, _viewportHeight);
     final width = math.max(1.0, _viewportWidth);
     final cornerY = _simulationCornerY(gesture: gesture, direction: direction);
+    final isNext = direction > 0;
+    var dx = 0.0;
+    if (cancel) {
+      dx = isNext ? width - gesture.current.dx : -(width + gesture.current.dx);
+    } else {
+      dx = isNext ? -(width + gesture.current.dx) : width - gesture.current.dx;
+    }
+    final dy = cancel
+        ? (cornerY > height / 2
+            ? height - gesture.current.dy
+            : -gesture.current.dy)
+        : (cornerY > height / 2
+            ? height - gesture.current.dy
+            : math.min(1.0, height) - gesture.current.dy);
+    final to = Offset(gesture.current.dx + dx, gesture.current.dy + dy);
+    return _PageCurlTravel(
+      to: to,
+      duration: _scaledTravelDuration(
+        baseDuration: baseDuration,
+        primaryDistance: dx != 0 ? dx.abs() : dy.abs(),
+        viewportDistance: dx != 0 ? width : height,
+      ),
+    );
+  }
 
-    final endX = switch ((cancel, direction > 0)) {
-      (true, true) => width,
-      (true, false) => -width,
-      (false, true) => -width,
-      (false, false) => width,
-    };
-    final endY = cornerY > height / 2 ? height : math.min(1.0, height);
-    return Offset(endX, endY);
+  Duration _scaledTravelDuration({
+    required Duration baseDuration,
+    required double primaryDistance,
+    required double viewportDistance,
+  }) {
+    final ratio = primaryDistance / math.max(1.0, viewportDistance);
+    final milliseconds = (baseDuration.inMilliseconds * ratio).round();
+    return Duration(milliseconds: math.max(1, milliseconds));
   }
 
   double _simulationCornerY({
@@ -775,4 +804,14 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       _startProgrammaticTurn(direction, start);
     });
   }
+}
+
+class _PageCurlTravel {
+  const _PageCurlTravel({
+    required this.to,
+    required this.duration,
+  });
+
+  final Offset to;
+  final Duration duration;
 }
