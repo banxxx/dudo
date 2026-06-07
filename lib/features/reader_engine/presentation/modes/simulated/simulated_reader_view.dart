@@ -57,7 +57,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   final GlobalKey _currentPageKey = GlobalKey();
   final GlobalKey _targetPageKey = GlobalKey();
   final PageCurlSnapshotController _snapshotController =
-      const PageCurlSnapshotController();
+      const PageCurlSnapshotController(quality: PageCurlQuality.high);
 
   late final AnimationController _controller;
   late final PageCurlController _curlController;
@@ -73,6 +73,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   PageCurlGesture? _gesture;
   ReaderResolvedPage? _transitionTarget;
   ReaderResolvedPage? _committedTarget;
+  ReaderResolvedPage? _snapshotHandoffTarget;
   int? _committingDirection;
   PageCurlSnapshotPair? _snapshots;
   bool _captureInFlight = false;
@@ -101,6 +102,9 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
         _pageIndex = null;
         _resetTurnState(stopAnimation: true, disposeSnapshots: true);
       }
+      return;
+    }
+    if (_snapshotHandoffTarget != null) {
       return;
     }
     if (oldWidget.viewport.center.chapter.index !=
@@ -237,7 +241,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
                       controller: _curlController,
                       snapshots: snapshots,
                       pageColor: pageColor,
-                      quality: PageCurlQuality.normal,
+                      quality: PageCurlQuality.high,
                     ),
                 ],
               ),
@@ -600,7 +604,13 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     final direction = _committingDirection;
     if (target != null && direction != null) {
       if (target.chapterIndex == widget.viewport.center.chapter.index) {
-        _pageIndex = target.pageIndex;
+        setState(() {
+          _pageIndex = target.pageIndex;
+          _snapshotHandoffTarget = target;
+        });
+        widget.onLocationChanged(target.page.start);
+        _scheduleSnapshotHandoffClear(target);
+        return;
       } else {
         _committedTarget = target;
       }
@@ -670,6 +680,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     _dragOffset = 0;
     _gesture = null;
     _transitionTarget = null;
+    _snapshotHandoffTarget = null;
     _committingDirection = null;
     _captureInFlight = false;
     _snapshotCaptureFuture = null;
@@ -678,6 +689,20 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     if (disposeSnapshots) {
       _disposeSnapshots();
     }
+  }
+
+  void _scheduleSnapshotHandoffClear(ReaderResolvedPage target) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isSameResolvedPage(_snapshotHandoffTarget, target)) {
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_isSameResolvedPage(_snapshotHandoffTarget, target)) {
+          return;
+        }
+        setState(() => _resetTurnState(disposeSnapshots: true));
+      });
+    });
   }
 
   void _disposeSnapshots() {
@@ -729,6 +754,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
         direction == 0 ||
         widget.controlsVisible ||
         _committedTarget != null ||
+        _snapshotHandoffTarget != null ||
         _controller.isAnimating) {
       return;
     }

@@ -69,6 +69,71 @@ void main() {
         findsOneWidget);
   });
 
+  testWidgets('SimulatedReaderView keeps the curl painter during page handoff',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 520);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final center = _item(0, pageCount: 2);
+    final reportedLocations = <ReaderLocation>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 520,
+          child: SimulatedReaderView(
+            viewport: ReaderViewportState(
+              center: center,
+              currentLocation: ReaderLocation.startOfChapter(
+                bookId: 'book-1',
+                chapterIndex: 0,
+              ),
+              currentLayout: center.layout,
+            ),
+            settings: ReaderSettings.defaults(),
+            palette: ReaderTheme.parchment,
+            controlsVisible: false,
+            onContentTap: () {},
+            onPreviousBoundary: () {},
+            onNextBoundary: () {},
+            onLocationChanged: reportedLocations.add,
+          ),
+        ),
+      ),
+    );
+
+    final view = find.byKey(const ValueKey('reader-engine-simulated-view'));
+    final gesture = await tester.startGesture(
+      tester.getCenter(view) + const Offset(140, 0),
+    );
+
+    await gesture.moveBy(const Offset(-140, 0));
+    await tester.pump();
+    await tester.pump();
+    await gesture.up();
+    for (var i = 0; i < 60 && reportedLocations.isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await tester.pump();
+
+    expect(reportedLocations, hasLength(1));
+    expect(
+      find.byKey(const ValueKey('reader-engine-simulated-current-0-1')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('reader-engine-page-curl-painter')),
+        findsOneWidget);
+
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('reader-engine-page-curl-painter')),
+        findsNothing);
+  });
+
   testWidgets('SimulatedReaderView reports adjacent chapter page after drag',
       (tester) async {
     tester.view.devicePixelRatio = 1;

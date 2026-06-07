@@ -174,8 +174,15 @@ class PageCurlRenderBox extends RenderBox {
       image,
       Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
       Offset.zero & size,
-      Paint()..filterQuality = FilterQuality.low,
+      Paint()..filterQuality = _imageFilterQuality,
     );
+  }
+
+  FilterQuality get _imageFilterQuality {
+    if (_quality.pixelRatioCap >= PageCurlQuality.high.pixelRatioCap) {
+      return FilterQuality.medium;
+    }
+    return FilterQuality.low;
   }
 
   void _drawImageClipped(

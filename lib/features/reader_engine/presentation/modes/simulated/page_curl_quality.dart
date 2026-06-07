@@ -16,7 +16,7 @@ class PageCurlQuality {
 
   static const high = PageCurlQuality(
     stripCount: 88,
-    pixelRatioCap: 2.0,
+    pixelRatioCap: 2.5,
   );
 
   final int stripCount;
