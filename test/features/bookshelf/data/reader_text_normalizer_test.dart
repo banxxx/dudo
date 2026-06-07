@@ -1,4 +1,4 @@
-import 'package:dudo/features/reader/domain/reader_text_normalizer.dart';
+import 'package:dudo/features/bookshelf/data/reader_text_normalizer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

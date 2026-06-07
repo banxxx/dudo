@@ -4,7 +4,7 @@ import 'dart:isolate';
 import 'package:drift/drift.dart';
 
 import '../../../core/database/app_database.dart';
-import '../../reader/domain/reader_text_normalizer.dart';
+import 'reader_text_normalizer.dart';
 import 'bookshelf_repository.dart';
 import 'txt_chapter_parser.dart';
 
@@ -14,7 +14,8 @@ class LocalBookChapterAnalysisService {
   final BookshelfRepository repository;
   final Set<String> _runningBookIds = <String>{};
 
-  void analyzeInBackground({required String bookId, required String localPath}) {
+  void analyzeInBackground(
+      {required String bookId, required String localPath}) {
     if (!_runningBookIds.add(bookId)) return;
     Future<void>(() async {
       try {
@@ -26,7 +27,8 @@ class LocalBookChapterAnalysisService {
     });
   }
 
-  Future<void> analyzeNow({required String bookId, required String localPath}) async {
+  Future<void> analyzeNow(
+      {required String bookId, required String localPath}) async {
     final result = await Isolate.run(
       () => _parseLocalTxtBook(_LocalTxtParseRequest(localPath)),
     );

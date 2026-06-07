@@ -1,4 +1,16 @@
-import 'reader_paragraph_span.dart';
+class ReaderParagraphSpan {
+  const ReaderParagraphSpan({
+    required this.index,
+    required this.text,
+    required this.startOffset,
+    required this.endOffset,
+  });
+
+  final int index;
+  final String text;
+  final int startOffset;
+  final int endOffset;
+}
 
 String normalizeReaderText(String content) {
   return splitReaderParagraphs(content).join('\n\n');

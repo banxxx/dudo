@@ -501,64 +501,6 @@ void main() {
         findsOneWidget);
   });
 
-  testWidgets('SimulatedReaderView keeps curl page color aligned to brightness',
-      (tester) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(320, 520);
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    final center = _item(0, pageCount: 2);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: SizedBox(
-          width: 320,
-          height: 520,
-          child: SimulatedReaderView(
-            viewport: ReaderViewportState(
-              center: center,
-              currentLocation: ReaderLocation.startOfChapter(
-                bookId: 'book-1',
-                chapterIndex: 0,
-              ),
-              currentLayout: center.layout,
-            ),
-            settings: ReaderSettings.defaults(),
-            palette: ReaderTheme.parchment,
-            brightness: 0.72,
-            controlsVisible: false,
-            onContentTap: () {},
-            onPreviousBoundary: () {},
-            onNextBoundary: () {},
-            onLocationChanged: (_) {},
-          ),
-        ),
-      ),
-    );
-
-    final view = find.byKey(const ValueKey('reader-engine-simulated-view'));
-    final start = tester.getTopLeft(view) + const Offset(300, 260);
-    final gesture = await tester.startGesture(start);
-
-    await gesture.moveBy(const Offset(-90, 0));
-    await tester.pump();
-    await tester.pump();
-
-    final renderBox = tester.renderObject<PageCurlRenderBox>(
-      find.byKey(const ValueKey('reader-engine-page-curl-painter')),
-    );
-    final expected = Color.alphaBlend(
-      Colors.black.withValues(alpha: 0.28),
-      ReaderTheme.parchment.background,
-    );
-
-    expect(renderBox.pageColor, expected);
-
-    await gesture.up();
-    await tester.pumpAndSettle();
-  });
-
   testWidgets('SimulatedReaderView uses previousPageIn for previous drag',
       (tester) async {
     tester.view.devicePixelRatio = 1;

@@ -30,7 +30,6 @@ class ReaderLayoutCacheKey {
         settings.fontFamily,
         settings.fontSize,
         settings.lineHeight,
-        settings.brightness,
         settings.turnMode.name,
         settings.paragraphSpacing,
         settings.pagePadding.left,

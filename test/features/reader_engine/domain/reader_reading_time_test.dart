@@ -1,4 +1,4 @@
-import 'package:dudo/features/reader/domain/reader_reading_time.dart';
+import 'package:dudo/features/reader_engine/domain/reader_reading_time.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

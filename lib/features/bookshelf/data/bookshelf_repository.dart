@@ -1,7 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../../core/database/app_database.dart';
-import '../../reader/domain/reader_text_normalizer.dart';
+import 'reader_text_normalizer.dart';
 
 class BookshelfRepository {
   const BookshelfRepository(this.database);

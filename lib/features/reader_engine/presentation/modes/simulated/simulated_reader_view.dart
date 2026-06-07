@@ -21,7 +21,6 @@ class SimulatedReaderView extends StatefulWidget {
     required this.viewport,
     required this.settings,
     required this.palette,
-    this.brightness = 1,
     required this.controlsVisible,
     this.externalPageTurnRequestId = 0,
     this.externalPageTurnDirection = 0,
@@ -34,7 +33,6 @@ class SimulatedReaderView extends StatefulWidget {
   final ReaderViewportState viewport;
   final ReaderSettings settings;
   final ReaderPalette palette;
-  final double brightness;
   final bool controlsVisible;
   final int externalPageTurnRequestId;
   final int externalPageTurnDirection;
@@ -141,10 +139,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
           pageIndex: _pageIndex,
         );
         final target = _transitionTarget ?? window.current;
-        final pageColor = _pageColorForBrightness(
-          widget.palette.background,
-          widget.brightness,
-        );
+        final pageColor = widget.palette.background;
         final committedTarget = _committedTarget;
         if (committedTarget != null) {
           return SizedBox.expand(
@@ -251,15 +246,6 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   }
 
   bool get _snapshotsDisposed => _snapshots?.isDisposed ?? true;
-
-  Color _pageColorForBrightness(Color color, double brightness) {
-    final overlayAlpha = (1 - brightness).clamp(0.0, 0.65).toDouble();
-    if (overlayAlpha <= 0) return color;
-    return Color.alphaBlend(
-      Colors.black.withValues(alpha: overlayAlpha),
-      color,
-    );
-  }
 
   void _handleTap(Offset position) {
     final width = _viewportWidth;

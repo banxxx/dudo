@@ -3,7 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../domain/reader_catalog_item.dart';
 import '../domain/reader_overlay_mode.dart';
-import 'modes/reader_turn_mode.dart';
+import '../domain/reader_turn_mode.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/app_tokens.dart';
@@ -1685,7 +1685,7 @@ class _PageTurnPanelState extends State<_PageTurnPanel> {
     final metrics = widget.metrics;
     final modes = <_PageTurnModeData>[
       const _PageTurnModeData(
-        mode: ReaderTurnMode.simulation,
+        mode: ReaderTurnMode.simulated,
         icon: LucideIcons.bookOpen,
       ),
       const _PageTurnModeData(
@@ -1701,7 +1701,7 @@ class _PageTurnPanelState extends State<_PageTurnPanel> {
         icon: LucideIcons.scrollText,
       ),
       const _PageTurnModeData(
-        mode: ReaderTurnMode.noAnimation,
+        mode: ReaderTurnMode.paged,
         icon: LucideIcons.ban,
       ),
     ];
@@ -1810,8 +1810,8 @@ class _PageTurnModeCard extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: DudoTextStyles.sans(
                   color: labelColor,
-                  fontSize: metrics
-                      .s(data.mode == ReaderTurnMode.noAnimation ? 11.5 : 12),
+                  fontSize:
+                      metrics.s(data.mode == ReaderTurnMode.paged ? 11.5 : 12),
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
@@ -1820,6 +1820,18 @@ class _PageTurnModeCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+extension _ReaderTurnModeLabel on ReaderTurnMode {
+  String get label {
+    return switch (this) {
+      ReaderTurnMode.simulated => '仿真',
+      ReaderTurnMode.cover => '覆盖',
+      ReaderTurnMode.slide => '滑动',
+      ReaderTurnMode.scroll => '滚动',
+      ReaderTurnMode.paged => '无动画',
+    };
   }
 }
 

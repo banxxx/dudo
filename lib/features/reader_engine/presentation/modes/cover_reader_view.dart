@@ -15,7 +15,6 @@ class CoverReaderView extends StatefulWidget {
     required this.viewport,
     required this.settings,
     required this.palette,
-    this.brightness = 1,
     required this.controlsVisible,
     this.externalPageTurnRequestId = 0,
     this.externalPageTurnDirection = 0,
@@ -28,7 +27,6 @@ class CoverReaderView extends StatefulWidget {
   final ReaderViewportState viewport;
   final ReaderSettings settings;
   final ReaderPalette palette;
-  final double brightness;
   final bool controlsVisible;
   final int externalPageTurnRequestId;
   final int externalPageTurnDirection;
@@ -168,7 +166,6 @@ class _CoverReaderViewState extends State<CoverReaderView>
                     width: width,
                     settings: widget.settings,
                     palette: widget.palette,
-                    brightness: widget.brightness,
                   ),
                 ],
               ),
@@ -333,7 +330,6 @@ class _CurrentCoverStack extends StatelessWidget {
     required this.width,
     required this.settings,
     required this.palette,
-    required this.brightness,
   });
 
   final ReaderPagedWindow window;
@@ -343,7 +339,6 @@ class _CurrentCoverStack extends StatelessWidget {
   final double width;
   final ReaderSettings settings;
   final ReaderPalette palette;
-  final double brightness;
 
   @override
   Widget build(BuildContext context) {
@@ -376,7 +371,6 @@ class _CurrentCoverStack extends StatelessWidget {
             key: const ValueKey('reader-engine-cover-moving-current'),
             offset: Offset(offset, 0),
             palette: palette,
-            brightness: brightness,
             child: ReaderPageSurface(
               key: ValueKey(
                 'reader-engine-cover-current-'
@@ -407,7 +401,6 @@ class _CurrentCoverStack extends StatelessWidget {
           key: const ValueKey('reader-engine-cover-moving-target'),
           offset: Offset(-width + offset, 0),
           palette: palette,
-          brightness: brightness,
           child: ReaderPageSurface(
             key: ValueKey(
               'reader-engine-cover-target-'
@@ -428,13 +421,11 @@ class _CoverPage extends StatelessWidget {
     super.key,
     required this.offset,
     required this.palette,
-    required this.brightness,
     required this.child,
   });
 
   final Offset offset;
   final ReaderPalette palette;
-  final double brightness;
   final Widget child;
 
   @override
@@ -466,12 +457,6 @@ class _CoverPage extends StatelessWidget {
                   ),
                 ),
               ),
-              if (brightness < 0.98)
-                ColoredBox(
-                  color: Colors.black.withValues(
-                    alpha: (1 - brightness).clamp(0.0, 0.65),
-                  ),
-                ),
               child,
             ],
           ),

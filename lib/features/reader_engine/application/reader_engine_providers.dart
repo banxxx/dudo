@@ -10,8 +10,6 @@ import '../data/reader_progress_repository.dart';
 import '../data/text_reader_book_repository.dart';
 import '../data/text_reader_document_source.dart';
 
-final useReaderEngineV2Provider = StateProvider<bool>((_) => true);
-
 final readerDocumentSourceProvider = Provider<ReaderDocumentSource>((ref) {
   final repository = ref.watch(bookshelfRepositoryProvider);
   return TextReaderDocumentSource(

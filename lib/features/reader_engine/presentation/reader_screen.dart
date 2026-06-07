@@ -4,29 +4,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../shared/theme/app_theme.dart';
-import '../../reader/domain/reader_catalog_item.dart' as legacy;
-import '../../reader/domain/reader_overlay_mode.dart' as legacy;
-import '../../reader/domain/reader_reading_time.dart';
-import '../../reader/presentation/layout/reader_page_metrics.dart' as legacy;
-import '../../reader/presentation/modes/reader_turn_mode.dart' as legacy;
-import '../../reader/presentation/reader_controls.dart' as legacy;
-import '../../reader/presentation/widgets/reader_background.dart' as legacy;
-import '../../reader/presentation/widgets/reader_brightness_overlay.dart'
-    as legacy;
-import '../../reader/presentation/widgets/reader_progress.dart' as legacy;
-import '../../reader/presentation/widgets/reader_volume_page_turn_listener.dart'
-    as legacy;
 import '../application/reader_engine_providers.dart';
 import '../application/reader_engine_state.dart';
 import '../controller/reader_session_controller.dart';
 import '../controller/reader_viewport_controller.dart';
+import '../domain/reader_catalog_item.dart';
 import '../domain/reader_insets.dart';
 import '../domain/reader_location.dart';
+import '../domain/reader_overlay_mode.dart';
+import '../domain/reader_reading_time.dart';
 import '../domain/reader_settings.dart';
 import '../domain/reader_turn_mode.dart';
 import '../domain/reader_viewport_state.dart';
 import '../layout/reader_layout_engine.dart';
+import 'layout/reader_page_metrics.dart';
+import 'reader_controls.dart';
 import 'reader_viewport.dart';
+import 'widgets/reader_background.dart';
+import 'widgets/reader_brightness_overlay.dart';
+import 'widgets/reader_progress.dart';
+import 'widgets/reader_volume_page_turn_listener.dart';
 
 class ReaderScreen extends ConsumerStatefulWidget {
   const ReaderScreen({
@@ -50,7 +47,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Size? _lastViewportSize;
   EdgeInsets? _lastViewportPadding;
 
-  legacy.ReaderOverlayMode _overlayMode = legacy.ReaderOverlayMode.hidden;
+  ReaderOverlayMode _overlayMode = ReaderOverlayMode.hidden;
   ReaderPalette _palette = ReaderTheme.parchment;
   double _fontSize = 19;
   double _lineHeight = 1.72;
@@ -59,7 +56,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   bool _isListening = false;
   int _volumePageTurnRequestId = 0;
   int _volumePageTurnDirection = 0;
-  List<legacy.ReaderCatalogItem> _catalogItems = const [];
+  List<ReaderCatalogItem> _catalogItems = const [];
   bool _catalogLoading = false;
 
   @override
@@ -102,9 +99,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         key: const ValueKey('reader-engine-screen'),
         extendBodyBehindAppBar: true,
         backgroundColor: _palette.background,
-        body: legacy.ReaderVolumePageTurnListener(
+        body: ReaderVolumePageTurnListener(
           enabled: _volumePageTurnEnabled &&
-              _overlayMode == legacy.ReaderOverlayMode.hidden,
+              _overlayMode == ReaderOverlayMode.hidden,
           onPreviousPage: () => _requestVolumePageTurn(-1),
           onNextPage: () => _requestVolumePageTurn(1),
           child: SizedBox.expand(
@@ -112,7 +109,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               builder: (context, constraints) {
                 final size = Size(constraints.maxWidth, constraints.maxHeight);
                 final safePadding = MediaQuery.paddingOf(context);
-                final metrics = legacy.ReaderPageMetrics.fromSize(size);
+                final metrics = ReaderPageMetrics.fromSize(size);
                 _ensureController(size, safePadding);
                 return FutureBuilder<void>(
                   future: _initialization,
@@ -122,8 +119,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                     return Stack(
                       fit: StackFit.expand,
                       children: [
-                        legacy.ReaderPaperBackground(palette: _palette),
-                        legacy.ReaderSoftPageEdge(metrics: metrics),
+                        ReaderPaperBackground(palette: _palette),
+                        ReaderSoftPageEdge(metrics: metrics),
                         if (controller == null ||
                             state == null ||
                             state.loadStatus == ReaderLoadStatus.loading)
@@ -145,7 +142,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                             controller: controller,
                             state: state,
                           ),
-                        legacy.ReaderBrightnessOverlay(
+                        ReaderBrightnessOverlay(
                           brightness: _brightness,
                         ),
                       ],
@@ -162,7 +159,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   List<Widget> _readerLayers({
     required BuildContext context,
-    required legacy.ReaderPageMetrics metrics,
+    required ReaderPageMetrics metrics,
     required ReaderSessionController controller,
     required ReaderSessionState state,
   }) {
@@ -195,14 +192,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         ? chapter.title
         : '${chapter.title} · ${_pageIndexFor(state) + 1}/'
             '${viewport.currentLayout.pages.length}';
-    final oldTurnMode = _legacyTurnMode(state.settings.turnMode);
-
     return [
       Positioned.fill(
         child: ReaderViewport(
           state: state,
           palette: _palette,
-          controlsVisible: _overlayMode != legacy.ReaderOverlayMode.hidden,
+          controlsVisible: _overlayMode != ReaderOverlayMode.hidden,
           source: controller.source,
           layoutEngine: controller.viewportController.layoutEngine,
           viewportSize: controller.viewportSize,
@@ -224,13 +219,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           },
         ),
       ),
-      legacy.ReaderProgress(
+      ReaderProgress(
         metrics: metrics,
         palette: _palette,
         pageLabel: pageLabel,
         progress: chapterProgress,
       ),
-      legacy.ReaderControls(
+      ReaderControls(
         mode: _overlayMode,
         bookTitle: document.title,
         chapterLabel: chapter.title,
@@ -241,7 +236,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         fontSize: _fontSize,
         lineHeight: _lineHeight,
         brightness: _brightness,
-        pageTurnMode: oldTurnMode,
+        pageTurnMode: state.settings.turnMode,
         volumePageTurnEnabled: _volumePageTurnEnabled,
         isListening: _isListening,
         currentChapterIndex: location.chapterIndex,
@@ -251,17 +246,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         catalogIsLoadingMore: _catalogLoading,
         onCatalogLoadMore: () => _loadCatalog(document.chapterCount),
         onBack: () => context.pop(),
-        onClose: () => _setOverlayMode(legacy.ReaderOverlayMode.controls),
+        onClose: () => _setOverlayMode(ReaderOverlayMode.controls),
         onModeChanged: (mode) {
           _setOverlayMode(mode);
-          if (mode == legacy.ReaderOverlayMode.catalog) {
+          if (mode == ReaderOverlayMode.catalog) {
             _loadCatalog(document.chapterCount);
           }
         },
         onChapterSelected: (chapterIndex) async {
           await controller.jumpToChapter(chapterIndex);
           if (mounted) {
-            setState(() => _overlayMode = legacy.ReaderOverlayMode.hidden);
+            setState(() => _overlayMode = ReaderOverlayMode.hidden);
           }
         },
         onPreviousChapter: location.chapterIndex <= 0
@@ -280,11 +275,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           setState(() => _brightness = value);
         },
         onPageTurnModeChanged: (mode) async {
-          await controller.updateSettings(
-            state.settings.copyWith(turnMode: _engineTurnMode(mode)),
-          );
+          await controller
+              .updateSettings(state.settings.copyWith(turnMode: mode));
           if (mounted) {
-            setState(() => _overlayMode = legacy.ReaderOverlayMode.hidden);
+            setState(() => _overlayMode = ReaderOverlayMode.hidden);
           }
         },
         onVolumePageTurnChanged: (value) {
@@ -330,12 +324,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   Future<void> _previousChapter(ReaderSessionController controller) async {
     await controller.goToPreviousChapter();
-    if (mounted) setState(() => _overlayMode = legacy.ReaderOverlayMode.hidden);
+    if (mounted) setState(() => _overlayMode = ReaderOverlayMode.hidden);
   }
 
   Future<void> _nextChapter(ReaderSessionController controller) async {
     await controller.goToNextChapter();
-    if (mounted) setState(() => _overlayMode = legacy.ReaderOverlayMode.hidden);
+    if (mounted) setState(() => _overlayMode = ReaderOverlayMode.hidden);
   }
 
   Future<void> _updateFontSize(
@@ -377,7 +371,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       setState(() {
         _catalogItems = [
           for (final item in page.items)
-            legacy.ReaderCatalogItem(
+            ReaderCatalogItem(
               chapterIndex: item.index,
               title: item.title,
               subtitle: item.normalizedContentLength > 0
@@ -393,20 +387,20 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   void _toggleOverlay() {
     _setOverlayMode(
-      _overlayMode == legacy.ReaderOverlayMode.hidden
-          ? legacy.ReaderOverlayMode.controls
-          : legacy.ReaderOverlayMode.hidden,
+      _overlayMode == ReaderOverlayMode.hidden
+          ? ReaderOverlayMode.controls
+          : ReaderOverlayMode.hidden,
     );
   }
 
-  void _setOverlayMode(legacy.ReaderOverlayMode mode) {
+  void _setOverlayMode(ReaderOverlayMode mode) {
     if (_overlayMode == mode) return;
     setState(() => _overlayMode = mode);
   }
 
   void _requestVolumePageTurn(int direction) {
     if (!_volumePageTurnEnabled ||
-        _overlayMode != legacy.ReaderOverlayMode.hidden ||
+        _overlayMode != ReaderOverlayMode.hidden ||
         direction == 0) {
       return;
     }
@@ -416,28 +410,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     });
   }
 
-  legacy.ReaderTurnMode _legacyTurnMode(ReaderTurnMode mode) {
-    return switch (mode) {
-      ReaderTurnMode.paged => legacy.ReaderTurnMode.noAnimation,
-      ReaderTurnMode.cover => legacy.ReaderTurnMode.cover,
-      ReaderTurnMode.slide => legacy.ReaderTurnMode.slide,
-      ReaderTurnMode.scroll => legacy.ReaderTurnMode.scroll,
-      ReaderTurnMode.simulated => legacy.ReaderTurnMode.simulation,
-    };
-  }
-
-  ReaderTurnMode _engineTurnMode(legacy.ReaderTurnMode mode) {
-    return switch (mode) {
-      legacy.ReaderTurnMode.noAnimation => ReaderTurnMode.paged,
-      legacy.ReaderTurnMode.cover => ReaderTurnMode.cover,
-      legacy.ReaderTurnMode.slide => ReaderTurnMode.slide,
-      legacy.ReaderTurnMode.scroll => ReaderTurnMode.scroll,
-      legacy.ReaderTurnMode.simulation => ReaderTurnMode.simulated,
-    };
-  }
-
   ReaderSettings _initialSettings(Size size, EdgeInsets safePadding) {
-    final metrics = legacy.ReaderPageMetrics.fromSize(size);
+    final metrics = ReaderPageMetrics.fromSize(size);
     return ReaderSettings.defaults().copyWith(
       fontSize: metrics.s(_fontSize),
       lineHeight: _lineHeight,
@@ -448,7 +422,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   ReaderInsets _readerContentInsets(Size size, EdgeInsets safePadding) {
-    final metrics = legacy.ReaderPageMetrics.fromSize(size);
+    final metrics = ReaderPageMetrics.fromSize(size);
     final left = metrics.x(30);
     final contentWidth = metrics.s(330);
     final right = (size.width - left - contentWidth).clamp(0.0, size.width);
@@ -470,13 +444,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   double _scaledTextSize(double value) {
     final size = _lastViewportSize;
     if (size == null) return value;
-    return legacy.ReaderPageMetrics.fromSize(size).s(value);
+    return ReaderPageMetrics.fromSize(size).s(value);
   }
 
   double _scaledParagraphSpacing(double fontSize) {
     final size = _lastViewportSize;
     if (size == null) return fontSize * _lineHeight;
-    return legacy.ReaderPageMetrics.fromSize(size).s(fontSize * _lineHeight);
+    return ReaderPageMetrics.fromSize(size).s(fontSize * _lineHeight);
   }
 
   void _ensureController(Size size, EdgeInsets safePadding) {

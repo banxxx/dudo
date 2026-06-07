@@ -17,7 +17,6 @@ class ReaderViewport extends StatelessWidget {
     super.key,
     required this.state,
     required this.palette,
-    this.brightness = 1,
     required this.controlsVisible,
     required this.source,
     required this.layoutEngine,
@@ -33,7 +32,6 @@ class ReaderViewport extends StatelessWidget {
 
   final ReaderSessionState state;
   final ReaderPalette palette;
-  final double brightness;
   final bool controlsVisible;
   final ReaderDocumentSource source;
   final ReaderLayoutEngine layoutEngine;
@@ -83,7 +81,6 @@ class ReaderViewport extends StatelessWidget {
           viewport: viewport,
           settings: state.settings,
           palette: palette,
-          brightness: brightness,
           controlsVisible: controlsVisible,
           externalPageTurnRequestId: externalPageTurnRequestId,
           externalPageTurnDirection: externalPageTurnDirection,
@@ -96,7 +93,6 @@ class ReaderViewport extends StatelessWidget {
           viewport: viewport,
           settings: state.settings,
           palette: palette,
-          brightness: brightness,
           controlsVisible: controlsVisible,
           externalPageTurnRequestId: externalPageTurnRequestId,
           externalPageTurnDirection: externalPageTurnDirection,
