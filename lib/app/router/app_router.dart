@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/database/app_database.dart';
 import '../../features/bookmarks/presentation/bookmarks_page.dart';
+import '../../features/bookshelf/application/bookshelf_providers.dart';
 import '../../features/bookshelf/presentation/book_detail_page.dart';
 import '../../features/bookshelf/presentation/bookshelf_library_page.dart';
 import '../../features/home/presentation/home_page.dart';
@@ -34,7 +36,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Main scaffold with bottom navigation.
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
-            HomeScaffold(navigationShell: navigationShell),
+            _HomeShell(navigationShell: navigationShell),
         branches: [
           StatefulShellBranch(
             routes: [
@@ -154,6 +156,41 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ),
   );
 });
+
+class _HomeShell extends ConsumerStatefulWidget {
+  const _HomeShell({required this.navigationShell});
+
+  final StatefulNavigationShell navigationShell;
+
+  @override
+  ConsumerState<_HomeShell> createState() => _HomeShellState();
+}
+
+class _HomeShellState extends ConsumerState<_HomeShell> {
+  late final ProviderSubscription<AsyncValue<List<Book>>>
+      _shelfBooksSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // Keep the shelf stream warm while the main shell is alive.
+    _shelfBooksSubscription = ref.listenManual<AsyncValue<List<Book>>>(
+      shelfBooksProvider,
+      (_, __) {},
+    );
+  }
+
+  @override
+  void dispose() {
+    _shelfBooksSubscription.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return HomeScaffold(navigationShell: widget.navigationShell);
+  }
+}
 
 class AppRoutes {
   AppRoutes._();

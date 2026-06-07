@@ -81,6 +81,101 @@ void main() {
     expect(progressText.data, '0%');
   });
 
+  testWidgets('ReaderScreen keeps controls visible on short phones',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 698);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerDocumentSourceProvider.overrideWithValue(
+            _FakeReaderDocumentSource(),
+          ),
+          readerProgressRepositoryProvider.overrideWithValue(
+            _MemoryProgressRepository(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ReaderScreen(bookId: 'book-1'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(195, 300));
+    await tester.pumpAndSettle();
+
+    final topRect = tester.getRect(
+      find.byKey(const ValueKey('reader-top-controls')),
+    );
+    final bottomRect = tester.getRect(
+      find.byKey(const ValueKey('reader-bottom-controls')),
+    );
+
+    expect(topRect.top, greaterThanOrEqualTo(0));
+    expect(topRect.bottom, lessThanOrEqualTo(698));
+    expect(bottomRect.top, greaterThanOrEqualTo(0));
+    expect(bottomRect.bottom, lessThanOrEqualTo(698));
+    expect(topRect.top, closeTo(698 - bottomRect.bottom, 0.01));
+
+    await tester.tapAt(
+      Offset(bottomRect.left + bottomRect.width * 0.3, bottomRect.bottom - 38),
+    );
+    await tester.pumpAndSettle();
+
+    final typographyRect = tester.getRect(
+      find.byKey(const ValueKey('reader-typography-panel')),
+    );
+
+    expect(bottomRect.top - typographyRect.bottom, closeTo(16, 0.01));
+  });
+
+  testWidgets('ReaderScreen keeps bottom panels attached on tall phones',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerDocumentSourceProvider.overrideWithValue(
+            _FakeReaderDocumentSource(),
+          ),
+          readerProgressRepositoryProvider.overrideWithValue(
+            _MemoryProgressRepository(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ReaderScreen(bookId: 'book-1'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(195, 300));
+    await tester.pumpAndSettle();
+
+    final bottomRect = tester.getRect(
+      find.byKey(const ValueKey('reader-bottom-controls')),
+    );
+
+    await tester.tapAt(
+      Offset(bottomRect.left + bottomRect.width * 0.7, bottomRect.bottom - 38),
+    );
+    await tester.pumpAndSettle();
+
+    final pageTurnRect = tester.getRect(
+      find.byKey(const ValueKey('reader-page-turn-panel')),
+    );
+
+    expect(bottomRect.top - pageTurnRect.bottom, closeTo(16, 0.01));
+  });
+
   testWidgets('ReaderScreen switches to scroll mode through reader controls',
       (tester) async {
     tester.view.devicePixelRatio = 1;

@@ -7,6 +7,7 @@ import '../domain/reader_turn_mode.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/app_tokens.dart';
+import 'layout/reader_chrome_layout.dart';
 
 class ReaderControls extends StatelessWidget {
   const ReaderControls({
@@ -85,7 +86,12 @@ class ReaderControls extends StatelessWidget {
     return Positioned.fill(
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final metrics = _ReaderOverlayMetrics.fromSize(constraints.biggest);
+          final metrics = _ReaderOverlayMetrics.fromLayout(
+            ReaderChromeLayout.fromSize(
+              constraints.biggest,
+              MediaQuery.paddingOf(context),
+            ),
+          );
           final children = <Widget>[];
 
           if (mode == ReaderOverlayMode.catalog) {
@@ -219,34 +225,34 @@ class ReaderControls extends StatelessWidget {
 
 class _ReaderOverlayMetrics {
   const _ReaderOverlayMetrics({
-    required this.scale,
-    required this.left,
-    required this.top,
-    required this.width,
-    required this.height,
+    required this.layout,
   });
 
-  factory _ReaderOverlayMetrics.fromSize(Size size) {
-    final scale = (size.width / 390).clamp(0.92, 1.12).toDouble();
-    final canvasWidth = 390 * scale;
-    return _ReaderOverlayMetrics(
-      scale: scale,
-      left: (size.width - canvasWidth) / 2,
-      top: 0,
-      width: canvasWidth,
-      height: size.height,
-    );
+  factory _ReaderOverlayMetrics.fromLayout(ReaderChromeLayout layout) {
+    return _ReaderOverlayMetrics(layout: layout);
   }
 
-  final double scale;
-  final double left;
-  final double top;
-  final double width;
-  final double height;
+  final ReaderChromeLayout layout;
 
-  double x(double value) => left + value * scale;
-  double y(double value) => top + value * scale;
-  double s(double value) => value * scale;
+  double get scale => layout.metrics.scale;
+  double get left => layout.metrics.left;
+  double get top => layout.metrics.top;
+  double get width => layout.metrics.width;
+  double get height => layout.metrics.height;
+  double get topControlsTop => layout.topControlsTop;
+  double get bottomControlsTop => layout.bottomControlsTop;
+  double get bottomControlsHeight => layout.bottomControlsHeight;
+
+  double x(double value) => layout.metrics.x(value);
+  double y(double value) => layout.metrics.y(value);
+  double s(double value) => layout.metrics.s(value);
+  double floatingPanelTop({
+    required double preferredTop,
+    required double height,
+  }) =>
+      layout.floatingPanelTop(preferredTop: preferredTop, height: height);
+  double catalogSheetHeight(double preferredHeight) =>
+      layout.catalogSheetHeight(preferredHeight);
   double get rightInset => left + s(16);
   double get panelWidth => width - s(32);
 }
@@ -317,7 +323,7 @@ class _ReaderTopControlsSlot extends StatelessWidget {
     return Positioned(
       key: const ValueKey('reader-top-controls-slot'),
       left: metrics.x(16),
-      top: metrics.y(74),
+      top: metrics.topControlsTop,
       width: metrics.s(358),
       height: metrics.s(58),
       child: IgnorePointer(
@@ -363,9 +369,9 @@ class _ReaderBottomControlsSlot extends StatelessWidget {
     return Positioned(
       key: const ValueKey('reader-bottom-controls-slot'),
       left: metrics.x(16),
-      top: metrics.y(700),
+      top: metrics.bottomControlsTop,
       width: metrics.s(358),
-      height: metrics.s(124),
+      height: metrics.bottomControlsHeight,
       child: IgnorePointer(
         ignoring: !visible,
         child: AnimatedSwitcher(
@@ -537,6 +543,7 @@ class _ReaderBottomControls extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _ToolButton(
+                          metrics: metrics,
                           icon: LucideIcons.list,
                           label: '目录',
                           palette: palette,
@@ -545,6 +552,7 @@ class _ReaderBottomControls extends StatelessWidget {
                     ),
                     Expanded(
                       child: _ToolButton(
+                          metrics: metrics,
                           icon: LucideIcons.type,
                           label: '排版',
                           palette: palette,
@@ -553,6 +561,7 @@ class _ReaderBottomControls extends StatelessWidget {
                     ),
                     Expanded(
                       child: _ToolButton(
+                          metrics: metrics,
                           icon: LucideIcons.palette,
                           label: '主题',
                           palette: palette,
@@ -561,6 +570,7 @@ class _ReaderBottomControls extends StatelessWidget {
                     ),
                     Expanded(
                       child: _ToolButton(
+                          metrics: metrics,
                           icon: LucideIcons.panelsTopLeft,
                           label: '翻页',
                           palette: palette,
@@ -569,6 +579,7 @@ class _ReaderBottomControls extends StatelessWidget {
                     ),
                     Expanded(
                       child: _ToolButton(
+                          metrics: metrics,
                           icon: LucideIcons.volume2,
                           label: '朗读',
                           palette: palette,
@@ -653,7 +664,7 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
   }
 
   void _handleHeaderDragEnd(DragEndDetails details) {
-    final sheetHeight = widget.metrics.s(608);
+    final sheetHeight = widget.metrics.catalogSheetHeight(608);
     final velocity = details.primaryVelocity ?? 0;
     final shouldClose = _dragOffset > sheetHeight * 0.25 ||
         (velocity > 900 && _dragOffset > sheetHeight * 0.08);
@@ -711,13 +722,14 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
     final chapterCount = widget.chapterCount;
     final bookTitle = widget.bookTitle;
     final onChapterSelected = widget.onChapterSelected;
+    final sheetHeight = metrics.catalogSheetHeight(608);
 
     return Positioned(
       key: const ValueKey('reader-catalog-sheet'),
       left: metrics.left,
-      top: metrics.height - metrics.s(608),
+      top: metrics.height - sheetHeight,
       width: metrics.width,
-      height: metrics.s(608),
+      height: sheetHeight,
       child: Transform.translate(
         offset: Offset(0, _dragOffset),
         child: _GlassSurface(
@@ -1958,14 +1970,15 @@ class _FloatingPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned(
       left: metrics.x(16),
-      top: metrics.y(top),
+      top: metrics.floatingPanelTop(preferredTop: top, height: height),
       width: metrics.s(358),
       height: metrics.s(height),
       child: _GlassSurface(
         fill: const Color(0xFFFFF8EA),
         borderRadius: BorderRadius.circular(metrics.s(26)),
-        shadowOffset: Offset(0, metrics.s(12)),
-        shadowBlur: metrics.s(34),
+        shadowColor: Colors.transparent,
+        shadowOffset: Offset.zero,
+        shadowBlur: 0,
         child: Padding(
           padding: padding ?? EdgeInsets.all(metrics.s(16)),
           child: child,
@@ -2053,12 +2066,14 @@ class _IconTapArea extends StatelessWidget {
 
 class _ToolButton extends StatelessWidget {
   const _ToolButton(
-      {required this.icon,
+      {required this.metrics,
+      required this.icon,
       required this.label,
       required this.palette,
       required this.onPressed,
       this.active = false});
 
+  final _ReaderOverlayMetrics metrics;
   final IconData icon;
   final String label;
   final ReaderPalette palette;
@@ -2071,22 +2086,22 @@ class _ToolButton extends StatelessWidget {
         active ? const Color(0xFF5E6F5B) : const Color(0xFF8A735A);
     return InkWell(
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(metrics.s(16)),
       child: Container(
-        height: 52,
+        height: metrics.s(52),
         decoration: BoxDecoration(
           color: active ? const Color(0xFFDDE8D4) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(metrics.s(16)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: foreground, size: 17),
-            const SizedBox(height: 3),
+            Icon(icon, color: foreground, size: metrics.s(17)),
+            SizedBox(height: metrics.s(3)),
             Text(label,
                 style: DudoTextStyles.sans(
                     color: foreground,
-                    fontSize: 9,
+                    fontSize: metrics.s(9),
                     fontWeight: active ? FontWeight.w600 : FontWeight.normal)),
           ],
         ),

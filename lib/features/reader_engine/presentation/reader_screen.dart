@@ -18,6 +18,7 @@ import '../domain/reader_turn_mode.dart';
 import '../domain/reader_viewport_state.dart';
 import '../layout/reader_layout_cache.dart';
 import '../layout/reader_layout_engine.dart';
+import 'layout/reader_chrome_layout.dart';
 import 'layout/reader_page_metrics.dart';
 import 'reader_controls.dart';
 import 'reader_viewport.dart';
@@ -112,7 +113,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               builder: (context, constraints) {
                 final size = Size(constraints.maxWidth, constraints.maxHeight);
                 final safePadding = MediaQuery.paddingOf(context);
-                final metrics = ReaderPageMetrics.fromSize(size);
+                final chromeLayout =
+                    ReaderChromeLayout.fromSize(size, safePadding);
+                final metrics = chromeLayout.metrics;
                 _ensureController(size, safePadding);
                 return FutureBuilder<void>(
                   future: _initialization,
@@ -224,6 +227,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           },
         ),
       ),
+      if (_showsSecondaryMenuScrim)
+        const Positioned.fill(
+          child: IgnorePointer(
+            child: ColoredBox(color: Color(0x1A000000)),
+          ),
+        ),
       ReaderProgress(
         metrics: metrics,
         palette: _palette,
@@ -403,6 +412,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     setState(() => _overlayMode = mode);
   }
 
+  bool get _showsSecondaryMenuScrim {
+    switch (_overlayMode) {
+      case ReaderOverlayMode.typography:
+      case ReaderOverlayMode.theme:
+      case ReaderOverlayMode.listening:
+      case ReaderOverlayMode.more:
+      case ReaderOverlayMode.pageTurn:
+        return true;
+      case ReaderOverlayMode.hidden:
+      case ReaderOverlayMode.controls:
+      case ReaderOverlayMode.catalog:
+        return false;
+    }
+  }
+
   void _requestVolumePageTurn(int direction) {
     if (!_volumePageTurnEnabled ||
         _overlayMode != ReaderOverlayMode.hidden ||
@@ -427,23 +451,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   ReaderInsets _readerContentInsets(Size size, EdgeInsets safePadding) {
-    final metrics = ReaderPageMetrics.fromSize(size);
-    final left = metrics.x(30);
-    final contentWidth = metrics.s(330);
-    final right = (size.width - left - contentWidth).clamp(0.0, size.width);
-    final top = safePadding.top + metrics.s(18);
-    final footerTop = size.height - safePadding.bottom - metrics.s(44);
-    final contentHeight = (footerTop - top - metrics.s(18))
-        .clamp(metrics.s(520), size.height)
-        .toDouble();
-    final bottom = (size.height - top - contentHeight).clamp(0.0, size.height);
-
-    return ReaderInsets(
-      left: left,
-      top: top,
-      right: right.toDouble(),
-      bottom: bottom.toDouble(),
-    );
+    return ReaderChromeLayout.fromSize(size, safePadding).contentInsets;
   }
 
   double _scaledTextSize(double value) {
