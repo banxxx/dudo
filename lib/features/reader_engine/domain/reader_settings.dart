@@ -14,6 +14,8 @@ class ReaderSettings {
 
   static const double minFontSize = 10;
   static const double maxFontSize = 45;
+  static const double minParagraphSpacing = 0;
+  static const double maxParagraphSpacing = 36;
 
   factory ReaderSettings.defaults() {
     return const ReaderSettings(
@@ -37,6 +39,9 @@ class ReaderSettings {
 
   static double clampFontSize(double value) =>
       value.clamp(minFontSize, maxFontSize).toDouble();
+
+  static double clampParagraphSpacing(double value) =>
+      value.clamp(minParagraphSpacing, maxParagraphSpacing).toDouble();
 
   ReaderSettings copyWith({
     String? paletteId,

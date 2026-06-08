@@ -6,16 +6,23 @@ class _TypographyPanel extends StatefulWidget {
     required this.palette,
     required this.fontSize,
     required this.lineHeight,
+    required this.paragraphSpacing,
     required this.onFontSizeChanged,
     required this.onLineHeightChanged,
+    required this.onParagraphSpacingChanged,
+    required this.onLineParagraphSpacingChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
   final ReaderPalette palette;
   final double fontSize;
   final double lineHeight;
+  final double paragraphSpacing;
   final ValueChanged<double> onFontSizeChanged;
   final ValueChanged<double> onLineHeightChanged;
+  final ValueChanged<double> onParagraphSpacingChanged;
+  final void Function(double lineHeight, double paragraphSpacing)
+      onLineParagraphSpacingChanged;
 
   @override
   State<_TypographyPanel> createState() => _TypographyPanelState();
@@ -25,7 +32,17 @@ class _TypographyPanelState extends State<_TypographyPanel> {
   static const _panelHeight = 480.0;
 
   _MockReaderFont _selectedFont = _MockReaderFonts.current;
+  _TypographySpacingPreset? _selectedSpacingPreset;
   bool _showsFontChooser = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedSpacingPreset = _TypographySpacingPresetData.match(
+      lineHeight: widget.lineHeight,
+      paragraphSpacing: widget.paragraphSpacing,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -70,14 +87,86 @@ class _TypographyPanelState extends State<_TypographyPanel> {
                 metrics: widget.metrics,
                 fontSize: widget.fontSize,
                 lineHeight: widget.lineHeight,
+                paragraphSpacing: widget.paragraphSpacing,
                 selectedFont: _selectedFont,
+                selectedSpacingPreset: _selectedSpacingPreset,
                 onOpenFontChooser: () =>
                     setState(() => _showsFontChooser = true),
                 onFontSizeChanged: widget.onFontSizeChanged,
-                onLineHeightChanged: widget.onLineHeightChanged,
+                onLineHeightChanged: (value) {
+                  setState(() => _selectedSpacingPreset = null);
+                  widget.onLineHeightChanged(value);
+                },
+                onParagraphSpacingChanged: (value) {
+                  setState(() => _selectedSpacingPreset = null);
+                  widget.onParagraphSpacingChanged(value);
+                },
+                onSpacingPresetChanged: (preset) {
+                  final data = _TypographySpacingPresetData.fromPreset(preset);
+                  setState(() => _selectedSpacingPreset = preset);
+                  widget.onLineParagraphSpacingChanged(
+                    data.lineHeight,
+                    data.paragraphSpacing,
+                  );
+                },
               ),
       ),
     );
+  }
+}
+
+enum _TypographySpacingPreset { compact, comfort, loose }
+
+class _TypographySpacingPresetData {
+  const _TypographySpacingPresetData({
+    required this.preset,
+    required this.lineHeight,
+    required this.paragraphSpacing,
+  });
+
+  final _TypographySpacingPreset preset;
+  final double lineHeight;
+  final double paragraphSpacing;
+
+  static const compact = _TypographySpacingPresetData(
+    preset: _TypographySpacingPreset.compact,
+    lineHeight: 1.5,
+    paragraphSpacing: 8,
+  );
+  static const comfort = _TypographySpacingPresetData(
+    preset: _TypographySpacingPreset.comfort,
+    lineHeight: 1.72,
+    paragraphSpacing: 15,
+  );
+  static const loose = _TypographySpacingPresetData(
+    preset: _TypographySpacingPreset.loose,
+    lineHeight: 1.9,
+    paragraphSpacing: 24,
+  );
+
+  static const values = <_TypographySpacingPresetData>[
+    compact,
+    comfort,
+    loose,
+  ];
+
+  static _TypographySpacingPresetData fromPreset(
+    _TypographySpacingPreset preset,
+  ) {
+    return values.firstWhere((data) => data.preset == preset);
+  }
+
+  static _TypographySpacingPreset? match({
+    required double lineHeight,
+    required double paragraphSpacing,
+  }) {
+    for (final data in values) {
+      final lineHeightMatches = (lineHeight - data.lineHeight).abs() < 0.01;
+      final paragraphMatches =
+          (paragraphSpacing - data.paragraphSpacing).abs() < 0.5;
+      if (lineHeightMatches && paragraphMatches) return data.preset;
+    }
+    return null;
   }
 }
 
@@ -87,19 +176,36 @@ class _TypographyPanelContent extends StatelessWidget {
     required this.metrics,
     required this.fontSize,
     required this.lineHeight,
+    required this.paragraphSpacing,
     required this.selectedFont,
+    required this.selectedSpacingPreset,
     required this.onOpenFontChooser,
     required this.onFontSizeChanged,
     required this.onLineHeightChanged,
+    required this.onParagraphSpacingChanged,
+    required this.onSpacingPresetChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
   final double fontSize;
   final double lineHeight;
+  final double paragraphSpacing;
   final _MockReaderFont selectedFont;
+  final _TypographySpacingPreset? selectedSpacingPreset;
   final VoidCallback onOpenFontChooser;
   final ValueChanged<double> onFontSizeChanged;
   final ValueChanged<double> onLineHeightChanged;
+  final ValueChanged<double> onParagraphSpacingChanged;
+  final ValueChanged<_TypographySpacingPreset> onSpacingPresetChanged;
+
+  double get _paragraphSpacingSliderValue {
+    final range =
+        ReaderSettings.maxParagraphSpacing - ReaderSettings.minParagraphSpacing;
+    if (range <= 0) return 0;
+    return ((paragraphSpacing - ReaderSettings.minParagraphSpacing) / range)
+        .clamp(0.0, 1.0)
+        .toDouble();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,9 +270,14 @@ class _TypographyPanelContent extends StatelessWidget {
                 _TypographyValueSlider(
                   metrics: metrics,
                   label: '段间距',
-                  valueText: '${(fontSize * 0.78).round()} px',
-                  value: 0.45,
-                  onChanged: (_) {},
+                  valueText: '${paragraphSpacing.round()} px',
+                  value: _paragraphSpacingSliderValue,
+                  onChanged: (value) => onParagraphSpacingChanged(
+                    ReaderSettings.minParagraphSpacing +
+                        value.clamp(0.0, 1.0) *
+                            (ReaderSettings.maxParagraphSpacing -
+                                ReaderSettings.minParagraphSpacing),
+                  ),
                 ),
                 SizedBox(height: metrics.s(12)),
                 Row(
@@ -175,8 +286,11 @@ class _TypographyPanelContent extends StatelessWidget {
                       child: _TypographyChoicePill(
                         metrics: metrics,
                         label: '紧凑',
-                        selected: lineHeight < 1.62,
-                        onTap: () => onLineHeightChanged(1.5),
+                        selected: selectedSpacingPreset ==
+                            _TypographySpacingPreset.compact,
+                        onTap: () => onSpacingPresetChanged(
+                          _TypographySpacingPreset.compact,
+                        ),
                       ),
                     ),
                     SizedBox(width: metrics.s(8)),
@@ -184,8 +298,11 @@ class _TypographyPanelContent extends StatelessWidget {
                       child: _TypographyChoicePill(
                         metrics: metrics,
                         label: '舒适',
-                        selected: lineHeight >= 1.62 && lineHeight < 1.82,
-                        onTap: () => onLineHeightChanged(1.72),
+                        selected: selectedSpacingPreset ==
+                            _TypographySpacingPreset.comfort,
+                        onTap: () => onSpacingPresetChanged(
+                          _TypographySpacingPreset.comfort,
+                        ),
                       ),
                     ),
                     SizedBox(width: metrics.s(8)),
@@ -193,8 +310,11 @@ class _TypographyPanelContent extends StatelessWidget {
                       child: _TypographyChoicePill(
                         metrics: metrics,
                         label: '宽松',
-                        selected: lineHeight >= 1.82,
-                        onTap: () => onLineHeightChanged(1.9),
+                        selected: selectedSpacingPreset ==
+                            _TypographySpacingPreset.loose,
+                        onTap: () => onSpacingPresetChanged(
+                          _TypographySpacingPreset.loose,
+                        ),
                       ),
                     ),
                   ],

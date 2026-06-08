@@ -55,6 +55,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   ReaderPalette _palette = ReaderTheme.parchment;
   double _fontSize = 19;
   double _lineHeight = 1.72;
+  double _paragraphSpacing = 15;
   double _brightness = 1;
   bool _volumePageTurnEnabled = true;
   bool _isListening = false;
@@ -249,6 +250,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         palette: _palette,
         fontSize: _fontSize,
         lineHeight: _lineHeight,
+        paragraphSpacing: _paragraphSpacing,
         brightness: _brightness,
         pageTurnMode: state.settings.turnMode,
         volumePageTurnEnabled: _volumePageTurnEnabled,
@@ -285,6 +287,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         onFontSizeChanged: (value) => _updateFontSize(controller, state, value),
         onLineHeightChanged: (value) =>
             _updateLineHeight(controller, state, value),
+        onParagraphSpacingChanged: (value) =>
+            _updateParagraphSpacing(controller, state, value),
+        onLineParagraphSpacingChanged: (lineHeight, paragraphSpacing) =>
+            _updateLineParagraphSpacing(
+          controller,
+          lineHeight,
+          paragraphSpacing,
+        ),
         onBrightnessChanged: (value) {
           setState(() => _brightness = value);
         },
@@ -356,7 +366,42 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     await controller.updateSettings(
       state.settings.copyWith(
         fontSize: _scaledTextSize(fontSize),
-        paragraphSpacing: _scaledParagraphSpacing(fontSize),
+        paragraphSpacing: _scaledParagraphSpacing(_paragraphSpacing),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _updateParagraphSpacing(
+    ReaderSessionController controller,
+    ReaderSessionState state,
+    double value,
+  ) async {
+    final paragraphSpacing = ReaderSettings.clampParagraphSpacing(value);
+    setState(() => _paragraphSpacing = paragraphSpacing);
+    await controller.updateSettings(
+      state.settings.copyWith(
+        paragraphSpacing: _scaledParagraphSpacing(paragraphSpacing),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _updateLineParagraphSpacing(
+    ReaderSessionController controller,
+    double lineHeight,
+    double paragraphSpacing,
+  ) async {
+    final clampedParagraphSpacing =
+        ReaderSettings.clampParagraphSpacing(paragraphSpacing);
+    setState(() {
+      _lineHeight = lineHeight;
+      _paragraphSpacing = clampedParagraphSpacing;
+    });
+    await controller.updateSettings(
+      controller.state.settings.copyWith(
+        lineHeight: lineHeight,
+        paragraphSpacing: _scaledParagraphSpacing(clampedParagraphSpacing),
       ),
     );
     if (mounted) setState(() {});
@@ -446,7 +491,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       fontSize: metrics.s(_fontSize),
       lineHeight: _lineHeight,
       turnMode: ReaderTurnMode.slide,
-      paragraphSpacing: metrics.s(_fontSize * _lineHeight),
+      paragraphSpacing: metrics.s(_paragraphSpacing),
       pagePadding: _readerContentInsets(size, safePadding),
     );
   }
@@ -461,10 +506,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     return ReaderPageMetrics.fromSize(size).s(value);
   }
 
-  double _scaledParagraphSpacing(double fontSize) {
+  double _scaledParagraphSpacing(double paragraphSpacing) {
     final size = _lastViewportSize;
-    if (size == null) return fontSize * _lineHeight;
-    return ReaderPageMetrics.fromSize(size).s(fontSize * _lineHeight);
+    if (size == null) return paragraphSpacing;
+    return ReaderPageMetrics.fromSize(size).s(paragraphSpacing);
   }
 
   void _ensureController(Size size, EdgeInsets safePadding) {
