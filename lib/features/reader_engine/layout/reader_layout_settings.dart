@@ -27,7 +27,7 @@ class ReaderLayoutSettings {
 
   factory ReaderLayoutSettings.fromReaderSettings(
     ReaderSettings settings, {
-    double firstLineIndent = 0,
+    double? firstLineIndent,
     double paragraphIndent = 0,
     double letterSpacing = 0.4,
     double wordSpacing = 0,
@@ -42,7 +42,8 @@ class ReaderLayoutSettings {
       lineHeight: settings.lineHeight,
       paragraphSpacing: settings.paragraphSpacing,
       pagePadding: settings.pagePadding,
-      firstLineIndent: firstLineIndent,
+      firstLineIndent: firstLineIndent ??
+          (settings.firstLineIndentEnabled ? settings.fontSize * 2 : 0),
       paragraphIndent: paragraphIndent,
       letterSpacing: letterSpacing,
       wordSpacing: wordSpacing,

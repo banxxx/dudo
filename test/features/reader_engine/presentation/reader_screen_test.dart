@@ -7,6 +7,7 @@ import 'package:dudo/features/reader_engine/domain/reader_document.dart';
 import 'package:dudo/features/reader_engine/domain/reader_location.dart';
 import 'package:dudo/features/reader_engine/domain/reader_source_type.dart';
 import 'package:dudo/features/reader_engine/presentation/reader_screen.dart';
+import 'package:dudo/features/reader_engine/presentation/widgets/reader_canvas_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,15 +35,9 @@ void main() {
     expect(find.byKey(const ValueKey('reader-engine-screen')), findsOneWidget);
     expect(
         find.byKey(const ValueKey('reader-engine-slide-view')), findsOneWidget);
+    expect(find.byType(ReaderCanvasPage), findsOneWidget);
     expect(find.byKey(const ValueKey('reader-progress')), findsOneWidget);
     expect(find.byKey(const ValueKey('reader-top-controls')), findsNothing);
-    expect(find.text('第一章'), findsWidgets);
-    final articleTitle = find.descendant(
-      of: find.byKey(const ValueKey('reader-engine-slide-view')),
-      matching: find.text('第一章'),
-    );
-    expect(tester.getTopLeft(articleTitle).dy, greaterThan(18));
-    expect(tester.getTopLeft(articleTitle).dx, greaterThan(200));
 
     await tester.tapAt(const Offset(400, 300));
     await tester.pumpAndSettle();

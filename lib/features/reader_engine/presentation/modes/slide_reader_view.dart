@@ -6,7 +6,7 @@ import '../../../../shared/theme/app_theme.dart';
 import '../../domain/reader_location.dart';
 import '../../domain/reader_settings.dart';
 import '../../domain/reader_viewport_state.dart';
-import 'reader_page_surface.dart';
+import 'reader_page_slice_canvas_surface.dart';
 import 'reader_paged_window.dart';
 
 class SlideReaderView extends StatefulWidget {
@@ -120,7 +120,7 @@ class _SlideReaderViewState extends State<SlideReaderView>
                 widget.controlsVisible ? null : _handleHorizontalDragEnd,
             onHorizontalDragCancel:
                 widget.controlsVisible ? null : _animateBackToRest,
-            child: ReaderPageSurface(
+            child: ReaderPageSliceCanvasSurface(
               key: ValueKey(
                 'reader-engine-slide-committed-'
                 '${committedTarget.chapterIndex}-${committedTarget.pageIndex}',
@@ -156,7 +156,7 @@ class _SlideReaderViewState extends State<SlideReaderView>
                         : -width + visibleOffset,
                     0,
                   ),
-                  child: ReaderPageSurface(
+                  child: ReaderPageSliceCanvasSurface(
                     key: ValueKey(
                       'reader-engine-slide-target-'
                       '${target.chapterIndex}-${target.pageIndex}',
@@ -168,7 +168,7 @@ class _SlideReaderViewState extends State<SlideReaderView>
                 ),
               _TranslatedPage(
                 offset: Offset(visibleOffset, 0),
-                child: ReaderPageSurface(
+                child: ReaderPageSliceCanvasSurface(
                   key: ValueKey(
                     'reader-engine-slide-current-'
                     '${window.current.chapterIndex}-'

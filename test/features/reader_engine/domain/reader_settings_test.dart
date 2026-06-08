@@ -21,5 +21,15 @@ void main() {
       expect(ReaderSettings.clampPageHorizontalMargin(30), 30);
       expect(ReaderSettings.clampPageHorizontalMargin(60), 52);
     });
+
+    test('defaults to first line indent and can disable it', () {
+      final settings = ReaderSettings.defaults();
+
+      expect(settings.firstLineIndentEnabled, isTrue);
+      expect(
+        settings.copyWith(firstLineIndentEnabled: false).firstLineIndentEnabled,
+        isFalse,
+      );
+    });
   });
 }

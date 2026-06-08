@@ -57,19 +57,36 @@ class _BlockText extends StatelessWidget {
         currentBlock is ReaderParagraphBlock && !currentBlock.addBottomSpacing
             ? 0.0
             : settings.paragraphSpacing;
+    final textStyle = DudoTextStyles.serif(
+      color: palette.foreground,
+      fontSize: isHeading ? settings.fontSize * (24 / 19) : settings.fontSize,
+      height: settings.lineHeight,
+      fontWeight: isHeading ? FontWeight.w600 : FontWeight.w400,
+      letterSpacing: isHeading ? 0 : 0.4,
+    );
+    final shouldIndent = currentBlock is ReaderParagraphBlock &&
+        settings.firstLineIndentEnabled &&
+        text.isNotEmpty;
     return Padding(
       padding: EdgeInsets.only(bottom: bottomSpacing),
-      child: Text(
-        text,
-        style: DudoTextStyles.serif(
-          color: palette.foreground,
-          fontSize:
-              isHeading ? settings.fontSize * (24 / 19) : settings.fontSize,
-          height: settings.lineHeight,
-          fontWeight: isHeading ? FontWeight.w600 : FontWeight.w400,
-          letterSpacing: isHeading ? 0 : 0.4,
-        ),
-      ),
+      child: shouldIndent
+          ? Text.rich(
+              TextSpan(
+                children: [
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.baseline,
+                    baseline: TextBaseline.alphabetic,
+                    child: SizedBox(width: settings.fontSize * 2),
+                  ),
+                  TextSpan(text: text),
+                ],
+              ),
+              style: textStyle,
+            )
+          : Text(
+              text,
+              style: textStyle,
+            ),
     );
   }
 }

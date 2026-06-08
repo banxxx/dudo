@@ -41,17 +41,20 @@ void main() {
     expect(find.byType(ReaderCanvasPage), findsOneWidget);
   });
 
-  test('keeps default page slice layout aligned with current text layout',
-      () async {
+  test('applies default first line indent in page slice layout', () async {
     const resolver = ReaderPageSliceLineLayoutResolver();
+    final settings = ReaderSettings.defaults();
 
     final pageLayout = await resolver.resolvePage(
       resolvedPage: _resolvedPage(chapterId: 'chapter-align'),
-      settings: ReaderSettings.defaults(),
+      settings: settings,
       viewportSize: const Size(320, 640),
     );
 
-    expect(pageLayout.lines.first.x, pageLayout.contentRect.left);
+    expect(
+      pageLayout.lines.first.x,
+      pageLayout.contentRect.left + settings.fontSize * 2,
+    );
   });
 
   testWidgets('uses cached Canvas layout on the first frame', (tester) async {

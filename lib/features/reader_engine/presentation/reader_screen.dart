@@ -57,6 +57,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   double _lineHeight = 1.72;
   double _paragraphSpacing = 15;
   double _pageHorizontalMargin = ReaderSettings.defaultPageHorizontalMargin;
+  bool _firstLineIndentEnabled = true;
   double _brightness = 1;
   bool _volumePageTurnEnabled = true;
   bool _isListening = false;
@@ -253,6 +254,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         lineHeight: _lineHeight,
         paragraphSpacing: _paragraphSpacing,
         pageHorizontalMargin: _pageHorizontalMargin,
+        firstLineIndentEnabled: _firstLineIndentEnabled,
         brightness: _brightness,
         pageTurnMode: state.settings.turnMode,
         volumePageTurnEnabled: _volumePageTurnEnabled,
@@ -299,6 +301,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         ),
         onPageHorizontalMarginChanged: (value) =>
             _updatePageHorizontalMargin(controller, value),
+        onFirstLineIndentChanged: (value) =>
+            _updateFirstLineIndent(controller, value),
         onBrightnessChanged: (value) {
           setState(() => _brightness = value);
         },
@@ -436,6 +440,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _updateFirstLineIndent(
+    ReaderSessionController controller,
+    bool value,
+  ) async {
+    setState(() => _firstLineIndentEnabled = value);
+    await controller.updateSettings(
+      controller.state.settings.copyWith(firstLineIndentEnabled: value),
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _loadCatalog(int chapterCount) async {
     if (_catalogLoading || _catalogItems.isNotEmpty) return;
     setState(() => _catalogLoading = true);
@@ -516,6 +531,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         size: size,
         safePadding: safePadding,
       ),
+      firstLineIndentEnabled: _firstLineIndentEnabled,
     );
   }
 

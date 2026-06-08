@@ -406,6 +406,7 @@ class _ScrollReaderViewState extends State<ScrollReaderView> {
       widget.settings.fontSize,
       widget.settings.lineHeight,
       widget.settings.paragraphSpacing,
+      widget.settings.firstLineIndentEnabled,
       padding.left,
       padding.top,
       padding.right,

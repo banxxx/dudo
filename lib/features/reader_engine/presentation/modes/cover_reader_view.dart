@@ -6,7 +6,7 @@ import '../../../../shared/theme/app_theme.dart';
 import '../../domain/reader_location.dart';
 import '../../domain/reader_settings.dart';
 import '../../domain/reader_viewport_state.dart';
-import 'reader_page_surface.dart';
+import 'reader_page_slice_canvas_surface.dart';
 import 'reader_paged_window.dart';
 
 class CoverReaderView extends StatefulWidget {
@@ -128,7 +128,7 @@ class _CoverReaderViewState extends State<CoverReaderView>
               onHorizontalDragCancel:
                   widget.controlsVisible ? null : _handleHorizontalDragCancel,
               child: ClipRect(
-                child: ReaderPageSurface(
+                child: ReaderPageSliceCanvasSurface(
                   key: ValueKey(
                     'reader-engine-cover-committed-'
                     '${committedTarget.chapterIndex}-'
@@ -434,7 +434,7 @@ class _CurrentCoverStack extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (target == null || direction == 0) {
-      return ReaderPageSurface(
+      return ReaderPageSliceCanvasSurface(
         key: ValueKey(
           'reader-engine-cover-current-'
           '${window.current.chapterIndex}-${window.current.pageIndex}',
@@ -449,7 +449,7 @@ class _CurrentCoverStack extends StatelessWidget {
       return Stack(
         fit: StackFit.expand,
         children: [
-          ReaderPageSurface(
+          ReaderPageSliceCanvasSurface(
             key: ValueKey(
               'reader-engine-cover-target-'
               '${target!.chapterIndex}-${target!.pageIndex}',
@@ -462,7 +462,7 @@ class _CurrentCoverStack extends StatelessWidget {
             key: const ValueKey('reader-engine-cover-moving-current'),
             offset: Offset(offset, 0),
             palette: palette,
-            child: ReaderPageSurface(
+            child: ReaderPageSliceCanvasSurface(
               key: ValueKey(
                 'reader-engine-cover-current-'
                 '${window.current.chapterIndex}-${window.current.pageIndex}',
@@ -479,7 +479,7 @@ class _CurrentCoverStack extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        ReaderPageSurface(
+        ReaderPageSliceCanvasSurface(
           key: ValueKey(
             'reader-engine-cover-current-'
             '${window.current.chapterIndex}-${window.current.pageIndex}',
@@ -492,7 +492,7 @@ class _CurrentCoverStack extends StatelessWidget {
           key: const ValueKey('reader-engine-cover-moving-target'),
           offset: Offset(-width + offset, 0),
           palette: palette,
-          child: ReaderPageSurface(
+          child: ReaderPageSliceCanvasSurface(
             key: ValueKey(
               'reader-engine-cover-target-'
               '${target!.chapterIndex}-${target!.pageIndex}',

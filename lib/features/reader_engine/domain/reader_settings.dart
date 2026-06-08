@@ -10,6 +10,7 @@ class ReaderSettings {
     required this.turnMode,
     required this.paragraphSpacing,
     required this.pagePadding,
+    required this.firstLineIndentEnabled,
   });
 
   static const double minFontSize = 10;
@@ -29,6 +30,7 @@ class ReaderSettings {
       turnMode: ReaderTurnMode.paged,
       paragraphSpacing: 12,
       pagePadding: ReaderInsets.symmetric(horizontal: 24, vertical: 28),
+      firstLineIndentEnabled: true,
     );
   }
 
@@ -39,6 +41,7 @@ class ReaderSettings {
   final ReaderTurnMode turnMode;
   final double paragraphSpacing;
   final ReaderInsets pagePadding;
+  final bool firstLineIndentEnabled;
 
   static double clampFontSize(double value) =>
       value.clamp(minFontSize, maxFontSize).toDouble();
@@ -57,6 +60,7 @@ class ReaderSettings {
     ReaderTurnMode? turnMode,
     double? paragraphSpacing,
     ReaderInsets? pagePadding,
+    bool? firstLineIndentEnabled,
   }) {
     return ReaderSettings(
       paletteId: paletteId ?? this.paletteId,
@@ -66,6 +70,8 @@ class ReaderSettings {
       turnMode: turnMode ?? this.turnMode,
       paragraphSpacing: paragraphSpacing ?? this.paragraphSpacing,
       pagePadding: pagePadding ?? this.pagePadding,
+      firstLineIndentEnabled:
+          firstLineIndentEnabled ?? this.firstLineIndentEnabled,
     );
   }
 }

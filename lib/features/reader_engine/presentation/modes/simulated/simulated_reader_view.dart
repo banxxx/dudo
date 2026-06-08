@@ -800,6 +800,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       widget.settings.fontSize,
       widget.settings.lineHeight,
       widget.settings.paragraphSpacing,
+      widget.settings.firstLineIndentEnabled,
       widget.settings.pagePadding.left,
       widget.settings.pagePadding.top,
       widget.settings.pagePadding.right,

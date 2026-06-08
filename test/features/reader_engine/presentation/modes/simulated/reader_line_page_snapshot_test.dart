@@ -92,6 +92,7 @@ void main() {
           turnMode: ReaderTurnMode.simulated,
           paragraphSpacing: 8,
           pagePadding: ReaderInsets.all(12),
+          firstLineIndentEnabled: true,
         ),
         palette: _palette,
         viewportSize: const Size(120, 160),
@@ -121,6 +122,7 @@ void main() {
         turnMode: ReaderTurnMode.simulated,
         paragraphSpacing: 8,
         pagePadding: ReaderInsets.all(12),
+        firstLineIndentEnabled: true,
       );
       final current = _resolvedPage('current page content', pageIndex: 0);
       final target = _resolvedPage('target page content', pageIndex: 1);

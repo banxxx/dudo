@@ -58,9 +58,14 @@ void main() {
         ReaderSettings.defaults(),
       );
 
-      expect(settings.firstLineIndent, 0);
+      expect(settings.firstLineIndent, ReaderSettings.defaults().fontSize * 2);
       expect(settings.enableKinsoku, isTrue);
       expect(settings.enableJustify, isFalse);
+
+      final disabledIndent = ReaderLayoutSettings.fromReaderSettings(
+        ReaderSettings.defaults().copyWith(firstLineIndentEnabled: false),
+      );
+      expect(disabledIndent.firstLineIndent, 0);
 
       final justified = settings.copyWith(
         enableJustify: true,

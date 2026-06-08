@@ -8,11 +8,13 @@ class _TypographyPanel extends StatefulWidget {
     required this.lineHeight,
     required this.paragraphSpacing,
     required this.pageHorizontalMargin,
+    required this.firstLineIndentEnabled,
     required this.onFontSizeChanged,
     required this.onLineHeightChanged,
     required this.onParagraphSpacingChanged,
     required this.onLineParagraphSpacingChanged,
     required this.onPageHorizontalMarginChanged,
+    required this.onFirstLineIndentChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
@@ -21,12 +23,14 @@ class _TypographyPanel extends StatefulWidget {
   final double lineHeight;
   final double paragraphSpacing;
   final double pageHorizontalMargin;
+  final bool firstLineIndentEnabled;
   final ValueChanged<double> onFontSizeChanged;
   final ValueChanged<double> onLineHeightChanged;
   final ValueChanged<double> onParagraphSpacingChanged;
   final void Function(double lineHeight, double paragraphSpacing)
       onLineParagraphSpacingChanged;
   final ValueChanged<double> onPageHorizontalMarginChanged;
+  final ValueChanged<bool> onFirstLineIndentChanged;
 
   @override
   State<_TypographyPanel> createState() => _TypographyPanelState();
@@ -97,6 +101,7 @@ class _TypographyPanelState extends State<_TypographyPanel> {
                 lineHeight: widget.lineHeight,
                 paragraphSpacing: widget.paragraphSpacing,
                 pageHorizontalMargin: widget.pageHorizontalMargin,
+                firstLineIndentEnabled: widget.firstLineIndentEnabled,
                 selectedFont: _selectedFont,
                 selectedSpacingPreset: _selectedSpacingPreset,
                 selectedPageMarginPreset: _selectedPageMarginPreset,
@@ -128,6 +133,7 @@ class _TypographyPanelState extends State<_TypographyPanel> {
                   setState(() => _selectedPageMarginPreset = preset);
                   widget.onPageHorizontalMarginChanged(data.margin);
                 },
+                onFirstLineIndentChanged: widget.onFirstLineIndentChanged,
               ),
       ),
     );
@@ -239,6 +245,7 @@ class _TypographyPanelContent extends StatelessWidget {
     required this.lineHeight,
     required this.paragraphSpacing,
     required this.pageHorizontalMargin,
+    required this.firstLineIndentEnabled,
     required this.selectedFont,
     required this.selectedSpacingPreset,
     required this.selectedPageMarginPreset,
@@ -249,6 +256,7 @@ class _TypographyPanelContent extends StatelessWidget {
     required this.onSpacingPresetChanged,
     required this.onPageHorizontalMarginChanged,
     required this.onPageMarginPresetChanged,
+    required this.onFirstLineIndentChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
@@ -256,6 +264,7 @@ class _TypographyPanelContent extends StatelessWidget {
   final double lineHeight;
   final double paragraphSpacing;
   final double pageHorizontalMargin;
+  final bool firstLineIndentEnabled;
   final _MockReaderFont selectedFont;
   final _TypographySpacingPreset? selectedSpacingPreset;
   final _PageMarginPreset? selectedPageMarginPreset;
@@ -266,9 +275,10 @@ class _TypographyPanelContent extends StatelessWidget {
   final ValueChanged<_TypographySpacingPreset> onSpacingPresetChanged;
   final ValueChanged<double> onPageHorizontalMarginChanged;
   final ValueChanged<_PageMarginPreset> onPageMarginPresetChanged;
+  final ValueChanged<bool> onFirstLineIndentChanged;
 
   double get _paragraphSpacingSliderValue {
-    final range =
+    const range =
         ReaderSettings.maxParagraphSpacing - ReaderSettings.minParagraphSpacing;
     if (range <= 0) return 0;
     return ((paragraphSpacing - ReaderSettings.minParagraphSpacing) / range)
@@ -277,7 +287,7 @@ class _TypographyPanelContent extends StatelessWidget {
   }
 
   double get _pageHorizontalMarginSliderValue {
-    final range = ReaderSettings.maxPageHorizontalMargin -
+    const range = ReaderSettings.maxPageHorizontalMargin -
         ReaderSettings.minPageHorizontalMargin;
     if (range <= 0) return 0;
     return ((pageHorizontalMargin - ReaderSettings.minPageHorizontalMargin) /
@@ -471,8 +481,10 @@ class _TypographyPanelContent extends StatelessWidget {
                       child: _TypographyChoicePill(
                         metrics: metrics,
                         label: '首行缩进',
-                        selected: true,
-                        onTap: () {},
+                        selected: firstLineIndentEnabled,
+                        onTap: () => onFirstLineIndentChanged(
+                          !firstLineIndentEnabled,
+                        ),
                       ),
                     ),
                     SizedBox(width: metrics.s(8)),
@@ -520,8 +532,8 @@ class _FontChooserPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final localFonts = _MockReaderFonts.localFonts;
-    final systemFonts = _MockReaderFonts.systemFonts;
+    const localFonts = _MockReaderFonts.localFonts;
+    const systemFonts = _MockReaderFonts.systemFonts;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
