@@ -15,5 +15,11 @@ void main() {
       expect(ReaderSettings.clampParagraphSpacing(15), 15);
       expect(ReaderSettings.clampParagraphSpacing(48), 36);
     });
+
+    test('clamps page horizontal margin to reader-supported range', () {
+      expect(ReaderSettings.clampPageHorizontalMargin(12), 18);
+      expect(ReaderSettings.clampPageHorizontalMargin(30), 30);
+      expect(ReaderSettings.clampPageHorizontalMargin(60), 52);
+    });
   });
 }

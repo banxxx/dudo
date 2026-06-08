@@ -16,6 +16,9 @@ class ReaderSettings {
   static const double maxFontSize = 45;
   static const double minParagraphSpacing = 0;
   static const double maxParagraphSpacing = 36;
+  static const double minPageHorizontalMargin = 18;
+  static const double maxPageHorizontalMargin = 52;
+  static const double defaultPageHorizontalMargin = 30;
 
   factory ReaderSettings.defaults() {
     return const ReaderSettings(
@@ -42,6 +45,9 @@ class ReaderSettings {
 
   static double clampParagraphSpacing(double value) =>
       value.clamp(minParagraphSpacing, maxParagraphSpacing).toDouble();
+
+  static double clampPageHorizontalMargin(double value) =>
+      value.clamp(minPageHorizontalMargin, maxPageHorizontalMargin).toDouble();
 
   ReaderSettings copyWith({
     String? paletteId,

@@ -7,10 +7,12 @@ class _TypographyPanel extends StatefulWidget {
     required this.fontSize,
     required this.lineHeight,
     required this.paragraphSpacing,
+    required this.pageHorizontalMargin,
     required this.onFontSizeChanged,
     required this.onLineHeightChanged,
     required this.onParagraphSpacingChanged,
     required this.onLineParagraphSpacingChanged,
+    required this.onPageHorizontalMarginChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
@@ -18,11 +20,13 @@ class _TypographyPanel extends StatefulWidget {
   final double fontSize;
   final double lineHeight;
   final double paragraphSpacing;
+  final double pageHorizontalMargin;
   final ValueChanged<double> onFontSizeChanged;
   final ValueChanged<double> onLineHeightChanged;
   final ValueChanged<double> onParagraphSpacingChanged;
   final void Function(double lineHeight, double paragraphSpacing)
       onLineParagraphSpacingChanged;
+  final ValueChanged<double> onPageHorizontalMarginChanged;
 
   @override
   State<_TypographyPanel> createState() => _TypographyPanelState();
@@ -33,6 +37,7 @@ class _TypographyPanelState extends State<_TypographyPanel> {
 
   _MockReaderFont _selectedFont = _MockReaderFonts.current;
   _TypographySpacingPreset? _selectedSpacingPreset;
+  _PageMarginPreset? _selectedPageMarginPreset;
   bool _showsFontChooser = false;
 
   @override
@@ -41,6 +46,9 @@ class _TypographyPanelState extends State<_TypographyPanel> {
     _selectedSpacingPreset = _TypographySpacingPresetData.match(
       lineHeight: widget.lineHeight,
       paragraphSpacing: widget.paragraphSpacing,
+    );
+    _selectedPageMarginPreset = _PageMarginPresetData.match(
+      widget.pageHorizontalMargin,
     );
   }
 
@@ -88,8 +96,10 @@ class _TypographyPanelState extends State<_TypographyPanel> {
                 fontSize: widget.fontSize,
                 lineHeight: widget.lineHeight,
                 paragraphSpacing: widget.paragraphSpacing,
+                pageHorizontalMargin: widget.pageHorizontalMargin,
                 selectedFont: _selectedFont,
                 selectedSpacingPreset: _selectedSpacingPreset,
+                selectedPageMarginPreset: _selectedPageMarginPreset,
                 onOpenFontChooser: () =>
                     setState(() => _showsFontChooser = true),
                 onFontSizeChanged: widget.onFontSizeChanged,
@@ -108,6 +118,15 @@ class _TypographyPanelState extends State<_TypographyPanel> {
                     data.lineHeight,
                     data.paragraphSpacing,
                   );
+                },
+                onPageHorizontalMarginChanged: (value) {
+                  setState(() => _selectedPageMarginPreset = null);
+                  widget.onPageHorizontalMarginChanged(value);
+                },
+                onPageMarginPresetChanged: (preset) {
+                  final data = _PageMarginPresetData.fromPreset(preset);
+                  setState(() => _selectedPageMarginPreset = preset);
+                  widget.onPageHorizontalMarginChanged(data.margin);
                 },
               ),
       ),
@@ -170,6 +189,48 @@ class _TypographySpacingPresetData {
   }
 }
 
+enum _PageMarginPreset { narrow, medium, wide }
+
+class _PageMarginPresetData {
+  const _PageMarginPresetData({
+    required this.preset,
+    required this.margin,
+  });
+
+  final _PageMarginPreset preset;
+  final double margin;
+
+  static const narrow = _PageMarginPresetData(
+    preset: _PageMarginPreset.narrow,
+    margin: 24,
+  );
+  static const medium = _PageMarginPresetData(
+    preset: _PageMarginPreset.medium,
+    margin: ReaderSettings.defaultPageHorizontalMargin,
+  );
+  static const wide = _PageMarginPresetData(
+    preset: _PageMarginPreset.wide,
+    margin: 40,
+  );
+
+  static const values = <_PageMarginPresetData>[
+    narrow,
+    medium,
+    wide,
+  ];
+
+  static _PageMarginPresetData fromPreset(_PageMarginPreset preset) {
+    return values.firstWhere((data) => data.preset == preset);
+  }
+
+  static _PageMarginPreset? match(double margin) {
+    for (final data in values) {
+      if ((margin - data.margin).abs() < 0.5) return data.preset;
+    }
+    return null;
+  }
+}
+
 class _TypographyPanelContent extends StatelessWidget {
   const _TypographyPanelContent({
     super.key,
@@ -177,32 +238,50 @@ class _TypographyPanelContent extends StatelessWidget {
     required this.fontSize,
     required this.lineHeight,
     required this.paragraphSpacing,
+    required this.pageHorizontalMargin,
     required this.selectedFont,
     required this.selectedSpacingPreset,
+    required this.selectedPageMarginPreset,
     required this.onOpenFontChooser,
     required this.onFontSizeChanged,
     required this.onLineHeightChanged,
     required this.onParagraphSpacingChanged,
     required this.onSpacingPresetChanged,
+    required this.onPageHorizontalMarginChanged,
+    required this.onPageMarginPresetChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
   final double fontSize;
   final double lineHeight;
   final double paragraphSpacing;
+  final double pageHorizontalMargin;
   final _MockReaderFont selectedFont;
   final _TypographySpacingPreset? selectedSpacingPreset;
+  final _PageMarginPreset? selectedPageMarginPreset;
   final VoidCallback onOpenFontChooser;
   final ValueChanged<double> onFontSizeChanged;
   final ValueChanged<double> onLineHeightChanged;
   final ValueChanged<double> onParagraphSpacingChanged;
   final ValueChanged<_TypographySpacingPreset> onSpacingPresetChanged;
+  final ValueChanged<double> onPageHorizontalMarginChanged;
+  final ValueChanged<_PageMarginPreset> onPageMarginPresetChanged;
 
   double get _paragraphSpacingSliderValue {
     final range =
         ReaderSettings.maxParagraphSpacing - ReaderSettings.minParagraphSpacing;
     if (range <= 0) return 0;
     return ((paragraphSpacing - ReaderSettings.minParagraphSpacing) / range)
+        .clamp(0.0, 1.0)
+        .toDouble();
+  }
+
+  double get _pageHorizontalMarginSliderValue {
+    final range = ReaderSettings.maxPageHorizontalMargin -
+        ReaderSettings.minPageHorizontalMargin;
+    if (range <= 0) return 0;
+    return ((pageHorizontalMargin - ReaderSettings.minPageHorizontalMargin) /
+            range)
         .clamp(0.0, 1.0)
         .toDouble();
   }
@@ -329,10 +408,15 @@ class _TypographyPanelContent extends StatelessWidget {
                 _TypographyValueSlider(
                   metrics: metrics,
                   label: '左右间距',
-                  valueText: '30 px',
+                  valueText: '${pageHorizontalMargin.round()} px',
                   helperText: '控制正文与屏幕两侧距离',
-                  value: 0.5,
-                  onChanged: (_) {},
+                  value: _pageHorizontalMarginSliderValue,
+                  onChanged: (value) => onPageHorizontalMarginChanged(
+                    ReaderSettings.minPageHorizontalMargin +
+                        value.clamp(0.0, 1.0) *
+                            (ReaderSettings.maxPageHorizontalMargin -
+                                ReaderSettings.minPageHorizontalMargin),
+                  ),
                 ),
                 SizedBox(height: metrics.s(12)),
                 Row(
@@ -340,27 +424,36 @@ class _TypographyPanelContent extends StatelessWidget {
                     Expanded(
                       child: _TypographyChoicePill(
                         metrics: metrics,
-                        label: '紧凑',
-                        selected: false,
-                        onTap: () {},
+                        label: '窄',
+                        selected: selectedPageMarginPreset ==
+                            _PageMarginPreset.narrow,
+                        onTap: () => onPageMarginPresetChanged(
+                          _PageMarginPreset.narrow,
+                        ),
                       ),
                     ),
                     SizedBox(width: metrics.s(8)),
                     Expanded(
                       child: _TypographyChoicePill(
                         metrics: metrics,
-                        label: '舒适',
-                        selected: true,
-                        onTap: () {},
+                        label: '中等',
+                        selected: selectedPageMarginPreset ==
+                            _PageMarginPreset.medium,
+                        onTap: () => onPageMarginPresetChanged(
+                          _PageMarginPreset.medium,
+                        ),
                       ),
                     ),
                     SizedBox(width: metrics.s(8)),
                     Expanded(
                       child: _TypographyChoicePill(
                         metrics: metrics,
-                        label: '宽松',
-                        selected: false,
-                        onTap: () {},
+                        label: '宽',
+                        selected:
+                            selectedPageMarginPreset == _PageMarginPreset.wide,
+                        onTap: () => onPageMarginPresetChanged(
+                          _PageMarginPreset.wide,
+                        ),
                       ),
                     ),
                   ],

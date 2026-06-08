@@ -56,6 +56,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   double _fontSize = 19;
   double _lineHeight = 1.72;
   double _paragraphSpacing = 15;
+  double _pageHorizontalMargin = ReaderSettings.defaultPageHorizontalMargin;
   double _brightness = 1;
   bool _volumePageTurnEnabled = true;
   bool _isListening = false;
@@ -251,6 +252,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         fontSize: _fontSize,
         lineHeight: _lineHeight,
         paragraphSpacing: _paragraphSpacing,
+        pageHorizontalMargin: _pageHorizontalMargin,
         brightness: _brightness,
         pageTurnMode: state.settings.turnMode,
         volumePageTurnEnabled: _volumePageTurnEnabled,
@@ -295,6 +297,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           lineHeight,
           paragraphSpacing,
         ),
+        onPageHorizontalMarginChanged: (value) =>
+            _updatePageHorizontalMargin(controller, value),
         onBrightnessChanged: (value) {
           setState(() => _brightness = value);
         },
@@ -417,6 +421,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _updatePageHorizontalMargin(
+    ReaderSessionController controller,
+    double value,
+  ) async {
+    final pageHorizontalMargin =
+        ReaderSettings.clampPageHorizontalMargin(value);
+    setState(() => _pageHorizontalMargin = pageHorizontalMargin);
+    await controller.updateSettings(
+      controller.state.settings.copyWith(
+        pagePadding: _pagePaddingWithHorizontalMargin(pageHorizontalMargin),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _loadCatalog(int chapterCount) async {
     if (_catalogLoading || _catalogItems.isNotEmpty) return;
     setState(() => _catalogLoading = true);
@@ -492,7 +511,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       lineHeight: _lineHeight,
       turnMode: ReaderTurnMode.slide,
       paragraphSpacing: metrics.s(_paragraphSpacing),
-      pagePadding: _readerContentInsets(size, safePadding),
+      pagePadding: _pagePaddingWithHorizontalMargin(
+        _pageHorizontalMargin,
+        size: size,
+        safePadding: safePadding,
+      ),
     );
   }
 
@@ -510,6 +533,31 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final size = _lastViewportSize;
     if (size == null) return paragraphSpacing;
     return ReaderPageMetrics.fromSize(size).s(paragraphSpacing);
+  }
+
+  ReaderInsets _pagePaddingWithHorizontalMargin(
+    double pageHorizontalMargin, {
+    Size? size,
+    EdgeInsets? safePadding,
+  }) {
+    final effectiveSize = size ?? _lastViewportSize;
+    final effectivePadding = safePadding ?? _lastViewportPadding;
+    if (effectiveSize == null || effectivePadding == null) {
+      return ReaderSettings.defaults().pagePadding.copyWith(
+            left: pageHorizontalMargin,
+            right: pageHorizontalMargin,
+          );
+    }
+    final baseInsets = _readerContentInsets(effectiveSize, effectivePadding);
+    final delta = ReaderPageMetrics.fromSize(effectiveSize).s(
+      pageHorizontalMargin - ReaderSettings.defaultPageHorizontalMargin,
+    );
+    return baseInsets.copyWith(
+      left:
+          (baseInsets.left + delta).clamp(0.0, effectiveSize.width).toDouble(),
+      right:
+          (baseInsets.right + delta).clamp(0.0, effectiveSize.width).toDouble(),
+    );
   }
 
   void _ensureController(Size size, EdgeInsets safePadding) {

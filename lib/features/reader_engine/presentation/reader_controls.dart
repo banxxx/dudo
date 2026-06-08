@@ -39,6 +39,7 @@ class ReaderControls extends StatelessWidget {
     required this.fontSize,
     required this.lineHeight,
     required this.paragraphSpacing,
+    required this.pageHorizontalMargin,
     required this.brightness,
     required this.pageTurnMode,
     required this.volumePageTurnEnabled,
@@ -60,6 +61,7 @@ class ReaderControls extends StatelessWidget {
     required this.onLineHeightChanged,
     required this.onParagraphSpacingChanged,
     required this.onLineParagraphSpacingChanged,
+    required this.onPageHorizontalMarginChanged,
     required this.onBrightnessChanged,
     required this.onPageTurnModeChanged,
     required this.onVolumePageTurnChanged,
@@ -76,6 +78,7 @@ class ReaderControls extends StatelessWidget {
   final double fontSize;
   final double lineHeight;
   final double paragraphSpacing;
+  final double pageHorizontalMargin;
   final double brightness;
   final ReaderTurnMode pageTurnMode;
   final bool volumePageTurnEnabled;
@@ -98,6 +101,7 @@ class ReaderControls extends StatelessWidget {
   final ValueChanged<double> onParagraphSpacingChanged;
   final void Function(double lineHeight, double paragraphSpacing)
       onLineParagraphSpacingChanged;
+  final ValueChanged<double> onPageHorizontalMarginChanged;
   final ValueChanged<double> onBrightnessChanged;
   final ValueChanged<ReaderTurnMode> onPageTurnModeChanged;
   final ValueChanged<bool> onVolumePageTurnChanged;
@@ -192,10 +196,12 @@ class ReaderControls extends StatelessWidget {
                   fontSize: fontSize,
                   lineHeight: lineHeight,
                   paragraphSpacing: paragraphSpacing,
+                  pageHorizontalMargin: pageHorizontalMargin,
                   onFontSizeChanged: onFontSizeChanged,
                   onLineHeightChanged: onLineHeightChanged,
                   onParagraphSpacingChanged: onParagraphSpacingChanged,
                   onLineParagraphSpacingChanged: onLineParagraphSpacingChanged,
+                  onPageHorizontalMarginChanged: onPageHorizontalMarginChanged,
                 ),
               );
             case ReaderOverlayMode.theme:
