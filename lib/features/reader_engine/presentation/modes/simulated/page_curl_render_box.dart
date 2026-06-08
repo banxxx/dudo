@@ -15,7 +15,7 @@ class PageCurlRenderBox extends RenderBox {
   static const Color _legadoTransparentPageShadow = Color(0x00111111);
   static const Color _legadoBackShadow = Color(0x42424242);
   static const Color _legadoFrontShadow = Color(0x80A0A0A0);
-  static const Color _legadoSoftFrontShadow = Color(0xA0A0A0);
+  static const Color _legadoSoftFrontShadow = Color(0x00a0a0a0);
   static const List<double> _frontShadowFadeFromStartStops = [0.0, 0.45, 1.0];
   static const List<double> _frontShadowFadeFromEndStops = [0.0, 0.55, 1.0];
   static const double _frontShadowSpread = 15;
