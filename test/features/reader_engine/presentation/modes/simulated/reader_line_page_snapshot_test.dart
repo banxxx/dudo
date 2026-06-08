@@ -10,6 +10,7 @@ import 'package:dudo/features/reader_engine/layout/reader_layout_settings.dart';
 import 'package:dudo/features/reader_engine/layout/reader_line_layout_models.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/reader_paged_window.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/simulated/reader_line_page_snapshot.dart';
+import 'package:dudo/features/reader_engine/presentation/modes/simulated/reader_page_image_renderer.dart';
 import 'package:dudo/shared/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,6 +35,45 @@ void main() {
       expect(pair.target.width, 300);
       expect(pair.target.height, 400);
       pair.dispose();
+    });
+  });
+
+  group('ReaderPageImageRenderer', () {
+    test('reuses cached page images until evicted', () async {
+      final cache = ReaderPageImageCache(maximumEntries: 1);
+      final renderer = ReaderPageImageRenderer(cache: cache);
+
+      final first = await renderer.renderPage(
+        pageLayout: _pageLayout(text: 'cached page'),
+        palette: _palette,
+        pixelRatio: 1,
+      );
+      first.release();
+
+      final second = await renderer.renderPage(
+        pageLayout: _pageLayout(text: 'cached page'),
+        palette: _palette,
+        pixelRatio: 1,
+      );
+      expect(identical(first.image, second.image), isTrue);
+      second.release();
+
+      final other = await renderer.renderPage(
+        pageLayout: _pageLayout(text: 'other page', pageIndex: 1),
+        palette: _palette,
+        pixelRatio: 1,
+      );
+      other.release();
+
+      final third = await renderer.renderPage(
+        pageLayout: _pageLayout(text: 'cached page'),
+        palette: _palette,
+        pixelRatio: 1,
+      );
+      expect(identical(first.image, third.image), isFalse);
+      third.release();
+
+      cache.dispose();
     });
   });
 
@@ -65,6 +105,50 @@ void main() {
       expect(pair.target.height, 320);
       pair.dispose();
     });
+
+    test('warms current and target page images into cache', () async {
+      final cache = ReaderPageImageCache(maximumEntries: 3);
+      final controller = ReaderPageSliceSnapshotController(
+        lineSnapshotController: ReaderLinePageSnapshotController(
+          renderer: ReaderPageImageRenderer(cache: cache),
+        ),
+      );
+      const settings = ReaderSettings(
+        paletteId: 'test',
+        fontFamily: 'Noto Serif SC',
+        fontSize: 18,
+        lineHeight: 1.5,
+        turnMode: ReaderTurnMode.simulated,
+        paragraphSpacing: 8,
+        pagePadding: ReaderInsets.all(12),
+      );
+      final current = _resolvedPage('current page content', pageIndex: 0);
+      final target = _resolvedPage('target page content', pageIndex: 1);
+
+      await controller.warmPages(
+        pages: [current, target],
+        settings: settings,
+        palette: _palette,
+        viewportSize: const Size(120, 160),
+        devicePixelRatio: 1,
+      );
+
+      expect(cache.length, 2);
+
+      final pair = await controller.capturePair(
+        currentPage: current,
+        targetPage: target,
+        settings: settings,
+        palette: _palette,
+        viewportSize: const Size(120, 160),
+        devicePixelRatio: 1,
+      );
+
+      expect(pair, isNotNull);
+      expect(cache.length, 2);
+      pair!.dispose();
+      cache.dispose();
+    });
   });
 }
 
@@ -74,7 +158,7 @@ const _palette = ReaderPalette(
   foreground: Color(0xFF25251F),
 );
 
-ReaderPageLayout _pageLayout({required String text}) {
+ReaderPageLayout _pageLayout({required String text, int pageIndex = 0}) {
   const style = TextStyle(fontSize: 18, decoration: TextDecoration.none);
   final range = ReaderTextRange(
     chapterIndex: 0,
@@ -116,7 +200,7 @@ ReaderPageLayout _pageLayout({required String text}) {
   );
   return ReaderPageLayout(
     chapterIndex: 0,
-    pageIndex: 0,
+    pageIndex: pageIndex,
     pageRect: const Rect.fromLTWH(0, 0, 120, 160),
     contentRect: const Rect.fromLTWH(12, 10, 96, 140),
     start: const ReaderLocation(bookId: 'book-1', chapterIndex: 0, offset: 0),

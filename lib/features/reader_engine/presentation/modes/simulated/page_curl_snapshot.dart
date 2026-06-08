@@ -9,19 +9,26 @@ class PageCurlSnapshotPair {
   PageCurlSnapshotPair({
     required this.current,
     required this.target,
-  });
+    void Function()? onDispose,
+  }) : _onDispose = onDispose;
 
   final ui.Image current;
   final ui.Image target;
+  final void Function()? _onDispose;
   bool _disposed = false;
 
   bool get isDisposed => _disposed;
 
   void dispose() {
     if (_disposed) return;
+    _disposed = true;
+    final onDispose = _onDispose;
+    if (onDispose != null) {
+      onDispose();
+      return;
+    }
     current.dispose();
     target.dispose();
-    _disposed = true;
   }
 }
 

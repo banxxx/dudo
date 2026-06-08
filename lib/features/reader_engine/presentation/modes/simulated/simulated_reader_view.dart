@@ -15,6 +15,7 @@ import 'page_curl_quality.dart';
 import 'page_curl_render_widget.dart';
 import 'page_curl_snapshot.dart';
 import 'reader_line_page_snapshot.dart';
+import 'reader_page_image_renderer.dart';
 
 class SimulatedReaderView extends StatefulWidget {
   const SimulatedReaderView({
@@ -57,10 +58,16 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
 
   final GlobalKey _currentPageKey = GlobalKey();
   final GlobalKey _targetPageKey = GlobalKey();
-  final PageCurlSnapshotController _snapshotController =
+  final PageCurlSnapshotController _fallbackSnapshotController =
       const PageCurlSnapshotController(quality: PageCurlQuality.high);
-  final ReaderPageSliceSnapshotController _pageSliceSnapshotController =
-      const ReaderPageSliceSnapshotController();
+  final ReaderPageImageCache _pageImageCache =
+      ReaderPageImageCache(maximumEntries: 3);
+  late final ReaderPageSliceSnapshotController _pageSliceSnapshotController =
+      ReaderPageSliceSnapshotController(
+    lineSnapshotController: ReaderLinePageSnapshotController(
+      renderer: ReaderPageImageRenderer(cache: _pageImageCache),
+    ),
+  );
 
   late final AnimationController _controller;
   late final PageCurlController _curlController;
@@ -84,6 +91,8 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   PageCurlSnapshotPair? _snapshots;
   bool _captureInFlight = false;
   Future<void>? _snapshotCaptureFuture;
+  String? _imageWarmupKey;
+  bool _imageWarmupInFlight = false;
   int _turnRequestId = 0;
   int _handledExternalPageTurnRequestId = 0;
 
@@ -119,6 +128,11 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       _pageIndex = null;
       _resetTurnState(stopAnimation: true, disposeSnapshots: true);
     }
+    if (oldWidget.settings != widget.settings ||
+        oldWidget.palette != widget.palette) {
+      _imageWarmupKey = null;
+      _pageImageCache.clear();
+    }
     _handleExternalPageTurnIfNeeded();
   }
 
@@ -132,6 +146,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   void dispose() {
     _touchAnimation?.removeListener(_handleAnimatedTouch);
     _snapshots?.dispose();
+    _pageImageCache.dispose();
     _curlController.dispose();
     _controller.dispose();
     super.dispose();
@@ -150,6 +165,10 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
         final window = ReaderPagedWindow.fromViewport(
           widget.viewport,
           pageIndex: _pageIndex,
+        );
+        _schedulePageImageWarmup(
+          window: window,
+          devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
         );
         final target = _transitionTarget ?? window.current;
         final pageColor = widget.palette.background;
@@ -671,7 +690,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       pageIndex: _pageIndex,
     ).current;
     _captureInFlight = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
+    () async {
       PageCurlSnapshotPair? pair;
       try {
         if (!mounted || captureTarget == null) return;
@@ -684,11 +703,15 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
           viewportSize: Size(_viewportWidth, _viewportHeight),
           devicePixelRatio: devicePixelRatio,
         );
-        pair ??= await _snapshotController.capturePair(
-          currentKey: _currentPageKey,
-          targetKey: _targetPageKey,
-          devicePixelRatio: devicePixelRatio,
-        );
+        if (pair == null) {
+          await WidgetsBinding.instance.endOfFrame;
+          if (!mounted) return;
+          pair = await _fallbackSnapshotController.capturePair(
+            currentKey: _currentPageKey,
+            targetKey: _targetPageKey,
+            devicePixelRatio: devicePixelRatio,
+          );
+        }
         if (!mounted) {
           pair?.dispose();
           return;
@@ -710,8 +733,68 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
           completer.complete();
         }
       }
-    });
+    }();
     return completer.future;
+  }
+
+  void _schedulePageImageWarmup({
+    required ReaderPagedWindow window,
+    required double devicePixelRatio,
+  }) {
+    if (_imageWarmupInFlight ||
+        _controller.isAnimating ||
+        _gesture != null ||
+        _committedTarget != null ||
+        _snapshotHandoffTarget != null) {
+      return;
+    }
+    final pages = [
+      window.current,
+      if (window.previous != null) window.previous!,
+      if (window.next != null) window.next!,
+    ];
+    final key = [
+      _viewportWidth,
+      _viewportHeight,
+      devicePixelRatio,
+      widget.settings.paletteId,
+      widget.settings.fontFamily,
+      widget.settings.fontSize,
+      widget.settings.lineHeight,
+      widget.settings.paragraphSpacing,
+      widget.settings.pagePadding.left,
+      widget.settings.pagePadding.top,
+      widget.settings.pagePadding.right,
+      widget.settings.pagePadding.bottom,
+      widget.palette.background.toARGB32(),
+      widget.palette.foreground.toARGB32(),
+      for (final page in pages) ...[
+        page.chapterIndex,
+        page.pageIndex,
+        page.page.start.offset,
+        page.page.end.offset,
+      ],
+    ].join('|');
+    if (_imageWarmupKey == key) return;
+    _imageWarmupKey = key;
+    _imageWarmupInFlight = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        if (!mounted || _imageWarmupKey != key) return;
+        await _pageSliceSnapshotController.warmPages(
+          pages: pages,
+          settings: widget.settings,
+          palette: widget.palette,
+          viewportSize: Size(_viewportWidth, _viewportHeight),
+          devicePixelRatio: devicePixelRatio,
+        );
+      } finally {
+        if (mounted) {
+          _imageWarmupInFlight = false;
+        }
+      }
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _resetTurnState({
