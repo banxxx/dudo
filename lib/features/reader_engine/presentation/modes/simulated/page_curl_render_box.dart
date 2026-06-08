@@ -14,8 +14,11 @@ class PageCurlRenderBox extends RenderBox {
   static const Color _legadoFolderShadow = Color(0x20424242);
   static const Color _legadoTransparentPageShadow = Color(0x00111111);
   static const Color _legadoBackShadow = Color(0x42424242);
-  static const Color _legadoFrontShadow = Color(0x18A0A0A0);
-  static const double _frontShadowSpread = 10;
+  static const Color _legadoFrontShadow = Color(0x80A0A0A0);
+  static const Color _legadoSoftFrontShadow = Color(0xA0A0A0);
+  static const List<double> _frontShadowFadeFromStartStops = [0.0, 0.45, 1.0];
+  static const List<double> _frontShadowFadeFromEndStops = [0.0, 0.55, 1.0];
+  static const double _frontShadowSpread = 15;
 
   PageCurlRenderBox({
     required PageCurlController controller,
@@ -312,6 +315,7 @@ class PageCurlRenderBox extends RenderBox {
     final verticalRight = geometry.isRightTopOrLeftBottom
         ? _trunc(geometry.control1.dx + _frontShadowSpread)
         : _trunc(geometry.control1.dx + 1);
+    final verticalShadowAtStart = geometry.isRightTopOrLeftBottom;
     _drawRotatedBand(
       canvas,
       pivot: geometry.control1,
@@ -325,9 +329,8 @@ class PageCurlRenderBox extends RenderBox {
         verticalRight,
         _trunc(geometry.control1.dy),
       ),
-      colors: geometry.isRightTopOrLeftBottom
-          ? [_legadoFrontShadow, _legadoTransparentPageShadow]
-          : [_legadoTransparentPageShadow, _legadoFrontShadow],
+      colors: _frontShadowFadeColors(shadowAtStart: verticalShadowAtStart),
+      stops: _frontShadowFadeStops(shadowAtStart: verticalShadowAtStart),
       horizontal: true,
     );
     canvas.restore();
@@ -361,6 +364,7 @@ class PageCurlRenderBox extends RenderBox {
     final horizontalRight = hmg > _maxShadowLength
         ? _trunc(geometry.control2.dx + _maxShadowLength - hmg)
         : _trunc(geometry.control2.dx);
+    final horizontalShadowAtStart = geometry.isRightTopOrLeftBottom;
     _drawRotatedBand(
       canvas,
       pivot: geometry.control2,
@@ -374,12 +378,31 @@ class PageCurlRenderBox extends RenderBox {
         horizontalRight,
         horizontalBottom,
       ),
-      colors: geometry.isRightTopOrLeftBottom
-          ? [_legadoFrontShadow, _legadoTransparentPageShadow]
-          : [_legadoTransparentPageShadow, _legadoFrontShadow],
+      colors: _frontShadowFadeColors(shadowAtStart: horizontalShadowAtStart),
+      stops: _frontShadowFadeStops(shadowAtStart: horizontalShadowAtStart),
       horizontal: false,
     );
     canvas.restore();
+  }
+
+  List<Color> _frontShadowFadeColors({required bool shadowAtStart}) {
+    return shadowAtStart
+        ? const [
+            _legadoFrontShadow,
+            _legadoSoftFrontShadow,
+            _legadoTransparentPageShadow,
+          ]
+        : const [
+            _legadoTransparentPageShadow,
+            _legadoSoftFrontShadow,
+            _legadoFrontShadow,
+          ];
+  }
+
+  List<double> _frontShadowFadeStops({required bool shadowAtStart}) {
+    return shadowAtStart
+        ? _frontShadowFadeFromStartStops
+        : _frontShadowFadeFromEndStops;
   }
 
   void _drawBezierFoldedBackShadow(
@@ -454,6 +477,7 @@ class PageCurlRenderBox extends RenderBox {
     required double radians,
     required Rect rect,
     required List<Color> colors,
+    List<double>? stops,
     required bool horizontal,
   }) {
     canvas.save();
@@ -467,6 +491,7 @@ class PageCurlRenderBox extends RenderBox {
           begin: horizontal ? Alignment.centerLeft : Alignment.topCenter,
           end: horizontal ? Alignment.centerRight : Alignment.bottomCenter,
           colors: colors,
+          stops: stops,
         ).createShader(rect),
     );
     canvas.restore();
