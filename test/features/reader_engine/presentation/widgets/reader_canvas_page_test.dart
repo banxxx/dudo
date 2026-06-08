@@ -1,6 +1,7 @@
 import 'package:dudo/features/reader_engine/domain/reader_location.dart';
 import 'package:dudo/features/reader_engine/layout/reader_layout_settings.dart';
 import 'package:dudo/features/reader_engine/layout/reader_line_layout_models.dart';
+import 'package:dudo/features/reader_engine/presentation/widgets/reader_canvas_highlight.dart';
 import 'package:dudo/features/reader_engine/presentation/widgets/reader_canvas_page.dart';
 import 'package:dudo/shared/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +32,65 @@ void main() {
       );
       expect(find.byType(Text), findsNothing);
     });
+
+    testWidgets('passes highlights to the canvas painter', (tester) async {
+      const highlights = [
+        ReaderPageHighlight(
+          range: ReaderTextRange(
+            chapterIndex: 0,
+            startOffset: 1,
+            endOffset: 3,
+          ),
+          color: Color(0x5580CBC4),
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ReaderCanvasPage(
+            pageLayout: _pageLayout(),
+            palette: _palette,
+            highlights: highlights,
+          ),
+        ),
+      );
+
+      final customPaint = tester.widget<CustomPaint>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is CustomPaint && widget.painter is ReaderPagePainter,
+        ),
+      );
+      final painter = customPaint.painter! as ReaderPagePainter;
+
+      expect(painter.highlights, highlights);
+    });
+  });
+
+  group('ReaderPagePainter', () {
+    test('repaints when highlights change', () {
+      final pageLayout = _pageLayout();
+      final oldPainter = ReaderPagePainter(
+        pageLayout: pageLayout,
+        palette: _palette,
+      );
+      final newPainter = ReaderPagePainter(
+        pageLayout: pageLayout,
+        palette: _palette,
+        highlights: const [
+          ReaderPageHighlight(
+            range: ReaderTextRange(
+              chapterIndex: 0,
+              startOffset: 1,
+              endOffset: 3,
+            ),
+            color: Color(0x5580CBC4),
+          ),
+        ],
+      );
+
+      expect(newPainter.shouldRepaint(oldPainter), isTrue);
+    });
   });
 
   group('ReaderPageRasterizer', () {
@@ -41,6 +101,30 @@ void main() {
         pageLayout: _pageLayout(),
         palette: _palette,
         pixelRatio: 2,
+      );
+
+      expect(image.width, 240);
+      expect(image.height, 320);
+      image.dispose();
+    });
+
+    test('renders highlighted ranges into a high-density image', () async {
+      const rasterizer = ReaderPageRasterizer();
+
+      final image = await rasterizer.renderImage(
+        pageLayout: _pageLayout(),
+        palette: _palette,
+        pixelRatio: 2,
+        highlights: const [
+          ReaderPageHighlight(
+            range: ReaderTextRange(
+              chapterIndex: 0,
+              startOffset: 1,
+              endOffset: 3,
+            ),
+            color: Color(0x5580CBC4),
+          ),
+        ],
       );
 
       expect(image.width, 240);

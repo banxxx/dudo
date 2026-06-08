@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../../../shared/theme/app_theme.dart';
 import '../../domain/reader_settings.dart';
 import '../../layout/reader_line_layout_models.dart';
+import '../widgets/reader_canvas_highlight.dart';
 import 'reader_line_page_surface.dart';
 import 'reader_page_slice_line_layout.dart';
 import 'reader_page_surface.dart';
@@ -14,12 +15,14 @@ class ReaderPageSliceCanvasSurface extends StatefulWidget {
     required this.resolvedPage,
     required this.settings,
     required this.palette,
+    this.highlights = const [],
     this.layoutResolver = const ReaderPageSliceLineLayoutResolver(),
   });
 
   final ReaderResolvedPage resolvedPage;
   final ReaderSettings settings;
   final ReaderPalette palette;
+  final List<ReaderPageHighlight> highlights;
   final ReaderPageSliceLineLayoutResolver layoutResolver;
 
   @override
@@ -61,6 +64,7 @@ class _ReaderPageSliceCanvasSurfaceState
         return ReaderLinePageSurface(
           pageLayout: pageLayout,
           palette: widget.palette,
+          highlights: widget.highlights,
         );
       },
     );

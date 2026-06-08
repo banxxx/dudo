@@ -1,20 +1,24 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_theme.dart';
 import '../../layout/reader_line_layout_models.dart';
+import 'reader_canvas_highlight.dart';
 
 class ReaderCanvasPage extends StatelessWidget {
   const ReaderCanvasPage({
     super.key,
     required this.pageLayout,
     required this.palette,
+    this.highlights = const [],
     this.paintBackground = false,
   });
 
   final ReaderPageLayout pageLayout;
   final ReaderPalette palette;
+  final List<ReaderPageHighlight> highlights;
   final bool paintBackground;
 
   @override
@@ -24,6 +28,7 @@ class ReaderCanvasPage extends StatelessWidget {
       painter: ReaderPagePainter(
         pageLayout: pageLayout,
         palette: palette,
+        highlights: highlights,
         paintBackground: paintBackground,
       ),
     );
@@ -34,17 +39,20 @@ class ReaderPagePainter extends CustomPainter {
   const ReaderPagePainter({
     required this.pageLayout,
     required this.palette,
+    this.highlights = const [],
     this.paintBackground = false,
   });
 
   final ReaderPageLayout pageLayout;
   final ReaderPalette palette;
+  final List<ReaderPageHighlight> highlights;
   final bool paintBackground;
 
   static void paintPage({
     required Canvas canvas,
     required ReaderPageLayout pageLayout,
     required ReaderPalette palette,
+    List<ReaderPageHighlight> highlights = const [],
     bool paintBackground = false,
   }) {
     if (paintBackground) {
@@ -56,6 +64,11 @@ class ReaderPagePainter extends CustomPainter {
 
     canvas.save();
     canvas.clipRect(pageLayout.pageRect);
+    ReaderCanvasHighlightPainter.paintHighlights(
+      canvas: canvas,
+      pageLayout: pageLayout,
+      highlights: highlights,
+    );
     for (final block in pageLayout.blocks) {
       for (final line in block.lines) {
         for (final run in line.runs) {
@@ -80,6 +93,7 @@ class ReaderPagePainter extends CustomPainter {
       canvas: canvas,
       pageLayout: pageLayout,
       palette: palette,
+      highlights: highlights,
       paintBackground: paintBackground,
     );
   }
@@ -88,6 +102,7 @@ class ReaderPagePainter extends CustomPainter {
   bool shouldRepaint(covariant ReaderPagePainter oldDelegate) {
     return oldDelegate.pageLayout != pageLayout ||
         oldDelegate.palette != palette ||
+        !listEquals(oldDelegate.highlights, highlights) ||
         oldDelegate.paintBackground != paintBackground;
   }
 }
@@ -98,6 +113,7 @@ class ReaderPageRasterizer {
   ui.Picture renderPicture({
     required ReaderPageLayout pageLayout,
     required ReaderPalette palette,
+    List<ReaderPageHighlight> highlights = const [],
     bool paintBackground = true,
   }) {
     final recorder = ui.PictureRecorder();
@@ -106,6 +122,7 @@ class ReaderPageRasterizer {
       canvas: canvas,
       pageLayout: pageLayout,
       palette: palette,
+      highlights: highlights,
       paintBackground: paintBackground,
     );
     return recorder.endRecording();
@@ -115,6 +132,7 @@ class ReaderPageRasterizer {
     required ReaderPageLayout pageLayout,
     required ReaderPalette palette,
     required double pixelRatio,
+    List<ReaderPageHighlight> highlights = const [],
     bool paintBackground = true,
   }) async {
     final width = (pageLayout.pageRect.width * pixelRatio).round();
@@ -126,6 +144,7 @@ class ReaderPageRasterizer {
       canvas: canvas,
       pageLayout: pageLayout,
       palette: palette,
+      highlights: highlights,
       paintBackground: paintBackground,
     );
     final picture = recorder.endRecording();

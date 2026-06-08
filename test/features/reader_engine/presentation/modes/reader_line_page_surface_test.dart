@@ -2,6 +2,7 @@ import 'package:dudo/features/reader_engine/domain/reader_location.dart';
 import 'package:dudo/features/reader_engine/layout/reader_layout_settings.dart';
 import 'package:dudo/features/reader_engine/layout/reader_line_layout_models.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/reader_line_page_surface.dart';
+import 'package:dudo/features/reader_engine/presentation/widgets/reader_canvas_highlight.dart';
 import 'package:dudo/features/reader_engine/presentation/widgets/reader_canvas_page.dart';
 import 'package:dudo/shared/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,36 @@ void main() {
 
     expect(find.byType(ReaderCanvasPage), findsOneWidget);
     expect(find.byType(Text), findsNothing);
+  });
+
+  testWidgets('ReaderLinePageSurface forwards highlights to ReaderCanvasPage',
+      (tester) async {
+    const highlights = [
+      ReaderPageHighlight(
+        range: ReaderTextRange(
+          chapterIndex: 0,
+          startOffset: 1,
+          endOffset: 3,
+        ),
+        color: Color(0x5580CBC4),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ReaderLinePageSurface(
+          pageLayout: _pageLayout(),
+          palette: _palette,
+          highlights: highlights,
+        ),
+      ),
+    );
+
+    final page = tester.widget<ReaderCanvasPage>(
+      find.byType(ReaderCanvasPage),
+    );
+
+    expect(page.highlights, highlights);
   });
 }
 
