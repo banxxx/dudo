@@ -15,6 +15,7 @@ class PageCurlRenderBox extends RenderBox {
   static const Color _legadoTransparentPageShadow = Color(0x00111111);
   static const Color _legadoBackShadow = Color(0x42424242);
   static const Color _legadoFrontShadow = Color(0x18A0A0A0);
+  static const double _frontShadowSpread = 10;
 
   PageCurlRenderBox({
     required PageCurlController controller,
@@ -287,8 +288,8 @@ class PageCurlRenderBox extends RenderBox {
               geometry.touch.dy - geometry.control1.dy,
               geometry.touch.dx - geometry.control1.dx,
             );
-    final d1 = 25 * math.sqrt2 * math.cos(degree);
-    final d2 = 25 * math.sqrt2 * math.sin(degree);
+    final d1 = _frontShadowSpread * math.sqrt2 * math.cos(degree);
+    final d2 = _frontShadowSpread * math.sqrt2 * math.sin(degree);
     final shadowTip = Offset(
       geometry.touch.dx + d1,
       geometry.touch.dy + (geometry.isRightTopOrLeftBottom ? d2 : -d2),
@@ -307,9 +308,9 @@ class PageCurlRenderBox extends RenderBox {
     );
     final verticalLeft = geometry.isRightTopOrLeftBottom
         ? _trunc(geometry.control1.dx)
-        : _trunc(geometry.control1.dx - 25);
+        : _trunc(geometry.control1.dx - _frontShadowSpread);
     final verticalRight = geometry.isRightTopOrLeftBottom
-        ? _trunc(geometry.control1.dx + 25)
+        ? _trunc(geometry.control1.dx + _frontShadowSpread)
         : _trunc(geometry.control1.dx + 1);
     _drawRotatedBand(
       canvas,
@@ -344,9 +345,9 @@ class PageCurlRenderBox extends RenderBox {
     );
     final horizontalTop = geometry.isRightTopOrLeftBottom
         ? _trunc(geometry.control2.dy)
-        : _trunc(geometry.control2.dy - 25);
+        : _trunc(geometry.control2.dy - _frontShadowSpread);
     final horizontalBottom = geometry.isRightTopOrLeftBottom
-        ? _trunc(geometry.control2.dy + 25)
+        ? _trunc(geometry.control2.dy + _frontShadowSpread)
         : _trunc(geometry.control2.dy + 1);
     final temp = geometry.control2.dy < 0
         ? geometry.control2.dy - size.height
@@ -355,7 +356,7 @@ class PageCurlRenderBox extends RenderBox {
       geometry.control2.dx * geometry.control2.dx + temp * temp,
     );
     final horizontalLeft = hmg > _maxShadowLength
-        ? _trunc(geometry.control2.dx - 25 - hmg)
+        ? _trunc(geometry.control2.dx - _frontShadowSpread - hmg)
         : _trunc(geometry.control2.dx - _maxShadowLength);
     final horizontalRight = hmg > _maxShadowLength
         ? _trunc(geometry.control2.dx + _maxShadowLength - hmg)
