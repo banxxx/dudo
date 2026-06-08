@@ -11,10 +11,10 @@ import 'page_curl_snapshot.dart';
 
 class PageCurlRenderBox extends RenderBox {
   static const Color _legadoTransparentFolderShadow = Color(0x00333333);
-  static const Color _legadoFolderShadow = Color(0xB0333333);
+  static const Color _legadoFolderShadow = Color(0x20424242);
   static const Color _legadoTransparentPageShadow = Color(0x00111111);
-  static const Color _legadoBackShadow = Color(0xFF111111);
-  static const Color _legadoFrontShadow = Color(0x80111111);
+  static const Color _legadoBackShadow = Color(0x42424242);
+  static const Color _legadoFrontShadow = Color(0x18A0A0A0);
 
   PageCurlRenderBox({
     required PageCurlController controller,
