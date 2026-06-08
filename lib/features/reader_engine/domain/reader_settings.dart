@@ -11,6 +11,7 @@ class ReaderSettings {
     required this.paragraphSpacing,
     required this.pagePadding,
     required this.firstLineIndentEnabled,
+    required this.textEnhancementEnabled,
   });
 
   static const double minFontSize = 10;
@@ -31,6 +32,7 @@ class ReaderSettings {
       paragraphSpacing: 12,
       pagePadding: ReaderInsets.symmetric(horizontal: 24, vertical: 28),
       firstLineIndentEnabled: true,
+      textEnhancementEnabled: false,
     );
   }
 
@@ -42,6 +44,7 @@ class ReaderSettings {
   final double paragraphSpacing;
   final ReaderInsets pagePadding;
   final bool firstLineIndentEnabled;
+  final bool textEnhancementEnabled;
 
   static double clampFontSize(double value) =>
       value.clamp(minFontSize, maxFontSize).toDouble();
@@ -61,6 +64,7 @@ class ReaderSettings {
     double? paragraphSpacing,
     ReaderInsets? pagePadding,
     bool? firstLineIndentEnabled,
+    bool? textEnhancementEnabled,
   }) {
     return ReaderSettings(
       paletteId: paletteId ?? this.paletteId,
@@ -72,6 +76,8 @@ class ReaderSettings {
       pagePadding: pagePadding ?? this.pagePadding,
       firstLineIndentEnabled:
           firstLineIndentEnabled ?? this.firstLineIndentEnabled,
+      textEnhancementEnabled:
+          textEnhancementEnabled ?? this.textEnhancementEnabled,
     );
   }
 }

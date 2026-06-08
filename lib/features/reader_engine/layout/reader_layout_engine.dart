@@ -277,16 +277,24 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
       ReaderHeadingBlock() => DudoTextStyles.serif(
           fontSize: settings.fontSize * (24 / 19),
           height: settings.lineHeight,
-          fontWeight: FontWeight.w600,
+          fontWeight: settings.textEnhancementEnabled
+              ? FontWeight.w700
+              : FontWeight.w600,
         ),
       ReaderParagraphBlock() => DudoTextStyles.serif(
           fontSize: settings.fontSize,
           height: settings.lineHeight,
+          fontWeight: settings.textEnhancementEnabled
+              ? FontWeight.w500
+              : FontWeight.w400,
           letterSpacing: 0.4,
         ),
       ReaderImageBlock() => DudoTextStyles.serif(
           fontSize: settings.fontSize,
           height: settings.lineHeight,
+          fontWeight: settings.textEnhancementEnabled
+              ? FontWeight.w500
+              : FontWeight.w400,
         ),
     };
   }
@@ -391,6 +399,7 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
       settings.turnMode.name,
       settings.paragraphSpacing,
       settings.firstLineIndentEnabled,
+      settings.textEnhancementEnabled,
       settings.pagePadding.left,
       settings.pagePadding.top,
       settings.pagePadding.right,

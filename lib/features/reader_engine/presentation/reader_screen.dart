@@ -58,6 +58,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   double _paragraphSpacing = 15;
   double _pageHorizontalMargin = ReaderSettings.defaultPageHorizontalMargin;
   bool _firstLineIndentEnabled = true;
+  bool _textEnhancementEnabled = false;
   double _brightness = 1;
   bool _volumePageTurnEnabled = true;
   bool _isListening = false;
@@ -255,6 +256,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         paragraphSpacing: _paragraphSpacing,
         pageHorizontalMargin: _pageHorizontalMargin,
         firstLineIndentEnabled: _firstLineIndentEnabled,
+        textEnhancementEnabled: _textEnhancementEnabled,
         brightness: _brightness,
         pageTurnMode: state.settings.turnMode,
         volumePageTurnEnabled: _volumePageTurnEnabled,
@@ -303,6 +305,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             _updatePageHorizontalMargin(controller, value),
         onFirstLineIndentChanged: (value) =>
             _updateFirstLineIndent(controller, value),
+        onTextEnhancementChanged: (value) =>
+            _updateTextEnhancement(controller, value),
         onBrightnessChanged: (value) {
           setState(() => _brightness = value);
         },
@@ -451,6 +455,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _updateTextEnhancement(
+    ReaderSessionController controller,
+    bool value,
+  ) async {
+    setState(() => _textEnhancementEnabled = value);
+    await controller.updateSettings(
+      controller.state.settings.copyWith(textEnhancementEnabled: value),
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _loadCatalog(int chapterCount) async {
     if (_catalogLoading || _catalogItems.isNotEmpty) return;
     setState(() => _catalogLoading = true);
@@ -532,6 +547,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         safePadding: safePadding,
       ),
       firstLineIndentEnabled: _firstLineIndentEnabled,
+      textEnhancementEnabled: _textEnhancementEnabled,
     );
   }
 

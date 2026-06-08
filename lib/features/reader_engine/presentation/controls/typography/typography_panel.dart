@@ -9,12 +9,14 @@ class _TypographyPanel extends StatefulWidget {
     required this.paragraphSpacing,
     required this.pageHorizontalMargin,
     required this.firstLineIndentEnabled,
+    required this.textEnhancementEnabled,
     required this.onFontSizeChanged,
     required this.onLineHeightChanged,
     required this.onParagraphSpacingChanged,
     required this.onLineParagraphSpacingChanged,
     required this.onPageHorizontalMarginChanged,
     required this.onFirstLineIndentChanged,
+    required this.onTextEnhancementChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
@@ -24,6 +26,7 @@ class _TypographyPanel extends StatefulWidget {
   final double paragraphSpacing;
   final double pageHorizontalMargin;
   final bool firstLineIndentEnabled;
+  final bool textEnhancementEnabled;
   final ValueChanged<double> onFontSizeChanged;
   final ValueChanged<double> onLineHeightChanged;
   final ValueChanged<double> onParagraphSpacingChanged;
@@ -31,6 +34,7 @@ class _TypographyPanel extends StatefulWidget {
       onLineParagraphSpacingChanged;
   final ValueChanged<double> onPageHorizontalMarginChanged;
   final ValueChanged<bool> onFirstLineIndentChanged;
+  final ValueChanged<bool> onTextEnhancementChanged;
 
   @override
   State<_TypographyPanel> createState() => _TypographyPanelState();
@@ -102,6 +106,7 @@ class _TypographyPanelState extends State<_TypographyPanel> {
                 paragraphSpacing: widget.paragraphSpacing,
                 pageHorizontalMargin: widget.pageHorizontalMargin,
                 firstLineIndentEnabled: widget.firstLineIndentEnabled,
+                textEnhancementEnabled: widget.textEnhancementEnabled,
                 selectedFont: _selectedFont,
                 selectedSpacingPreset: _selectedSpacingPreset,
                 selectedPageMarginPreset: _selectedPageMarginPreset,
@@ -134,6 +139,7 @@ class _TypographyPanelState extends State<_TypographyPanel> {
                   widget.onPageHorizontalMarginChanged(data.margin);
                 },
                 onFirstLineIndentChanged: widget.onFirstLineIndentChanged,
+                onTextEnhancementChanged: widget.onTextEnhancementChanged,
               ),
       ),
     );
@@ -246,6 +252,7 @@ class _TypographyPanelContent extends StatelessWidget {
     required this.paragraphSpacing,
     required this.pageHorizontalMargin,
     required this.firstLineIndentEnabled,
+    required this.textEnhancementEnabled,
     required this.selectedFont,
     required this.selectedSpacingPreset,
     required this.selectedPageMarginPreset,
@@ -257,6 +264,7 @@ class _TypographyPanelContent extends StatelessWidget {
     required this.onPageHorizontalMarginChanged,
     required this.onPageMarginPresetChanged,
     required this.onFirstLineIndentChanged,
+    required this.onTextEnhancementChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
@@ -265,6 +273,7 @@ class _TypographyPanelContent extends StatelessWidget {
   final double paragraphSpacing;
   final double pageHorizontalMargin;
   final bool firstLineIndentEnabled;
+  final bool textEnhancementEnabled;
   final _MockReaderFont selectedFont;
   final _TypographySpacingPreset? selectedSpacingPreset;
   final _PageMarginPreset? selectedPageMarginPreset;
@@ -276,6 +285,7 @@ class _TypographyPanelContent extends StatelessWidget {
   final ValueChanged<double> onPageHorizontalMarginChanged;
   final ValueChanged<_PageMarginPreset> onPageMarginPresetChanged;
   final ValueChanged<bool> onFirstLineIndentChanged;
+  final ValueChanged<bool> onTextEnhancementChanged;
 
   double get _paragraphSpacingSliderValue {
     const range =
@@ -491,9 +501,11 @@ class _TypographyPanelContent extends StatelessWidget {
                     Expanded(
                       child: _TypographyChoicePill(
                         metrics: metrics,
-                        label: '两端对齐',
-                        selected: false,
-                        onTap: () {},
+                        label: '文字增强',
+                        selected: textEnhancementEnabled,
+                        onTap: () => onTextEnhancementChanged(
+                          !textEnhancementEnabled,
+                        ),
                       ),
                     ),
                     SizedBox(width: metrics.s(8)),
@@ -501,7 +513,7 @@ class _TypographyPanelContent extends StatelessWidget {
                       child: _TypographyChoicePill(
                         metrics: metrics,
                         label: '标点优化',
-                        selected: true,
+                        selected: false,
                         onTap: () {},
                       ),
                     ),

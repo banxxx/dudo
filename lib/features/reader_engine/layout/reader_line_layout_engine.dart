@@ -335,19 +335,25 @@ class FlutterReaderLineLayoutEngine implements ReaderLineLayoutEngine {
       ReaderHeadingBlock() => _textStyle(
           settings: settings,
           fontSize: settings.fontSize * (24 / 19),
-          fontWeight: FontWeight.w600,
+          fontWeight: settings.textEnhancementEnabled
+              ? FontWeight.w700
+              : FontWeight.w600,
           letterSpacing: 0,
         ),
       ReaderParagraphBlock() => _textStyle(
           settings: settings,
           fontSize: settings.fontSize,
-          fontWeight: FontWeight.w400,
+          fontWeight: settings.textEnhancementEnabled
+              ? FontWeight.w500
+              : FontWeight.w400,
           letterSpacing: settings.letterSpacing,
         ),
       ReaderImageBlock() => _textStyle(
           settings: settings,
           fontSize: settings.fontSize,
-          fontWeight: FontWeight.w400,
+          fontWeight: settings.textEnhancementEnabled
+              ? FontWeight.w500
+              : FontWeight.w400,
           letterSpacing: settings.letterSpacing,
         ),
     };

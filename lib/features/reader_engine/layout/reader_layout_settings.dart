@@ -22,6 +22,7 @@ class ReaderLayoutSettings {
     required this.textAlign,
     required this.enableJustify,
     required this.enableKinsoku,
+    required this.textEnhancementEnabled,
     required this.fontAssetVersion,
   });
 
@@ -50,6 +51,7 @@ class ReaderLayoutSettings {
       textAlign: textAlign,
       enableJustify: enableJustify,
       enableKinsoku: enableKinsoku,
+      textEnhancementEnabled: settings.textEnhancementEnabled,
       fontAssetVersion: fontAssetVersion,
     );
   }
@@ -66,6 +68,7 @@ class ReaderLayoutSettings {
   final ReaderTextAlign textAlign;
   final bool enableJustify;
   final bool enableKinsoku;
+  final bool textEnhancementEnabled;
   final String fontAssetVersion;
 
   String get digest {
@@ -85,6 +88,7 @@ class ReaderLayoutSettings {
       textAlign.name,
       enableJustify,
       enableKinsoku,
+      textEnhancementEnabled,
       fontAssetVersion,
     ].join('|');
   }
@@ -102,6 +106,7 @@ class ReaderLayoutSettings {
     ReaderTextAlign? textAlign,
     bool? enableJustify,
     bool? enableKinsoku,
+    bool? textEnhancementEnabled,
     String? fontAssetVersion,
   }) {
     return ReaderLayoutSettings(
@@ -117,6 +122,8 @@ class ReaderLayoutSettings {
       textAlign: textAlign ?? this.textAlign,
       enableJustify: enableJustify ?? this.enableJustify,
       enableKinsoku: enableKinsoku ?? this.enableKinsoku,
+      textEnhancementEnabled:
+          textEnhancementEnabled ?? this.textEnhancementEnabled,
       fontAssetVersion: fontAssetVersion ?? this.fontAssetVersion,
     );
   }

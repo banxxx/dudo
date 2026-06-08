@@ -26,8 +26,17 @@ void main() {
         viewportHeight: 640,
         settings: settings.copyWith(enableJustify: true),
       );
+      final enhancedKey = ReaderLineLayoutCacheKey.fromSettings(
+        bookId: 'book-1',
+        chapterIndex: 0,
+        contentHash: 1,
+        viewportWidth: 320,
+        viewportHeight: 640,
+        settings: settings.copyWith(textEnhancementEnabled: true),
+      );
 
       expect(changedKey, isNot(baseKey));
+      expect(enhancedKey, isNot(baseKey));
     });
   });
 }

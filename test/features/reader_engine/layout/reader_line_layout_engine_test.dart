@@ -85,6 +85,22 @@ void main() {
       expect(layout.pages.first.blocks, isEmpty);
       expect(layout.contentHeight, 0);
     });
+
+    test('uses enhanced font weights when text enhancement is enabled',
+        () async {
+      const engine = FlutterReaderLineLayoutEngine();
+      final chapter = _chapterWithParagraph('enhanced reader text');
+
+      final layout = await engine.layoutChapter(
+        chapter: chapter,
+        settings: _settings().copyWith(textEnhancementEnabled: true),
+        viewportSize: const Size(220, 120),
+      );
+
+      final run = layout.pages.first.blocks.first.lines.first.runs.first;
+      expect(run.style.fontWeight, FontWeight.w500);
+      expect(layout.revision.settingsDigest, contains('true'));
+    });
   });
 }
 

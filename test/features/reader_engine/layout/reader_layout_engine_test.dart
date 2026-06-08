@@ -145,6 +145,14 @@ void main() {
         viewportHeight: 640,
         settings: settings.copyWith(fontSize: 22),
       );
+      final changedEnhancementKey = ReaderLayoutCacheKey.fromSettings(
+        bookId: 'book-1',
+        chapterIndex: 0,
+        contentHash: 1,
+        viewportWidth: 320,
+        viewportHeight: 640,
+        settings: settings.copyWith(textEnhancementEnabled: true),
+      );
       final cache = ReaderLayoutCache(maximumEntries: 1);
       final layout = await const FlutterReaderLayoutEngine(
         textMeasure: _FixedTextMeasure(height: 20),
@@ -158,6 +166,7 @@ void main() {
 
       expect(cache.get(key), same(layout));
       expect(cache.get(changedFontKey), isNull);
+      expect(cache.get(changedEnhancementKey), isNull);
     });
   });
 }

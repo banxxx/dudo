@@ -33,6 +33,7 @@ class ReaderLayoutCacheKey {
         settings.turnMode.name,
         settings.paragraphSpacing,
         settings.firstLineIndentEnabled,
+        settings.textEnhancementEnabled,
         settings.pagePadding.left,
         settings.pagePadding.top,
         settings.pagePadding.right,

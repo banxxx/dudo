@@ -61,7 +61,13 @@ class _BlockText extends StatelessWidget {
       color: palette.foreground,
       fontSize: isHeading ? settings.fontSize * (24 / 19) : settings.fontSize,
       height: settings.lineHeight,
-      fontWeight: isHeading ? FontWeight.w600 : FontWeight.w400,
+      fontWeight: isHeading
+          ? settings.textEnhancementEnabled
+              ? FontWeight.w700
+              : FontWeight.w600
+          : settings.textEnhancementEnabled
+              ? FontWeight.w500
+              : FontWeight.w400,
       letterSpacing: isHeading ? 0 : 0.4,
     );
     final shouldIndent = currentBlock is ReaderParagraphBlock &&

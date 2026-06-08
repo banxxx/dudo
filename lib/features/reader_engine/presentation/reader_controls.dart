@@ -41,6 +41,7 @@ class ReaderControls extends StatelessWidget {
     required this.paragraphSpacing,
     required this.pageHorizontalMargin,
     required this.firstLineIndentEnabled,
+    required this.textEnhancementEnabled,
     required this.brightness,
     required this.pageTurnMode,
     required this.volumePageTurnEnabled,
@@ -64,6 +65,7 @@ class ReaderControls extends StatelessWidget {
     required this.onLineParagraphSpacingChanged,
     required this.onPageHorizontalMarginChanged,
     required this.onFirstLineIndentChanged,
+    required this.onTextEnhancementChanged,
     required this.onBrightnessChanged,
     required this.onPageTurnModeChanged,
     required this.onVolumePageTurnChanged,
@@ -82,6 +84,7 @@ class ReaderControls extends StatelessWidget {
   final double paragraphSpacing;
   final double pageHorizontalMargin;
   final bool firstLineIndentEnabled;
+  final bool textEnhancementEnabled;
   final double brightness;
   final ReaderTurnMode pageTurnMode;
   final bool volumePageTurnEnabled;
@@ -106,6 +109,7 @@ class ReaderControls extends StatelessWidget {
       onLineParagraphSpacingChanged;
   final ValueChanged<double> onPageHorizontalMarginChanged;
   final ValueChanged<bool> onFirstLineIndentChanged;
+  final ValueChanged<bool> onTextEnhancementChanged;
   final ValueChanged<double> onBrightnessChanged;
   final ValueChanged<ReaderTurnMode> onPageTurnModeChanged;
   final ValueChanged<bool> onVolumePageTurnChanged;
@@ -202,12 +206,14 @@ class ReaderControls extends StatelessWidget {
                   paragraphSpacing: paragraphSpacing,
                   pageHorizontalMargin: pageHorizontalMargin,
                   firstLineIndentEnabled: firstLineIndentEnabled,
+                  textEnhancementEnabled: textEnhancementEnabled,
                   onFontSizeChanged: onFontSizeChanged,
                   onLineHeightChanged: onLineHeightChanged,
                   onParagraphSpacingChanged: onParagraphSpacingChanged,
                   onLineParagraphSpacingChanged: onLineParagraphSpacingChanged,
                   onPageHorizontalMarginChanged: onPageHorizontalMarginChanged,
                   onFirstLineIndentChanged: onFirstLineIndentChanged,
+                  onTextEnhancementChanged: onTextEnhancementChanged,
                 ),
               );
             case ReaderOverlayMode.theme:

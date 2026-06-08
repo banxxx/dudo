@@ -31,5 +31,15 @@ void main() {
         isFalse,
       );
     });
+
+    test('defaults text enhancement off and can enable it', () {
+      final settings = ReaderSettings.defaults();
+
+      expect(settings.textEnhancementEnabled, isFalse);
+      expect(
+        settings.copyWith(textEnhancementEnabled: true).textEnhancementEnabled,
+        isTrue,
+      );
+    });
   });
 }
