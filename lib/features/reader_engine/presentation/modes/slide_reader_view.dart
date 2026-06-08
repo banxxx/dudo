@@ -54,6 +54,7 @@ class _SlideReaderViewState extends State<SlideReaderView>
   ReaderResolvedPage? _committedTarget;
   int? _committingDirection;
   int _handledExternalPageTurnRequestId = 0;
+  int _animationGeneration = 0;
 
   @override
   void initState() {
@@ -193,10 +194,12 @@ class _SlideReaderViewState extends State<SlideReaderView>
     }
 
     if (position.dx < width * 0.33) {
+      if (!_finishActivePageTurnIfNeeded()) return;
       _turnPage(-1);
       return;
     }
     if (position.dx > width * 0.67) {
+      if (!_finishActivePageTurnIfNeeded()) return;
       _turnPage(1);
       return;
     }
@@ -264,13 +267,14 @@ class _SlideReaderViewState extends State<SlideReaderView>
   }) {
     _offsetAnimation?.removeListener(_handleAnimatedOffset);
     _controller.stop();
+    final generation = ++_animationGeneration;
     _controller.reset();
     _dragOffset = from;
     _offsetAnimation = Tween<double>(begin: from, end: to)
         .chain(CurveTween(curve: Curves.easeOutCubic))
         .animate(_controller)
       ..addListener(_handleAnimatedOffset);
-    _controller.forward().whenComplete(_completeAnimation);
+    _controller.forward().whenComplete(() => _completeAnimation(generation));
   }
 
   void _handleAnimatedOffset() {
@@ -278,8 +282,8 @@ class _SlideReaderViewState extends State<SlideReaderView>
     setState(() => _dragOffset = _offsetAnimation!.value);
   }
 
-  void _completeAnimation() {
-    if (!mounted) return;
+  void _completeAnimation(int generation) {
+    if (!mounted || generation != _animationGeneration) return;
     final target = _transitionTarget;
     final direction = _committingDirection;
     if (target != null && direction != null) {
@@ -293,8 +297,30 @@ class _SlideReaderViewState extends State<SlideReaderView>
     setState(() => _resetTransitionState());
   }
 
+  bool _finishActivePageTurnIfNeeded() {
+    if (!_controller.isAnimating && _committingDirection == null) {
+      return _committedTarget == null;
+    }
+
+    _animationGeneration++;
+    _controller.stop();
+    final target = _transitionTarget;
+    final direction = _committingDirection;
+    if (target != null && direction != null) {
+      if (target.chapterIndex == widget.viewport.center.chapter.index) {
+        _pageIndex = target.pageIndex;
+      } else {
+        _committedTarget = target;
+      }
+      widget.onLocationChanged(target.page.start);
+    }
+    setState(() => _resetTransitionState());
+    return _committedTarget == null;
+  }
+
   void _resetTransitionState({bool stopAnimation = false}) {
     if (stopAnimation) {
+      _animationGeneration++;
       _controller.stop();
     }
     _offsetAnimation?.removeListener(_handleAnimatedOffset);
@@ -322,7 +348,8 @@ class _SlideReaderViewState extends State<SlideReaderView>
     }
     _handledExternalPageTurnRequestId = requestId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _turnPage(direction);
+      if (!mounted || !_finishActivePageTurnIfNeeded()) return;
+      _turnPage(direction);
     });
   }
 }

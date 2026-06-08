@@ -91,10 +91,12 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   PageCurlSnapshotPair? _snapshots;
   bool _captureInFlight = false;
   Future<void>? _snapshotCaptureFuture;
+  int _snapshotCaptureGeneration = 0;
   String? _imageWarmupKey;
   bool _imageWarmupInFlight = false;
   int _turnRequestId = 0;
   int _handledExternalPageTurnRequestId = 0;
+  int _animationGeneration = 0;
 
   @override
   void initState() {
@@ -221,7 +223,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
             onHorizontalDragEnd:
                 widget.controlsVisible ? null : _handleHorizontalDragEnd,
             onHorizontalDragCancel:
-                widget.controlsVisible ? null : _animateBackToRest,
+                widget.controlsVisible ? null : _handleHorizontalDragCancel,
             child: ClipRect(
               child: Stack(
                 fit: StackFit.expand,
@@ -287,10 +289,12 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     }
 
     if (position.dx < width * 0.33) {
+      if (!_finishActivePageTurnIfNeeded()) return;
       _startProgrammaticTurn(-1, Offset(0, position.dy));
       return;
     }
     if (position.dx > width * 0.67) {
+      if (!_finishActivePageTurnIfNeeded()) return;
       _startProgrammaticTurn(1, Offset(width, position.dy));
       return;
     }
@@ -332,6 +336,11 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       return;
     }
     _turnPage(direction);
+  }
+
+  void _handleHorizontalDragCancel() {
+    if (_committingDirection != null) return;
+    _animateBackToRest();
   }
 
   bool _isOutsideInteractivePage(Offset position) {
@@ -499,6 +508,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   }) {
     _touchAnimation?.removeListener(_handleAnimatedTouch);
     _controller.stop();
+    final generation = ++_animationGeneration;
     _controller.duration = duration;
     _controller.reset();
     _applyAnimatedTouch(from);
@@ -506,7 +516,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
         .chain(CurveTween(curve: curve))
         .animate(_controller)
       ..addListener(_handleAnimatedTouch);
-    _controller.forward().whenComplete(_completeAnimation);
+    _controller.forward().whenComplete(() => _completeAnimation(generation));
   }
 
   void _handleAnimatedTouch() {
@@ -653,8 +663,8 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     };
   }
 
-  void _completeAnimation() {
-    if (!mounted) return;
+  void _completeAnimation(int generation) {
+    if (!mounted || generation != _animationGeneration) return;
     final target = _transitionTarget;
     final direction = _committingDirection;
     if (target != null && direction != null) {
@@ -674,6 +684,29 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     setState(() => _resetTurnState(disposeSnapshots: true));
   }
 
+  bool _finishActivePageTurnIfNeeded() {
+    final target = _transitionTarget;
+    final direction = _committingDirection;
+    final hasActiveTurn = _controller.isAnimating ||
+        target != null ||
+        direction != null ||
+        _snapshotHandoffTarget != null;
+    if (!hasActiveTurn) return _committedTarget == null;
+
+    _animationGeneration++;
+    _controller.stop();
+    if (target != null && direction != null) {
+      if (target.chapterIndex == widget.viewport.center.chapter.index) {
+        _pageIndex = target.pageIndex;
+      } else {
+        _committedTarget = target;
+      }
+      widget.onLocationChanged(target.page.start);
+    }
+    setState(() => _resetTurnState(disposeSnapshots: true));
+    return _committedTarget == null;
+  }
+
   Future<void> _queueSnapshotCapture() {
     if (_snapshots != null && !_snapshotsDisposed) {
       return Future.value();
@@ -684,6 +717,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     }
     final completer = Completer<void>();
     _snapshotCaptureFuture = completer.future;
+    final captureGeneration = ++_snapshotCaptureGeneration;
     final captureTarget = _transitionTarget;
     final captureCurrent = ReaderPagedWindow.fromViewport(
       widget.viewport,
@@ -716,6 +750,10 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
           pair?.dispose();
           return;
         }
+        if (captureGeneration != _snapshotCaptureGeneration) {
+          pair?.dispose();
+          return;
+        }
         if (!_isSameResolvedPage(_transitionTarget, captureTarget)) {
           pair?.dispose();
           return;
@@ -725,7 +763,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
           _snapshots = pair;
         });
       } finally {
-        if (mounted) {
+        if (mounted && captureGeneration == _snapshotCaptureGeneration) {
           _captureInFlight = false;
           _snapshotCaptureFuture = null;
         }
@@ -802,6 +840,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     bool disposeSnapshots = false,
   }) {
     if (stopAnimation) {
+      _animationGeneration++;
       _controller.stop();
     }
     _touchAnimation?.removeListener(_handleAnimatedTouch);
@@ -819,6 +858,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     _cancelingDirection = null;
     _captureInFlight = false;
     _snapshotCaptureFuture = null;
+    _snapshotCaptureGeneration++;
     _turnRequestId++;
     _curlController.clear();
     if (disposeSnapshots) {
@@ -891,14 +931,13 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
         requestId == _handledExternalPageTurnRequestId ||
         direction == 0 ||
         widget.controlsVisible ||
-        _committedTarget != null ||
-        _snapshotHandoffTarget != null ||
-        _controller.isAnimating) {
+        _committedTarget != null) {
       return;
     }
     _handledExternalPageTurnRequestId = requestId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (!_finishActivePageTurnIfNeeded()) return;
       final start = Offset(
         direction > 0 ? _viewportWidth : 0,
         _viewportHeight / 2,

@@ -118,6 +118,113 @@ void main() {
   });
 
   testWidgets(
+      'SlideReaderView settles active commit before handling external request',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 520);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final center = _item(0, pageCount: 3);
+    final reportedLocations = <ReaderLocation>[];
+    var requestId = 0;
+
+    Widget buildView() {
+      return MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 520,
+          child: SlideReaderView(
+            viewport: ReaderViewportState(
+              center: center,
+              currentLocation: ReaderLocation.startOfChapter(
+                bookId: 'book-1',
+                chapterIndex: 0,
+              ),
+              currentLayout: center.layout,
+            ),
+            settings: ReaderSettings.defaults(),
+            palette: ReaderTheme.parchment,
+            controlsVisible: false,
+            externalPageTurnRequestId: requestId,
+            externalPageTurnDirection: 1,
+            onContentTap: () {},
+            onPreviousBoundary: () {},
+            onNextBoundary: () {},
+            onLocationChanged: reportedLocations.add,
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildView());
+
+    await tester.drag(
+      find.byKey(const ValueKey('reader-engine-slide-view')),
+      const Offset(-140, 0),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+
+    requestId = 1;
+    await tester.pumpWidget(buildView());
+    await tester.pumpAndSettle();
+
+    expect(reportedLocations, hasLength(2));
+    expect(reportedLocations[0].offset, 10);
+    expect(reportedLocations[1].offset, 20);
+    expect(find.byKey(const ValueKey('reader-engine-slide-current-0-2')),
+        findsOneWidget);
+  });
+
+  testWidgets('SlideReaderView advances on rapid repeated taps',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 520);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final center = _item(0, pageCount: 3);
+    final reportedLocations = <ReaderLocation>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 520,
+          child: SlideReaderView(
+            viewport: ReaderViewportState(
+              center: center,
+              currentLocation: ReaderLocation.startOfChapter(
+                bookId: 'book-1',
+                chapterIndex: 0,
+              ),
+              currentLayout: center.layout,
+            ),
+            settings: ReaderSettings.defaults(),
+            palette: ReaderTheme.parchment,
+            controlsVisible: false,
+            onContentTap: () {},
+            onPreviousBoundary: () {},
+            onNextBoundary: () {},
+            onLocationChanged: reportedLocations.add,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tapAt(const Offset(280, 260));
+    await tester.pump(const Duration(milliseconds: 40));
+    await tester.tapAt(const Offset(280, 260));
+    await tester.pumpAndSettle();
+
+    expect(reportedLocations, hasLength(2));
+    expect(reportedLocations[0].offset, 10);
+    expect(reportedLocations[1].offset, 20);
+    expect(find.byKey(const ValueKey('reader-engine-slide-current-0-2')),
+        findsOneWidget);
+  });
+
+  testWidgets(
       'SlideReaderView releases committed page after parent viewport update',
       (tester) async {
     tester.view.devicePixelRatio = 1;
