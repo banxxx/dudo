@@ -633,11 +633,23 @@ class _CatalogBottomSheet extends StatefulWidget {
 class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
     with SingleTickerProviderStateMixin {
   late final AnimationController _dragController;
+  late final ScrollController _listController;
   double _dragOffset = 0;
+  int? _lastAutoScrolledChapterIndex;
+  int _lastAutoScrolledChapterCount = -1;
 
   @override
   void initState() {
     super.initState();
+    final initialChapterIndex = _currentChapterListIndex();
+    _listController = ScrollController(
+      initialScrollOffset:
+          _catalogOffsetForIndex(initialChapterIndex, widget.metrics),
+    );
+    if (initialChapterIndex >= 0) {
+      _lastAutoScrolledChapterIndex = widget.currentChapterIndex;
+      _lastAutoScrolledChapterCount = widget.chapters.length;
+    }
     _dragController = AnimationController.unbounded(
       vsync: this,
       duration: const Duration(milliseconds: 220),
@@ -647,9 +659,56 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
   }
 
   @override
+  void didUpdateWidget(covariant _CatalogBottomSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentChapterIndex != widget.currentChapterIndex ||
+        oldWidget.chapters.length != widget.chapters.length) {
+      _scheduleScrollToCurrentChapter();
+    }
+  }
+
+  @override
   void dispose() {
     _dragController.dispose();
+    _listController.dispose();
     super.dispose();
+  }
+
+  double _catalogRowHeight(_ReaderOverlayMetrics metrics) => metrics.s(64);
+
+  double _catalogSeparatorHeight(_ReaderOverlayMetrics metrics) => metrics.s(8);
+
+  int _currentChapterListIndex() {
+    return widget.chapters.indexWhere(
+      (chapter) => chapter.chapterIndex == widget.currentChapterIndex,
+    );
+  }
+
+  double _catalogOffsetForIndex(
+      int chapterListIndex, _ReaderOverlayMetrics metrics) {
+    if (chapterListIndex < 0) return 0;
+    return chapterListIndex *
+        (_catalogRowHeight(metrics) + _catalogSeparatorHeight(metrics));
+  }
+
+  void _scheduleScrollToCurrentChapter() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_listController.hasClients || widget.chapters.isEmpty) {
+        return;
+      }
+      if (_lastAutoScrolledChapterIndex == widget.currentChapterIndex &&
+          _lastAutoScrolledChapterCount == widget.chapters.length) {
+        return;
+      }
+      final index = _currentChapterListIndex();
+      if (index < 0) return;
+
+      final targetOffset = _catalogOffsetForIndex(index, widget.metrics);
+      final maxOffset = _listController.position.maxScrollExtent;
+      _listController.jumpTo(targetOffset.clamp(0.0, maxOffset).toDouble());
+      _lastAutoScrolledChapterIndex = widget.currentChapterIndex;
+      _lastAutoScrolledChapterCount = widget.chapters.length;
+    });
   }
 
   void _handleHeaderDragStart(DragStartDetails details) {
@@ -723,6 +782,8 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
     final bookTitle = widget.bookTitle;
     final onChapterSelected = widget.onChapterSelected;
     final sheetHeight = metrics.catalogSheetHeight(608);
+    final catalogRowHeight = _catalogRowHeight(metrics);
+    final catalogSeparatorHeight = _catalogSeparatorHeight(metrics);
 
     return Positioned(
       key: const ValueKey('reader-catalog-sheet'),
@@ -820,74 +881,93 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
                       }
                       return false;
                     },
-                    child: ListView.separated(
-                      key: const ValueKey('reader-catalog-list'),
-                      padding: EdgeInsets.zero,
-                      itemCount:
-                          chapters.length + (hasMore || isLoadingMore ? 1 : 0),
-                      separatorBuilder: (_, __) =>
-                          SizedBox(height: metrics.s(8)),
-                      itemBuilder: (context, index) {
-                        if (index >= chapters.length) {
-                          return _CatalogLoadingFooter(
-                            metrics: metrics,
-                            palette: palette,
-                            isLoading: isLoadingMore,
-                          );
-                        }
-                        final chapter = chapters[index];
-                        final active =
-                            chapter.chapterIndex == currentChapterIndex;
-                        return GestureDetector(
-                          onTap: () => onChapterSelected(chapter.chapterIndex),
-                          behavior: HitTestBehavior.opaque,
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: metrics.s(14),
-                                vertical: metrics.s(12)),
-                            decoration: BoxDecoration(
-                              color: active
-                                  ? DudoColors.primaryContainer
-                                  : Colors.transparent,
-                              borderRadius:
-                                  BorderRadius.circular(metrics.s(18)),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        chapter.title,
-                                        style: DudoTextStyles.sans(
-                                          color: palette.foreground,
-                                          fontSize: metrics.s(14),
-                                          fontWeight: active
-                                              ? FontWeight.w700
-                                              : FontWeight.w500,
-                                        ),
-                                      ),
-                                      SizedBox(height: metrics.s(4)),
-                                      Text(
-                                        chapter.subtitle,
-                                        style: DudoTextStyles.sans(
-                                          color: palette.mutedForeground ??
-                                              DudoColors.textSecondary,
-                                          fontSize: metrics.s(12),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final bottomPadding =
+                            (constraints.maxHeight - catalogRowHeight)
+                                .clamp(0.0, double.infinity)
+                                .toDouble();
+                        return ListView.separated(
+                          key: const ValueKey('reader-catalog-list'),
+                          controller: _listController,
+                          padding: EdgeInsets.only(bottom: bottomPadding),
+                          itemCount: chapters.length +
+                              (hasMore || isLoadingMore ? 1 : 0),
+                          separatorBuilder: (_, __) =>
+                              SizedBox(height: catalogSeparatorHeight),
+                          itemBuilder: (context, index) {
+                            if (index >= chapters.length) {
+                              return _CatalogLoadingFooter(
+                                metrics: metrics,
+                                palette: palette,
+                                isLoading: isLoadingMore,
+                              );
+                            }
+                            final chapter = chapters[index];
+                            final active =
+                                chapter.chapterIndex == currentChapterIndex;
+                            return GestureDetector(
+                              key: ValueKey(
+                                  'reader-catalog-chapter-${chapter.chapterIndex}'),
+                              onTap: () =>
+                                  onChapterSelected(chapter.chapterIndex),
+                              behavior: HitTestBehavior.opaque,
+                              child: Container(
+                                height: catalogRowHeight,
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: metrics.s(14),
+                                    vertical: metrics.s(10)),
+                                decoration: BoxDecoration(
+                                  color: active
+                                      ? DudoColors.primaryContainer
+                                      : Colors.transparent,
+                                  borderRadius:
+                                      BorderRadius.circular(metrics.s(18)),
                                 ),
-                                if (active)
-                                  Icon(LucideIcons.bookOpenCheck,
-                                      size: metrics.s(18),
-                                      color: DudoColors.primary),
-                              ],
-                            ),
-                          ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            chapter.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: DudoTextStyles.sans(
+                                              color: palette.foreground,
+                                              fontSize: metrics.s(14),
+                                              fontWeight: active
+                                                  ? FontWeight.w700
+                                                  : FontWeight.w500,
+                                            ),
+                                          ),
+                                          SizedBox(height: metrics.s(4)),
+                                          Text(
+                                            chapter.subtitle,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: DudoTextStyles.sans(
+                                              color: palette.mutedForeground ??
+                                                  DudoColors.textSecondary,
+                                              fontSize: metrics.s(12),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (active)
+                                      Icon(LucideIcons.bookOpenCheck,
+                                          size: metrics.s(18),
+                                          color: DudoColors.primary),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         );
                       },
                     ),

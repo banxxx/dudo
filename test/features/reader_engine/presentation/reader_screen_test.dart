@@ -440,6 +440,60 @@ void main() {
     );
     expect(progressRepository.saved?.chapterIndex, 1);
   });
+
+  testWidgets('ReaderScreen catalog opens at the current chapter',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerDocumentSourceProvider.overrideWithValue(
+            _LargeCatalogReaderDocumentSource(),
+          ),
+          readerProgressRepositoryProvider.overrideWithValue(
+            _MemoryProgressRepository(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ReaderScreen(
+            bookId: 'book-1',
+            initialChapterIndex: 35,
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(195, 420));
+    await tester.pumpAndSettle();
+
+    final bottomRect = tester.getRect(
+      find.byKey(const ValueKey('reader-bottom-controls')),
+    );
+    await tester.tapAt(
+      Offset(bottomRect.left + bottomRect.width * 0.1, bottomRect.bottom - 38),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('reader-catalog-sheet')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('reader-catalog-chapter-35')),
+      findsOneWidget,
+    );
+
+    final listTop =
+        tester.getTopLeft(find.byKey(const ValueKey('reader-catalog-list'))).dy;
+    final currentChapterTop = tester
+        .getTopLeft(find.byKey(const ValueKey('reader-catalog-chapter-35')))
+        .dy;
+    expect(currentChapterTop, closeTo(listTop, 1));
+
+    await tester.pumpAndSettle();
+  });
 }
 
 class _FakeReaderDocumentSource implements ReaderDocumentSource {
@@ -497,6 +551,69 @@ class _FakeReaderDocumentSource implements ReaderDocumentSource {
       ),
     );
   }
+}
+
+class _LargeCatalogReaderDocumentSource implements ReaderDocumentSource {
+  static const int _chapterCount = 60;
+
+  @override
+  Future<ReaderDocument> loadDocument(String bookId) async {
+    return ReaderDocument(
+      bookId: bookId,
+      title: 'Test Book',
+      sourceType: ReaderSourceType.localTxt,
+      chapterCount: _chapterCount,
+    );
+  }
+
+  @override
+  Future<ReaderChapterMetaPage> loadChapterMetas({
+    required String bookId,
+    required int offset,
+    required int limit,
+  }) async {
+    final end = (offset + limit).clamp(0, _chapterCount).toInt();
+    return ReaderChapterMetaPage(
+      items: [
+        for (var index = offset; index < end; index++)
+          ReaderChapterMeta(
+            id: 'chapter-$index',
+            bookId: bookId,
+            index: index,
+            title: _chapterTitle(index),
+            normalizedContentLength: 120,
+            isCached: true,
+          ),
+      ],
+      offset: offset,
+      limit: limit,
+      hasMore: end < _chapterCount,
+    );
+  }
+
+  @override
+  Future<ReaderChapter> loadChapter({
+    required String bookId,
+    required int chapterIndex,
+  }) async {
+    final title = _chapterTitle(chapterIndex);
+    const content = 'First paragraph.\nSecond paragraph.';
+    return ReaderChapter(
+      id: 'chapter-$chapterIndex',
+      bookId: bookId,
+      index: chapterIndex,
+      title: title,
+      rawContent: content,
+      normalizedText: normalizeReaderEngineText(content),
+      blocks: buildReaderContentBlocks(
+        chapterIndex: chapterIndex,
+        title: title,
+        content: content,
+      ),
+    );
+  }
+
+  String _chapterTitle(int chapterIndex) => 'Chapter ${chapterIndex + 1}';
 }
 
 class _MemoryProgressRepository implements ReaderProgressRepository {
