@@ -54,7 +54,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
   static Duration get _commitTravelDuration =>
       const Duration(milliseconds: 380);
   static Duration get _cancelTravelDuration =>
-      const Duration(milliseconds: 300);
+      const Duration(milliseconds: 900);
 
   final GlobalKey _currentPageKey = GlobalKey();
   final GlobalKey _targetPageKey = GlobalKey();
@@ -463,7 +463,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     _animateTouch(
       from: gesture.current,
       to: travel.to,
-      curve: Curves.linear,
+      curve: Curves.easeOutCubic,
       duration: travel.duration,
     );
   }
@@ -486,7 +486,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     _animateTouch(
       from: gesture.current,
       to: travel.to,
-      curve: Curves.linear,
+      curve: Curves.easeOutCubic,
       duration: travel.duration,
     );
   }
