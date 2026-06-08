@@ -351,11 +351,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     ReaderSessionState state,
     double value,
   ) async {
-    setState(() => _fontSize = value);
+    final fontSize = ReaderSettings.clampFontSize(value);
+    setState(() => _fontSize = fontSize);
     await controller.updateSettings(
       state.settings.copyWith(
-        fontSize: _scaledTextSize(value),
-        paragraphSpacing: _scaledParagraphSpacing(value),
+        fontSize: _scaledTextSize(fontSize),
+        paragraphSpacing: _scaledParagraphSpacing(fontSize),
       ),
     );
     if (mounted) setState(() {});

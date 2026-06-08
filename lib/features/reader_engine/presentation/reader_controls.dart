@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../domain/reader_catalog_item.dart';
 import '../domain/reader_overlay_mode.dart';
+import '../domain/reader_settings.dart';
 import '../domain/reader_turn_mode.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_theme.dart';

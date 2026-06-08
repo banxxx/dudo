@@ -12,6 +12,9 @@ class ReaderSettings {
     required this.pagePadding,
   });
 
+  static const double minFontSize = 10;
+  static const double maxFontSize = 45;
+
   factory ReaderSettings.defaults() {
     return const ReaderSettings(
       paletteId: 'default',
@@ -31,6 +34,9 @@ class ReaderSettings {
   final ReaderTurnMode turnMode;
   final double paragraphSpacing;
   final ReaderInsets pagePadding;
+
+  static double clampFontSize(double value) =>
+      value.clamp(minFontSize, maxFontSize).toDouble();
 
   ReaderSettings copyWith({
     String? paletteId,
