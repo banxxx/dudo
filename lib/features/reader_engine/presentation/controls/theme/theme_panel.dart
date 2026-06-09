@@ -7,8 +7,10 @@ class _ThemePanel extends StatelessWidget {
     required this.metrics,
     required this.palette,
     required this.brightness,
+    required this.followSystemBrightness,
     required this.onPaletteChanged,
     required this.onBrightnessChanged,
+    required this.onFollowSystemBrightnessChanged,
   });
 
   static const _panelHeight = 360.0;
@@ -16,8 +18,10 @@ class _ThemePanel extends StatelessWidget {
   final _ReaderOverlayMetrics metrics;
   final ReaderPalette palette;
   final double brightness;
+  final bool followSystemBrightness;
   final ValueChanged<ReaderPalette> onPaletteChanged;
   final ValueChanged<double> onBrightnessChanged;
+  final ValueChanged<bool> onFollowSystemBrightnessChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +65,10 @@ class _ThemePanel extends StatelessWidget {
                   _BrightnessEyeGroup(
                     metrics: metrics,
                     brightness: brightness,
+                    followSystemBrightness: followSystemBrightness,
                     onBrightnessChanged: onBrightnessChanged,
+                    onFollowSystemBrightnessChanged:
+                        onFollowSystemBrightnessChanged,
                   ),
                   SizedBox(height: metrics.s(12)),
                   _ThemeToggleGroup(

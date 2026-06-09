@@ -59,6 +59,7 @@ class ReaderControls extends StatelessWidget {
     required this.textEnhancementEnabled,
     required this.fontLibraryValue,
     required this.brightness,
+    required this.followSystemBrightness,
     required this.pageTurnMode,
     required this.volumePageTurnEnabled,
     required this.isListening,
@@ -85,6 +86,7 @@ class ReaderControls extends StatelessWidget {
     required this.onFirstLineIndentChanged,
     required this.onTextEnhancementChanged,
     required this.onBrightnessChanged,
+    required this.onFollowSystemBrightnessChanged,
     required this.onPageTurnModeChanged,
     required this.onVolumePageTurnChanged,
     required this.onListeningChanged,
@@ -105,6 +107,7 @@ class ReaderControls extends StatelessWidget {
   final bool textEnhancementEnabled;
   final AsyncValue<ReaderFontLibrary> fontLibraryValue;
   final double brightness;
+  final bool followSystemBrightness;
   final ReaderTurnMode pageTurnMode;
   final bool volumePageTurnEnabled;
   final bool isListening;
@@ -132,6 +135,7 @@ class ReaderControls extends StatelessWidget {
   final ValueChanged<bool> onFirstLineIndentChanged;
   final ValueChanged<bool> onTextEnhancementChanged;
   final ValueChanged<double> onBrightnessChanged;
+  final ValueChanged<bool> onFollowSystemBrightnessChanged;
   final ValueChanged<ReaderTurnMode> onPageTurnModeChanged;
   final ValueChanged<bool> onVolumePageTurnChanged;
   final ValueChanged<bool> onListeningChanged;
@@ -252,8 +256,11 @@ class ReaderControls extends StatelessWidget {
                     metrics: metrics,
                     palette: palette,
                     brightness: brightness,
+                    followSystemBrightness: followSystemBrightness,
                     onPaletteChanged: onPaletteChanged,
                     onBrightnessChanged: onBrightnessChanged,
+                    onFollowSystemBrightnessChanged:
+                        onFollowSystemBrightnessChanged,
                   ),
                 );
               case ReaderOverlayMode.listening:

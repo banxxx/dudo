@@ -1,16 +1,18 @@
 part of '../../../reader_controls.dart';
 
-// 亮度滑块展示控件：当前仅保留 UI 状态，不在这里实现亮度业务逻辑。
+// 亮度滑块：只负责拖拽展示与禁用态，具体亮度来源由阅读页状态管理。
 
 class _ThemeBrightnessSlider extends StatelessWidget {
   const _ThemeBrightnessSlider({
     required this.metrics,
     required this.value,
+    required this.enabled,
     required this.onChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
   final double value;
+  final bool enabled;
   final ValueChanged<double> onChanged;
 
   @override
@@ -19,15 +21,20 @@ class _ThemeBrightnessSlider extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         void updateFromOffset(double dx) {
+          if (!enabled) return;
           onChanged((dx / constraints.maxWidth).clamp(0.0, 1.0).toDouble());
         }
 
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTapDown: (details) => updateFromOffset(details.localPosition.dx),
-          onHorizontalDragUpdate: (details) =>
-              updateFromOffset(details.localPosition.dx),
+          onTapDown: enabled
+              ? (details) => updateFromOffset(details.localPosition.dx)
+              : null,
+          onHorizontalDragUpdate: enabled
+              ? (details) => updateFromOffset(details.localPosition.dx)
+              : null,
           child: SizedBox(
+            key: const ValueKey('reader-theme-brightness-slider'),
             height: metrics.s(24),
             child: Stack(
               alignment: Alignment.centerLeft,
@@ -35,7 +42,8 @@ class _ThemeBrightnessSlider extends StatelessWidget {
                 Container(
                   height: metrics.s(8),
                   decoration: BoxDecoration(
-                    color: context.readerControls.themePicker.surfaceLine,
+                    color: context.readerControls.themePicker.surfaceLine
+                        .withValues(alpha: enabled ? 1 : 0.42),
                     borderRadius: AppRadius.full,
                   ),
                 ),
@@ -44,7 +52,8 @@ class _ThemeBrightnessSlider extends StatelessWidget {
                   child: Container(
                     height: metrics.s(8),
                     decoration: BoxDecoration(
-                      color: context.readerControls.themePicker.green,
+                      color: context.readerControls.themePicker.green
+                          .withValues(alpha: enabled ? 1 : 0.46),
                       borderRadius: AppRadius.full,
                     ),
                   ),
@@ -59,7 +68,8 @@ class _ThemeBrightnessSlider extends StatelessWidget {
                       color: context.readerControls.themePicker.panel,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: context.readerControls.themePicker.green,
+                        color: context.readerControls.themePicker.green
+                            .withValues(alpha: enabled ? 1 : 0.48),
                         width: metrics.s(2),
                       ),
                       boxShadow: [

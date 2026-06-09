@@ -44,8 +44,11 @@ class ReaderScreen extends ConsumerStatefulWidget {
   ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-class _ReaderScreenState extends ConsumerState<ReaderScreen> {
+class _ReaderScreenState extends ConsumerState<ReaderScreen>
+    with WidgetsBindingObserver {
   static const int _catalogPageSize = 200;
+  static const double _systemLightBrightness = 1;
+  static const double _systemDarkBrightness = 0.62;
 
   ReaderSessionController? _controller;
   Future<void>? _initialization;
@@ -64,6 +67,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   bool _firstLineIndentEnabled = true;
   bool _textEnhancementEnabled = false;
   double _brightness = 1;
+  bool _followSystemBrightness = false;
   bool _volumePageTurnEnabled = true;
   bool _isListening = false;
   int _volumePageTurnRequestId = 0;
@@ -74,12 +78,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _syncSystemUiMode();
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncSystemUiMode());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       SystemChrome.setSystemUIOverlayStyle(
@@ -91,6 +97,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       );
     });
     super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    super.didChangePlatformBrightness();
+    if (!_followSystemBrightness || !mounted) return;
+    setState(() => _brightness = _brightnessForSystemMode());
   }
 
   @override
@@ -267,6 +280,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         textEnhancementEnabled: _textEnhancementEnabled,
         fontLibraryValue: fontLibraryValue,
         brightness: _brightness,
+        followSystemBrightness: _followSystemBrightness,
         pageTurnMode: state.settings.turnMode,
         volumePageTurnEnabled: _volumePageTurnEnabled,
         isListening: _isListening,
@@ -323,7 +337,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         onTextEnhancementChanged: (value) =>
             _updateTextEnhancement(controller, value),
         onBrightnessChanged: (value) {
-          setState(() => _brightness = value);
+          setState(() {
+            _followSystemBrightness = false;
+            _brightness = value;
+          });
+        },
+        onFollowSystemBrightnessChanged: (value) {
+          setState(() {
+            _followSystemBrightness = value;
+            if (value) {
+              _brightness = _brightnessForSystemMode();
+            }
+          });
         },
         onPageTurnModeChanged: (mode) async {
           await controller
@@ -664,6 +689,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   void _syncSystemUiMode() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  double _brightnessForSystemMode() {
+    final brightness =
+        WidgetsBinding.instance.platformDispatcher.platformBrightness;
+    return brightness == Brightness.dark
+        ? _systemDarkBrightness
+        : _systemLightBrightness;
   }
 
   void _scheduleControllerRefresh() {

@@ -6,12 +6,16 @@ class _BrightnessEyeGroup extends StatelessWidget {
   const _BrightnessEyeGroup({
     required this.metrics,
     required this.brightness,
+    required this.followSystemBrightness,
     required this.onBrightnessChanged,
+    required this.onFollowSystemBrightnessChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
   final double brightness;
+  final bool followSystemBrightness;
   final ValueChanged<double> onBrightnessChanged;
+  final ValueChanged<bool> onFollowSystemBrightnessChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +53,7 @@ class _BrightnessEyeGroup extends StatelessWidget {
         _ThemeBrightnessSlider(
           metrics: metrics,
           value: clamped,
+          enabled: !followSystemBrightness,
           onChanged: onBrightnessChanged,
         ),
         SizedBox(height: metrics.s(8)),
@@ -58,12 +63,23 @@ class _BrightnessEyeGroup extends StatelessWidget {
             children: [
               Expanded(
                 child: _ThemeQuickPill(
+                  key: const ValueKey('reader-theme-follow-system'),
                   metrics: metrics,
                   icon: LucideIcons.monitorSmartphone,
                   label: '跟随系统',
-                  fillColor: context.readerControls.themePicker.surfaceLow,
-                  foreground: context.readerControls.themePicker.secondaryText,
-                  iconColor: context.readerControls.themePicker.muted,
+                  fillColor: followSystemBrightness
+                      ? context.readerControls.themePicker.greenSoft
+                      : context.readerControls.themePicker.surfaceLow,
+                  foreground: followSystemBrightness
+                      ? context.readerControls.themePicker.green
+                      : context.readerControls.themePicker.secondaryText,
+                  iconColor: followSystemBrightness
+                      ? context.readerControls.themePicker.green
+                      : context.readerControls.themePicker.muted,
+                  emphasized: followSystemBrightness,
+                  onTap: () => onFollowSystemBrightnessChanged(
+                    !followSystemBrightness,
+                  ),
                 ),
               ),
               SizedBox(width: metrics.s(10)),

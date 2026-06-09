@@ -4,6 +4,7 @@ part of '../../../reader_controls.dart';
 
 class _ThemeQuickPill extends StatelessWidget {
   const _ThemeQuickPill({
+    super.key,
     required this.metrics,
     required this.icon,
     required this.label,
@@ -11,6 +12,7 @@ class _ThemeQuickPill extends StatelessWidget {
     required this.foreground,
     required this.iconColor,
     this.emphasized = false,
+    this.onTap,
   });
 
   final _ReaderOverlayMetrics metrics;
@@ -20,10 +22,11 @@ class _ThemeQuickPill extends StatelessWidget {
   final Color foreground;
   final Color iconColor;
   final bool emphasized;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final content = Container(
       height: metrics.s(36),
       alignment: Alignment.center,
       decoration: BoxDecoration(
@@ -49,6 +52,12 @@ class _ThemeQuickPill extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: content,
     );
   }
 }
