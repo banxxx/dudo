@@ -47,7 +47,7 @@ class _TypographyPanel extends StatefulWidget {
 }
 
 class _TypographyPanelState extends State<_TypographyPanel> {
-  static const _panelHeight = 480.0;
+  static const _panelHeight = 360.0;
 
   _TypographySpacingPreset? _selectedSpacingPreset;
   _PageMarginPreset? _selectedPageMarginPreset;

@@ -7,7 +7,9 @@ import 'package:dudo/features/reader_engine/domain/reader_document.dart';
 import 'package:dudo/features/reader_engine/domain/reader_location.dart';
 import 'package:dudo/features/reader_engine/domain/reader_source_type.dart';
 import 'package:dudo/features/reader_engine/presentation/reader_screen.dart';
+import 'package:dudo/features/reader_engine/presentation/widgets/reader_background.dart';
 import 'package:dudo/features/reader_engine/presentation/widgets/reader_canvas_page.dart';
+import 'package:dudo/shared/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -169,6 +171,79 @@ void main() {
     );
 
     expect(bottomRect.top - pageTurnRect.bottom, closeTo(16, 0.01));
+  });
+
+  testWidgets('ReaderScreen opens the reader theme panel', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerDocumentSourceProvider.overrideWithValue(
+            _FakeReaderDocumentSource(),
+          ),
+          readerProgressRepositoryProvider.overrideWithValue(
+            _MemoryProgressRepository(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ReaderScreen(bookId: 'book-1'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(195, 420));
+    await tester.pumpAndSettle();
+
+    final bottomRect = tester.getRect(
+      find.byKey(const ValueKey('reader-bottom-controls')),
+    );
+
+    await tester.tapAt(
+      Offset(bottomRect.left + bottomRect.width * 0.5, bottomRect.bottom - 38),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('reader-theme-panel')), findsOneWidget);
+    expect(find.text('主题样式'), findsOneWidget);
+    expect(find.text('阅读背景'), findsOneWidget);
+    expect(find.text('亮度与护眼'), findsOneWidget);
+    expect(find.text('界面显示'), findsOneWidget);
+    expect(find.text('暖棕'), findsOneWidget);
+    expect(find.text('夜读'), findsOneWidget);
+    expect(
+      tester.getCenter(find.text('暖棕')).dx,
+      lessThan(tester.getCenter(find.text('夜读')).dx),
+    );
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('暖棕'));
+    await tester.pumpAndSettle();
+    var background = tester.widget<ReaderPaperBackground>(
+      find.byType(ReaderPaperBackground),
+    );
+    expect(background.palette.name, ReaderTheme.warmBrown.name);
+
+    await tester.tap(find.text('夜读'));
+    await tester.pumpAndSettle();
+    background = tester.widget<ReaderPaperBackground>(
+      find.byType(ReaderPaperBackground),
+    );
+    expect(background.palette.name, ReaderTheme.night.name);
+    expect(tester.takeException(), isNull);
+
+    await tester.drag(
+      find.byKey(const ValueKey('reader-theme-panel')),
+      const Offset(0, -220),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('手势控制'), findsOneWidget);
+    expect(find.text('屏蔽手势导航键'), findsOneWidget);
   });
 
   testWidgets('ReaderScreen switches to scroll mode through reader controls',

@@ -172,6 +172,18 @@ class ReaderTheme {
     accent: Color(0xFF5E6F5B),
   );
 
+  static const ReaderPalette warmBrown = ReaderPalette(
+    name: '暖棕',
+    background: Color(0xFFE8D7BD),
+    foreground: Color(0xFF33281E),
+    backgroundEnd: Color(0xFFD9C09A),
+    panel: Color(0xEAF7E8D2),
+    panelStrong: Color(0xF2F7E8D2),
+    outline: Color(0x88D0B58D),
+    mutedForeground: Color(0xFF7B6244),
+    accent: Color(0xFF8A6A43),
+  );
+
   static const ReaderPalette plain = ReaderPalette(
     name: '简白',
     background: Color(0xFFFFFFFF),
@@ -187,7 +199,7 @@ class ReaderTheme {
   static const List<ReaderPalette> presets = <ReaderPalette>[
     parchment,
     eyeCare,
-    plain,
+    warmBrown,
     night,
   ];
 }
