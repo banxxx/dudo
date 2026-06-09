@@ -1,24 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
+import '../application/reader_font_providers.dart';
+import '../data/reader_font_repository.dart';
+import '../domain/reader_font.dart';
 import '../../shared/widgets/settings_detail_scaffold.dart';
 
 enum _FontSource { local, builtIn }
 
-class TypographySettingsPage extends StatefulWidget {
+class TypographySettingsPage extends ConsumerStatefulWidget {
   const TypographySettingsPage({super.key});
 
   @override
-  State<TypographySettingsPage> createState() => _TypographySettingsPageState();
+  ConsumerState<TypographySettingsPage> createState() =>
+      _TypographySettingsPageState();
 }
 
-class _TypographySettingsPageState extends State<TypographySettingsPage> {
+class _TypographySettingsPageState
+    extends ConsumerState<TypographySettingsPage> {
   _FontSource _source = _FontSource.local;
 
   @override
   Widget build(BuildContext context) {
+    final libraryValue = ref.watch(readerFontLibraryControllerProvider);
+    final library = libraryValue.valueOrNull;
+
     return SettingsDetailScaffold(
       children: [
         const SettingsDetailHeader(
@@ -27,23 +36,71 @@ class _TypographySettingsPageState extends State<TypographySettingsPage> {
           showAction: false,
         ),
         const SizedBox(height: 14),
-        const _ReadingPreview(),
+        _ReadingPreview(font: library?.selectedFont),
         const SizedBox(height: 14),
         _FontManagementSection(
           source: _source,
+          libraryValue: libraryValue,
           onSourceChanged: (source) => setState(() => _source = source),
-          onDeleteFont: () => _showDeleteFontSheet(context),
+          onImportFont: _importFont,
+          onSelectFont: _selectFont,
+          onDeleteFont: _deleteFont,
         ),
       ],
+    );
+  }
+
+  Future<void> _importFont() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final font = await ref
+          .read(readerFontLibraryControllerProvider.notifier)
+          .importFont();
+      if (!mounted || font == null) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('已导入并启用「${font.displayName}」')),
+      );
+    } on ReaderFontImportException catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text('字体导入失败')));
+    }
+  }
+
+  Future<void> _selectFont(ReaderFont font) async {
+    await ref
+        .read(readerFontLibraryControllerProvider.notifier)
+        .selectFont(font.familyKey);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已启用「${font.displayName}」')),
+    );
+  }
+
+  Future<void> _deleteFont(ReaderFont font) async {
+    final shouldDelete = await _showDeleteFontSheet(context, font);
+    if (!mounted || !shouldDelete) return;
+    await ref
+        .read(readerFontLibraryControllerProvider.notifier)
+        .deleteFont(font.id);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('已删除「${font.displayName}」')),
     );
   }
 }
 
 class _ReadingPreview extends StatelessWidget {
-  const _ReadingPreview();
+  const _ReadingPreview({this.font});
+
+  final ReaderFont? font;
 
   @override
   Widget build(BuildContext context) {
+    final fontFamily = font?.familyKey ?? DudoFonts.serifSc;
+
     return Container(
       padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
@@ -70,7 +127,9 @@ class _ReadingPreview extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '中文阅读 · 当前阅读字体',
+                      font == null
+                          ? '中文阅读 · 当前阅读字体'
+                          : '中文阅读 · ${font!.displayName}',
                       style: DudoTextStyles.sans(
                         color: DudoColors.secondary,
                         fontSize: 11,
@@ -101,7 +160,8 @@ class _ReadingPreview extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             '她仰望着夜空，宇宙像一张深色纸页，所有星辰都在沉默地等待被阅读。',
-            style: DudoTextStyles.serif(
+            style: TextStyle(
+              fontFamily: fontFamily,
               color: DudoColors.textPrimary,
               fontSize: 19,
               fontWeight: FontWeight.w700,
@@ -117,13 +177,19 @@ class _ReadingPreview extends StatelessWidget {
 class _FontManagementSection extends StatelessWidget {
   const _FontManagementSection({
     required this.source,
+    required this.libraryValue,
     required this.onSourceChanged,
+    required this.onImportFont,
+    required this.onSelectFont,
     required this.onDeleteFont,
   });
 
   final _FontSource source;
+  final AsyncValue<ReaderFontLibrary> libraryValue;
   final ValueChanged<_FontSource> onSourceChanged;
-  final VoidCallback onDeleteFont;
+  final VoidCallback onImportFont;
+  final ValueChanged<ReaderFont> onSelectFont;
+  final ValueChanged<ReaderFont> onDeleteFont;
 
   @override
   Widget build(BuildContext context) {
@@ -146,41 +212,36 @@ class _FontManagementSection extends StatelessWidget {
         const SizedBox(height: 10),
         _FontSourceTabs(source: source, onChanged: onSourceChanged),
         const SizedBox(height: 10),
-        if (source == _FontSource.local) ...[
-          const _ImportFontEntry(),
-          const SizedBox(height: 10),
-          const _FontCard(
-            name: '霞鹜文楷',
-            description: 'LXGWWenKai-Regular.ttf',
-            selected: true,
-            badge: '本地',
-          ),
-          const SizedBox(height: 10),
-          _FontCard(
-            name: '方正书宋',
-            description: 'FZShuSong.otf',
-            onDelete: onDeleteFont,
-          ),
-        ] else ...[
-          const _FontCard(
-            name: '思源宋体',
-            description: '适合长时间中文阅读',
-            selected: true,
-            badge: '内置',
-          ),
-          const SizedBox(height: 10),
-          const _FontCard(
-            name: '系统黑体',
-            description: '跟随设备默认无衬线字体',
-            badge: '内置',
-          ),
-          const SizedBox(height: 10),
-          const _FontCard(
-            name: 'Noto Serif SC',
-            description: '清晰稳定的中文衬线字体',
-            badge: '内置',
-          ),
-        ],
+        libraryValue.when(
+          loading: () => const _FontLibraryLoading(),
+          error: (error, _) => _FontLibraryError(error: error),
+          data: (library) {
+            final fonts = source == _FontSource.local
+                ? library.importedFonts
+                : library.builtinFonts;
+            return Column(
+              children: [
+                if (source == _FontSource.local) ...[
+                  _ImportFontEntry(onTap: onImportFont),
+                  const SizedBox(height: 10),
+                ],
+                if (fonts.isEmpty)
+                  const _EmptyFontLibrary()
+                else
+                  for (final font in fonts) ...[
+                    _FontCard(
+                      font: font,
+                      selected: font.familyKey == library.selectedFamilyKey,
+                      onSelect: () => onSelectFont(font),
+                      onDelete:
+                          font.canDelete ? () => onDeleteFont(font) : null,
+                    ),
+                    if (font != fonts.last) const SizedBox(height: 10),
+                  ],
+              ],
+            );
+          },
+        ),
       ],
     );
   }
@@ -265,41 +326,295 @@ class _FontSourceTab extends StatelessWidget {
 }
 
 class _ImportFontEntry extends StatelessWidget {
-  const _ImportFontEntry();
+  const _ImportFontEntry({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: DudoColors.primaryContainer,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          height: 62,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: DudoColors.primaryContainerStrong),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: DudoColors.surfaceHigh,
+                  borderRadius: BorderRadius.circular(19),
+                ),
+                child: const Icon(
+                  LucideIcons.folderPlus,
+                  color: DudoColors.primary,
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '添加本地字体',
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '支持 .ttf、.otf 文件，导入后立即可用',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.primaryDark,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                LucideIcons.chevronRight,
+                color: DudoColors.primary,
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FontCard extends StatelessWidget {
+  const _FontCard({
+    required this.font,
+    this.selected = false,
+    required this.onSelect,
+    this.onDelete,
+  });
+
+  final ReaderFont font;
+  final bool selected;
+  final VoidCallback onSelect;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = selected ? DudoColors.primaryDark : DudoColors.secondary;
+    final description = font.isBuiltin
+        ? _builtinDescription(font)
+        : '${font.originalFileName ?? font.displayName} · ${_formatFileSize(font.fileSize)}';
+
+    return Material(
+      color: selected ? DudoColors.primaryContainer : DudoColors.surface,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onSelect,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          height: 76,
+          padding: const EdgeInsets.symmetric(horizontal: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected
+                  ? DudoColors.primaryContainerStrong
+                  : DudoColors.outlineVariant,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color:
+                      selected ? DudoColors.surfaceHigh : DudoColors.surfaceLow,
+                  borderRadius: BorderRadius.circular(21),
+                ),
+                child: Icon(LucideIcons.fileType, color: foreground, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            font.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: DudoTextStyles.sans(
+                              color: DudoColors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 7),
+                        _FontBadge(font.isBuiltin ? '内置' : '本地',
+                            selected: selected),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          DudoTextStyles.sans(color: foreground, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (selected)
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: DudoColors.primary,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    LucideIcons.check,
+                    color: DudoColors.surfaceHigh,
+                    size: 15,
+                  ),
+                )
+              else if (onDelete != null)
+                Material(
+                  color: DudoColors.surfaceLow,
+                  borderRadius: BorderRadius.circular(15),
+                  child: InkWell(
+                    onTap: onDelete,
+                    borderRadius: BorderRadius.circular(15),
+                    child: const SizedBox(
+                      width: 30,
+                      height: 30,
+                      child: Icon(
+                        LucideIcons.trash2,
+                        color: DudoColors.secondary,
+                        size: 17,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _builtinDescription(ReaderFont font) {
+    return switch (font.familyKey) {
+      DudoFonts.sansSc => '清晰稳定的中文无衬线字体',
+      _ => '适合长时间中文阅读的衬线字体',
+    };
+  }
+
+  String _formatFileSize(int? bytes) {
+    if (bytes == null || bytes <= 0) return '本地字体';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
+    return '${(bytes / 1024 / 1024).toStringAsFixed(1)}MB';
+  }
+}
+
+class _FontLibraryLoading extends StatelessWidget {
+  const _FontLibraryLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      height: 76,
+      child: Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      ),
+    );
+  }
+}
+
+class _FontLibraryError extends StatelessWidget {
+  const _FontLibraryError({required this.error});
+
+  final Object error;
+
+  @override
+  Widget build(BuildContext context) {
+    return _FontInfoBox(
+      icon: LucideIcons.circleAlert,
+      title: '字体库加载失败',
+      description: error.toString(),
+    );
+  }
+}
+
+class _EmptyFontLibrary extends StatelessWidget {
+  const _EmptyFontLibrary();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _FontInfoBox(
+      icon: LucideIcons.fileType,
+      title: '还没有导入字体',
+      description: '添加 .ttf 或 .otf 后，可以在这里选择和删除。',
+    );
+  }
+}
+
+class _FontInfoBox extends StatelessWidget {
+  const _FontInfoBox({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 62,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: DudoColors.primaryContainer,
+        color: DudoColors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: DudoColors.primaryContainerStrong),
+        border: Border.all(color: DudoColors.outlineVariant),
       ),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: DudoColors.surfaceHigh,
-              borderRadius: BorderRadius.circular(19),
-            ),
-            child: const Icon(
-              LucideIcons.folderPlus,
-              color: DudoColors.primary,
-              size: 19,
-            ),
-          ),
+          Icon(icon, color: DudoColors.secondary, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '添加本地字体',
+                  title,
                   style: DudoTextStyles.sans(
                     color: DudoColors.textPrimary,
                     fontSize: 14,
@@ -308,139 +623,17 @@ class _ImportFontEntry extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '支持 .ttf、.otf 文件，导入后立即可用',
-                  maxLines: 1,
+                  description,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: DudoTextStyles.sans(
-                    color: DudoColors.primaryDark,
+                    color: DudoColors.secondary,
                     fontSize: 11,
                   ),
                 ),
               ],
             ),
           ),
-          const Icon(
-            LucideIcons.chevronRight,
-            color: DudoColors.primary,
-            size: 18,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FontCard extends StatelessWidget {
-  const _FontCard({
-    required this.name,
-    required this.description,
-    this.selected = false,
-    this.badge,
-    this.onDelete,
-  });
-
-  final String name;
-  final String description;
-  final bool selected;
-  final String? badge;
-  final VoidCallback? onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final foreground = selected ? DudoColors.primaryDark : DudoColors.secondary;
-
-    return Container(
-      height: 76,
-      padding: const EdgeInsets.symmetric(horizontal: 13),
-      decoration: BoxDecoration(
-        color: selected ? DudoColors.primaryContainer : DudoColors.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: selected
-              ? DudoColors.primaryContainerStrong
-              : DudoColors.outlineVariant,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: selected ? DudoColors.surfaceHigh : DudoColors.surfaceLow,
-              borderRadius: BorderRadius.circular(21),
-            ),
-            child: Icon(LucideIcons.fileType, color: foreground, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: DudoTextStyles.sans(
-                          color: DudoColors.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    if (badge != null) ...[
-                      const SizedBox(width: 7),
-                      _FontBadge(badge!, selected: selected),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  description,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DudoTextStyles.sans(color: foreground, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          if (selected)
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: DudoColors.primary,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(
-                LucideIcons.check,
-                color: DudoColors.surfaceHigh,
-                size: 15,
-              ),
-            )
-          else if (onDelete != null)
-            Material(
-              color: DudoColors.surfaceLow,
-              borderRadius: BorderRadius.circular(15),
-              child: InkWell(
-                onTap: onDelete,
-                borderRadius: BorderRadius.circular(15),
-                child: const SizedBox(
-                  width: 30,
-                  height: 30,
-                  child: Icon(
-                    LucideIcons.trash2,
-                    color: DudoColors.secondary,
-                    size: 17,
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -475,18 +668,21 @@ class _FontBadge extends StatelessWidget {
   }
 }
 
-Future<void> _showDeleteFontSheet(BuildContext context) {
-  return showModalBottomSheet<void>(
+Future<bool> _showDeleteFontSheet(BuildContext context, ReaderFont font) async {
+  final result = await showModalBottomSheet<bool>(
     context: context,
     backgroundColor: Colors.transparent,
     barrierColor: DudoColors.textPrimary.withValues(alpha: 0.2),
     isScrollControlled: true,
-    builder: (context) => const _DeleteFontSheet(),
+    builder: (context) => _DeleteFontSheet(font: font),
   );
+  return result ?? false;
 }
 
 class _DeleteFontSheet extends StatelessWidget {
-  const _DeleteFontSheet();
+  const _DeleteFontSheet({required this.font});
+
+  final ReaderFont font;
 
   @override
   Widget build(BuildContext context) {
@@ -532,7 +728,7 @@ class _DeleteFontSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '删除“方正书宋”？',
+                        '删除“${font.displayName}”？',
                         style: DudoTextStyles.sans(
                           color: DudoColors.textPrimary,
                           fontSize: 18,
@@ -571,7 +767,7 @@ class _DeleteFontSheet extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'FZShuSong.otf · 本地字体',
+                      '${font.originalFileName ?? font.displayName} · 本地字体',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: DudoTextStyles.sans(
@@ -602,7 +798,7 @@ class _DeleteFontSheet extends StatelessWidget {
                       label: '删除',
                       background: const Color(0xFFA0612B),
                       foreground: DudoColors.surfaceHigh,
-                      onTap: () => Navigator.of(context).pop(),
+                      onTap: () => Navigator.of(context).pop(true),
                     ),
                   ),
                 ],

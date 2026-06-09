@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../settings/typography_settings/application/reader_font_providers.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../application/reader_engine_providers.dart';
 import '../application/reader_engine_state.dart';
@@ -48,6 +51,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Future<void>? _initialization;
   Size? _lastViewportSize;
   EdgeInsets? _lastViewportPadding;
+  String? _lastSelectedFontFamily;
   final ReaderLayoutCache _layoutCache = ReaderLayoutCache(maximumEntries: 96);
   bool _controllerRefreshScheduled = false;
 
@@ -98,6 +102,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     final foreground = _palette.foreground;
+    final selectedFontFamily =
+        ref.watch(selectedReaderFontFamilyProvider).valueOrNull ??
+            ReaderSettings.defaults().fontFamily;
     final statusStyle = foreground.computeLuminance() > 0.5
         ? SystemUiOverlayStyle.light
         : SystemUiOverlayStyle.dark;
@@ -120,7 +127,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 final chromeLayout =
                     ReaderChromeLayout.fromSize(size, safePadding);
                 final metrics = chromeLayout.metrics;
-                _ensureController(size, safePadding);
+                _ensureController(size, safePadding, selectedFontFamily);
                 return FutureBuilder<void>(
                   future: _initialization,
                   builder: (context, snapshot) {
@@ -534,9 +541,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     });
   }
 
-  ReaderSettings _initialSettings(Size size, EdgeInsets safePadding) {
+  ReaderSettings _initialSettings(
+    Size size,
+    EdgeInsets safePadding,
+    String fontFamily,
+  ) {
     final metrics = ReaderPageMetrics.fromSize(size);
     return ReaderSettings.defaults().copyWith(
+      fontFamily: fontFamily,
       fontSize: metrics.s(_fontSize),
       lineHeight: _lineHeight,
       turnMode: ReaderTurnMode.slide,
@@ -592,14 +604,20 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
-  void _ensureController(Size size, EdgeInsets safePadding) {
+  void _ensureController(
+    Size size,
+    EdgeInsets safePadding,
+    String fontFamily,
+  ) {
     if (_controller != null &&
         _lastViewportSize == size &&
         _lastViewportPadding == safePadding) {
+      _syncSelectedFontFamily(fontFamily);
       return;
     }
     _lastViewportSize = size;
     _lastViewportPadding = safePadding;
+    _lastSelectedFontFamily = fontFamily;
     final source = ref.read(readerDocumentSourceProvider);
     final progressRepository = ref.read(readerProgressRepositoryProvider);
     final viewportController = ReaderViewportController(
@@ -612,7 +630,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       source: source,
       viewportController: viewportController,
       progressRepository: progressRepository,
-      initialSettings: _initialSettings(size, safePadding),
+      initialSettings: _initialSettings(size, safePadding, fontFamily),
       viewportSize: size,
       onStateChanged: _scheduleControllerRefresh,
     );
@@ -622,6 +640,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         await controller.jumpToChapter(widget.initialChapterIndex);
       }
     });
+  }
+
+  void _syncSelectedFontFamily(String fontFamily) {
+    if (_lastSelectedFontFamily == fontFamily) return;
+    _lastSelectedFontFamily = fontFamily;
+    final controller = _controller;
+    if (controller == null) return;
+    unawaited(
+      controller.updateSettings(
+        controller.state.settings.copyWith(fontFamily: fontFamily),
+      ),
+    );
   }
 
   void _syncSystemUiMode() {

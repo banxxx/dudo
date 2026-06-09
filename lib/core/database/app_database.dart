@@ -111,12 +111,49 @@ class ReadingSessions extends Table {
   IntColumn get wordsRead => integer().withDefault(const Constant(0))();
 }
 
+/// Fonts imported by the user for reader typography.
+class ImportedReaderFonts extends Table {
+  TextColumn get id => text()();
+  TextColumn get displayName => text()();
+  TextColumn get familyKey => text().unique()();
+  TextColumn get relativePath => text()();
+  TextColumn get originalFileName => text()();
+  TextColumn get fileExtension => text()();
+  IntColumn get fileSize => integer()();
+  TextColumn get sha256 => text().unique()();
+  DateTimeColumn get importedAt => dateTime()();
+  DateTimeColumn get lastUsedAt => dateTime().nullable()();
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+/// Small key-value store for app-level preferences.
+class AppPreferences extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {key};
+}
+
 // ---------------------------------------------------------------------------
 // Database
 // ---------------------------------------------------------------------------
 
 @DriftDatabase(
-  tables: [Books, Chapters, Bookmarks, Notes, Sources, ReadingSessions],
+  tables: [
+    Books,
+    Chapters,
+    Bookmarks,
+    Notes,
+    Sources,
+    ReadingSessions,
+    ImportedReaderFonts,
+    AppPreferences,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
@@ -124,7 +161,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -147,6 +184,10 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 4) {
             await _createBookshelfIndexes();
+          }
+          if (from < 5) {
+            await m.createTable(importedReaderFonts);
+            await m.createTable(appPreferences);
           }
         },
       );

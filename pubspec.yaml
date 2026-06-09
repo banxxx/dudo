@@ -59,6 +59,7 @@ dependencies:
   epubx: ^4.0.0
   archive: ^3.6.1
   charset_converter: ^2.2.0
+  crypto: ^3.0.3
 
   # UI
   cached_network_image: ^3.3.1
