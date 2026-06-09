@@ -9,10 +9,14 @@ class _ThemePanel extends StatelessWidget {
     required this.brightness,
     required this.followSystemBrightness,
     required this.eyeComfortEnhanced,
+    required this.timeBatteryHidden,
+    required this.chapterProgressHidden,
     required this.onPaletteChanged,
     required this.onBrightnessChanged,
     required this.onFollowSystemBrightnessChanged,
     required this.onEyeComfortEnhancedChanged,
+    required this.onTimeBatteryHiddenChanged,
+    required this.onChapterProgressHiddenChanged,
   });
 
   static const _panelHeight = 360.0;
@@ -22,10 +26,14 @@ class _ThemePanel extends StatelessWidget {
   final double brightness;
   final bool followSystemBrightness;
   final bool eyeComfortEnhanced;
+  final bool timeBatteryHidden;
+  final bool chapterProgressHidden;
   final ValueChanged<ReaderPalette> onPaletteChanged;
   final ValueChanged<double> onBrightnessChanged;
   final ValueChanged<bool> onFollowSystemBrightnessChanged;
   final ValueChanged<bool> onEyeComfortEnhancedChanged;
+  final ValueChanged<bool> onTimeBatteryHiddenChanged;
+  final ValueChanged<bool> onChapterProgressHiddenChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -81,18 +89,20 @@ class _ThemePanel extends StatelessWidget {
                     metrics: metrics,
                     icon: LucideIcons.eyeOff,
                     title: '界面显示',
-                    rows: const [
+                    rows: [
                       _ThemeToggleRowData(
                         title: '隐藏时间电量',
-                        description: '阅读时隐藏顶部时间、电量与信号',
-                        enabled: true,
+                        description: '阅读时隐藏底部时间与电量',
+                        enabled: timeBatteryHidden,
+                        onChanged: onTimeBatteryHiddenChanged,
                       ),
                       _ThemeToggleRowData(
                         title: '隐藏章节进度',
                         description: '不显示底部章节名和阅读进度',
-                        enabled: false,
+                        enabled: chapterProgressHidden,
+                        onChanged: onChapterProgressHiddenChanged,
                       ),
-                      _ThemeToggleRowData(
+                      const _ThemeToggleRowData(
                         title: '隐藏系统状态栏',
                         description: '进入沉浸阅读时收起系统状态栏',
                         enabled: true,

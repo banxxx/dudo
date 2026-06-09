@@ -61,6 +61,8 @@ class ReaderControls extends StatelessWidget {
     required this.brightness,
     required this.followSystemBrightness,
     required this.eyeComfortEnhanced,
+    required this.timeBatteryHidden,
+    required this.chapterProgressHidden,
     required this.pageTurnMode,
     required this.volumePageTurnEnabled,
     required this.isListening,
@@ -89,6 +91,8 @@ class ReaderControls extends StatelessWidget {
     required this.onBrightnessChanged,
     required this.onFollowSystemBrightnessChanged,
     required this.onEyeComfortEnhancedChanged,
+    required this.onTimeBatteryHiddenChanged,
+    required this.onChapterProgressHiddenChanged,
     required this.onPageTurnModeChanged,
     required this.onVolumePageTurnChanged,
     required this.onListeningChanged,
@@ -111,6 +115,8 @@ class ReaderControls extends StatelessWidget {
   final double brightness;
   final bool followSystemBrightness;
   final bool eyeComfortEnhanced;
+  final bool timeBatteryHidden;
+  final bool chapterProgressHidden;
   final ReaderTurnMode pageTurnMode;
   final bool volumePageTurnEnabled;
   final bool isListening;
@@ -140,6 +146,8 @@ class ReaderControls extends StatelessWidget {
   final ValueChanged<double> onBrightnessChanged;
   final ValueChanged<bool> onFollowSystemBrightnessChanged;
   final ValueChanged<bool> onEyeComfortEnhancedChanged;
+  final ValueChanged<bool> onTimeBatteryHiddenChanged;
+  final ValueChanged<bool> onChapterProgressHiddenChanged;
   final ValueChanged<ReaderTurnMode> onPageTurnModeChanged;
   final ValueChanged<bool> onVolumePageTurnChanged;
   final ValueChanged<bool> onListeningChanged;
@@ -262,11 +270,16 @@ class ReaderControls extends StatelessWidget {
                     brightness: brightness,
                     followSystemBrightness: followSystemBrightness,
                     eyeComfortEnhanced: eyeComfortEnhanced,
+                    timeBatteryHidden: timeBatteryHidden,
+                    chapterProgressHidden: chapterProgressHidden,
                     onPaletteChanged: onPaletteChanged,
                     onBrightnessChanged: onBrightnessChanged,
                     onFollowSystemBrightnessChanged:
                         onFollowSystemBrightnessChanged,
                     onEyeComfortEnhancedChanged: onEyeComfortEnhancedChanged,
+                    onTimeBatteryHiddenChanged: onTimeBatteryHiddenChanged,
+                    onChapterProgressHiddenChanged:
+                        onChapterProgressHiddenChanged,
                   ),
                 );
               case ReaderOverlayMode.listening:

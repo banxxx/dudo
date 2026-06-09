@@ -7,9 +7,11 @@ class _ThemeToggleRowData {
     required this.title,
     required this.description,
     required this.enabled,
+    this.onChanged,
   });
 
   final String title;
   final String description;
   final bool enabled;
+  final ValueChanged<bool>? onChanged;
 }

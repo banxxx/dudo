@@ -70,6 +70,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   double _brightness = 1;
   bool _followSystemBrightness = false;
   bool _eyeComfortEnhanced = false;
+  bool _timeBatteryHidden = false;
+  bool _chapterProgressHidden = false;
   bool _volumePageTurnEnabled = true;
   bool _isListening = false;
   int _volumePageTurnRequestId = 0;
@@ -269,6 +271,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         palette: _palette,
         pageLabel: pageLabel,
         progress: chapterProgress,
+        hideTimeBattery: _timeBatteryHidden,
+        hideChapterProgress: _chapterProgressHidden,
       ),
       ReaderControls(
         mode: _overlayMode,
@@ -288,6 +292,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         brightness: _brightness,
         followSystemBrightness: _followSystemBrightness,
         eyeComfortEnhanced: _eyeComfortEnhanced,
+        timeBatteryHidden: _timeBatteryHidden,
+        chapterProgressHidden: _chapterProgressHidden,
         pageTurnMode: state.settings.turnMode,
         volumePageTurnEnabled: _volumePageTurnEnabled,
         isListening: _isListening,
@@ -359,6 +365,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         },
         onEyeComfortEnhancedChanged: (value) {
           setState(() => _eyeComfortEnhanced = value);
+        },
+        onTimeBatteryHiddenChanged: (value) {
+          setState(() => _timeBatteryHidden = value);
+        },
+        onChapterProgressHiddenChanged: (value) {
+          setState(() => _chapterProgressHidden = value);
         },
         onPageTurnModeChanged: (mode) async {
           await controller

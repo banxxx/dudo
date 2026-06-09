@@ -13,7 +13,7 @@ class _ThemeToggleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final content = Container(
       height: metrics.s(46),
       padding: EdgeInsets.symmetric(horizontal: metrics.s(12)),
       decoration: BoxDecoration(
@@ -54,6 +54,13 @@ class _ThemeToggleRow extends StatelessWidget {
           _ThemeStaticSwitch(metrics: metrics, enabled: data.enabled),
         ],
       ),
+    );
+
+    return GestureDetector(
+      onTap:
+          data.onChanged == null ? null : () => data.onChanged!(!data.enabled),
+      behavior: HitTestBehavior.opaque,
+      child: content,
     );
   }
 }
