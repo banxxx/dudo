@@ -72,6 +72,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   bool _eyeComfortEnhanced = false;
   bool _timeBatteryHidden = false;
   bool _chapterProgressHidden = false;
+  bool _systemStatusBarHidden = true;
   bool _volumePageTurnEnabled = true;
   bool _isListening = false;
   int _volumePageTurnRequestId = 0;
@@ -140,7 +141,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final size = Size(constraints.maxWidth, constraints.maxHeight);
-                final safePadding = MediaQuery.paddingOf(context);
+                final safePadding = _readerSafePadding(context);
                 final chromeLayout =
                     ReaderChromeLayout.fromSize(size, safePadding);
                 final metrics = chromeLayout.metrics;
@@ -294,6 +295,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         eyeComfortEnhanced: _eyeComfortEnhanced,
         timeBatteryHidden: _timeBatteryHidden,
         chapterProgressHidden: _chapterProgressHidden,
+        systemStatusBarHidden: _systemStatusBarHidden,
         pageTurnMode: state.settings.turnMode,
         volumePageTurnEnabled: _volumePageTurnEnabled,
         isListening: _isListening,
@@ -371,6 +373,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         },
         onChapterProgressHiddenChanged: (value) {
           setState(() => _chapterProgressHidden = value);
+        },
+        onSystemStatusBarHiddenChanged: (value) {
+          _updateSystemStatusBarHidden(value);
         },
         onPageTurnModeChanged: (mode) async {
           await controller
@@ -622,6 +627,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     return ReaderChromeLayout.fromSize(size, safePadding).contentInsets;
   }
 
+  EdgeInsets _readerSafePadding(BuildContext context) {
+    final viewPadding = MediaQuery.viewPaddingOf(context);
+    return viewPadding.copyWith(
+      top: _systemStatusBarHidden ? 0 : viewPadding.top,
+    );
+  }
+
   double _scaledTextSize(double value) {
     final size = _lastViewportSize;
     if (size == null) return value;
@@ -664,11 +676,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     EdgeInsets safePadding,
     String fontFamily,
   ) {
-    if (_controller != null &&
-        _lastViewportSize == size &&
-        _lastViewportPadding == safePadding) {
-      _syncSelectedFontFamily(fontFamily);
-      return;
+    final existingController = _controller;
+    if (existingController != null) {
+      if (_lastViewportSize == size && _lastViewportPadding == safePadding) {
+        _syncSelectedFontFamily(fontFamily);
+        return;
+      }
+      if (_lastViewportSize == size) {
+        _lastViewportPadding = safePadding;
+        _syncSelectedFontFamily(fontFamily);
+        _syncPagePadding(existingController, size, safePadding);
+        return;
+      }
     }
     _lastViewportSize = size;
     _lastViewportPadding = safePadding;
@@ -710,7 +729,38 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   void _syncSystemUiMode() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    if (_systemStatusBarHidden) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      return;
+    }
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: const [SystemUiOverlay.top],
+    );
+  }
+
+  void _updateSystemStatusBarHidden(bool value) {
+    if (_systemStatusBarHidden == value) return;
+    setState(() => _systemStatusBarHidden = value);
+    _syncSystemUiMode();
+  }
+
+  void _syncPagePadding(
+    ReaderSessionController controller,
+    Size size,
+    EdgeInsets safePadding,
+  ) {
+    unawaited(
+      controller.updateSettings(
+        controller.state.settings.copyWith(
+          pagePadding: _pagePaddingWithHorizontalMargin(
+            _pageHorizontalMargin,
+            size: size,
+            safePadding: safePadding,
+          ),
+        ),
+      ),
+    );
   }
 
   double _brightnessForSystemMode() {

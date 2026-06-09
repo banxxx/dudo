@@ -11,12 +11,14 @@ class _ThemePanel extends StatelessWidget {
     required this.eyeComfortEnhanced,
     required this.timeBatteryHidden,
     required this.chapterProgressHidden,
+    required this.systemStatusBarHidden,
     required this.onPaletteChanged,
     required this.onBrightnessChanged,
     required this.onFollowSystemBrightnessChanged,
     required this.onEyeComfortEnhancedChanged,
     required this.onTimeBatteryHiddenChanged,
     required this.onChapterProgressHiddenChanged,
+    required this.onSystemStatusBarHiddenChanged,
   });
 
   static const _panelHeight = 360.0;
@@ -28,12 +30,14 @@ class _ThemePanel extends StatelessWidget {
   final bool eyeComfortEnhanced;
   final bool timeBatteryHidden;
   final bool chapterProgressHidden;
+  final bool systemStatusBarHidden;
   final ValueChanged<ReaderPalette> onPaletteChanged;
   final ValueChanged<double> onBrightnessChanged;
   final ValueChanged<bool> onFollowSystemBrightnessChanged;
   final ValueChanged<bool> onEyeComfortEnhancedChanged;
   final ValueChanged<bool> onTimeBatteryHiddenChanged;
   final ValueChanged<bool> onChapterProgressHiddenChanged;
+  final ValueChanged<bool> onSystemStatusBarHiddenChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -102,10 +106,11 @@ class _ThemePanel extends StatelessWidget {
                         enabled: chapterProgressHidden,
                         onChanged: onChapterProgressHiddenChanged,
                       ),
-                      const _ThemeToggleRowData(
+                      _ThemeToggleRowData(
                         title: '隐藏系统状态栏',
-                        description: '进入沉浸阅读时收起系统状态栏',
-                        enabled: true,
+                        description: '关闭后正文会避开顶部系统状态栏',
+                        enabled: systemStatusBarHidden,
+                        onChanged: onSystemStatusBarHiddenChanged,
                       ),
                     ],
                   ),
