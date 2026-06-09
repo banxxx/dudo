@@ -41,12 +41,6 @@ class _ThemeSwatchTile extends StatelessWidget {
               decoration: BoxDecoration(
                 color: option.swatchColor,
                 borderRadius: BorderRadius.circular(metrics.s(9)),
-                border: Border.all(
-                  color: selected
-                      ? context.readerControls.action.whiteHighlight
-                          .withValues(alpha: 0.56)
-                      : option.borderColor.withValues(alpha: 0.34),
-                ),
               ),
             ),
           ),
