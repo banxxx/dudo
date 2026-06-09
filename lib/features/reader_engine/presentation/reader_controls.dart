@@ -8,7 +8,7 @@ import '../domain/reader_settings.dart';
 import '../domain/reader_turn_mode.dart';
 import '../../settings/typography_settings/domain/reader_font.dart';
 import '../../../shared/theme/app_fonts.dart';
-import '../../../shared/theme/app_theme.dart';
+import '../domain/reader_theme.dart';
 import '../../../shared/theme/app_tokens.dart';
 import 'layout/reader_chrome_layout.dart';
 

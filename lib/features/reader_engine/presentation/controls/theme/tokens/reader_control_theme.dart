@@ -1,7 +1,7 @@
 part of '../../../reader_controls.dart';
 
-// 正文阅读页控件主题入口：所有阅读控件和二级弹窗的颜色都应从这里取。
-// 本文件只归类现有色值，不调整任何主题颜色；后续替换不同主题样式时只改这里的映射。
+// 正文阅读页控件主题入口：所有阅读控件和二级弹窗的颜色都从这里取。
+// 纸页色板保持原值；护眼色板独立适配，后续暖棕、夜读也在这里继续扩展。
 class _ReaderControlTheme {
   const _ReaderControlTheme._({
     required this.overlay,
@@ -11,58 +11,114 @@ class _ReaderControlTheme {
     required this.themePicker,
   });
 
-  // 预留 palette 参数，后续按纸页 / 护眼 / 暖棕 / 夜读分别返回不同 token。
   factory _ReaderControlTheme.fromPalette(ReaderPalette palette) {
-    return const _ReaderControlTheme._(
-      overlay: _ReaderOverlayThemeTokens(
-        barrier: Color(0x3325251F),
-        glassHighlight: Color(0x12FFFFFF),
-        transparent: Colors.transparent,
-      ),
-      surface: _ReaderSurfaceThemeTokens(
-        panel: Color(0xFFFFF8EA),
-        panelHigh: Color(0xFFFFFBF2),
-        panelLow: Color(0xFFF3ECDD),
-        page: Color(0xFFF8F4EA),
-        outline: Color(0xFFE7DCC8),
-        outlineStrong: Color(0xFFD8CDBB),
-        shadow: Color(0x3325251F),
-        chromeShadow: Color(0x1F25251F),
-        sheetShadow: Color(0x2625251F),
-      ),
-      text: _ReaderTextThemeTokens(
-        primary: Color(0xFF25251F),
-        secondary: Color(0xFF8A735A),
-        tertiary: Color(0xFF6F6B61),
-        accentText: Color(0xFF1B2918),
-        inverse: Color(0xFFFFF8EA),
-        secondaryWeak: Color(0x668A735A),
-      ),
-      action: _ReaderActionThemeTokens(
-        accent: Color(0xFF5E6F5B),
-        accentSoft: Color(0xFFDDE8D4),
-        darkFill: Color(0xFF25251F),
-        inactiveFill: Color(0xFFF3ECDD),
-        inactiveLine: Color(0xFFD8CDBB),
-        paperTexture: Color(0xFFEFE3CF),
-        whiteHighlight: Colors.white,
-      ),
-      themePicker: _ReaderThemePickerThemeTokens(
-        paper: Color(0xFFF8F4EA),
-        panel: Color(0xFFFFF8EA),
-        surfaceLow: Color(0xFFF3ECDD),
-        surfaceLine: Color(0xFFD8CDBB),
-        ink: Color(0xFF25251F),
-        muted: Color(0xFF8A735A),
-        secondaryText: Color(0xFF6F6B61),
-        green: Color(0xFF5E6F5B),
-        greenSoft: Color(0xFFDDE8D4),
-        greenLine: Color(0xFFBFD0B5),
-        warmBrown: Color(0xFFE8D7BD),
-        warmBrownLine: Color(0xFFD0B58D),
-      ),
-    );
+    if (palette.name == ReaderTheme.eyeCare.name) {
+      return _eyeCare;
+    }
+    return _paper;
   }
+
+  // 纸页主题：保留当前 UI 的原始颜色，不做任何改动。
+  static const _paper = _ReaderControlTheme._(
+    overlay: _ReaderOverlayThemeTokens(
+      barrier: Color(0x3325251F),
+      glassHighlight: Color(0x12FFFFFF),
+      transparent: Colors.transparent,
+    ),
+    surface: _ReaderSurfaceThemeTokens(
+      panel: Color(0xFFFFF8EA),
+      panelHigh: Color(0xFFFFFBF2),
+      panelLow: Color(0xFFF3ECDD),
+      page: Color(0xFFF8F4EA),
+      outline: Color(0xFFE7DCC8),
+      outlineStrong: Color(0xFFD8CDBB),
+      shadow: Color(0x3325251F),
+      chromeShadow: Color(0x1F25251F),
+      sheetShadow: Color(0x2625251F),
+    ),
+    text: _ReaderTextThemeTokens(
+      primary: Color(0xFF25251F),
+      secondary: Color(0xFF8A735A),
+      tertiary: Color(0xFF6F6B61),
+      accentText: Color(0xFF1B2918),
+      inverse: Color(0xFFFFF8EA),
+      secondaryWeak: Color(0x668A735A),
+    ),
+    action: _ReaderActionThemeTokens(
+      accent: Color(0xFF5E6F5B),
+      accentSoft: Color(0xFFDDE8D4),
+      darkFill: Color(0xFF25251F),
+      inactiveFill: Color(0xFFF3ECDD),
+      inactiveLine: Color(0xFFD8CDBB),
+      paperTexture: Color(0xFFEFE3CF),
+      whiteHighlight: Colors.white,
+    ),
+    themePicker: _ReaderThemePickerThemeTokens(
+      paper: Color(0xFFF8F4EA),
+      panel: Color(0xFFFFF8EA),
+      surfaceLow: Color(0xFFF3ECDD),
+      surfaceLine: Color(0xFFD8CDBB),
+      ink: Color(0xFF25251F),
+      muted: Color(0xFF8A735A),
+      secondaryText: Color(0xFF6F6B61),
+      green: Color(0xFF5E6F5B),
+      greenSoft: Color(0xFFDDE8D4),
+      greenLine: Color(0xFFBFD0B5),
+      warmBrown: Color(0xFFE8D7BD),
+      warmBrownLine: Color(0xFFD0B58D),
+    ),
+  );
+
+  // 护眼主题：低饱和浅绿 + 米白面板，保证所有控件和弹窗都有明确背景色。
+  static const _eyeCare = _ReaderControlTheme._(
+    overlay: _ReaderOverlayThemeTokens(
+      barrier: Color(0x33203324),
+      glassHighlight: Color(0x10FFFFFF),
+      transparent: Colors.transparent,
+    ),
+    surface: _ReaderSurfaceThemeTokens(
+      panel: Color(0xFFF6FAEA),
+      panelHigh: Color(0xFFFBFDF2),
+      panelLow: Color(0xFFE3EED7),
+      page: Color(0xFFEAF3DF),
+      outline: Color(0xFFC5D7B8),
+      outlineStrong: Color(0xFFADC69E),
+      shadow: Color(0x2A203A25),
+      chromeShadow: Color(0x1A203A25),
+      sheetShadow: Color(0x24203A25),
+    ),
+    text: _ReaderTextThemeTokens(
+      primary: Color(0xFF203A25),
+      secondary: Color(0xFF53674A),
+      tertiary: Color(0xFF65765E),
+      accentText: Color(0xFF173314),
+      inverse: Color(0xFFF6FAEA),
+      secondaryWeak: Color(0x6653674A),
+    ),
+    action: _ReaderActionThemeTokens(
+      accent: Color(0xFF5C7C4F),
+      accentSoft: Color(0xFFB8D5AA),
+      darkFill: Color(0xFF203A25),
+      inactiveFill: Color(0xFFE3EED7),
+      inactiveLine: Color(0xFFADC69E),
+      paperTexture: Color(0xFFEDF4E3),
+      whiteHighlight: Colors.white,
+    ),
+    themePicker: _ReaderThemePickerThemeTokens(
+      paper: Color(0xFFEAF3DF),
+      panel: Color(0xFFF6FAEA),
+      surfaceLow: Color(0xFFE3EED7),
+      surfaceLine: Color(0xFFADC69E),
+      ink: Color(0xFF203A25),
+      muted: Color(0xFF53674A),
+      secondaryText: Color(0xFF65765E),
+      green: Color(0xFF5C7C4F),
+      greenSoft: Color(0xFFD7E8CC),
+      greenLine: Color(0xFFC5D7B8),
+      warmBrown: Color(0xFFE7D6B8),
+      warmBrownLine: Color(0xFFC9B288),
+    ),
+  );
 
   final _ReaderOverlayThemeTokens overlay;
   final _ReaderSurfaceThemeTokens surface;
@@ -149,7 +205,7 @@ class _ReaderActionThemeTokens {
   final Color whiteHighlight;
 }
 
-// 主题面板专用颜色角色，先保留原 UI 色值，后续主题卡片可独立替换。
+// 主题面板专用颜色角色，控制主题卡片、亮度、开关行等面板内部样式。
 class _ReaderThemePickerThemeTokens {
   const _ReaderThemePickerThemeTokens({
     required this.paper,

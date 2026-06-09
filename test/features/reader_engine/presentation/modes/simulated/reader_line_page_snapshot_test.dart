@@ -11,7 +11,7 @@ import 'package:dudo/features/reader_engine/layout/reader_line_layout_models.dar
 import 'package:dudo/features/reader_engine/presentation/modes/reader_paged_window.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/simulated/reader_line_page_snapshot.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/simulated/reader_page_image_renderer.dart';
-import 'package:dudo/shared/theme/app_theme.dart';
+import 'package:dudo/features/reader_engine/domain/reader_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

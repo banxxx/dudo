@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../shared/theme/app_theme.dart';
+import '../../domain/reader_theme.dart';
 import '../../domain/reader_settings.dart';
 import '../widgets/reader_text_layer.dart';
 import 'reader_paged_window.dart';

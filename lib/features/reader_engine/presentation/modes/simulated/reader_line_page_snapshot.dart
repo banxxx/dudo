@@ -1,6 +1,6 @@
 import 'package:flutter/painting.dart';
 
-import '../../../../../shared/theme/app_theme.dart';
+import '../../../domain/reader_theme.dart';
 import '../../../domain/reader_settings.dart';
 import '../../../layout/reader_line_layout_models.dart';
 import '../reader_page_slice_line_layout.dart';

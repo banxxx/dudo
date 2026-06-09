@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../shared/theme/app_theme.dart';
+import '../../domain/reader_theme.dart';
 import '../layout/reader_page_metrics.dart';
 
 class ReaderPaperBackground extends StatelessWidget {

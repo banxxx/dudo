@@ -3,7 +3,7 @@ import 'package:dudo/features/reader_engine/layout/reader_layout_settings.dart';
 import 'package:dudo/features/reader_engine/layout/reader_line_layout_models.dart';
 import 'package:dudo/features/reader_engine/presentation/widgets/reader_canvas_highlight.dart';
 import 'package:dudo/features/reader_engine/presentation/widgets/reader_canvas_page.dart';
-import 'package:dudo/shared/theme/app_theme.dart';
+import 'package:dudo/features/reader_engine/domain/reader_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

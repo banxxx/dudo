@@ -9,7 +9,7 @@ import 'package:dudo/features/reader_engine/domain/reader_source_type.dart';
 import 'package:dudo/features/reader_engine/presentation/reader_screen.dart';
 import 'package:dudo/features/reader_engine/presentation/widgets/reader_background.dart';
 import 'package:dudo/features/reader_engine/presentation/widgets/reader_canvas_page.dart';
-import 'package:dudo/shared/theme/app_theme.dart';
+import 'package:dudo/features/reader_engine/domain/reader_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

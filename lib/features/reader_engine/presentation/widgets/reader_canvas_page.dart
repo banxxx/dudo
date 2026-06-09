@@ -3,7 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../shared/theme/app_theme.dart';
+import '../../domain/reader_theme.dart';
 import '../../layout/reader_line_layout_models.dart';
 import 'reader_canvas_highlight.dart';
 

@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../settings/typography_settings/application/reader_font_providers.dart';
-import '../../../shared/theme/app_theme.dart';
+import '../domain/reader_theme.dart';
 import '../application/reader_engine_providers.dart';
 import '../application/reader_engine_state.dart';
 import '../controller/reader_session_controller.dart';

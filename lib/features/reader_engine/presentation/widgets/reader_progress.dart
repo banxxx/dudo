@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../shared/theme/app_fonts.dart';
-import '../../../../shared/theme/app_theme.dart';
 import '../../../../shared/theme/app_tokens.dart';
+import '../../domain/reader_theme.dart';
 import '../layout/reader_page_metrics.dart';
 
 class ReaderProgress extends StatefulWidget {

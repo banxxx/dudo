@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_fonts.dart';
-import '../../../../shared/theme/app_theme.dart';
+import '../../domain/reader_theme.dart';
 import '../../domain/reader_content_block.dart';
 import '../../domain/reader_settings.dart';
 

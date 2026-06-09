@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../../../shared/theme/app_theme.dart';
+import '../../domain/reader_theme.dart';
 import '../../domain/reader_settings.dart';
 import '../../layout/reader_line_layout_models.dart';
 import '../widgets/reader_canvas_highlight.dart';

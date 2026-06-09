@@ -1,6 +1,6 @@
 import 'dart:ui' as ui;
 
-import '../../../../../shared/theme/app_theme.dart';
+import '../../../domain/reader_theme.dart';
 import '../../../layout/reader_line_layout_models.dart';
 import '../../widgets/reader_canvas_page.dart';
 import 'page_curl_snapshot.dart';

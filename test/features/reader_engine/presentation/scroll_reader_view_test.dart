@@ -8,7 +8,7 @@ import 'package:dudo/features/reader_engine/domain/reader_source_type.dart';
 import 'package:dudo/features/reader_engine/domain/reader_viewport_state.dart';
 import 'package:dudo/features/reader_engine/layout/reader_layout_engine.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/scroll_reader_view.dart';
-import 'package:dudo/shared/theme/app_theme.dart';
+import 'package:dudo/features/reader_engine/domain/reader_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

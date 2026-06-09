@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../../../../shared/theme/app_theme.dart';
+import '../../../domain/reader_theme.dart';
 import '../../../domain/reader_location.dart';
 import '../../../domain/reader_settings.dart';
 import '../../../domain/reader_viewport_state.dart';
