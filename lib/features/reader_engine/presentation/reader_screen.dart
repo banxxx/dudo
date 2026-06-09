@@ -202,6 +202,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final chapterProgress = chapter.textLength <= 0
         ? 0.0
         : (location.offset / chapter.textLength).clamp(0.0, 1.0).toDouble();
+    final fontLibraryValue = ref.watch(readerFontLibraryControllerProvider);
     final bookProgress = document.chapterCount <= 0
         ? 0.0
         : ((location.chapterIndex + chapterProgress) / document.chapterCount)
@@ -264,6 +265,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         pageHorizontalMargin: _pageHorizontalMargin,
         firstLineIndentEnabled: _firstLineIndentEnabled,
         textEnhancementEnabled: _textEnhancementEnabled,
+        fontLibraryValue: fontLibraryValue,
         brightness: _brightness,
         pageTurnMode: state.settings.turnMode,
         volumePageTurnEnabled: _volumePageTurnEnabled,
@@ -310,6 +312,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         ),
         onPageHorizontalMarginChanged: (value) =>
             _updatePageHorizontalMargin(controller, value),
+        onFontSelected: (font) {
+          ref
+              .read(readerFontLibraryControllerProvider.notifier)
+              .selectFont(font.familyKey);
+        },
+        onManageFonts: () => context.push('/settings/typography'),
         onFirstLineIndentChanged: (value) =>
             _updateFirstLineIndent(controller, value),
         onTextEnhancementChanged: (value) =>

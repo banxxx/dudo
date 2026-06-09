@@ -10,11 +10,14 @@ class _TypographyPanel extends StatefulWidget {
     required this.pageHorizontalMargin,
     required this.firstLineIndentEnabled,
     required this.textEnhancementEnabled,
+    required this.fontLibraryValue,
     required this.onFontSizeChanged,
     required this.onLineHeightChanged,
     required this.onParagraphSpacingChanged,
     required this.onLineParagraphSpacingChanged,
     required this.onPageHorizontalMarginChanged,
+    required this.onFontSelected,
+    required this.onManageFonts,
     required this.onFirstLineIndentChanged,
     required this.onTextEnhancementChanged,
   });
@@ -27,12 +30,15 @@ class _TypographyPanel extends StatefulWidget {
   final double pageHorizontalMargin;
   final bool firstLineIndentEnabled;
   final bool textEnhancementEnabled;
+  final AsyncValue<ReaderFontLibrary> fontLibraryValue;
   final ValueChanged<double> onFontSizeChanged;
   final ValueChanged<double> onLineHeightChanged;
   final ValueChanged<double> onParagraphSpacingChanged;
   final void Function(double lineHeight, double paragraphSpacing)
       onLineParagraphSpacingChanged;
   final ValueChanged<double> onPageHorizontalMarginChanged;
+  final ValueChanged<ReaderFont> onFontSelected;
+  final VoidCallback onManageFonts;
   final ValueChanged<bool> onFirstLineIndentChanged;
   final ValueChanged<bool> onTextEnhancementChanged;
 
@@ -43,7 +49,6 @@ class _TypographyPanel extends StatefulWidget {
 class _TypographyPanelState extends State<_TypographyPanel> {
   static const _panelHeight = 480.0;
 
-  _MockReaderFont _selectedFont = _MockReaderFonts.current;
   _TypographySpacingPreset? _selectedSpacingPreset;
   _PageMarginPreset? _selectedPageMarginPreset;
   bool _showsFontChooser = false;
@@ -92,11 +97,13 @@ class _TypographyPanelState extends State<_TypographyPanel> {
             ? _FontChooserPage(
                 key: const ValueKey('reader-font-chooser-page'),
                 metrics: widget.metrics,
-                selectedFont: _selectedFont,
+                libraryValue: widget.fontLibraryValue,
                 onBack: () => setState(() => _showsFontChooser = false),
-                onFontSelected: (font) => setState(() {
-                  _selectedFont = font;
-                }),
+                onFontSelected: (font) {
+                  widget.onFontSelected(font);
+                  setState(() => _showsFontChooser = false);
+                },
+                onManageFonts: widget.onManageFonts,
               )
             : _TypographyPanelContent(
                 key: const ValueKey('reader-typography-main-page'),
@@ -107,7 +114,8 @@ class _TypographyPanelState extends State<_TypographyPanel> {
                 pageHorizontalMargin: widget.pageHorizontalMargin,
                 firstLineIndentEnabled: widget.firstLineIndentEnabled,
                 textEnhancementEnabled: widget.textEnhancementEnabled,
-                selectedFont: _selectedFont,
+                selectedFont: widget.fontLibraryValue.valueOrNull?.selectedFont,
+                fontLoading: widget.fontLibraryValue.isLoading,
                 selectedSpacingPreset: _selectedSpacingPreset,
                 selectedPageMarginPreset: _selectedPageMarginPreset,
                 onOpenFontChooser: () =>
@@ -254,6 +262,7 @@ class _TypographyPanelContent extends StatelessWidget {
     required this.firstLineIndentEnabled,
     required this.textEnhancementEnabled,
     required this.selectedFont,
+    required this.fontLoading,
     required this.selectedSpacingPreset,
     required this.selectedPageMarginPreset,
     required this.onOpenFontChooser,
@@ -274,7 +283,8 @@ class _TypographyPanelContent extends StatelessWidget {
   final double pageHorizontalMargin;
   final bool firstLineIndentEnabled;
   final bool textEnhancementEnabled;
-  final _MockReaderFont selectedFont;
+  final ReaderFont? selectedFont;
+  final bool fontLoading;
   final _TypographySpacingPreset? selectedSpacingPreset;
   final _PageMarginPreset? selectedPageMarginPreset;
   final VoidCallback onOpenFontChooser;
@@ -348,6 +358,7 @@ class _TypographyPanelContent extends StatelessWidget {
                 _CurrentFontCard(
                   metrics: metrics,
                   font: selectedFont,
+                  loading: fontLoading,
                   onTap: onOpenFontChooser,
                 ),
                 SizedBox(height: metrics.s(18)),
@@ -532,20 +543,20 @@ class _FontChooserPage extends StatelessWidget {
   const _FontChooserPage({
     super.key,
     required this.metrics,
-    required this.selectedFont,
+    required this.libraryValue,
     required this.onBack,
     required this.onFontSelected,
+    required this.onManageFonts,
   });
 
   final _ReaderOverlayMetrics metrics;
-  final _MockReaderFont selectedFont;
+  final AsyncValue<ReaderFontLibrary> libraryValue;
   final VoidCallback onBack;
-  final ValueChanged<_MockReaderFont> onFontSelected;
+  final ValueChanged<ReaderFont> onFontSelected;
+  final VoidCallback onManageFonts;
 
   @override
   Widget build(BuildContext context) {
-    const localFonts = _MockReaderFonts.localFonts;
-    const systemFonts = _MockReaderFonts.systemFonts;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -568,30 +579,35 @@ class _FontChooserPage extends StatelessWidget {
                   ),
                 ],
               ),
-              Container(
-                height: metrics.s(30),
-                padding: EdgeInsets.symmetric(horizontal: metrics.s(10)),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF3ECDD),
-                  borderRadius: BorderRadius.circular(metrics.s(15)),
-                ),
-                child: Row(
-                  children: [
-                    Text(
-                      '管理',
-                      style: DudoTextStyles.sans(
-                        color: const Color(0xFF8A735A),
-                        fontSize: metrics.s(11),
-                        fontWeight: FontWeight.w700,
+              GestureDetector(
+                onTap: onManageFonts,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  key: const ValueKey('reader-font-manage-button'),
+                  height: metrics.s(30),
+                  padding: EdgeInsets.symmetric(horizontal: metrics.s(10)),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3ECDD),
+                    borderRadius: BorderRadius.circular(metrics.s(15)),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        '管理',
+                        style: DudoTextStyles.sans(
+                          color: const Color(0xFF8A735A),
+                          fontSize: metrics.s(11),
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    SizedBox(width: metrics.s(4)),
-                    Icon(
-                      LucideIcons.settings,
-                      size: metrics.s(13),
-                      color: const Color(0xFF8A735A),
-                    ),
-                  ],
+                      SizedBox(width: metrics.s(4)),
+                      Icon(
+                        LucideIcons.settings,
+                        size: metrics.s(13),
+                        color: const Color(0xFF8A735A),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -599,64 +615,150 @@ class _FontChooserPage extends StatelessWidget {
         ),
         SizedBox(height: metrics.s(12)),
         Expanded(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              children: [
-                _FontSection(
-                  metrics: metrics,
-                  title: '当前使用',
-                  countText: '1 个',
-                  children: [
-                    _FontOptionCard(
+          child: libraryValue.when(
+            loading: () => _FontChooserStateMessage(
+              metrics: metrics,
+              icon: LucideIcons.loaderCircle,
+              text: '正在加载字体',
+            ),
+            error: (error, _) => _FontChooserStateMessage(
+              metrics: metrics,
+              icon: LucideIcons.circleAlert,
+              text: '字体加载失败',
+            ),
+            data: (library) => _FontChooserList(
+              metrics: metrics,
+              library: library,
+              onFontSelected: onFontSelected,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FontChooserList extends StatelessWidget {
+  const _FontChooserList({
+    required this.metrics,
+    required this.library,
+    required this.onFontSelected,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final ReaderFontLibrary library;
+  final ValueChanged<ReaderFont> onFontSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedFont = library.selectedFont;
+    final localFonts = library.importedFonts;
+    final builtinFonts = library.builtinFonts;
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        children: [
+          _FontSection(
+            metrics: metrics,
+            title: '当前使用',
+            countText: '1 个',
+            children: [
+              _FontOptionCard(
+                metrics: metrics,
+                font: selectedFont,
+                selected: true,
+                onTap: () => onFontSelected(selectedFont),
+              ),
+            ],
+          ),
+          SizedBox(height: metrics.s(12)),
+          _FontSection(
+            metrics: metrics,
+            title: '本地字体',
+            countText: localFonts.isEmpty ? '未导入' : '${localFonts.length} 个',
+            children: localFonts.isEmpty
+                ? [
+                    _FontChooserStateMessage(
                       metrics: metrics,
-                      font: selectedFont,
-                      selected: true,
-                      onTap: () => onFontSelected(selectedFont),
+                      icon: LucideIcons.folderOpen,
+                      text: '暂无本地字体',
+                      compact: true,
                     ),
-                  ],
-                ),
-                SizedBox(height: metrics.s(12)),
-                _FontSection(
-                  metrics: metrics,
-                  title: '本地字体',
-                  countText: '${localFonts.length} 个，可滚动查看更多',
-                  children: [
+                  ]
+                : [
                     for (final font in localFonts) ...[
                       _FontOptionCard(
                         metrics: metrics,
                         font: font,
-                        selected: font.name == selectedFont.name,
+                        selected: font.familyKey == library.selectedFamilyKey,
                         onTap: () => onFontSelected(font),
                       ),
                       if (font != localFonts.last)
                         SizedBox(height: metrics.s(8)),
                     ],
                   ],
-                ),
-                SizedBox(height: metrics.s(12)),
-                _FontSection(
+          ),
+          SizedBox(height: metrics.s(12)),
+          _FontSection(
+            metrics: metrics,
+            title: '内置字体',
+            countText: '${builtinFonts.length} 个',
+            children: [
+              for (final font in builtinFonts) ...[
+                _FontOptionCard(
                   metrics: metrics,
-                  title: '系统字体',
-                  countText: '${systemFonts.length} 个',
-                  children: [
-                    for (final font in systemFonts) ...[
-                      _FontOptionCard(
-                        metrics: metrics,
-                        font: font,
-                        selected: font.name == selectedFont.name,
-                        onTap: () => onFontSelected(font),
-                      ),
-                      if (font != systemFonts.last)
-                        SizedBox(height: metrics.s(8)),
-                    ],
-                  ],
+                  font: font,
+                  selected: font.familyKey == library.selectedFamilyKey,
+                  onTap: () => onFontSelected(font),
                 ),
+                if (font != builtinFonts.last) SizedBox(height: metrics.s(8)),
               ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FontChooserStateMessage extends StatelessWidget {
+  const _FontChooserStateMessage({
+    required this.metrics,
+    required this.icon,
+    required this.text,
+    this.compact = false,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final IconData icon;
+  final String text;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: metrics.s(compact ? 64 : 180),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F4EA),
+        borderRadius: BorderRadius.circular(metrics.s(20)),
+        border: Border.all(color: const Color(0xFFE7DCC8)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: metrics.s(16), color: const Color(0xFF8A735A)),
+          SizedBox(width: metrics.s(8)),
+          Text(
+            text,
+            style: DudoTextStyles.sans(
+              color: const Color(0xFF8A735A),
+              fontSize: metrics.s(12),
+              fontWeight: FontWeight.w700,
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -750,7 +852,7 @@ class _FontOptionCard extends StatelessWidget {
   });
 
   final _ReaderOverlayMetrics metrics;
-  final _MockReaderFont font;
+  final ReaderFont font;
   final bool selected;
   final VoidCallback onTap;
 
@@ -781,7 +883,7 @@ class _FontOptionCard extends StatelessWidget {
                     children: [
                       Flexible(
                         child: Text(
-                          font.name,
+                          font.displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: DudoTextStyles.sans(
@@ -793,7 +895,7 @@ class _FontOptionCard extends StatelessWidget {
                       ),
                       SizedBox(width: metrics.s(6)),
                       Text(
-                        font.source,
+                        font.sourceLabel,
                         style: DudoTextStyles.sans(
                           color: selected
                               ? const Color(0xFF5E6F5B)
@@ -809,7 +911,7 @@ class _FontOptionCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontFamily: font.previewFamily,
+                      fontFamily: font.familyKey,
                       color: const Color(0xFF25251F),
                       fontSize: metrics.s(17),
                       fontWeight: FontWeight.w400,
@@ -823,9 +925,8 @@ class _FontOptionCard extends StatelessWidget {
             Icon(
               LucideIcons.star,
               size: metrics.s(16),
-              color: font.favorite
-                  ? const Color(0xFF8A735A)
-                  : const Color(0x668A735A),
+              color:
+                  selected ? const Color(0xFF8A735A) : const Color(0x668A735A),
             ),
             SizedBox(width: metrics.s(8)),
             Icon(
@@ -981,15 +1082,21 @@ class _CurrentFontCard extends StatelessWidget {
   const _CurrentFontCard({
     required this.metrics,
     required this.font,
+    required this.loading,
     required this.onTap,
   });
 
   final _ReaderOverlayMetrics metrics;
-  final _MockReaderFont font;
+  final ReaderFont? font;
+  final bool loading;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final font = this.font;
+    final displayName = loading ? '正在加载字体' : font?.displayName ?? '默认字体';
+    final sourceText = font?.sourceLabel ?? '内置字体';
+    final familyKey = font?.familyKey ?? ReaderSettings.defaults().fontFamily;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -1014,7 +1121,7 @@ class _CurrentFontCard extends StatelessWidget {
               child: Text(
                 'Aa',
                 style: TextStyle(
-                  fontFamily: font.previewFamily,
+                  fontFamily: familyKey,
                   color: const Color(0xFF5E6F5B),
                   fontSize: metrics.s(14),
                   fontWeight: FontWeight.w700,
@@ -1029,7 +1136,7 @@ class _CurrentFontCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    font.name,
+                    displayName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: DudoTextStyles.sans(
@@ -1040,7 +1147,7 @@ class _CurrentFontCard extends StatelessWidget {
                   ),
                   SizedBox(height: metrics.s(3)),
                   Text(
-                    '${font.source}，点击更换阅读字体',
+                    '$sourceText，点击更换阅读字体',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: DudoTextStyles.sans(
@@ -1249,134 +1356,4 @@ class _TypographyChoicePill extends StatelessWidget {
       ),
     );
   }
-}
-
-class _MockReaderFont {
-  const _MockReaderFont({
-    required this.name,
-    required this.source,
-    required this.previewFamily,
-    this.favorite = false,
-  });
-
-  final String name;
-  final String source;
-  final String previewFamily;
-  final bool favorite;
-}
-
-class _MockReaderFonts {
-  _MockReaderFonts._();
-
-  static const current = _MockReaderFont(
-    name: '霞鹜文楷',
-    source: '本地字体',
-    previewFamily: '霞鹜文楷',
-    favorite: true,
-  );
-
-  static const localFonts = <_MockReaderFont>[
-    current,
-    _MockReaderFont(
-      name: '方正书宋',
-      source: '本地字体',
-      previewFamily: '方正书宋',
-      favorite: true,
-    ),
-    _MockReaderFont(
-      name: '仓耳今楷',
-      source: '本地字体',
-      previewFamily: '仓耳今楷',
-      favorite: true,
-    ),
-    _MockReaderFont(
-      name: '屏显臻宋',
-      source: '本地字体',
-      previewFamily: '屏显臻宋',
-    ),
-    _MockReaderFont(
-      name: '思源宋体',
-      source: '本地字体',
-      previewFamily: '思源宋体',
-    ),
-    _MockReaderFont(
-      name: '汉仪旗黑',
-      source: '本地字体',
-      previewFamily: '汉仪旗黑',
-    ),
-    _MockReaderFont(
-      name: '站酷快乐体',
-      source: '本地字体',
-      previewFamily: '站酷快乐体',
-    ),
-    _MockReaderFont(
-      name: '阿里巴巴普惠体',
-      source: '本地字体',
-      previewFamily: '阿里巴巴普惠体',
-    ),
-    _MockReaderFont(
-      name: '文泉驿微米黑',
-      source: '本地字体',
-      previewFamily: '文泉驿微米黑',
-    ),
-    _MockReaderFont(
-      name: '苹方',
-      source: '本地字体',
-      previewFamily: 'PingFang SC',
-    ),
-    _MockReaderFont(
-      name: '华文楷体',
-      source: '本地字体',
-      previewFamily: 'STKaiti',
-    ),
-    _MockReaderFont(
-      name: '悠哉字体',
-      source: '本地字体',
-      previewFamily: '悠哉字体',
-    ),
-  ];
-
-  static const systemFonts = <_MockReaderFont>[
-    _MockReaderFont(
-      name: 'Noto Serif SC',
-      source: '系统字体',
-      previewFamily: 'Noto Serif SC',
-      favorite: true,
-    ),
-    _MockReaderFont(
-      name: 'Noto Sans SC',
-      source: '系统字体',
-      previewFamily: 'Noto Sans SC',
-    ),
-    _MockReaderFont(
-      name: '系统衬线',
-      source: '系统字体',
-      previewFamily: 'serif',
-    ),
-    _MockReaderFont(
-      name: '系统黑体',
-      source: '系统字体',
-      previewFamily: 'sans-serif',
-    ),
-    _MockReaderFont(
-      name: 'PingFang SC',
-      source: '系统字体',
-      previewFamily: 'PingFang SC',
-    ),
-    _MockReaderFont(
-      name: 'Microsoft YaHei',
-      source: '系统字体',
-      previewFamily: 'Microsoft YaHei',
-    ),
-    _MockReaderFont(
-      name: 'SimSun',
-      source: '系统字体',
-      previewFamily: 'SimSun',
-    ),
-    _MockReaderFont(
-      name: 'KaiTi',
-      source: '系统字体',
-      previewFamily: 'KaiTi',
-    ),
-  ];
 }

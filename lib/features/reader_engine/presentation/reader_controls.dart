@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../domain/reader_catalog_item.dart';
 import '../domain/reader_overlay_mode.dart';
 import '../domain/reader_settings.dart';
 import '../domain/reader_turn_mode.dart';
+import '../../settings/typography_settings/domain/reader_font.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/app_tokens.dart';
@@ -42,6 +44,7 @@ class ReaderControls extends StatelessWidget {
     required this.pageHorizontalMargin,
     required this.firstLineIndentEnabled,
     required this.textEnhancementEnabled,
+    required this.fontLibraryValue,
     required this.brightness,
     required this.pageTurnMode,
     required this.volumePageTurnEnabled,
@@ -64,6 +67,8 @@ class ReaderControls extends StatelessWidget {
     required this.onParagraphSpacingChanged,
     required this.onLineParagraphSpacingChanged,
     required this.onPageHorizontalMarginChanged,
+    required this.onFontSelected,
+    required this.onManageFonts,
     required this.onFirstLineIndentChanged,
     required this.onTextEnhancementChanged,
     required this.onBrightnessChanged,
@@ -85,6 +90,7 @@ class ReaderControls extends StatelessWidget {
   final double pageHorizontalMargin;
   final bool firstLineIndentEnabled;
   final bool textEnhancementEnabled;
+  final AsyncValue<ReaderFontLibrary> fontLibraryValue;
   final double brightness;
   final ReaderTurnMode pageTurnMode;
   final bool volumePageTurnEnabled;
@@ -108,6 +114,8 @@ class ReaderControls extends StatelessWidget {
   final void Function(double lineHeight, double paragraphSpacing)
       onLineParagraphSpacingChanged;
   final ValueChanged<double> onPageHorizontalMarginChanged;
+  final ValueChanged<ReaderFont> onFontSelected;
+  final VoidCallback onManageFonts;
   final ValueChanged<bool> onFirstLineIndentChanged;
   final ValueChanged<bool> onTextEnhancementChanged;
   final ValueChanged<double> onBrightnessChanged;
@@ -207,11 +215,14 @@ class ReaderControls extends StatelessWidget {
                   pageHorizontalMargin: pageHorizontalMargin,
                   firstLineIndentEnabled: firstLineIndentEnabled,
                   textEnhancementEnabled: textEnhancementEnabled,
+                  fontLibraryValue: fontLibraryValue,
                   onFontSizeChanged: onFontSizeChanged,
                   onLineHeightChanged: onLineHeightChanged,
                   onParagraphSpacingChanged: onParagraphSpacingChanged,
                   onLineParagraphSpacingChanged: onLineParagraphSpacingChanged,
                   onPageHorizontalMarginChanged: onPageHorizontalMarginChanged,
+                  onFontSelected: onFontSelected,
+                  onManageFonts: onManageFonts,
                   onFirstLineIndentChanged: onFirstLineIndentChanged,
                   onTextEnhancementChanged: onTextEnhancementChanged,
                 ),
