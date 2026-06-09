@@ -65,12 +65,8 @@ class _SmallPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = reversed
-        ? context.readerControls.surface.panel
-        : context.readerControls.text.secondary;
-    final background = reversed
-        ? context.readerControls.text.primary
-        : context.readerControls.surface.panelLow;
+    final foreground = context.readerControls.text.secondary;
+    final background = context.readerControls.surface.panelLow;
     final children = [
       Icon(icon, size: 16, color: foreground),
       const SizedBox(width: 6),
