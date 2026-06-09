@@ -60,6 +60,7 @@ class ReaderControls extends StatelessWidget {
     required this.fontLibraryValue,
     required this.brightness,
     required this.followSystemBrightness,
+    required this.eyeComfortEnhanced,
     required this.pageTurnMode,
     required this.volumePageTurnEnabled,
     required this.isListening,
@@ -87,6 +88,7 @@ class ReaderControls extends StatelessWidget {
     required this.onTextEnhancementChanged,
     required this.onBrightnessChanged,
     required this.onFollowSystemBrightnessChanged,
+    required this.onEyeComfortEnhancedChanged,
     required this.onPageTurnModeChanged,
     required this.onVolumePageTurnChanged,
     required this.onListeningChanged,
@@ -108,6 +110,7 @@ class ReaderControls extends StatelessWidget {
   final AsyncValue<ReaderFontLibrary> fontLibraryValue;
   final double brightness;
   final bool followSystemBrightness;
+  final bool eyeComfortEnhanced;
   final ReaderTurnMode pageTurnMode;
   final bool volumePageTurnEnabled;
   final bool isListening;
@@ -136,6 +139,7 @@ class ReaderControls extends StatelessWidget {
   final ValueChanged<bool> onTextEnhancementChanged;
   final ValueChanged<double> onBrightnessChanged;
   final ValueChanged<bool> onFollowSystemBrightnessChanged;
+  final ValueChanged<bool> onEyeComfortEnhancedChanged;
   final ValueChanged<ReaderTurnMode> onPageTurnModeChanged;
   final ValueChanged<bool> onVolumePageTurnChanged;
   final ValueChanged<bool> onListeningChanged;
@@ -257,10 +261,12 @@ class ReaderControls extends StatelessWidget {
                     palette: palette,
                     brightness: brightness,
                     followSystemBrightness: followSystemBrightness,
+                    eyeComfortEnhanced: eyeComfortEnhanced,
                     onPaletteChanged: onPaletteChanged,
                     onBrightnessChanged: onBrightnessChanged,
                     onFollowSystemBrightnessChanged:
                         onFollowSystemBrightnessChanged,
+                    onEyeComfortEnhancedChanged: onEyeComfortEnhancedChanged,
                   ),
                 );
               case ReaderOverlayMode.listening:

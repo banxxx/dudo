@@ -7,15 +7,19 @@ class _BrightnessEyeGroup extends StatelessWidget {
     required this.metrics,
     required this.brightness,
     required this.followSystemBrightness,
+    required this.eyeComfortEnhanced,
     required this.onBrightnessChanged,
     required this.onFollowSystemBrightnessChanged,
+    required this.onEyeComfortEnhancedChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
   final double brightness;
   final bool followSystemBrightness;
+  final bool eyeComfortEnhanced;
   final ValueChanged<double> onBrightnessChanged;
   final ValueChanged<bool> onFollowSystemBrightnessChanged;
+  final ValueChanged<bool> onEyeComfortEnhancedChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -85,13 +89,23 @@ class _BrightnessEyeGroup extends StatelessWidget {
               SizedBox(width: metrics.s(10)),
               Expanded(
                 child: _ThemeQuickPill(
+                  key: const ValueKey('reader-theme-eye-comfort'),
                   metrics: metrics,
                   icon: LucideIcons.leaf,
                   label: '护眼增强',
-                  fillColor: context.readerControls.themePicker.greenSoft,
-                  foreground: context.readerControls.themePicker.green,
-                  iconColor: context.readerControls.themePicker.green,
-                  emphasized: true,
+                  fillColor: eyeComfortEnhanced
+                      ? context.readerControls.themePicker.greenSoft
+                      : context.readerControls.themePicker.surfaceLow,
+                  foreground: eyeComfortEnhanced
+                      ? context.readerControls.themePicker.green
+                      : context.readerControls.themePicker.secondaryText,
+                  iconColor: eyeComfortEnhanced
+                      ? context.readerControls.themePicker.green
+                      : context.readerControls.themePicker.muted,
+                  emphasized: eyeComfortEnhanced,
+                  onTap: () => onEyeComfortEnhancedChanged(
+                    !eyeComfortEnhanced,
+                  ),
                 ),
               ),
             ],

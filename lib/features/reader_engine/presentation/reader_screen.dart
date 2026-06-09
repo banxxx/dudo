@@ -27,6 +27,7 @@ import 'reader_controls.dart';
 import 'reader_viewport.dart';
 import 'widgets/reader_background.dart';
 import 'widgets/reader_brightness_overlay.dart';
+import 'widgets/reader_eye_comfort_overlay.dart';
 import 'widgets/reader_progress.dart';
 import 'widgets/reader_volume_page_turn_listener.dart';
 
@@ -68,6 +69,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   bool _textEnhancementEnabled = false;
   double _brightness = 1;
   bool _followSystemBrightness = false;
+  bool _eyeComfortEnhanced = false;
   bool _volumePageTurnEnabled = true;
   bool _isListening = false;
   int _volumePageTurnRequestId = 0;
@@ -252,6 +254,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           },
         ),
       ),
+      ReaderEyeComfortOverlay(
+        enabled: _eyeComfortEnhanced,
+        palette: _palette,
+      ),
       if (_showsSecondaryMenuScrim)
         const Positioned.fill(
           child: IgnorePointer(
@@ -281,6 +287,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         fontLibraryValue: fontLibraryValue,
         brightness: _brightness,
         followSystemBrightness: _followSystemBrightness,
+        eyeComfortEnhanced: _eyeComfortEnhanced,
         pageTurnMode: state.settings.turnMode,
         volumePageTurnEnabled: _volumePageTurnEnabled,
         isListening: _isListening,
@@ -349,6 +356,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
               _brightness = _brightnessForSystemMode();
             }
           });
+        },
+        onEyeComfortEnhancedChanged: (value) {
+          setState(() => _eyeComfortEnhanced = value);
         },
         onPageTurnModeChanged: (mode) async {
           await controller
