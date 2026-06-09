@@ -64,6 +64,7 @@ class ReaderControls extends StatelessWidget {
     required this.timeBatteryHidden,
     required this.chapterProgressHidden,
     required this.systemStatusBarHidden,
+    required this.pageEdgeHidden,
     required this.pageTurnMode,
     required this.volumePageTurnEnabled,
     required this.isListening,
@@ -95,6 +96,7 @@ class ReaderControls extends StatelessWidget {
     required this.onTimeBatteryHiddenChanged,
     required this.onChapterProgressHiddenChanged,
     required this.onSystemStatusBarHiddenChanged,
+    required this.onPageEdgeHiddenChanged,
     required this.onPageTurnModeChanged,
     required this.onVolumePageTurnChanged,
     required this.onListeningChanged,
@@ -120,6 +122,7 @@ class ReaderControls extends StatelessWidget {
   final bool timeBatteryHidden;
   final bool chapterProgressHidden;
   final bool systemStatusBarHidden;
+  final bool pageEdgeHidden;
   final ReaderTurnMode pageTurnMode;
   final bool volumePageTurnEnabled;
   final bool isListening;
@@ -152,6 +155,7 @@ class ReaderControls extends StatelessWidget {
   final ValueChanged<bool> onTimeBatteryHiddenChanged;
   final ValueChanged<bool> onChapterProgressHiddenChanged;
   final ValueChanged<bool> onSystemStatusBarHiddenChanged;
+  final ValueChanged<bool> onPageEdgeHiddenChanged;
   final ValueChanged<ReaderTurnMode> onPageTurnModeChanged;
   final ValueChanged<bool> onVolumePageTurnChanged;
   final ValueChanged<bool> onListeningChanged;
@@ -277,6 +281,7 @@ class ReaderControls extends StatelessWidget {
                     timeBatteryHidden: timeBatteryHidden,
                     chapterProgressHidden: chapterProgressHidden,
                     systemStatusBarHidden: systemStatusBarHidden,
+                    pageEdgeHidden: pageEdgeHidden,
                     onPaletteChanged: onPaletteChanged,
                     onBrightnessChanged: onBrightnessChanged,
                     onFollowSystemBrightnessChanged:
@@ -287,6 +292,7 @@ class ReaderControls extends StatelessWidget {
                         onChapterProgressHiddenChanged,
                     onSystemStatusBarHiddenChanged:
                         onSystemStatusBarHiddenChanged,
+                    onPageEdgeHiddenChanged: onPageEdgeHiddenChanged,
                   ),
                 );
               case ReaderOverlayMode.listening:

@@ -73,6 +73,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   bool _timeBatteryHidden = false;
   bool _chapterProgressHidden = false;
   bool _systemStatusBarHidden = true;
+  bool _pageEdgeHidden = false;
   bool _volumePageTurnEnabled = true;
   bool _isListening = false;
   int _volumePageTurnRequestId = 0;
@@ -155,7 +156,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                       fit: StackFit.expand,
                       children: [
                         ReaderPaperBackground(palette: _palette),
-                        ReaderSoftPageEdge(metrics: metrics),
+                        if (!_pageEdgeHidden)
+                          ReaderSoftPageEdge(layout: chromeLayout),
                         if (controller == null ||
                             state == null ||
                             state.loadStatus == ReaderLoadStatus.loading)
@@ -296,6 +298,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         timeBatteryHidden: _timeBatteryHidden,
         chapterProgressHidden: _chapterProgressHidden,
         systemStatusBarHidden: _systemStatusBarHidden,
+        pageEdgeHidden: _pageEdgeHidden,
         pageTurnMode: state.settings.turnMode,
         volumePageTurnEnabled: _volumePageTurnEnabled,
         isListening: _isListening,
@@ -376,6 +379,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         },
         onSystemStatusBarHiddenChanged: (value) {
           _updateSystemStatusBarHidden(value);
+        },
+        onPageEdgeHiddenChanged: (value) {
+          setState(() => _pageEdgeHidden = value);
         },
         onPageTurnModeChanged: (mode) async {
           await controller
@@ -628,10 +634,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   EdgeInsets _readerSafePadding(BuildContext context) {
-    final viewPadding = MediaQuery.viewPaddingOf(context);
-    return viewPadding.copyWith(
-      top: _systemStatusBarHidden ? 0 : viewPadding.top,
-    );
+    // 隐藏系统状态栏只隐藏系统图标，不允许正文进入挖孔、刘海等顶部安全区域。
+    return MediaQuery.viewPaddingOf(context);
   }
 
   double _scaledTextSize(double value) {

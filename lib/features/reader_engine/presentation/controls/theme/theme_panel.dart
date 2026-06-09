@@ -12,6 +12,7 @@ class _ThemePanel extends StatelessWidget {
     required this.timeBatteryHidden,
     required this.chapterProgressHidden,
     required this.systemStatusBarHidden,
+    required this.pageEdgeHidden,
     required this.onPaletteChanged,
     required this.onBrightnessChanged,
     required this.onFollowSystemBrightnessChanged,
@@ -19,6 +20,7 @@ class _ThemePanel extends StatelessWidget {
     required this.onTimeBatteryHiddenChanged,
     required this.onChapterProgressHiddenChanged,
     required this.onSystemStatusBarHiddenChanged,
+    required this.onPageEdgeHiddenChanged,
   });
 
   static const _panelHeight = 360.0;
@@ -31,6 +33,7 @@ class _ThemePanel extends StatelessWidget {
   final bool timeBatteryHidden;
   final bool chapterProgressHidden;
   final bool systemStatusBarHidden;
+  final bool pageEdgeHidden;
   final ValueChanged<ReaderPalette> onPaletteChanged;
   final ValueChanged<double> onBrightnessChanged;
   final ValueChanged<bool> onFollowSystemBrightnessChanged;
@@ -38,6 +41,7 @@ class _ThemePanel extends StatelessWidget {
   final ValueChanged<bool> onTimeBatteryHiddenChanged;
   final ValueChanged<bool> onChapterProgressHiddenChanged;
   final ValueChanged<bool> onSystemStatusBarHiddenChanged;
+  final ValueChanged<bool> onPageEdgeHiddenChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -111,6 +115,12 @@ class _ThemePanel extends StatelessWidget {
                         description: '关闭后正文会避开顶部系统状态栏',
                         enabled: systemStatusBarHidden,
                         onChanged: onSystemStatusBarHiddenChanged,
+                      ),
+                      _ThemeToggleRowData(
+                        title: '隐藏页边线',
+                        description: '隐藏正文左侧的页面边缘装饰线',
+                        enabled: pageEdgeHidden,
+                        onChanged: onPageEdgeHiddenChanged,
                       ),
                     ],
                   ),
