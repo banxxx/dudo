@@ -25,6 +25,12 @@ class AppMessageRegistry<T> {
 
   T? dismiss(String key) => _active.remove(key);
 
+  bool dismissIfCurrent(String key, T handle) {
+    if (!identical(_active[key], handle)) return false;
+    _active.remove(key);
+    return true;
+  }
+
   Iterable<T> dismissAll() {
     final handles = List<T>.of(_active.values);
     _active.clear();

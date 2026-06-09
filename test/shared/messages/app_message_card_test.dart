@@ -81,4 +81,38 @@ void main() {
     await tester.tap(find.byTooltip('关闭'));
     expect(closed, isTrue);
   });
+
+  testWidgets('renders snack message card with compact snackbar dimensions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AppMessageCard(
+            request: AppMessageRequest(
+              title: '已启用「霞鹜文楷」',
+              kind: AppMessageKind.success,
+              visualStyle: AppMessageVisualStyle.snack,
+              dismissible: false,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final card = find.byWidgetPredicate(
+      (widget) =>
+          widget is ConstrainedBox && widget.constraints.maxWidth == 520,
+    );
+    final cardBox = tester.renderObject<RenderBox>(card);
+    final scaffoldBox = tester.renderObject<RenderBox>(find.byType(Scaffold));
+    final cardLeft = cardBox.localToGlobal(Offset.zero).dx;
+    final expectedLeft = (scaffoldBox.size.width - 520) / 2;
+
+    expect(find.text('已启用「霞鹜文楷」'), findsOneWidget);
+    expect(cardBox.size.width, 520);
+    expect(cardBox.size.height, lessThan(70));
+    expect(cardLeft, closeTo(expectedLeft, 0.1));
+    expect(find.byIcon(Icons.close), findsNothing);
+  });
 }

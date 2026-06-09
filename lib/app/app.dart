@@ -40,7 +40,10 @@ class DudoApp extends ConsumerWidget {
               ),
               child: ColoredBox(
                 color: theme.scaffoldBackgroundColor,
-                child: AppMessageHost(child: child ?? const SizedBox.shrink()),
+                child: AppMessageHost(
+                  routeInformationProvider: router.routeInformationProvider,
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
             );
           },

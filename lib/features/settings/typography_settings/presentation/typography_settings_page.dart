@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../../shared/messages/app_message.dart';
+import '../../../../shared/messages/app_message_service.dart';
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
 import '../application/reader_font_providers.dart';
@@ -10,6 +12,8 @@ import '../domain/reader_font.dart';
 import '../../shared/widgets/settings_detail_scaffold.dart';
 
 enum _FontSource { local, builtIn }
+
+const _fontSnackDedupeKey = 'typography-settings-snack';
 
 class TypographySettingsPage extends ConsumerStatefulWidget {
   const TypographySettingsPage({super.key});
@@ -22,8 +26,21 @@ class TypographySettingsPage extends ConsumerStatefulWidget {
 class _TypographySettingsPageState
     extends ConsumerState<TypographySettingsPage> {
   _FontSource _source = _FontSource.local;
+  late final AppMessageService _messageService;
   bool _importing = false;
   final Set<String> _deletingFontIds = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _messageService = ref.read(appMessageServiceProvider);
+  }
+
+  @override
+  void dispose() {
+    _messageService.dismiss(_fontSnackDedupeKey);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,22 +73,22 @@ class _TypographySettingsPageState
 
   Future<void> _importFont() async {
     if (_importing) return;
-    final messenger = ScaffoldMessenger.of(context);
     setState(() => _importing = true);
     try {
       final font = await ref
           .read(readerFontLibraryControllerProvider.notifier)
           .importFont();
       if (!mounted || font == null) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('已导入「${font.displayName}」，可在列表中启用')),
+      _showFontSnack(
+        '已导入「${font.displayName}」，可在列表中启用',
+        kind: AppMessageKind.success,
       );
     } on ReaderFontImportException catch (error) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      _showFontSnack(error.message, kind: AppMessageKind.error);
     } catch (_) {
       if (!mounted) return;
-      messenger.showSnackBar(const SnackBar(content: Text('字体导入失败')));
+      _showFontSnack('字体导入失败', kind: AppMessageKind.error);
     } finally {
       if (mounted) setState(() => _importing = false);
     }
@@ -82,8 +99,9 @@ class _TypographySettingsPageState
         .read(readerFontLibraryControllerProvider.notifier)
         .selectFont(font.familyKey);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已启用「${font.displayName}」')),
+    _showFontSnack(
+      '已启用「${font.displayName}」',
+      kind: AppMessageKind.success,
     );
   }
 
@@ -98,19 +116,35 @@ class _TypographySettingsPageState
           .read(readerFontLibraryControllerProvider.notifier)
           .deleteFont(font.id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('已删除「${font.displayName}」')),
+      _showFontSnack(
+        '已删除「${font.displayName}」',
+        kind: AppMessageKind.success,
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('字体删除失败')),
-      );
+      _showFontSnack('字体删除失败', kind: AppMessageKind.error);
     } finally {
       if (mounted) {
         setState(() => _deletingFontIds.remove(font.id));
       }
     }
+  }
+
+  void _showFontSnack(
+    String message, {
+    required AppMessageKind kind,
+  }) {
+    _messageService.show(
+      AppMessageRequest(
+        title: message,
+        kind: kind,
+        position: AppMessagePosition.bottom,
+        visualStyle: AppMessageVisualStyle.snack,
+        dedupeKey: _fontSnackDedupeKey,
+        replaceExisting: true,
+        dismissible: false,
+      ),
+    );
   }
 }
 

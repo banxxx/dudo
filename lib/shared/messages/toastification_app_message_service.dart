@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:toastification/toastification.dart';
 
 import '../theme/app_tokens.dart';
@@ -19,7 +20,10 @@ class ToastificationAppMessageService implements AppMessageService {
         return;
       case AppMessageRegistryAction.replace:
         final existing = decision.existing;
-        if (existing != null) toastification.dismiss(existing);
+        if (existing != null) {
+          _registry.dismiss(decision.key);
+          _dismissToast(existing);
+        }
       case AppMessageRegistryAction.show:
         break;
     }
@@ -30,8 +34,9 @@ class ToastificationAppMessageService implements AppMessageService {
       animationDuration: AppMotion.medium,
       autoCloseDuration: request.effectiveDuration,
       callbacks: ToastificationCallbacks(
-        onAutoCompleteCompleted: (_) => _registry.dismiss(decision.key),
-        onDismissed: (_) => _registry.dismiss(decision.key),
+        onAutoCompleteCompleted: (_) =>
+            _registry.dismissIfCurrent(decision.key, item),
+        onDismissed: (_) => _registry.dismissIfCurrent(decision.key, item),
         onCloseButtonTap: (_) => dismiss(decision.key),
       ),
       builder: (context, holder) {
@@ -182,15 +187,28 @@ class ToastificationAppMessageService implements AppMessageService {
   void dismiss(String dedupeKey) {
     final item = _registry.dismiss(dedupeKey);
     if (item != null) {
-      toastification.dismiss(item);
+      _dismissToast(item);
     }
   }
 
   @override
   void dismissAll() {
     for (final item in _registry.dismissAll()) {
-      toastification.dismiss(item);
+      _dismissToast(item);
     }
+  }
+
+  void _dismissToast(ToastificationItem item) {
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.idle ||
+        phase == SchedulerPhase.postFrameCallbacks) {
+      toastification.dismiss(item);
+      return;
+    }
+
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      toastification.dismiss(item);
+    });
   }
 }
 

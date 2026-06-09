@@ -20,6 +20,7 @@ enum AppMessageSize {
 enum AppMessageVisualStyle {
   paper,
   filled,
+  snack,
 }
 
 class AppMessageRequest {

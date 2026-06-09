@@ -54,7 +54,7 @@ void main() {
 
       expect(
         request.effectiveKey,
-        'error|top|compact|网络错误|请稍后重试',
+        'error|top|compact|paper||网络错误|请稍后重试',
       );
     });
 
@@ -66,6 +66,22 @@ void main() {
       registry.markShown(decision.key, 1);
 
       expect(registry.dismiss('save'), 1);
+      expect(registry.contains('save'), isFalse);
+    });
+
+    test('dismissIfCurrent keeps replacement handle active', () {
+      final registry = AppMessageRegistry<Object>();
+      final oldHandle = Object();
+      final newHandle = Object();
+      const request = AppMessageRequest(title: '保存成功', dedupeKey: 'save');
+
+      final decision = registry.prepare(request);
+      registry.markShown(decision.key, oldHandle);
+      registry.markShown(decision.key, newHandle);
+
+      expect(registry.dismissIfCurrent('save', oldHandle), isFalse);
+      expect(registry.contains('save'), isTrue);
+      expect(registry.dismissIfCurrent('save', newHandle), isTrue);
       expect(registry.contains('save'), isFalse);
     });
   });

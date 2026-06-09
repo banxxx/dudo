@@ -22,68 +22,109 @@ class AppMessageCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final colors = _colors(scheme, request.kind, request.visualStyle);
     final isDialog = request.size == AppMessageSize.dialog;
+    final isSnack = request.visualStyle == AppMessageVisualStyle.snack;
+    final snackWidth = isSnack ? _snackWidth(context) : null;
+    final radius = BorderRadius.circular(
+      isDialog
+          ? 28
+          : isSnack
+              ? 14
+              : 26,
+    );
 
     return SafeArea(
       minimum: EdgeInsets.symmetric(
-        horizontal: isDialog ? AppSpacing.md : 20,
+        horizontal: isDialog ? AppSpacing.md : 16,
         vertical: isDialog ? AppSpacing.md : AppSpacing.sm,
       ),
       child: Center(
-        widthFactor: isDialog ? null : 1,
+        widthFactor: isDialog || isSnack ? null : 1,
         heightFactor: isDialog ? null : 1,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: isDialog ? 420 : 350,
-            minWidth: isDialog ? 280 : 350,
-            minHeight: isDialog ? 0 : 82,
-          ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(isDialog ? 28 : 26),
-              boxShadow: request.visualStyle == AppMessageVisualStyle.paper
-                  ? [
-                      BoxShadow(
-                        color: DudoColors.textPrimary.withValues(alpha: 0.16),
-                        offset: const Offset(0, 16),
-                        blurRadius: 36,
-                      ),
-                    ]
-                  : const [],
+        child: SizedBox(
+          width: snackWidth,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isDialog
+                  ? 420
+                  : isSnack
+                      ? snackWidth!
+                      : 350,
+              minWidth: isDialog
+                  ? 280
+                  : isSnack
+                      ? snackWidth!
+                      : 350,
+              minHeight: isDialog
+                  ? 0
+                  : isSnack
+                      ? 48
+                      : 82,
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(isDialog ? 28 : 26),
-              child: BackdropFilter(
-                filter: request.visualStyle == AppMessageVisualStyle.paper
-                    ? ImageFilter.blur(sigmaX: 18, sigmaY: 18)
-                    : ImageFilter.blur(sigmaX: 0, sigmaY: 0),
-                child: Material(
-                  color: colors.background,
-                  elevation: request.visualStyle == AppMessageVisualStyle.paper
-                      ? 0
-                      : 6,
-                  shadowColor: DudoColors.textPrimary.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(isDialog ? 28 : 26),
-                  clipBehavior: Clip.antiAlias,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(isDialog ? 28 : 26),
-                      border: Border.all(color: colors.border),
-                    ),
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isDialog ? AppSpacing.lg : 14,
-                      vertical: isDialog ? AppSpacing.lg : 12,
-                    ),
-                    child: isDialog
-                        ? _DialogContent(
-                            request: request,
-                            colors: colors,
-                            onClose: onClose,
-                          )
-                        : _CompactContent(
-                            request: request,
-                            colors: colors,
-                            onClose: onClose,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: radius,
+                boxShadow: request.visualStyle != AppMessageVisualStyle.filled
+                    ? [
+                        BoxShadow(
+                          color: DudoColors.textPrimary.withValues(
+                            alpha: isSnack ? 0.2 : 0.16,
                           ),
+                          offset: Offset(0, isSnack ? 10 : 16),
+                          blurRadius: isSnack ? 22 : 36,
+                        ),
+                      ]
+                    : const [],
+              ),
+              child: ClipRRect(
+                borderRadius: radius,
+                child: BackdropFilter(
+                  filter: request.visualStyle == AppMessageVisualStyle.paper
+                      ? ImageFilter.blur(sigmaX: 18, sigmaY: 18)
+                      : ImageFilter.blur(sigmaX: 0, sigmaY: 0),
+                  child: Material(
+                    color: colors.background,
+                    elevation:
+                        request.visualStyle != AppMessageVisualStyle.filled
+                            ? 0
+                            : 6,
+                    shadowColor: DudoColors.textPrimary.withValues(alpha: 0.16),
+                    borderRadius: radius,
+                    clipBehavior: Clip.antiAlias,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: radius,
+                        border: Border.all(color: colors.border),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isDialog
+                            ? AppSpacing.lg
+                            : isSnack
+                                ? 14
+                                : 14,
+                        vertical: isDialog
+                            ? AppSpacing.lg
+                            : isSnack
+                                ? 10
+                                : 12,
+                      ),
+                      child: isDialog
+                          ? _DialogContent(
+                              request: request,
+                              colors: colors,
+                              onClose: onClose,
+                            )
+                          : isSnack
+                              ? _SnackContent(
+                                  request: request,
+                                  colors: colors,
+                                  onClose: onClose,
+                                )
+                              : _CompactContent(
+                                  request: request,
+                                  colors: colors,
+                                  onClose: onClose,
+                                ),
+                    ),
                   ),
                 ),
               ),
@@ -91,6 +132,86 @@ class AppMessageCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+double _snackWidth(BuildContext context) {
+  final availableWidth = MediaQuery.sizeOf(context).width - 32;
+  return availableWidth.clamp(0, 520).toDouble();
+}
+
+class _SnackContent extends StatelessWidget {
+  const _SnackContent({
+    required this.request,
+    required this.colors,
+    this.onClose,
+  });
+
+  final AppMessageRequest request;
+  final _MessageColors colors;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final description = request.description;
+
+    return Row(
+      mainAxisSize: MainAxisSize.max,
+      children: [
+        Icon(_icon(request.kind), color: colors.icon, size: 18),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                request.title,
+                maxLines: description == null ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: DudoTextStyles.sans(
+                  color: colors.title,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+              if (description != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: DudoTextStyles.sans(
+                    color: colors.description,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (request.actionLabel != null && request.onAction != null) ...[
+          const SizedBox(width: 12),
+          _ToastActionButton(
+            label: request.actionLabel!,
+            onTap: request.onAction!,
+            colors: colors,
+          ),
+        ] else if (request.dismissible && onClose != null) ...[
+          const SizedBox(width: 10),
+          InkWell(
+            onTap: onClose,
+            borderRadius: AppRadius.full,
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(LucideIcons.x, color: colors.close, size: 17),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -290,6 +411,25 @@ _MessageColors _colors(
   AppMessageKind kind,
   AppMessageVisualStyle style,
 ) {
+  if (style == AppMessageVisualStyle.snack) {
+    return switch (kind) {
+      AppMessageKind.success => const _MessageColors.snack(
+          accent: DudoColors.primaryContainerStrong,
+        ),
+      AppMessageKind.warning => const _MessageColors.snack(
+          accent: DudoColors.accentSoft,
+        ),
+      AppMessageKind.error => const _MessageColors.snack(
+          accent: Color(0xFFFFB4A9),
+        ),
+      AppMessageKind.loading ||
+      AppMessageKind.info =>
+        const _MessageColors.snack(
+          accent: DudoColors.outline,
+        ),
+    };
+  }
+
   if (style == AppMessageVisualStyle.filled) {
     return switch (kind) {
       AppMessageKind.success => _MessageColors.filled(
@@ -379,6 +519,20 @@ class _MessageColors {
           actionBackground: Colors.white24,
           actionForeground: foreground,
           close: foreground,
+        );
+
+  const _MessageColors.snack({
+    required Color accent,
+  }) : this(
+          background: DudoColors.textPrimary,
+          border: Colors.transparent,
+          title: DudoColors.surfaceHigh,
+          description: DudoColors.outlineVariant,
+          icon: accent,
+          iconBackground: Colors.transparent,
+          actionBackground: DudoColors.surfaceHigh,
+          actionForeground: DudoColors.textPrimary,
+          close: DudoColors.outlineVariant,
         );
 
   final Color background;

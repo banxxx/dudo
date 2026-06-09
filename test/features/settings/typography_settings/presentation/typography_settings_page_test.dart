@@ -4,6 +4,8 @@ import 'package:dudo/features/settings/typography_settings/presentation/typograp
 import 'package:dudo/features/settings/typography_settings/application/reader_font_providers.dart';
 import 'package:dudo/features/settings/typography_settings/data/reader_font_repository.dart';
 import 'package:dudo/features/settings/typography_settings/domain/reader_font.dart';
+import 'package:dudo/shared/messages/app_message.dart';
+import 'package:dudo/shared/messages/app_message_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +21,7 @@ void main() {
           readerFontRepositoryProvider.overrideWithValue(
             _FakeReaderFontRepository(),
           ),
+          appMessageServiceProvider.overrideWithValue(_FakeAppMessageService()),
         ],
         child: const MaterialApp(
           home: TypographySettingsPage(),
@@ -63,6 +66,7 @@ void main() {
       ProviderScope(
         overrides: [
           readerFontRepositoryProvider.overrideWithValue(repository),
+          appMessageServiceProvider.overrideWithValue(_FakeAppMessageService()),
         ],
         child: const MaterialApp(
           home: TypographySettingsPage(),
@@ -92,6 +96,7 @@ void main() {
       ProviderScope(
         overrides: [
           readerFontRepositoryProvider.overrideWithValue(repository),
+          appMessageServiceProvider.overrideWithValue(_FakeAppMessageService()),
         ],
         child: const MaterialApp(
           home: TypographySettingsPage(),
@@ -115,6 +120,124 @@ void main() {
 
     expect(find.text('方正书宋'), findsNothing);
   });
+
+  testWidgets('dismisses font snack when page is disposed', (tester) async {
+    final messageService = _FakeAppMessageService();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerFontRepositoryProvider.overrideWithValue(
+            _FakeReaderFontRepository(),
+          ),
+          appMessageServiceProvider.overrideWithValue(messageService),
+        ],
+        child: const MaterialApp(
+          home: TypographySettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerFontRepositoryProvider.overrideWithValue(
+            _FakeReaderFontRepository(),
+          ),
+          appMessageServiceProvider.overrideWithValue(messageService),
+        ],
+        child: const MaterialApp(
+          home: SizedBox.shrink(),
+        ),
+      ),
+    );
+
+    expect(messageService.dismissedKeys, contains('typography-settings-snack'));
+  });
+}
+
+class _FakeAppMessageService implements AppMessageService {
+  final dismissedKeys = <String>[];
+  final shownRequests = <AppMessageRequest>[];
+
+  @override
+  void dismiss(String dedupeKey) {
+    dismissedKeys.add(dedupeKey);
+  }
+
+  @override
+  void dismissAll() {}
+
+  @override
+  void error(
+    String message, {
+    String? title,
+    AppMessagePosition position = AppMessagePosition.top,
+    String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
+  }) {}
+
+  @override
+  void info(
+    String message, {
+    String? title,
+    AppMessagePosition position = AppMessagePosition.bottom,
+    String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
+  }) {}
+
+  @override
+  void loading({
+    required String title,
+    String? description,
+    AppMessagePosition position = AppMessagePosition.center,
+    String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
+  }) {}
+
+  @override
+  void show(AppMessageRequest request) {
+    shownRequests.add(request);
+  }
+
+  @override
+  void showCenter({
+    required String title,
+    String? description,
+    AppMessageKind kind = AppMessageKind.info,
+    String? dedupeKey,
+    bool replaceExisting = false,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+  }) {}
+
+  @override
+  void success(
+    String message, {
+    String? title,
+    AppMessagePosition position = AppMessagePosition.bottom,
+    String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
+  }) {}
+
+  @override
+  void warning(
+    String message, {
+    String? title,
+    AppMessagePosition position = AppMessagePosition.top,
+    String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
+  }) {}
 }
 
 class _FakeReaderFontRepository implements ReaderFontRepository {
