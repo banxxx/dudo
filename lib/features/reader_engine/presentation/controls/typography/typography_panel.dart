@@ -324,7 +324,7 @@ class _TypographyPanelContent extends StatelessWidget {
         Text(
           '阅读排版',
           style: DudoTextStyles.serif(
-            color: const Color(0xFF25251F),
+            color: context.readerControls.text.primary,
             fontSize: metrics.s(22),
             fontWeight: FontWeight.w700,
           ),
@@ -572,7 +572,7 @@ class _FontChooserPage extends StatelessWidget {
                   Text(
                     '字体选择',
                     style: DudoTextStyles.serif(
-                      color: const Color(0xFF25251F),
+                      color: context.readerControls.text.primary,
                       fontSize: metrics.s(22),
                       fontWeight: FontWeight.w700,
                     ),
@@ -587,7 +587,7 @@ class _FontChooserPage extends StatelessWidget {
                   height: metrics.s(30),
                   padding: EdgeInsets.symmetric(horizontal: metrics.s(10)),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF3ECDD),
+                    color: context.readerControls.surface.panelLow,
                     borderRadius: BorderRadius.circular(metrics.s(15)),
                   ),
                   child: Row(
@@ -595,7 +595,7 @@ class _FontChooserPage extends StatelessWidget {
                       Text(
                         '管理',
                         style: DudoTextStyles.sans(
-                          color: const Color(0xFF8A735A),
+                          color: context.readerControls.text.secondary,
                           fontSize: metrics.s(11),
                           fontWeight: FontWeight.w700,
                         ),
@@ -604,7 +604,7 @@ class _FontChooserPage extends StatelessWidget {
                       Icon(
                         LucideIcons.settings,
                         size: metrics.s(13),
-                        color: const Color(0xFF8A735A),
+                        color: context.readerControls.text.secondary,
                       ),
                     ],
                   ),
@@ -740,19 +740,21 @@ class _FontChooserStateMessage extends StatelessWidget {
       height: metrics.s(compact ? 64 : 180),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F4EA),
+        color: context.readerControls.surface.page,
         borderRadius: BorderRadius.circular(metrics.s(20)),
-        border: Border.all(color: const Color(0xFFE7DCC8)),
+        border: Border.all(color: context.readerControls.surface.outline),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: metrics.s(16), color: const Color(0xFF8A735A)),
+          Icon(icon,
+              size: metrics.s(16),
+              color: context.readerControls.text.secondary),
           SizedBox(width: metrics.s(8)),
           Text(
             text,
             style: DudoTextStyles.sans(
-              color: const Color(0xFF8A735A),
+              color: context.readerControls.text.secondary,
               fontSize: metrics.s(12),
               fontWeight: FontWeight.w700,
             ),
@@ -782,13 +784,13 @@ class _FontBackButton extends StatelessWidget {
         height: metrics.s(32),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: const Color(0xFFF3ECDD),
+          color: context.readerControls.surface.panelLow,
           borderRadius: BorderRadius.circular(metrics.s(16)),
         ),
         child: Icon(
           LucideIcons.chevronLeft,
           size: metrics.s(17),
-          color: const Color(0xFF8A735A),
+          color: context.readerControls.text.secondary,
         ),
       ),
     );
@@ -821,7 +823,7 @@ class _FontSection extends StatelessWidget {
               Text(
                 title,
                 style: DudoTextStyles.sans(
-                  color: const Color(0xFF25251F),
+                  color: context.readerControls.text.primary,
                   fontSize: metrics.s(13),
                   fontWeight: FontWeight.w700,
                 ),
@@ -829,7 +831,7 @@ class _FontSection extends StatelessWidget {
               Text(
                 countText,
                 style: DudoTextStyles.sans(
-                  color: const Color(0xFF8A735A),
+                  color: context.readerControls.text.secondary,
                   fontSize: metrics.s(10),
                 ),
               ),
@@ -865,10 +867,14 @@ class _FontOptionCard extends StatelessWidget {
         height: metrics.s(70),
         padding: EdgeInsets.symmetric(horizontal: metrics.s(13)),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFDDE8D4) : const Color(0xFFF8F4EA),
+          color: selected
+              ? context.readerControls.action.accentSoft
+              : context.readerControls.surface.page,
           borderRadius: BorderRadius.circular(metrics.s(20)),
           border: Border.all(
-            color: selected ? const Color(0xFF5E6F5B) : const Color(0xFFE7DCC8),
+            color: selected
+                ? context.readerControls.action.accent
+                : context.readerControls.surface.outline,
             width: selected ? metrics.s(2) : metrics.s(1),
           ),
         ),
@@ -887,7 +893,7 @@ class _FontOptionCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: DudoTextStyles.sans(
-                            color: const Color(0xFF25251F),
+                            color: context.readerControls.text.primary,
                             fontSize: metrics.s(14),
                             fontWeight: FontWeight.w700,
                           ),
@@ -898,8 +904,8 @@ class _FontOptionCard extends StatelessWidget {
                         font.sourceLabel,
                         style: DudoTextStyles.sans(
                           color: selected
-                              ? const Color(0xFF5E6F5B)
-                              : const Color(0xFF8A735A),
+                              ? context.readerControls.action.accent
+                              : context.readerControls.text.secondary,
                           fontSize: metrics.s(10),
                         ),
                       ),
@@ -912,7 +918,7 @@ class _FontOptionCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: font.familyKey,
-                      color: const Color(0xFF25251F),
+                      color: context.readerControls.text.primary,
                       fontSize: metrics.s(17),
                       fontWeight: FontWeight.w400,
                       decoration: TextDecoration.none,
@@ -925,15 +931,17 @@ class _FontOptionCard extends StatelessWidget {
             Icon(
               LucideIcons.star,
               size: metrics.s(16),
-              color:
-                  selected ? const Color(0xFF8A735A) : const Color(0x668A735A),
+              color: selected
+                  ? context.readerControls.text.secondary
+                  : context.readerControls.text.secondaryWeak,
             ),
             SizedBox(width: metrics.s(8)),
             Icon(
               selected ? LucideIcons.check : LucideIcons.circle,
               size: metrics.s(18),
-              color:
-                  selected ? const Color(0xFF5E6F5B) : const Color(0xFFD8CDBB),
+              color: selected
+                  ? context.readerControls.action.accent
+                  : context.readerControls.surface.outlineStrong,
             ),
           ],
         ),
@@ -962,12 +970,14 @@ class _TypographySectionTitle extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(icon, size: metrics.s(16), color: const Color(0xFF25251F)),
+            Icon(icon,
+                size: metrics.s(16),
+                color: context.readerControls.text.primary),
             SizedBox(width: metrics.s(7)),
             Text(
               label,
               style: DudoTextStyles.sans(
-                color: const Color(0xFF25251F),
+                color: context.readerControls.text.primary,
                 fontSize: metrics.s(14),
                 fontWeight: FontWeight.w700,
               ),
@@ -978,7 +988,7 @@ class _TypographySectionTitle extends StatelessWidget {
           Text(
             valueText!,
             style: DudoTextStyles.sans(
-              color: const Color(0xFF8A735A),
+              color: context.readerControls.text.secondary,
               fontSize: metrics.s(13),
             ),
           ),
@@ -1062,13 +1072,17 @@ class _FontSizeSegment extends StatelessWidget {
         height: metrics.s(40),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF25251F) : const Color(0xFFF3ECDD),
+          color: selected
+              ? context.readerControls.text.primary
+              : context.readerControls.surface.panelLow,
           borderRadius: BorderRadius.circular(metrics.s(20)),
         ),
         child: Text(
           label,
           style: DudoTextStyles.sans(
-            color: selected ? const Color(0xFFFFF8EA) : const Color(0xFF8A735A),
+            color: selected
+                ? context.readerControls.surface.panel
+                : context.readerControls.text.secondary,
             fontSize: metrics.s(13),
             fontWeight: FontWeight.w700,
           ),
@@ -1104,9 +1118,9 @@ class _CurrentFontCard extends StatelessWidget {
         height: metrics.s(64),
         padding: EdgeInsets.symmetric(horizontal: metrics.s(14)),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFBF2),
+          color: context.readerControls.surface.panelHigh,
           borderRadius: BorderRadius.circular(metrics.s(18)),
-          border: Border.all(color: const Color(0xFFE7DCC8)),
+          border: Border.all(color: context.readerControls.surface.outline),
         ),
         child: Row(
           children: [
@@ -1114,15 +1128,15 @@ class _CurrentFontCard extends StatelessWidget {
               width: metrics.s(38),
               height: metrics.s(38),
               alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                color: Color(0xFFDDE8D4),
+              decoration: BoxDecoration(
+                color: context.readerControls.action.accentSoft,
                 shape: BoxShape.circle,
               ),
               child: Text(
                 'Aa',
                 style: TextStyle(
                   fontFamily: familyKey,
-                  color: const Color(0xFF5E6F5B),
+                  color: context.readerControls.action.accent,
                   fontSize: metrics.s(14),
                   fontWeight: FontWeight.w700,
                   decoration: TextDecoration.none,
@@ -1140,7 +1154,7 @@ class _CurrentFontCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: DudoTextStyles.sans(
-                      color: const Color(0xFF25251F),
+                      color: context.readerControls.text.primary,
                       fontSize: metrics.s(14),
                       fontWeight: FontWeight.w700,
                     ),
@@ -1151,7 +1165,7 @@ class _CurrentFontCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: DudoTextStyles.sans(
-                      color: const Color(0xFF8A735A),
+                      color: context.readerControls.text.secondary,
                       fontSize: metrics.s(12),
                     ),
                   ),
@@ -1162,8 +1176,8 @@ class _CurrentFontCard extends StatelessWidget {
               height: metrics.s(30),
               padding: EdgeInsets.symmetric(horizontal: metrics.s(10)),
               alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                color: Color(0xFF25251F),
+              decoration: BoxDecoration(
+                color: context.readerControls.text.primary,
                 borderRadius: AppRadius.full,
               ),
               child: Row(
@@ -1171,7 +1185,7 @@ class _CurrentFontCard extends StatelessWidget {
                   Text(
                     '更换',
                     style: DudoTextStyles.sans(
-                      color: const Color(0xFFFFF8EA),
+                      color: context.readerControls.surface.panel,
                       fontSize: metrics.s(12),
                       fontWeight: FontWeight.w700,
                     ),
@@ -1180,7 +1194,7 @@ class _CurrentFontCard extends StatelessWidget {
                   Icon(
                     LucideIcons.chevronRight,
                     size: metrics.s(13),
-                    color: const Color(0xFFFFF8EA),
+                    color: context.readerControls.surface.panel,
                   ),
                 ],
               ),
@@ -1215,9 +1229,9 @@ class _TypographyValueSlider extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(metrics.s(14)),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBF2),
+        color: context.readerControls.surface.panelHigh,
         borderRadius: BorderRadius.circular(metrics.s(18)),
-        border: Border.all(color: const Color(0xFFE7DCC8)),
+        border: Border.all(color: context.readerControls.surface.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1228,7 +1242,7 @@ class _TypographyValueSlider extends StatelessWidget {
               Text(
                 label,
                 style: DudoTextStyles.sans(
-                  color: const Color(0xFF25251F),
+                  color: context.readerControls.text.primary,
                   fontSize: metrics.s(14),
                   fontWeight: FontWeight.w700,
                 ),
@@ -1236,7 +1250,7 @@ class _TypographyValueSlider extends StatelessWidget {
               Text(
                 valueText,
                 style: DudoTextStyles.sans(
-                  color: const Color(0xFF8A735A),
+                  color: context.readerControls.text.secondary,
                   fontSize: metrics.s(12),
                   fontWeight: FontWeight.w600,
                 ),
@@ -1248,7 +1262,7 @@ class _TypographyValueSlider extends StatelessWidget {
             Text(
               helperText!,
               style: DudoTextStyles.sans(
-                color: const Color(0xFF8A735A),
+                color: context.readerControls.text.secondary,
                 fontSize: metrics.s(11),
               ),
             ),
@@ -1275,8 +1289,8 @@ class _TypographyValueSlider extends StatelessWidget {
                     children: [
                       Container(
                         height: metrics.s(6),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFD8CDBB),
+                        decoration: BoxDecoration(
+                          color: context.readerControls.surface.outlineStrong,
                           borderRadius: AppRadius.full,
                         ),
                       ),
@@ -1284,8 +1298,8 @@ class _TypographyValueSlider extends StatelessWidget {
                         widthFactor: clamped == 0 ? 0.0001 : clamped,
                         child: Container(
                           height: metrics.s(6),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF5E6F5B),
+                          decoration: BoxDecoration(
+                            color: context.readerControls.action.accent,
                             borderRadius: AppRadius.full,
                           ),
                         ),
@@ -1297,10 +1311,10 @@ class _TypographyValueSlider extends StatelessWidget {
                           width: metrics.s(18),
                           height: metrics.s(18),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFFF8EA),
+                            color: context.readerControls.surface.panel,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: const Color(0xFF5E6F5B),
+                              color: context.readerControls.action.accent,
                               width: metrics.s(3),
                             ),
                           ),
@@ -1340,7 +1354,9 @@ class _TypographyChoicePill extends StatelessWidget {
         height: metrics.s(38),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFDDE8D4) : const Color(0xFFF3ECDD),
+          color: selected
+              ? context.readerControls.action.accentSoft
+              : context.readerControls.surface.panelLow,
           borderRadius: AppRadius.full,
         ),
         child: Text(
@@ -1348,7 +1364,9 @@ class _TypographyChoicePill extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: DudoTextStyles.sans(
-            color: selected ? const Color(0xFF1B2918) : const Color(0xFF8A735A),
+            color: selected
+                ? context.readerControls.text.accentText
+                : context.readerControls.text.secondary,
             fontSize: metrics.s(12),
             fontWeight: FontWeight.w700,
           ),

@@ -22,7 +22,20 @@ part 'controls/bottom_bar/reader_bottom_controls.dart';
 part 'controls/bottom_bar/tool_button.dart';
 part 'controls/catalog/catalog_bottom_sheet.dart';
 part 'controls/typography/typography_panel.dart';
+part 'controls/theme/models/theme_style_option.dart';
+part 'controls/theme/models/theme_toggle_row_data.dart';
+part 'controls/theme/sections/brightness_eye_group.dart';
+part 'controls/theme/sections/theme_style_group.dart';
+part 'controls/theme/sections/theme_toggle_group.dart';
 part 'controls/theme/theme_panel.dart';
+part 'controls/theme/tokens/reader_control_theme.dart';
+part 'controls/theme/widgets/reading_background_pill.dart';
+part 'controls/theme/widgets/theme_brightness_slider.dart';
+part 'controls/theme/widgets/theme_quick_pill.dart';
+part 'controls/theme/widgets/theme_section_title.dart';
+part 'controls/theme/widgets/theme_static_switch.dart';
+part 'controls/theme/widgets/theme_swatch_tile.dart';
+part 'controls/theme/widgets/theme_toggle_row.dart';
 part 'controls/listening/listening_panel.dart';
 part 'controls/more/more_menu_popover.dart';
 part 'controls/more/menu_item.dart';
@@ -127,153 +140,160 @@ class ReaderControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controlTheme = _ReaderControlTheme.fromPalette(palette);
     return Positioned.fill(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final metrics = _ReaderOverlayMetrics.fromLayout(
-            ReaderChromeLayout.fromSize(
-              constraints.biggest,
-              MediaQuery.paddingOf(context),
-            ),
-          );
-          final children = <Widget>[];
-
-          if (mode == ReaderOverlayMode.catalog) {
-            children.add(
-              Positioned.fill(
-                child: GestureDetector(
-                  onTap: onClose,
-                  child: const ColoredBox(color: Color(0x3325251F)),
-                ),
+      child: _ReaderControlThemeScope(
+        theme: controlTheme,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final metrics = _ReaderOverlayMetrics.fromLayout(
+              ReaderChromeLayout.fromSize(
+                constraints.biggest,
+                MediaQuery.paddingOf(context),
               ),
             );
-          }
+            final children = <Widget>[];
 
-          children
-            ..add(
-              _ReaderTopControlsSlot(
-                metrics: metrics,
-                visible: _showsBars,
-                child: _ReaderTopControls(
-                  metrics: metrics,
-                  bookTitle: bookTitle,
-                  palette: palette,
-                  onBack: onBack,
-                  onMore: () => onModeChanged(ReaderOverlayMode.more),
+            if (mode == ReaderOverlayMode.catalog) {
+              children.add(
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: onClose,
+                    child: ColoredBox(color: controlTheme.overlay.barrier),
+                  ),
                 ),
-              ),
-            )
-            ..add(
-              _ReaderBottomControlsSlot(
-                metrics: metrics,
-                visible: _showsBars,
-                child: _ReaderBottomControls(
-                  metrics: metrics,
-                  mode: mode,
-                  chapterLabel: chapterLabel,
-                  progress: progress,
-                  remainingText: remainingText,
-                  palette: palette,
-                  onCatalog: () => onModeChanged(ReaderOverlayMode.catalog),
-                  onPreviousChapter: onPreviousChapter,
-                  onNextChapter: onNextChapter,
-                  onTypography: () =>
-                      onModeChanged(ReaderOverlayMode.typography),
-                  onTheme: () => onModeChanged(ReaderOverlayMode.theme),
-                  onListening: () => onModeChanged(ReaderOverlayMode.listening),
-                  onPageTurn: () => onModeChanged(ReaderOverlayMode.pageTurn),
-                ),
-              ),
-            );
+              );
+            }
 
-          switch (mode) {
-            case ReaderOverlayMode.catalog:
-              children.add(
-                _CatalogBottomSheet(
+            children
+              ..add(
+                _ReaderTopControlsSlot(
                   metrics: metrics,
-                  bookTitle: bookTitle,
-                  chapterTitle: chapterTitle,
-                  chapterCount: chapterCount,
-                  currentChapterIndex: currentChapterIndex,
-                  chapters: catalogItems,
-                  hasMore: catalogHasMore,
-                  isLoadingMore: catalogIsLoadingMore,
-                  palette: palette,
-                  onClose: () => onModeChanged(ReaderOverlayMode.hidden),
-                  onChapterSelected: onChapterSelected,
-                  onLoadMore: onCatalogLoadMore,
+                  visible: _showsBars,
+                  child: _ReaderTopControls(
+                    metrics: metrics,
+                    bookTitle: bookTitle,
+                    palette: palette,
+                    onBack: onBack,
+                    onMore: () => onModeChanged(ReaderOverlayMode.more),
+                  ),
+                ),
+              )
+              ..add(
+                _ReaderBottomControlsSlot(
+                  metrics: metrics,
+                  visible: _showsBars,
+                  child: _ReaderBottomControls(
+                    metrics: metrics,
+                    mode: mode,
+                    chapterLabel: chapterLabel,
+                    progress: progress,
+                    remainingText: remainingText,
+                    palette: palette,
+                    onCatalog: () => onModeChanged(ReaderOverlayMode.catalog),
+                    onPreviousChapter: onPreviousChapter,
+                    onNextChapter: onNextChapter,
+                    onTypography: () =>
+                        onModeChanged(ReaderOverlayMode.typography),
+                    onTheme: () => onModeChanged(ReaderOverlayMode.theme),
+                    onListening: () =>
+                        onModeChanged(ReaderOverlayMode.listening),
+                    onPageTurn: () => onModeChanged(ReaderOverlayMode.pageTurn),
+                  ),
                 ),
               );
-            case ReaderOverlayMode.typography:
-              children.add(
-                _TypographyPanel(
-                  metrics: metrics,
-                  palette: palette,
-                  fontSize: fontSize,
-                  lineHeight: lineHeight,
-                  paragraphSpacing: paragraphSpacing,
-                  pageHorizontalMargin: pageHorizontalMargin,
-                  firstLineIndentEnabled: firstLineIndentEnabled,
-                  textEnhancementEnabled: textEnhancementEnabled,
-                  fontLibraryValue: fontLibraryValue,
-                  onFontSizeChanged: onFontSizeChanged,
-                  onLineHeightChanged: onLineHeightChanged,
-                  onParagraphSpacingChanged: onParagraphSpacingChanged,
-                  onLineParagraphSpacingChanged: onLineParagraphSpacingChanged,
-                  onPageHorizontalMarginChanged: onPageHorizontalMarginChanged,
-                  onFontSelected: onFontSelected,
-                  onManageFonts: onManageFonts,
-                  onFirstLineIndentChanged: onFirstLineIndentChanged,
-                  onTextEnhancementChanged: onTextEnhancementChanged,
-                ),
-              );
-            case ReaderOverlayMode.theme:
-              children.add(
-                _ThemePanel(
-                  metrics: metrics,
-                  palette: palette,
-                  brightness: brightness,
-                  onPaletteChanged: onPaletteChanged,
-                  onBrightnessChanged: onBrightnessChanged,
-                ),
-              );
-            case ReaderOverlayMode.listening:
-              children.add(
-                _ListeningPanel(
-                  metrics: metrics,
-                  palette: palette,
-                  chapterTitle: chapterTitle,
-                  remainingText: remainingText,
-                  isListening: isListening,
-                  onListeningChanged: onListeningChanged,
-                ),
-              );
-            case ReaderOverlayMode.more:
-              children.add(
-                _MoreMenuPopover(
-                  metrics: metrics,
-                  palette: palette,
-                  onPageTurn: () => onModeChanged(ReaderOverlayMode.pageTurn),
-                ),
-              );
-            case ReaderOverlayMode.pageTurn:
-              children.add(
-                _PageTurnPanel(
-                  metrics: metrics,
-                  palette: palette,
-                  selectedMode: pageTurnMode,
-                  volumePageTurnEnabled: volumePageTurnEnabled,
-                  onModeChanged: onPageTurnModeChanged,
-                  onVolumePageTurnChanged: onVolumePageTurnChanged,
-                ),
-              );
-            case ReaderOverlayMode.hidden:
-            case ReaderOverlayMode.controls:
-              break;
-          }
 
-          return Stack(children: children);
-        },
+            switch (mode) {
+              case ReaderOverlayMode.catalog:
+                children.add(
+                  _CatalogBottomSheet(
+                    metrics: metrics,
+                    bookTitle: bookTitle,
+                    chapterTitle: chapterTitle,
+                    chapterCount: chapterCount,
+                    currentChapterIndex: currentChapterIndex,
+                    chapters: catalogItems,
+                    hasMore: catalogHasMore,
+                    isLoadingMore: catalogIsLoadingMore,
+                    palette: palette,
+                    onClose: () => onModeChanged(ReaderOverlayMode.hidden),
+                    onChapterSelected: onChapterSelected,
+                    onLoadMore: onCatalogLoadMore,
+                  ),
+                );
+              case ReaderOverlayMode.typography:
+                children.add(
+                  _TypographyPanel(
+                    metrics: metrics,
+                    palette: palette,
+                    fontSize: fontSize,
+                    lineHeight: lineHeight,
+                    paragraphSpacing: paragraphSpacing,
+                    pageHorizontalMargin: pageHorizontalMargin,
+                    firstLineIndentEnabled: firstLineIndentEnabled,
+                    textEnhancementEnabled: textEnhancementEnabled,
+                    fontLibraryValue: fontLibraryValue,
+                    onFontSizeChanged: onFontSizeChanged,
+                    onLineHeightChanged: onLineHeightChanged,
+                    onParagraphSpacingChanged: onParagraphSpacingChanged,
+                    onLineParagraphSpacingChanged:
+                        onLineParagraphSpacingChanged,
+                    onPageHorizontalMarginChanged:
+                        onPageHorizontalMarginChanged,
+                    onFontSelected: onFontSelected,
+                    onManageFonts: onManageFonts,
+                    onFirstLineIndentChanged: onFirstLineIndentChanged,
+                    onTextEnhancementChanged: onTextEnhancementChanged,
+                  ),
+                );
+              case ReaderOverlayMode.theme:
+                children.add(
+                  _ThemePanel(
+                    metrics: metrics,
+                    palette: palette,
+                    brightness: brightness,
+                    onPaletteChanged: onPaletteChanged,
+                    onBrightnessChanged: onBrightnessChanged,
+                  ),
+                );
+              case ReaderOverlayMode.listening:
+                children.add(
+                  _ListeningPanel(
+                    metrics: metrics,
+                    palette: palette,
+                    chapterTitle: chapterTitle,
+                    remainingText: remainingText,
+                    isListening: isListening,
+                    onListeningChanged: onListeningChanged,
+                  ),
+                );
+              case ReaderOverlayMode.more:
+                children.add(
+                  _MoreMenuPopover(
+                    metrics: metrics,
+                    palette: palette,
+                    onPageTurn: () => onModeChanged(ReaderOverlayMode.pageTurn),
+                  ),
+                );
+              case ReaderOverlayMode.pageTurn:
+                children.add(
+                  _PageTurnPanel(
+                    metrics: metrics,
+                    palette: palette,
+                    selectedMode: pageTurnMode,
+                    volumePageTurnEnabled: volumePageTurnEnabled,
+                    onModeChanged: onPageTurnModeChanged,
+                    onVolumePageTurnChanged: onVolumePageTurnChanged,
+                  ),
+                );
+              case ReaderOverlayMode.hidden:
+              case ReaderOverlayMode.controls:
+                break;
+            }
+
+            return Stack(children: children);
+          },
+        ),
       ),
     );
   }

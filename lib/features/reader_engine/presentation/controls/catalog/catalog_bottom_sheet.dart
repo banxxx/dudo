@@ -197,14 +197,14 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
       child: Transform.translate(
         offset: Offset(0, _dragOffset),
         child: _GlassSurface(
-          fill: const Color(0xFFFFF8EA),
+          fill: context.readerControls.surface.panel,
           borderRadius: BorderRadius.only(
             topLeft: Radius.circular(metrics.s(28)),
             topRight: Radius.circular(metrics.s(28)),
             bottomLeft: Radius.zero,
             bottomRight: Radius.zero,
           ),
-          shadowColor: const Color(0x2625251F),
+          shadowColor: context.readerControls.surface.sheetShadow,
           shadowOffset: Offset(0, -metrics.s(12)),
           shadowBlur: metrics.s(34),
           child: Padding(
@@ -224,7 +224,8 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
                         width: metrics.s(42),
                         height: metrics.s(4),
                         decoration: BoxDecoration(
-                          color: (palette.outline ?? DudoColors.outline)
+                          color: (palette.outline ??
+                                  context.readerControls.surface.outline)
                               .withValues(alpha: 0.7),
                           borderRadius: AppRadius.full,
                         ),
@@ -239,7 +240,7 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
                               Text(
                                 '$bookTitle · 共 $chapterCount 章',
                                 style: DudoTextStyles.sans(
-                                  color: const Color(0xFF8A735A),
+                                  color: context.readerControls.text.secondary,
                                   fontSize: metrics.s(12),
                                 ),
                               ),
@@ -247,7 +248,7 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
                               Text(
                                 '目录',
                                 style: DudoTextStyles.serif(
-                                  color: const Color(0xFF25251F),
+                                  color: context.readerControls.text.primary,
                                   fontSize: metrics.s(26),
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -257,7 +258,7 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
                           Text(
                             '倒序',
                             style: DudoTextStyles.sans(
-                              color: const Color(0xFF5E6F5B),
+                              color: context.readerControls.action.accent,
                               fontSize: metrics.s(13),
                               fontWeight: FontWeight.w600,
                             ),
@@ -322,8 +323,9 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
                                     vertical: metrics.s(10)),
                                 decoration: BoxDecoration(
                                   color: active
-                                      ? DudoColors.primaryContainer
-                                      : Colors.transparent,
+                                      ? context.readerControls.action.accentSoft
+                                      : context
+                                          .readerControls.overlay.transparent,
                                   borderRadius:
                                       BorderRadius.circular(metrics.s(18)),
                                 ),
@@ -355,7 +357,8 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
                                             overflow: TextOverflow.ellipsis,
                                             style: DudoTextStyles.sans(
                                               color: palette.mutedForeground ??
-                                                  DudoColors.textSecondary,
+                                                  context.readerControls.text
+                                                      .secondary,
                                               fontSize: metrics.s(12),
                                             ),
                                           ),
@@ -365,7 +368,8 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
                                     if (active)
                                       Icon(LucideIcons.bookOpenCheck,
                                           size: metrics.s(18),
-                                          color: DudoColors.primary),
+                                          color: context
+                                              .readerControls.action.accent),
                                   ],
                                 ),
                               ),
@@ -408,13 +412,14 @@ class _CatalogLoadingFooter extends StatelessWidget {
                 height: metrics.s(18),
                 child: CircularProgressIndicator(
                   strokeWidth: metrics.s(2),
-                  color: DudoColors.primary,
+                  color: context.readerControls.action.accent,
                 ),
               )
             : Text(
                 '继续加载目录',
                 style: DudoTextStyles.sans(
-                  color: palette.mutedForeground ?? DudoColors.textSecondary,
+                  color: palette.mutedForeground ??
+                      context.readerControls.text.secondary,
                   fontSize: metrics.s(12),
                 ),
               ),

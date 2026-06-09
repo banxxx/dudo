@@ -26,9 +26,9 @@ class _FloatingPanel extends StatelessWidget {
       width: metrics.s(358),
       height: metrics.s(height),
       child: _GlassSurface(
-        fill: const Color(0xFFFFF8EA),
+        fill: context.readerControls.surface.panel,
         borderRadius: BorderRadius.circular(metrics.s(26)),
-        shadowColor: Colors.transparent,
+        shadowColor: context.readerControls.overlay.transparent,
         shadowOffset: Offset.zero,
         shadowBlur: 0,
         child: Padding(

@@ -28,7 +28,7 @@ class _MoreMenuPopover extends StatelessWidget {
       width: metrics.s(228),
       height: metrics.s(266),
       child: _GlassSurface(
-        fill: const Color(0xFFFFF8EA),
+        fill: context.readerControls.surface.panel,
         borderRadius: BorderRadius.circular(metrics.s(24)),
         child: Padding(
           padding: EdgeInsets.all(metrics.s(10)),

@@ -39,13 +39,13 @@ class _ListeningPanel extends StatelessWidget {
                 children: [
                   Text(isListening ? '朗读中' : '朗读',
                       style: DudoTextStyles.serif(
-                          color: const Color(0xFF25251F),
+                          color: context.readerControls.text.primary,
                           fontSize: metrics.s(22),
                           fontWeight: FontWeight.w700)),
                   SizedBox(height: metrics.s(4)),
                   Text(subtitle,
                       style: DudoTextStyles.sans(
-                          color: const Color(0xFF8A735A),
+                          color: context.readerControls.text.secondary,
                           fontSize: metrics.s(12))),
                 ],
               ),
@@ -56,14 +56,14 @@ class _ListeningPanel extends StatelessWidget {
                   width: metrics.s(48),
                   height: metrics.s(48),
                   alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF25251F),
+                  decoration: BoxDecoration(
+                    color: context.readerControls.text.primary,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     isListening ? LucideIcons.pause : LucideIcons.play,
                     size: metrics.s(20),
-                    color: const Color(0xFFFFF8EA),
+                    color: context.readerControls.surface.panel,
                   ),
                 ),
               ),
@@ -87,8 +87,8 @@ class _ListeningPanel extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: i == 3
-                          ? const Color(0xFF5E6F5B)
-                          : const Color(0xFFD8CDBB),
+                          ? context.readerControls.action.accent
+                          : context.readerControls.surface.outlineStrong,
                       borderRadius: AppRadius.full,
                     ),
                   ),
@@ -142,14 +142,16 @@ class _ListeningPill extends StatelessWidget {
       child: Container(
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFDDE8D4) : const Color(0xFFF3ECDD),
+          color: selected
+              ? context.readerControls.action.accentSoft
+              : context.readerControls.surface.panelLow,
           borderRadius: BorderRadius.circular(metrics.s(19)),
         ),
         child: Text(label,
             style: DudoTextStyles.sans(
                 color: selected
-                    ? const Color(0xFF5E6F5B)
-                    : const Color(0xFF8A735A),
+                    ? context.readerControls.action.accent
+                    : context.readerControls.text.secondary,
                 fontSize: metrics.s(13),
                 fontWeight: FontWeight.w600)),
       ),

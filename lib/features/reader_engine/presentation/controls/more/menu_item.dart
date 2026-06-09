@@ -24,7 +24,9 @@ class _MenuItem extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: metrics.s(10)),
         decoration: BoxDecoration(
-          color: active ? DudoColors.primaryContainer : Colors.transparent,
+          color: active
+              ? context.readerControls.action.accentSoft
+              : context.readerControls.overlay.transparent,
           borderRadius: BorderRadius.circular(metrics.s(16)),
         ),
         child: Row(
@@ -32,8 +34,9 @@ class _MenuItem extends StatelessWidget {
             Icon(icon,
                 size: metrics.s(17),
                 color: active
-                    ? DudoColors.primary
-                    : palette.mutedForeground ?? DudoColors.textSecondary),
+                    ? context.readerControls.action.accent
+                    : palette.mutedForeground ??
+                        context.readerControls.text.secondary),
             SizedBox(width: metrics.s(10)),
             Text(label,
                 style: DudoTextStyles.sans(

@@ -84,7 +84,7 @@ class _ReaderBottomControls extends StatelessWidget {
       width: metrics.s(358),
       height: metrics.s(124),
       child: _GlassSurface(
-        fill: const Color(0xFFFFF8EA),
+        fill: context.readerControls.surface.panel,
         borderRadius: BorderRadius.circular(metrics.s(28)),
         shadowOffset: Offset(0, metrics.s(14)),
         shadowBlur: metrics.s(34),
@@ -106,7 +106,7 @@ class _ReaderBottomControls extends StatelessWidget {
                     Text(
                       remainingText,
                       style: DudoTextStyles.sans(
-                        color: const Color(0xFF6F6B61),
+                        color: context.readerControls.text.tertiary,
                         fontSize: metrics.s(12),
                       ),
                     ),

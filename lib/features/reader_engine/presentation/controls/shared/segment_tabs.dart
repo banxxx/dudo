@@ -17,8 +17,9 @@ class _SegmentTabs extends StatelessWidget {
     return Container(
       height: metrics.s(42),
       padding: EdgeInsets.all(metrics.s(4)),
-      decoration: const BoxDecoration(
-          color: DudoColors.surfaceLow, borderRadius: AppRadius.full),
+      decoration: BoxDecoration(
+          color: context.readerControls.surface.panelLow,
+          borderRadius: AppRadius.full),
       child: Row(
         children: [
           for (var i = 0; i < labels.length; i++)
@@ -27,15 +28,15 @@ class _SegmentTabs extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: i == selected
-                      ? DudoColors.surfaceHigh
-                      : Colors.transparent,
+                      ? context.readerControls.surface.panelHigh
+                      : context.readerControls.overlay.transparent,
                   borderRadius: AppRadius.full,
                 ),
                 child: Text(labels[i],
                     style: DudoTextStyles.sans(
                         color: i == selected
                             ? palette.foreground
-                            : DudoColors.textSecondary,
+                            : context.readerControls.text.secondary,
                         fontSize: metrics.s(13),
                         fontWeight:
                             i == selected ? FontWeight.w700 : FontWeight.w500)),

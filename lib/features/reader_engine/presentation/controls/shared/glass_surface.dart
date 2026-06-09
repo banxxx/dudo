@@ -5,7 +5,7 @@ class _GlassSurface extends StatelessWidget {
     required this.child,
     required this.borderRadius,
     required this.fill,
-    this.shadowColor = const Color(0x3325251F),
+    this.shadowColor,
     this.shadowOffset = const Offset(0, 12),
     this.shadowBlur = 34,
   });
@@ -13,25 +13,26 @@ class _GlassSurface extends StatelessWidget {
   final Widget child;
   final BorderRadius borderRadius;
   final Color fill;
-  final Color shadowColor;
+  final Color? shadowColor;
   final Offset shadowOffset;
   final double shadowBlur;
 
   @override
   Widget build(BuildContext context) {
+    final controlTheme = context.readerControls;
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: borderRadius,
         boxShadow: [
           BoxShadow(
-            color: shadowColor,
+            color: shadowColor ?? controlTheme.surface.shadow,
             blurRadius: shadowBlur,
             offset: shadowOffset,
           ),
-          const BoxShadow(
-            color: Color(0x12FFFFFF),
+          BoxShadow(
+            color: controlTheme.overlay.glassHighlight,
             blurRadius: 1,
-            offset: Offset(0, -1),
+            offset: const Offset(0, -1),
           ),
         ],
       ),
@@ -41,7 +42,9 @@ class _GlassSurface extends StatelessWidget {
           decoration: BoxDecoration(
             color: fill,
             borderRadius: borderRadius,
-            border: Border.all(color: const Color(0xFFE7DCC8)),
+            border: Border.all(
+              color: controlTheme.surface.outline,
+            ),
           ),
           child: child,
         ),

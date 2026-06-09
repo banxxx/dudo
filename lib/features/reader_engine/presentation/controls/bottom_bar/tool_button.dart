@@ -18,15 +18,18 @@ class _ToolButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground =
-        active ? const Color(0xFF5E6F5B) : const Color(0xFF8A735A);
+    final foreground = active
+        ? context.readerControls.action.accent
+        : context.readerControls.text.secondary;
     return InkWell(
       onTap: onPressed,
       borderRadius: BorderRadius.circular(metrics.s(16)),
       child: Container(
         height: metrics.s(52),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFFDDE8D4) : Colors.transparent,
+          color: active
+              ? context.readerControls.action.accentSoft
+              : context.readerControls.overlay.transparent,
           borderRadius: BorderRadius.circular(metrics.s(16)),
         ),
         child: Column(
@@ -62,10 +65,12 @@ class _SmallPillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground =
-        reversed ? const Color(0xFFFFF8EA) : const Color(0xFF8A735A);
-    final background =
-        reversed ? const Color(0xFF25251F) : const Color(0xFFF3ECDD);
+    final foreground = reversed
+        ? context.readerControls.surface.panel
+        : context.readerControls.text.secondary;
+    final background = reversed
+        ? context.readerControls.text.primary
+        : context.readerControls.surface.panelLow;
     final children = [
       Icon(icon, size: 16, color: foreground),
       const SizedBox(width: 6),

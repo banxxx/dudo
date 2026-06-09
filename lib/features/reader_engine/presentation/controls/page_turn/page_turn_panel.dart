@@ -59,7 +59,7 @@ class _PageTurnPanelState extends State<_PageTurnPanel> {
         children: [
           Text('翻页方式',
               style: DudoTextStyles.serif(
-                  color: const Color(0xFF25251F),
+                  color: context.readerControls.text.primary,
                   fontSize: metrics.s(22),
                   fontWeight: FontWeight.w700)),
           SizedBox(height: metrics.s(12)),
@@ -116,13 +116,18 @@ class _PageTurnModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? const Color(0xFFDDE8D4) : const Color(0xFFFFFBF2);
-    final borderColor =
-        selected ? const Color(0xFF5E6F5B) : const Color(0xFFE7DCC8);
-    final iconColor =
-        selected ? const Color(0xFF5E6F5B) : const Color(0xFF8A735A);
-    final labelColor =
-        selected ? const Color(0xFF1B2918) : const Color(0xFF25251F);
+    final bg = selected
+        ? context.readerControls.action.accentSoft
+        : context.readerControls.surface.panelHigh;
+    final borderColor = selected
+        ? context.readerControls.action.accent
+        : context.readerControls.surface.outline;
+    final iconColor = selected
+        ? context.readerControls.action.accent
+        : context.readerControls.text.secondary;
+    final labelColor = selected
+        ? context.readerControls.text.accentText
+        : context.readerControls.text.primary;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -201,7 +206,7 @@ class _VolumePageTurnRow extends StatelessWidget {
                 Text(
                   '音量翻页',
                   style: DudoTextStyles.sans(
-                    color: const Color(0xFF25251F),
+                    color: context.readerControls.text.primary,
                     fontSize: metrics.s(14),
                     fontWeight: FontWeight.w600,
                   ),
@@ -210,7 +215,7 @@ class _VolumePageTurnRow extends StatelessWidget {
                 Text(
                   '使用音量键切换上一页 / 下一页',
                   style: DudoTextStyles.sans(
-                    color: const Color(0xFF8A735A),
+                    color: context.readerControls.text.secondary,
                     fontSize: metrics.s(11),
                   ),
                 ),
@@ -250,7 +255,9 @@ class _VolumePageTurnSwitch extends StatelessWidget {
         height: metrics.s(30),
         padding: EdgeInsets.all(metrics.s(3)),
         decoration: BoxDecoration(
-          color: enabled ? const Color(0xFF5E6F5B) : const Color(0xFFE7DCC8),
+          color: enabled
+              ? context.readerControls.action.accent
+              : context.readerControls.surface.outline,
           borderRadius: BorderRadius.circular(metrics.s(15)),
         ),
         child: AnimatedAlign(
@@ -261,11 +268,11 @@ class _VolumePageTurnSwitch extends StatelessWidget {
             width: metrics.s(24),
             height: metrics.s(24),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF8EA),
+              color: context.readerControls.surface.panel,
               borderRadius: BorderRadius.circular(metrics.s(12)),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0x3325251F),
+                  color: context.readerControls.surface.shadow,
                   blurRadius: metrics.s(5),
                   offset: Offset(0, metrics.s(2)),
                 ),
