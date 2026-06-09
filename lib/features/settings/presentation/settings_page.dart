@@ -35,9 +35,9 @@ class SettingsPage extends StatelessWidget {
                 route: AppRoutes.themeSettings,
               ),
               _SettingRowData(
-                title: '字体与排版',
-                description: '字体、字号、行距和段距',
-                value: '思源宋体',
+                title: '字体管理',
+                description: '导入、选择和管理阅读字体',
+                value: '霞鹜文楷',
                 icon: LucideIcons.type,
                 iconFill: DudoColors.surfaceLow,
                 route: AppRoutes.typographySettings,
