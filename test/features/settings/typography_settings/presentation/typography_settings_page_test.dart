@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dudo/features/settings/typography_settings/presentation/typography_settings_page.dart';
 import 'package:dudo/features/settings/typography_settings/application/reader_font_providers.dart';
 import 'package:dudo/features/settings/typography_settings/data/reader_font_repository.dart';
@@ -50,9 +52,79 @@ void main() {
     expect(find.text('取消'), findsOneWidget);
     expect(find.text('删除'), findsOneWidget);
   });
+
+  testWidgets('keeps the font list visible while importing', (tester) async {
+    final importCompleter = Completer<ReaderFont?>();
+    final repository = _FakeReaderFontRepository(
+      importCompleter: importCompleter,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerFontRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(
+          home: TypographySettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('添加本地字体'));
+    await tester.pump();
+
+    expect(find.text('霞鹜文楷'), findsOneWidget);
+    expect(find.text('方正书宋'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    importCompleter.complete(null);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('keeps the font list visible while deleting', (tester) async {
+    final deleteCompleter = Completer<void>();
+    final repository = _FakeReaderFontRepository(
+      deleteCompleter: deleteCompleter,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerFontRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(
+          home: TypographySettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(LucideIcons.trash2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除').last);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('霞鹜文楷'), findsOneWidget);
+    expect(find.text('方正书宋'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    deleteCompleter.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.text('方正书宋'), findsNothing);
+  });
 }
 
 class _FakeReaderFontRepository implements ReaderFontRepository {
+  _FakeReaderFontRepository({
+    this.importCompleter,
+    this.deleteCompleter,
+  });
+
+  final Completer<ReaderFont?>? importCompleter;
+  final Completer<void>? deleteCompleter;
   String _selectedFamilyKey = 'DudoImportedFont_demo_wenkai';
   final List<ReaderFont> _importedFonts = [
     ReaderFont(
@@ -86,7 +158,11 @@ class _FakeReaderFontRepository implements ReaderFontRepository {
   }
 
   @override
-  Future<ReaderFont?> pickAndImportFont() async => null;
+  Future<ReaderFont?> pickAndImportFont() async {
+    final font = await (importCompleter?.future ?? Future<ReaderFont?>.value());
+    if (font != null) _importedFonts.add(font);
+    return font;
+  }
 
   @override
   Future<void> selectFont(String familyKey) async {
@@ -95,6 +171,7 @@ class _FakeReaderFontRepository implements ReaderFontRepository {
 
   @override
   Future<void> deleteImportedFont(String id) async {
+    await (deleteCompleter?.future ?? Future<void>.value());
     _importedFonts.removeWhere((font) => font.id == id);
     if (_selectedFamilyKey.startsWith('DudoImportedFont_')) {
       _selectedFamilyKey = ReaderBuiltinFonts.serifSc.familyKey;

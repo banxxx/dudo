@@ -22,6 +22,8 @@ class TypographySettingsPage extends ConsumerStatefulWidget {
 class _TypographySettingsPageState
     extends ConsumerState<TypographySettingsPage> {
   _FontSource _source = _FontSource.local;
+  bool _importing = false;
+  final Set<String> _deletingFontIds = <String>{};
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +43,8 @@ class _TypographySettingsPageState
         _FontManagementSection(
           source: _source,
           libraryValue: libraryValue,
+          importing: _importing,
+          deletingFontIds: _deletingFontIds,
           onSourceChanged: (source) => setState(() => _source = source),
           onImportFont: _importFont,
           onSelectFont: _selectFont,
@@ -51,14 +55,16 @@ class _TypographySettingsPageState
   }
 
   Future<void> _importFont() async {
+    if (_importing) return;
     final messenger = ScaffoldMessenger.of(context);
+    setState(() => _importing = true);
     try {
       final font = await ref
           .read(readerFontLibraryControllerProvider.notifier)
           .importFont();
       if (!mounted || font == null) return;
       messenger.showSnackBar(
-        SnackBar(content: Text('已导入并启用「${font.displayName}」')),
+        SnackBar(content: Text('已导入「${font.displayName}」，可在列表中启用')),
       );
     } on ReaderFontImportException catch (error) {
       if (!mounted) return;
@@ -66,6 +72,8 @@ class _TypographySettingsPageState
     } catch (_) {
       if (!mounted) return;
       messenger.showSnackBar(const SnackBar(content: Text('字体导入失败')));
+    } finally {
+      if (mounted) setState(() => _importing = false);
     }
   }
 
@@ -82,13 +90,27 @@ class _TypographySettingsPageState
   Future<void> _deleteFont(ReaderFont font) async {
     final shouldDelete = await _showDeleteFontSheet(context, font);
     if (!mounted || !shouldDelete) return;
-    await ref
-        .read(readerFontLibraryControllerProvider.notifier)
-        .deleteFont(font.id);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已删除「${font.displayName}」')),
-    );
+    if (_deletingFontIds.contains(font.id)) return;
+
+    setState(() => _deletingFontIds.add(font.id));
+    try {
+      await ref
+          .read(readerFontLibraryControllerProvider.notifier)
+          .deleteFont(font.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('已删除「${font.displayName}」')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('字体删除失败')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _deletingFontIds.remove(font.id));
+      }
+    }
   }
 }
 
@@ -178,6 +200,8 @@ class _FontManagementSection extends StatelessWidget {
   const _FontManagementSection({
     required this.source,
     required this.libraryValue,
+    required this.importing,
+    required this.deletingFontIds,
     required this.onSourceChanged,
     required this.onImportFont,
     required this.onSelectFont,
@@ -186,6 +210,8 @@ class _FontManagementSection extends StatelessWidget {
 
   final _FontSource source;
   final AsyncValue<ReaderFontLibrary> libraryValue;
+  final bool importing;
+  final Set<String> deletingFontIds;
   final ValueChanged<_FontSource> onSourceChanged;
   final VoidCallback onImportFont;
   final ValueChanged<ReaderFont> onSelectFont;
@@ -222,7 +248,10 @@ class _FontManagementSection extends StatelessWidget {
             return Column(
               children: [
                 if (source == _FontSource.local) ...[
-                  _ImportFontEntry(onTap: onImportFont),
+                  _ImportFontEntry(
+                    loading: importing,
+                    onTap: onImportFont,
+                  ),
                   const SizedBox(height: 10),
                 ],
                 if (fonts.isEmpty)
@@ -232,6 +261,7 @@ class _FontManagementSection extends StatelessWidget {
                     _FontCard(
                       font: font,
                       selected: font.familyKey == library.selectedFamilyKey,
+                      deleting: deletingFontIds.contains(font.id),
                       onSelect: () => onSelectFont(font),
                       onDelete:
                           font.canDelete ? () => onDeleteFont(font) : null,
@@ -326,8 +356,12 @@ class _FontSourceTab extends StatelessWidget {
 }
 
 class _ImportFontEntry extends StatelessWidget {
-  const _ImportFontEntry({required this.onTap});
+  const _ImportFontEntry({
+    required this.loading,
+    required this.onTap,
+  });
 
+  final bool loading;
   final VoidCallback onTap;
 
   @override
@@ -336,7 +370,7 @@ class _ImportFontEntry extends StatelessWidget {
       color: DudoColors.primaryContainer,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
-        onTap: onTap,
+        onTap: loading ? null : onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
           height: 62,
@@ -376,7 +410,7 @@ class _ImportFontEntry extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '支持 .ttf、.otf 文件，导入后立即可用',
+                      '支持 .ttf、.otf 文件，导入后可在列表中启用',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: DudoTextStyles.sans(
@@ -387,10 +421,21 @@ class _ImportFontEntry extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
-                LucideIcons.chevronRight,
-                color: DudoColors.primary,
-                size: 18,
+              AnimatedSwitcher(
+                duration: AppMotion.short,
+                child: loading
+                    ? const SizedBox(
+                        key: ValueKey('font-import-loading'),
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(
+                        key: ValueKey('font-import-arrow'),
+                        LucideIcons.chevronRight,
+                        color: DudoColors.primary,
+                        size: 18,
+                      ),
               ),
             ],
           ),
@@ -404,12 +449,14 @@ class _FontCard extends StatelessWidget {
   const _FontCard({
     required this.font,
     this.selected = false,
+    this.deleting = false,
     required this.onSelect,
     this.onDelete,
   });
 
   final ReaderFont font;
   final bool selected;
+  final bool deleting;
   final VoidCallback onSelect;
   final VoidCallback? onDelete;
 
@@ -424,7 +471,7 @@ class _FontCard extends StatelessWidget {
       color: selected ? DudoColors.primaryContainer : DudoColors.surface,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
-        onTap: onSelect,
+        onTap: deleting ? null : onSelect,
         borderRadius: BorderRadius.circular(20),
         child: Container(
           height: 76,
@@ -486,7 +533,19 @@ class _FontCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              if (selected)
+              if (deleting)
+                const SizedBox(
+                  width: 30,
+                  height: 30,
+                  child: Center(
+                    child: SizedBox(
+                      width: 17,
+                      height: 17,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                )
+              else if (selected)
                 Container(
                   width: 28,
                   height: 28,
@@ -505,7 +564,7 @@ class _FontCard extends StatelessWidget {
                   color: DudoColors.surfaceLow,
                   borderRadius: BorderRadius.circular(15),
                   child: InkWell(
-                    onTap: onDelete,
+                    onTap: deleting ? null : onDelete,
                     borderRadius: BorderRadius.circular(15),
                     child: const SizedBox(
                       width: 30,

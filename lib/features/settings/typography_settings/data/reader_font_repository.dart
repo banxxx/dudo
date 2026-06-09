@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -46,6 +47,7 @@ class DriftReaderFontRepository implements ReaderFontRepository {
   @override
   Future<ReaderFontLibrary> loadLibrary() async {
     await loadImportedFonts();
+    await _refreshImportedDisplayNames();
     final selectedFamilyKey = await readSelectedFontFamily();
     final imported = await (_database.select(_database.importedReaderFonts)
           ..where((table) => table.isDeleted.equals(false))
@@ -95,7 +97,7 @@ class DriftReaderFontRepository implements ReaderFontRepository {
     final digest = sha256.convert(bytes).toString();
     final id = 'font_${digest.substring(0, 16)}';
     final familyKey = 'DudoImportedFont_${digest.substring(0, 16)}';
-    final displayName = _displayNameFor(file.name);
+    final displayName = _displayNameFor(bytes, file.name);
     final relativePath = p.join('fonts', 'imported', id, 'font.$extension');
     final target = await _resolveSupportFile(relativePath);
     await target.parent.create(recursive: true);
@@ -128,7 +130,6 @@ class DriftReaderFontRepository implements ReaderFontRepository {
       importedAt: now,
     );
     await _loader.loadFont(font, target);
-    await selectFont(font.familyKey);
     return font;
   }
 
@@ -217,7 +218,35 @@ class DriftReaderFontRepository implements ReaderFontRepository {
     );
   }
 
-  String _displayNameFor(String fileName) {
+  Future<void> _refreshImportedDisplayNames() async {
+    final imported = await (_database.select(_database.importedReaderFonts)
+          ..where((table) => table.isDeleted.equals(false)))
+        .get();
+
+    for (final font in imported) {
+      if (font.displayName != _fallbackDisplayNameFor(font.originalFileName)) {
+        continue;
+      }
+
+      final file = await _resolveSupportFile(font.relativePath);
+      if (!await file.exists()) continue;
+
+      final displayName = ReaderFontDisplayNameParser.tryReadDisplayName(
+          await file.readAsBytes());
+      if (displayName == null || displayName == font.displayName) continue;
+
+      await (_database.update(_database.importedReaderFonts)
+            ..where((table) => table.id.equals(font.id)))
+          .write(ImportedReaderFontsCompanion(displayName: Value(displayName)));
+    }
+  }
+
+  String _displayNameFor(Uint8List bytes, String fileName) {
+    return ReaderFontDisplayNameParser.tryReadDisplayName(bytes) ??
+        _fallbackDisplayNameFor(fileName);
+  }
+
+  String _fallbackDisplayNameFor(String fileName) {
     final name = p.basenameWithoutExtension(fileName).trim();
     return name.isEmpty ? '未命名字体' : name;
   }
@@ -225,6 +254,174 @@ class DriftReaderFontRepository implements ReaderFontRepository {
   Future<File> _resolveSupportFile(String relativePath) async {
     final dir = await getApplicationSupportDirectory();
     return File(p.join(dir.path, relativePath));
+  }
+}
+
+class ReaderFontDisplayNameParser {
+  ReaderFontDisplayNameParser._();
+
+  static String? tryReadDisplayName(Uint8List bytes) {
+    try {
+      if (bytes.length < 12) return null;
+
+      final tableCount = _uint16(bytes, 4);
+      final directoryEnd = 12 + tableCount * 16;
+      if (directoryEnd > bytes.length) return null;
+
+      int? nameOffset;
+      int? nameLength;
+      for (var i = 0; i < tableCount; i++) {
+        final tableOffset = 12 + i * 16;
+        if (_tag(bytes, tableOffset) != 'name') continue;
+        nameOffset = _uint32(bytes, tableOffset + 8);
+        nameLength = _uint32(bytes, tableOffset + 12);
+        break;
+      }
+      if (nameOffset == null || nameLength == null) return null;
+      if (nameOffset < 0 ||
+          nameLength <= 0 ||
+          nameOffset + nameLength > bytes.length ||
+          nameOffset + 6 > bytes.length) {
+        return null;
+      }
+
+      final recordCount = _uint16(bytes, nameOffset + 2);
+      final stringStorageOffset = nameOffset + _uint16(bytes, nameOffset + 4);
+      final recordsEnd = nameOffset + 6 + recordCount * 12;
+      if (recordsEnd > nameOffset + nameLength ||
+          stringStorageOffset > nameOffset + nameLength) {
+        return null;
+      }
+
+      final candidates = <_ReaderFontNameCandidate>[];
+      for (var i = 0; i < recordCount; i++) {
+        final recordOffset = nameOffset + 6 + i * 12;
+        final platformId = _uint16(bytes, recordOffset);
+        final encodingId = _uint16(bytes, recordOffset + 2);
+        final languageId = _uint16(bytes, recordOffset + 4);
+        final nameId = _uint16(bytes, recordOffset + 6);
+        final length = _uint16(bytes, recordOffset + 8);
+        final offset = _uint16(bytes, recordOffset + 10);
+
+        if (nameId != 1 && nameId != 4 && nameId != 16) continue;
+
+        final stringStart = stringStorageOffset + offset;
+        final stringEnd = stringStart + length;
+        if (stringStart < stringStorageOffset ||
+            stringEnd > nameOffset + nameLength ||
+            stringEnd > bytes.length) {
+          continue;
+        }
+
+        final value = _decodeName(
+          bytes.sublist(stringStart, stringEnd),
+          platformId,
+          encodingId,
+        );
+        if (value == null || value.isEmpty) continue;
+
+        candidates.add(
+          _ReaderFontNameCandidate(
+            value: value,
+            nameId: nameId,
+            platformId: platformId,
+            encodingId: encodingId,
+            languageId: languageId,
+          ),
+        );
+      }
+
+      if (candidates.isEmpty) return null;
+      candidates.sort((a, b) => b.score.compareTo(a.score));
+      return candidates.first.value;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static String? _decodeName(
+    Uint8List bytes,
+    int platformId,
+    int encodingId,
+  ) {
+    final value = switch (platformId) {
+      0 => _decodeUtf16BigEndian(bytes),
+      1 => latin1.decode(bytes, allowInvalid: true),
+      3 when encodingId == 0 || encodingId == 1 || encodingId == 10 =>
+        _decodeUtf16BigEndian(bytes),
+      _ => null,
+    };
+    return _normalize(value);
+  }
+
+  static String? _decodeUtf16BigEndian(Uint8List bytes) {
+    if (bytes.length.isOdd) return null;
+    final chars = <int>[];
+    for (var i = 0; i < bytes.length; i += 2) {
+      chars.add((bytes[i] << 8) | bytes[i + 1]);
+    }
+    return String.fromCharCodes(chars);
+  }
+
+  static String? _normalize(String? value) {
+    final normalized = value?.replaceAll('\u0000', '').trim();
+    if (normalized == null || normalized.isEmpty) return null;
+    return normalized.replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  static String _tag(Uint8List bytes, int offset) {
+    return ascii.decode(bytes.sublist(offset, offset + 4), allowInvalid: true);
+  }
+
+  static int _uint16(Uint8List bytes, int offset) {
+    return (bytes[offset] << 8) | bytes[offset + 1];
+  }
+
+  static int _uint32(Uint8List bytes, int offset) {
+    return (bytes[offset] << 24) |
+        (bytes[offset + 1] << 16) |
+        (bytes[offset + 2] << 8) |
+        bytes[offset + 3];
+  }
+}
+
+class _ReaderFontNameCandidate {
+  const _ReaderFontNameCandidate({
+    required this.value,
+    required this.nameId,
+    required this.platformId,
+    required this.encodingId,
+    required this.languageId,
+  });
+
+  final String value;
+  final int nameId;
+  final int platformId;
+  final int encodingId;
+  final int languageId;
+
+  int get score {
+    final nameScore = switch (nameId) {
+      16 => 300,
+      1 => 200,
+      4 => 100,
+      _ => 0,
+    };
+    final languageScore = switch (languageId) {
+      0x0804 => 40,
+      0x0404 || 0x0c04 => 35,
+      0x0409 => 25,
+      0 => 15,
+      _ => 0,
+    };
+    final platformScore = switch (platformId) {
+      3 => 20,
+      0 => 15,
+      1 => 5,
+      _ => 0,
+    };
+    final encodingScore = platformId == 3 && encodingId == 10 ? 5 : 0;
+    return nameScore + languageScore + platformScore + encodingScore;
   }
 }
 

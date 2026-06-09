@@ -42,22 +42,21 @@ class ReaderFontLibraryController
   }
 
   Future<ReaderFont?> importFont() async {
-    state = const AsyncValue.loading();
+    final previous = state;
     try {
       final font = await _repository.pickAndImportFont();
-      final library = await _repository.loadLibrary();
-      state = AsyncValue.data(library);
-      if (font != null) _onSelectedChanged();
+      if (font != null) {
+        state = AsyncValue.data(await _repository.loadLibrary());
+      }
       return font;
     } catch (error, stackTrace) {
-      state = AsyncValue.error(error, stackTrace);
+      state = previous;
       return Future<ReaderFont?>.error(error, stackTrace);
     }
   }
 
   Future<void> selectFont(String familyKey) async {
     final previous = state;
-    state = const AsyncValue.loading();
     try {
       await _repository.selectFont(familyKey);
       state = AsyncValue.data(await _repository.loadLibrary());
@@ -70,11 +69,15 @@ class ReaderFontLibraryController
 
   Future<void> deleteFont(String id) async {
     final previous = state;
-    state = const AsyncValue.loading();
+    final selectedBefore = previous.valueOrNull?.selectedFamilyKey ??
+        await _repository.readSelectedFontFamily();
     try {
       await _repository.deleteImportedFont(id);
-      state = AsyncValue.data(await _repository.loadLibrary());
-      _onSelectedChanged();
+      final library = await _repository.loadLibrary();
+      state = AsyncValue.data(library);
+      if (selectedBefore != library.selectedFamilyKey) {
+        _onSelectedChanged();
+      }
     } catch (error, stackTrace) {
       state = previous;
       return Future<void>.error(error, stackTrace);
