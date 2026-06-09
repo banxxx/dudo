@@ -27,9 +27,7 @@ class _ThemeSwatchTile extends StatelessWidget {
         color: option.fillColor,
         borderRadius: BorderRadius.circular(metrics.s(17)),
         border: Border.all(
-          color: selected
-              ? context.readerControls.themePicker.green
-              : option.borderColor,
+          color: option.borderColor,
           width: metrics.s(selected ? 2 : 1),
         ),
       ),

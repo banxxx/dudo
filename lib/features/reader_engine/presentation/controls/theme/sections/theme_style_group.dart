@@ -15,42 +15,55 @@ class _ThemeStyleGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeOptions = [
+    // 主题卡片是四种主题的固定预览，不跟随当前已选阅读主题变色。
+    const paper = Color(0xFFF8F4EA);
+    const ink = Color(0xFF25251F);
+    const secondaryText = Color(0xFF6F6B61);
+    const surfaceLine = Color(0xFFD8CDBB);
+    const panel = Color(0xFFFFF8EA);
+    const green = Color(0xFF5E6F5B);
+    const greenSoft = Color(0xFFDDE8D4);
+    const greenLine = Color(0xFFBFD0B5);
+    const warmBrown = Color(0xFFE8D7BD);
+    const warmBrownLine = Color(0xFFD0B58D);
+    const muted = Color(0xFF8A735A);
+
+    const themeOptions = [
       _ThemeStyleOption(
         label: '纸页',
         palette: ReaderTheme.parchment,
-        swatchColor: context.readerControls.themePicker.paper,
-        fillColor: context.readerControls.themePicker.paper,
-        textColor: context.readerControls.themePicker.ink,
-        selectedTextColor: context.readerControls.themePicker.ink,
-        borderColor: context.readerControls.themePicker.green,
+        swatchColor: paper,
+        fillColor: paper,
+        textColor: ink,
+        selectedTextColor: ink,
+        borderColor: green,
       ),
       _ThemeStyleOption(
         label: '护眼',
         palette: ReaderTheme.eyeCare,
-        swatchColor: context.readerControls.themePicker.greenSoft,
-        fillColor: context.readerControls.themePicker.greenSoft,
-        textColor: context.readerControls.themePicker.secondaryText,
-        selectedTextColor: context.readerControls.themePicker.ink,
-        borderColor: context.readerControls.themePicker.greenLine,
+        swatchColor: greenSoft,
+        fillColor: greenSoft,
+        textColor: secondaryText,
+        selectedTextColor: ink,
+        borderColor: greenLine,
       ),
       _ThemeStyleOption(
         label: '暖棕',
         palette: ReaderTheme.warmBrown,
-        swatchColor: context.readerControls.themePicker.warmBrown,
-        fillColor: context.readerControls.themePicker.warmBrown,
-        textColor: context.readerControls.themePicker.secondaryText,
-        selectedTextColor: context.readerControls.themePicker.ink,
-        borderColor: context.readerControls.themePicker.warmBrownLine,
+        swatchColor: warmBrown,
+        fillColor: warmBrown,
+        textColor: secondaryText,
+        selectedTextColor: ink,
+        borderColor: warmBrownLine,
       ),
       _ThemeStyleOption(
         label: '夜读',
         palette: ReaderTheme.night,
-        swatchColor: context.readerControls.themePicker.ink,
-        fillColor: context.readerControls.themePicker.ink,
-        textColor: context.readerControls.themePicker.surfaceLine,
-        selectedTextColor: context.readerControls.themePicker.panel,
-        borderColor: context.readerControls.themePicker.muted,
+        swatchColor: ink,
+        fillColor: ink,
+        textColor: surfaceLine,
+        selectedTextColor: panel,
+        borderColor: muted,
       ),
     ];
 
