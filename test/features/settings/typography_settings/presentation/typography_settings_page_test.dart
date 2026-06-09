@@ -34,19 +34,17 @@ void main() {
     expect(find.text('字体管理'), findsNWidgets(2));
     expect(find.text('字体预览'), findsOneWidget);
     expect(find.text('内置字体和导入字体统一在这里选择'), findsOneWidget);
-    expect(find.text('添加本地字体'), findsOneWidget);
-    expect(find.text('霞鹜文楷'), findsOneWidget);
-    expect(find.text('LXGWWenKai-Regular.ttf · 11.8MB'), findsOneWidget);
-
-    await tester.tap(find.text('内置字体'));
-    await tester.pumpAndSettle();
-
     expect(find.text('添加本地字体'), findsNothing);
     expect(find.text('Noto Serif SC'), findsOneWidget);
     expect(find.text('Noto Sans SC'), findsOneWidget);
 
     await tester.tap(find.text('我的字体'));
     await tester.pumpAndSettle();
+
+    expect(find.text('添加本地字体'), findsOneWidget);
+    expect(find.text('霞鹜文楷'), findsOneWidget);
+    expect(find.text('LXGWWenKai-Regular.ttf · 11.8MB'), findsOneWidget);
+
     await tester.tap(find.byIcon(LucideIcons.trash2));
     await tester.pumpAndSettle();
 
@@ -75,6 +73,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('我的字体'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('添加本地字体'));
     await tester.pump();
 
@@ -105,6 +105,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('我的字体'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byIcon(LucideIcons.trash2));
     await tester.pumpAndSettle();
     await tester.tap(find.text('删除').last);

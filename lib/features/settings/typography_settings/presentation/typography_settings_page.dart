@@ -25,7 +25,7 @@ class TypographySettingsPage extends ConsumerStatefulWidget {
 
 class _TypographySettingsPageState
     extends ConsumerState<TypographySettingsPage> {
-  _FontSource _source = _FontSource.local;
+  _FontSource _source = _FontSource.builtIn;
   late final AppMessageService _messageService;
   bool _importing = false;
   final Set<String> _deletingFontIds = <String>{};
@@ -326,24 +326,52 @@ class _FontSourceTabs extends StatelessWidget {
         color: DudoColors.surfaceLow,
         borderRadius: BorderRadius.circular(19),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _FontSourceTab(
-              label: '内置字体',
-              selected: source == _FontSource.builtIn,
-              onTap: () => onChanged(_FontSource.builtIn),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: _FontSourceTab(
-              label: '我的字体',
-              selected: source == _FontSource.local,
-              onTap: () => onChanged(_FontSource.local),
-            ),
-          ),
-        ],
+      clipBehavior: Clip.antiAlias,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          const gap = 4.0;
+          final indicatorWidth = (constraints.maxWidth - gap) / 2;
+          final indicatorLeft =
+              source == _FontSource.builtIn ? 0.0 : indicatorWidth + gap;
+
+          return Stack(
+            children: [
+              AnimatedPositionedDirectional(
+                duration: AppMotion.short,
+                curve: AppMotion.emphasized,
+                start: indicatorLeft,
+                top: 0,
+                bottom: 0,
+                width: indicatorWidth,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: DudoColors.surface,
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _FontSourceTab(
+                      label: '内置字体',
+                      selected: source == _FontSource.builtIn,
+                      onTap: () => onChanged(_FontSource.builtIn),
+                    ),
+                  ),
+                  const SizedBox(width: gap),
+                  Expanded(
+                    child: _FontSourceTab(
+                      label: '我的字体',
+                      selected: source == _FontSource.local,
+                      onTap: () => onChanged(_FontSource.local),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -362,26 +390,16 @@ class _FontSourceTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(15),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(15),
-        child: AnimatedContainer(
-          duration: AppMotion.short,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected ? DudoColors.surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Text(
-            label,
-            style: DudoTextStyles.sans(
-              color: selected ? DudoColors.textPrimary : DudoColors.secondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Center(
+        child: Text(
+          label,
+          style: DudoTextStyles.sans(
+            color: selected ? DudoColors.textPrimary : DudoColors.secondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
