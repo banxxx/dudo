@@ -15,6 +15,9 @@ class _ReaderControlTheme {
     if (palette.name == ReaderTheme.eyeCare.name) {
       return _eyeCare;
     }
+    if (palette.name == ReaderTheme.warmBrown.name) {
+      return _warmBrown;
+    }
     return _paper;
   }
 
@@ -117,6 +120,57 @@ class _ReaderControlTheme {
       greenLine: Color(0xFFC5D7B8),
       warmBrown: Color(0xFFE7D6B8),
       warmBrownLine: Color(0xFFC9B288),
+    ),
+  );
+
+  // 暖棕主题：延续正文暖棕纸页，控件使用低饱和棕金色保证选中态清晰。
+  static const _warmBrown = _ReaderControlTheme._(
+    overlay: _ReaderOverlayThemeTokens(
+      barrier: Color(0x3333281E),
+      glassHighlight: Color(0x10FFFFFF),
+      transparent: Colors.transparent,
+    ),
+    surface: _ReaderSurfaceThemeTokens(
+      panel: Color(0xFFF7E8D2),
+      panelHigh: Color(0xFFFFF0DA),
+      panelLow: Color(0xFFE0C7A3),
+      page: Color(0xFFE8D7BD),
+      outline: Color(0xFFD2B383),
+      outlineStrong: Color(0xFFB99463),
+      shadow: Color(0x2A33281E),
+      chromeShadow: Color(0x1A33281E),
+      sheetShadow: Color(0x2433281E),
+    ),
+    text: _ReaderTextThemeTokens(
+      primary: Color(0xFF33281E),
+      secondary: Color(0xFF7B6244),
+      tertiary: Color(0xFF8C7456),
+      accentText: Color(0xFF4B2E15),
+      inverse: Color(0xFFFFF0DA),
+      secondaryWeak: Color(0x667B6244),
+    ),
+    action: _ReaderActionThemeTokens(
+      accent: Color(0xFF8A6A43),
+      accentSoft: Color(0xFFD8B98A),
+      darkFill: Color(0xFF33281E),
+      inactiveFill: Color(0xFFE0C7A3),
+      inactiveLine: Color(0xFFB99463),
+      paperTexture: Color(0xFFECD7B6),
+      whiteHighlight: Colors.white,
+    ),
+    themePicker: _ReaderThemePickerThemeTokens(
+      paper: Color(0xFFE8D7BD),
+      panel: Color(0xFFF7E8D2),
+      surfaceLow: Color(0xFFE0C7A3),
+      surfaceLine: Color(0xFFB99463),
+      ink: Color(0xFF33281E),
+      muted: Color(0xFF7B6244),
+      secondaryText: Color(0xFF8C7456),
+      green: Color(0xFF8A6A43),
+      greenSoft: Color(0xFFE6C79A),
+      greenLine: Color(0xFFD2B383),
+      warmBrown: Color(0xFFD9B982),
+      warmBrownLine: Color(0xFFB99463),
     ),
   );
 
