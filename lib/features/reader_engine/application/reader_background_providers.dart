@@ -42,4 +42,18 @@ class ReaderBackgroundController
       return Future<void>.error(error, stackTrace);
     }
   }
+
+  Future<ReaderBackgroundPreference?> importCustom() async {
+    final previous = state;
+    try {
+      final preference = await _repository.pickAndImportBackground();
+      if (preference != null) {
+        state = AsyncValue.data(preference);
+      }
+      return preference;
+    } catch (error, stackTrace) {
+      state = previous;
+      return Future<ReaderBackgroundPreference?>.error(error, stackTrace);
+    }
+  }
 }

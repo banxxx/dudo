@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../domain/reader_background.dart';
@@ -147,6 +149,10 @@ class _ReaderBackgroundImage extends StatelessWidget {
     final assetPath = background.assetPath;
     if (assetPath != null && assetPath.isNotEmpty) {
       return AssetImage(assetPath);
+    }
+    final filePath = background.filePath;
+    if (filePath != null && filePath.isNotEmpty) {
+      return FileImage(File(filePath));
     }
     return null;
   }

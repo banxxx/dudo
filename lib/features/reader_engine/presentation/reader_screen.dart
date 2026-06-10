@@ -356,6 +356,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 ),
           );
         },
+        onCustomBackgroundImport: _importCustomBackground,
         onFontSizeChanged: (value) => _updateFontSize(controller, state, value),
         onLineHeightChanged: (value) =>
             _updateLineHeight(controller, state, value),
@@ -775,6 +776,27 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (_systemStatusBarHidden == value) return;
     setState(() => _systemStatusBarHidden = value);
     _syncSystemUiMode();
+  }
+
+  Future<void> _importCustomBackground() async {
+    try {
+      await ref
+          .read(readerBackgroundControllerProvider.notifier)
+          .importCustom();
+    } catch (error) {
+      if (!mounted) return;
+      final message = error.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            message.startsWith('Exception: ')
+                ? message.replaceFirst('Exception: ', '')
+                : message,
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _leaveReader() {

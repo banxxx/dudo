@@ -17,6 +17,7 @@ class _ThemePanel extends StatelessWidget {
     required this.gestureNavigationBlocked,
     required this.onPaletteChanged,
     required this.onBackgroundChanged,
+    required this.onCustomBackgroundImport,
     required this.onBrightnessChanged,
     required this.onFollowSystemBrightnessChanged,
     required this.onEyeComfortEnhancedChanged,
@@ -42,6 +43,7 @@ class _ThemePanel extends StatelessWidget {
   final bool gestureNavigationBlocked;
   final ValueChanged<ReaderPalette> onPaletteChanged;
   final ValueChanged<ReaderBackgroundPreference> onBackgroundChanged;
+  final Future<void> Function() onCustomBackgroundImport;
   final ValueChanged<double> onBrightnessChanged;
   final ValueChanged<bool> onFollowSystemBrightnessChanged;
   final ValueChanged<bool> onEyeComfortEnhancedChanged;
@@ -90,6 +92,7 @@ class _ThemePanel extends StatelessWidget {
                     backgroundPreference: backgroundPreference,
                     onPaletteChanged: onPaletteChanged,
                     onBackgroundChanged: onBackgroundChanged,
+                    onCustomBackgroundImport: onCustomBackgroundImport,
                   ),
                   SizedBox(height: metrics.s(12)),
                   _BrightnessEyeGroup(

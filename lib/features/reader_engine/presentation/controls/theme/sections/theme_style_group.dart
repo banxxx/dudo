@@ -9,6 +9,7 @@ class _ThemeStyleGroup extends StatelessWidget {
     required this.backgroundPreference,
     required this.onPaletteChanged,
     required this.onBackgroundChanged,
+    required this.onCustomBackgroundImport,
   });
 
   final _ReaderOverlayMetrics metrics;
@@ -16,6 +17,7 @@ class _ThemeStyleGroup extends StatelessWidget {
   final ReaderBackgroundPreference backgroundPreference;
   final ValueChanged<ReaderPalette> onPaletteChanged;
   final ValueChanged<ReaderBackgroundPreference> onBackgroundChanged;
+  final Future<void> Function() onCustomBackgroundImport;
 
   @override
   Widget build(BuildContext context) {
@@ -127,6 +129,20 @@ class _ThemeStyleGroup extends StatelessWidget {
                   ),
                 ),
               ],
+              SizedBox(width: metrics.s(9)),
+              Expanded(
+                child: _ReadingBackgroundCustomTile(
+                  metrics: metrics,
+                  palette: palette,
+                  preference: backgroundPreference.type ==
+                          ReaderBackgroundType.customImage
+                      ? backgroundPreference
+                      : null,
+                  selected: backgroundPreference.type ==
+                      ReaderBackgroundType.customImage,
+                  onTap: onCustomBackgroundImport,
+                ),
+              ),
             ],
           ),
         ),

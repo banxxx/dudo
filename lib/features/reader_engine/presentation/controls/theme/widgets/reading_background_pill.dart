@@ -110,6 +110,66 @@ class _ReadingBackgroundTile extends StatelessWidget {
   }
 }
 
+class _ReadingBackgroundCustomTile extends StatelessWidget {
+  const _ReadingBackgroundCustomTile({
+    required this.metrics,
+    required this.palette,
+    required this.preference,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _ReaderOverlayMetrics metrics;
+  final ReaderPalette palette;
+  final ReaderBackgroundPreference? preference;
+  final bool selected;
+  final Future<void> Function() onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectivePreference =
+        preference ?? ReaderBackgroundPreference.defaults();
+    final controlTheme = context.readerControls;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _ReadingBackgroundTile(
+          metrics: metrics,
+          label: selected ? '自定义' : '自定义',
+          palette: palette,
+          preference: effectivePreference,
+          selected: selected,
+          onTap: () => onTap(),
+        ),
+        if (!selected)
+          Positioned(
+            top: metrics.s(10),
+            right: metrics.s(10),
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: controlTheme.themePicker.panel.withValues(alpha: 0.9),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: controlTheme.themePicker.surfaceLine,
+                  ),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(metrics.s(4)),
+                  child: Icon(
+                    LucideIcons.plus,
+                    size: metrics.s(14),
+                    color: controlTheme.themePicker.green,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _ReadingBackgroundPreview extends StatelessWidget {
   const _ReadingBackgroundPreview({
     required this.metrics,
@@ -123,6 +183,10 @@ class _ReadingBackgroundPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final assetPath = preference.assetPath;
+    final filePath = preference.filePath;
+    final hasImage = (assetPath != null && assetPath.isNotEmpty) ||
+        (filePath != null && filePath.isNotEmpty);
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -138,7 +202,7 @@ class _ReadingBackgroundPreview extends StatelessWidget {
             ),
           ),
         ),
-        if (preference.assetPath != null)
+        if (hasImage)
           Align(
             alignment: preference.alignment,
             child: FractionallySizedBox(
@@ -170,12 +234,10 @@ class _ReadingBackgroundPreview extends StatelessWidget {
                     1,
                     0,
                   ]),
-                  child: Image.asset(
-                    preference.assetPath!,
+                  child: _PreviewImage(
+                    preference: preference,
                     fit: _imageFit,
-                    alignment: preference.alignment,
-                    color: palette.accent ?? palette.foreground,
-                    colorBlendMode: BlendMode.modulate,
+                    tint: palette.accent ?? palette.foreground,
                   ),
                 ),
               ),
@@ -238,6 +300,43 @@ class _ReadingBackgroundPreview extends StatelessWidget {
       return 0.62;
     }
     return 1;
+  }
+}
+
+class _PreviewImage extends StatelessWidget {
+  const _PreviewImage({
+    required this.preference,
+    required this.fit,
+    required this.tint,
+  });
+
+  final ReaderBackgroundPreference preference;
+  final BoxFit fit;
+  final Color tint;
+
+  @override
+  Widget build(BuildContext context) {
+    final assetPath = preference.assetPath;
+    if (assetPath != null && assetPath.isNotEmpty) {
+      return Image.asset(
+        assetPath,
+        fit: fit,
+        alignment: preference.alignment,
+        color: tint,
+        colorBlendMode: BlendMode.modulate,
+      );
+    }
+    final filePath = preference.filePath;
+    if (filePath != null && filePath.isNotEmpty) {
+      return Image.file(
+        File(filePath),
+        fit: fit,
+        alignment: preference.alignment,
+        color: tint,
+        colorBlendMode: BlendMode.modulate,
+      );
+    }
+    return const SizedBox.shrink();
   }
 }
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -85,6 +87,7 @@ class ReaderControls extends StatelessWidget {
     required this.onNextChapter,
     required this.onPaletteChanged,
     required this.onBackgroundChanged,
+    required this.onCustomBackgroundImport,
     required this.onFontSizeChanged,
     required this.onLineHeightChanged,
     required this.onParagraphSpacingChanged,
@@ -147,6 +150,7 @@ class ReaderControls extends StatelessWidget {
   final VoidCallback? onNextChapter;
   final ValueChanged<ReaderPalette> onPaletteChanged;
   final ValueChanged<ReaderBackgroundPreference> onBackgroundChanged;
+  final Future<void> Function() onCustomBackgroundImport;
   final ValueChanged<double> onFontSizeChanged;
   final ValueChanged<double> onLineHeightChanged;
   final ValueChanged<double> onParagraphSpacingChanged;
@@ -295,6 +299,7 @@ class ReaderControls extends StatelessWidget {
                     gestureNavigationBlocked: gestureNavigationBlocked,
                     onPaletteChanged: onPaletteChanged,
                     onBackgroundChanged: onBackgroundChanged,
+                    onCustomBackgroundImport: onCustomBackgroundImport,
                     onBrightnessChanged: onBrightnessChanged,
                     onFollowSystemBrightnessChanged:
                         onFollowSystemBrightnessChanged,
