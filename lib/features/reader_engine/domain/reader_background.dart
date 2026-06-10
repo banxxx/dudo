@@ -135,7 +135,7 @@ class ReaderBackgroundPreference {
       id: id ?? this.id,
       assetPath: assetPath ?? this.assetPath,
       filePath: filePath ?? this.filePath,
-      opacity: opacity ?? this.opacity,
+      opacity: (opacity ?? this.opacity).clamp(0.0, 1.0).toDouble(),
       alignment: alignment ?? this.alignment,
       fit: fit ?? this.fit,
       tintEnabled: tintEnabled ?? this.tintEnabled,

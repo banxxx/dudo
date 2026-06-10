@@ -176,6 +176,9 @@ class _ReaderBackgroundImage extends StatelessWidget {
   }
 
   double get _resolvedOpacity {
+    if (background.type == ReaderBackgroundType.customImage) {
+      return background.opacity.clamp(0.0, 1.0).toDouble();
+    }
     final base = background.opacity.clamp(0.0, 0.32).toDouble();
     if (palette.background.computeLuminance() < 0.2) {
       return (base * 0.58).clamp(0.0, 0.16).toDouble();

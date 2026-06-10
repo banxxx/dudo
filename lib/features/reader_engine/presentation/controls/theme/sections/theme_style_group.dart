@@ -177,6 +177,7 @@ class _CustomBackgroundControls extends StatelessWidget {
         (preference.blurRadius / ReaderBackgroundPreference.maxBlurRadius)
             .clamp(0.0, 1.0)
             .toDouble();
+    final opacityValue = preference.opacity.clamp(0.0, 1.0).toDouble();
 
     return Container(
       padding: EdgeInsets.all(metrics.s(10)),
@@ -195,17 +196,6 @@ class _CustomBackgroundControls extends StatelessWidget {
               Expanded(
                 child: _CustomBackgroundToggle(
                   metrics: metrics,
-                  title: '蒙版',
-                  enabled: preference.tintEnabled,
-                  onChanged: (value) => onChanged(
-                    preference.copyWith(tintEnabled: value),
-                  ),
-                ),
-              ),
-              SizedBox(width: metrics.s(8)),
-              Expanded(
-                child: _CustomBackgroundToggle(
-                  metrics: metrics,
                   title: '灰度',
                   enabled: preference.grayscaleEnabled,
                   onChanged: (value) => onChanged(
@@ -214,6 +204,18 @@ class _CustomBackgroundControls extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          SizedBox(height: metrics.s(10)),
+          _CustomBackgroundSlider(
+            metrics: metrics,
+            label: '透明',
+            value: opacityValue,
+            valueLabel: '${(opacityValue * 100).round()}%',
+            onChanged: (value) => onChanged(
+              preference.copyWith(
+                opacity: value,
+              ),
+            ),
           ),
           SizedBox(height: metrics.s(10)),
           _CustomBackgroundSlider(
