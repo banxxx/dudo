@@ -13,6 +13,7 @@ class _ThemePanel extends StatelessWidget {
     required this.chapterProgressHidden,
     required this.systemStatusBarHidden,
     required this.pageEdgeHidden,
+    required this.gestureNavigationBlocked,
     required this.onPaletteChanged,
     required this.onBrightnessChanged,
     required this.onFollowSystemBrightnessChanged,
@@ -21,6 +22,7 @@ class _ThemePanel extends StatelessWidget {
     required this.onChapterProgressHiddenChanged,
     required this.onSystemStatusBarHiddenChanged,
     required this.onPageEdgeHiddenChanged,
+    required this.onGestureNavigationBlockedChanged,
   });
 
   static const _panelHeight = 360.0;
@@ -34,6 +36,7 @@ class _ThemePanel extends StatelessWidget {
   final bool chapterProgressHidden;
   final bool systemStatusBarHidden;
   final bool pageEdgeHidden;
+  final bool gestureNavigationBlocked;
   final ValueChanged<ReaderPalette> onPaletteChanged;
   final ValueChanged<double> onBrightnessChanged;
   final ValueChanged<bool> onFollowSystemBrightnessChanged;
@@ -42,6 +45,7 @@ class _ThemePanel extends StatelessWidget {
   final ValueChanged<bool> onChapterProgressHiddenChanged;
   final ValueChanged<bool> onSystemStatusBarHiddenChanged;
   final ValueChanged<bool> onPageEdgeHiddenChanged;
+  final ValueChanged<bool> onGestureNavigationBlockedChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -129,11 +133,12 @@ class _ThemePanel extends StatelessWidget {
                     metrics: metrics,
                     icon: LucideIcons.hand,
                     title: '手势控制',
-                    rows: const [
+                    rows: [
                       _ThemeToggleRowData(
                         title: '屏蔽手势导航键',
-                        description: '降低误触返回、主页等系统手势概率',
-                        enabled: false,
+                        description: '阻止边缘返回手势退出阅读页',
+                        enabled: gestureNavigationBlocked,
+                        onChanged: onGestureNavigationBlockedChanged,
                       ),
                     ],
                   ),

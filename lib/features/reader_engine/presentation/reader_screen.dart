@@ -74,6 +74,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   bool _chapterProgressHidden = false;
   bool _systemStatusBarHidden = true;
   bool _pageEdgeHidden = false;
+  bool _gestureNavigationBlocked = true;
+  bool _allowRoutePop = false;
   bool _volumePageTurnEnabled = true;
   bool _isListening = false;
   int _volumePageTurnRequestId = 0;
@@ -127,68 +129,72 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final statusStyle = foreground.computeLuminance() > 0.5
         ? SystemUiOverlayStyle.light
         : SystemUiOverlayStyle.dark;
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: statusStyle.copyWith(statusBarColor: Colors.transparent),
-      child: Scaffold(
-        key: const ValueKey('reader-engine-screen'),
-        extendBodyBehindAppBar: true,
-        backgroundColor: _palette.background,
-        body: ReaderVolumePageTurnListener(
-          enabled: _volumePageTurnEnabled &&
-              _overlayMode == ReaderOverlayMode.hidden,
-          onPreviousPage: () => _requestVolumePageTurn(-1),
-          onNextPage: () => _requestVolumePageTurn(1),
-          child: SizedBox.expand(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final size = Size(constraints.maxWidth, constraints.maxHeight);
-                final safePadding = _readerSafePadding(context);
-                final chromeLayout =
-                    ReaderChromeLayout.fromSize(size, safePadding);
-                final metrics = chromeLayout.metrics;
-                _ensureController(size, safePadding, selectedFontFamily);
-                return FutureBuilder<void>(
-                  future: _initialization,
-                  builder: (context, snapshot) {
-                    final controller = _controller;
-                    final state = controller?.state;
-                    return Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        ReaderPaperBackground(palette: _palette),
-                        if (!_pageEdgeHidden)
-                          ReaderSoftPageEdge(layout: chromeLayout),
-                        if (controller == null ||
-                            state == null ||
-                            state.loadStatus == ReaderLoadStatus.loading)
-                          Center(
-                            child: _ReaderLoadingBar(
-                              palette: _palette,
-                              width: metrics.s(118),
+    return PopScope(
+      canPop: !_gestureNavigationBlocked || _allowRoutePop,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: statusStyle.copyWith(statusBarColor: Colors.transparent),
+        child: Scaffold(
+          key: const ValueKey('reader-engine-screen'),
+          extendBodyBehindAppBar: true,
+          backgroundColor: _palette.background,
+          body: ReaderVolumePageTurnListener(
+            enabled: _volumePageTurnEnabled &&
+                _overlayMode == ReaderOverlayMode.hidden,
+            onPreviousPage: () => _requestVolumePageTurn(-1),
+            onNextPage: () => _requestVolumePageTurn(1),
+            child: SizedBox.expand(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final size =
+                      Size(constraints.maxWidth, constraints.maxHeight);
+                  final safePadding = _readerSafePadding(context);
+                  final chromeLayout =
+                      ReaderChromeLayout.fromSize(size, safePadding);
+                  final metrics = chromeLayout.metrics;
+                  _ensureController(size, safePadding, selectedFontFamily);
+                  return FutureBuilder<void>(
+                    future: _initialization,
+                    builder: (context, snapshot) {
+                      final controller = _controller;
+                      final state = controller?.state;
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ReaderPaperBackground(palette: _palette),
+                          if (!_pageEdgeHidden)
+                            ReaderSoftPageEdge(layout: chromeLayout),
+                          if (controller == null ||
+                              state == null ||
+                              state.loadStatus == ReaderLoadStatus.loading)
+                            Center(
+                              child: _ReaderLoadingBar(
+                                palette: _palette,
+                                width: metrics.s(118),
+                              ),
+                            )
+                          else if (state.loadStatus == ReaderLoadStatus.error)
+                            Center(
+                              child: Text(
+                                '阅读器加载失败：${state.error}',
+                                style: TextStyle(color: _palette.foreground),
+                              ),
+                            )
+                          else
+                            ..._readerLayers(
+                              context: context,
+                              metrics: metrics,
+                              controller: controller,
+                              state: state,
                             ),
-                          )
-                        else if (state.loadStatus == ReaderLoadStatus.error)
-                          Center(
-                            child: Text(
-                              '阅读器加载失败：${state.error}',
-                              style: TextStyle(color: _palette.foreground),
-                            ),
-                          )
-                        else
-                          ..._readerLayers(
-                            context: context,
-                            metrics: metrics,
-                            controller: controller,
-                            state: state,
+                          ReaderBrightnessOverlay(
+                            brightness: _brightness,
                           ),
-                        ReaderBrightnessOverlay(
-                          brightness: _brightness,
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
         ),
@@ -299,6 +305,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         chapterProgressHidden: _chapterProgressHidden,
         systemStatusBarHidden: _systemStatusBarHidden,
         pageEdgeHidden: _pageEdgeHidden,
+        gestureNavigationBlocked: _gestureNavigationBlocked,
         pageTurnMode: state.settings.turnMode,
         volumePageTurnEnabled: _volumePageTurnEnabled,
         isListening: _isListening,
@@ -308,7 +315,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         catalogHasMore: false,
         catalogIsLoadingMore: _catalogLoading,
         onCatalogLoadMore: () => _loadCatalog(document.chapterCount),
-        onBack: () => context.pop(),
+        onBack: _leaveReader,
         onClose: () => _setOverlayMode(ReaderOverlayMode.controls),
         onModeChanged: (mode) {
           _setOverlayMode(mode);
@@ -382,6 +389,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         },
         onPageEdgeHiddenChanged: (value) {
           setState(() => _pageEdgeHidden = value);
+        },
+        onGestureNavigationBlockedChanged: (value) {
+          setState(() => _gestureNavigationBlocked = value);
         },
         onPageTurnModeChanged: (mode) async {
           await controller
@@ -747,6 +757,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (_systemStatusBarHidden == value) return;
     setState(() => _systemStatusBarHidden = value);
     _syncSystemUiMode();
+  }
+
+  void _leaveReader() {
+    if (_allowRoutePop) {
+      context.pop();
+      return;
+    }
+    setState(() => _allowRoutePop = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.pop();
+    });
   }
 
   void _syncPagePadding(

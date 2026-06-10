@@ -78,6 +78,60 @@ void main() {
     expect(progressText.data, '0%');
   });
 
+  testWidgets('ReaderScreen toggles gesture navigation pop blocking',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerDocumentSourceProvider.overrideWithValue(
+            _FakeReaderDocumentSource(),
+          ),
+          readerProgressRepositoryProvider.overrideWithValue(
+            _MemoryProgressRepository(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: ReaderScreen(bookId: 'book-1'),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, isFalse);
+
+    await tester.tapAt(const Offset(195, 420));
+    await tester.pumpAndSettle();
+
+    final bottomRect = tester.getRect(
+      find.byKey(const ValueKey('reader-bottom-controls')),
+    );
+
+    await tester.tapAt(
+      Offset(bottomRect.left + bottomRect.width * 0.5, bottomRect.bottom - 38),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.drag(
+      find.byKey(const ValueKey('reader-theme-panel')),
+      const Offset(0, -220),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('屏蔽手势导航键'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('屏蔽手势导航键'));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<PopScope>(find.byType(PopScope)).canPop, isTrue);
+  });
+
   testWidgets('ReaderScreen keeps controls visible on short phones',
       (tester) async {
     tester.view.devicePixelRatio = 1;

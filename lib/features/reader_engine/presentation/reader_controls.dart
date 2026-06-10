@@ -65,6 +65,7 @@ class ReaderControls extends StatelessWidget {
     required this.chapterProgressHidden,
     required this.systemStatusBarHidden,
     required this.pageEdgeHidden,
+    required this.gestureNavigationBlocked,
     required this.pageTurnMode,
     required this.volumePageTurnEnabled,
     required this.isListening,
@@ -97,6 +98,7 @@ class ReaderControls extends StatelessWidget {
     required this.onChapterProgressHiddenChanged,
     required this.onSystemStatusBarHiddenChanged,
     required this.onPageEdgeHiddenChanged,
+    required this.onGestureNavigationBlockedChanged,
     required this.onPageTurnModeChanged,
     required this.onVolumePageTurnChanged,
     required this.onListeningChanged,
@@ -123,6 +125,7 @@ class ReaderControls extends StatelessWidget {
   final bool chapterProgressHidden;
   final bool systemStatusBarHidden;
   final bool pageEdgeHidden;
+  final bool gestureNavigationBlocked;
   final ReaderTurnMode pageTurnMode;
   final bool volumePageTurnEnabled;
   final bool isListening;
@@ -156,6 +159,7 @@ class ReaderControls extends StatelessWidget {
   final ValueChanged<bool> onChapterProgressHiddenChanged;
   final ValueChanged<bool> onSystemStatusBarHiddenChanged;
   final ValueChanged<bool> onPageEdgeHiddenChanged;
+  final ValueChanged<bool> onGestureNavigationBlockedChanged;
   final ValueChanged<ReaderTurnMode> onPageTurnModeChanged;
   final ValueChanged<bool> onVolumePageTurnChanged;
   final ValueChanged<bool> onListeningChanged;
@@ -282,6 +286,7 @@ class ReaderControls extends StatelessWidget {
                     chapterProgressHidden: chapterProgressHidden,
                     systemStatusBarHidden: systemStatusBarHidden,
                     pageEdgeHidden: pageEdgeHidden,
+                    gestureNavigationBlocked: gestureNavigationBlocked,
                     onPaletteChanged: onPaletteChanged,
                     onBrightnessChanged: onBrightnessChanged,
                     onFollowSystemBrightnessChanged:
@@ -293,6 +298,8 @@ class ReaderControls extends StatelessWidget {
                     onSystemStatusBarHiddenChanged:
                         onSystemStatusBarHiddenChanged,
                     onPageEdgeHiddenChanged: onPageEdgeHiddenChanged,
+                    onGestureNavigationBlockedChanged:
+                        onGestureNavigationBlockedChanged,
                   ),
                 );
               case ReaderOverlayMode.listening:
