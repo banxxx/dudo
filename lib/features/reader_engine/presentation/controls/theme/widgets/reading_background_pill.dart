@@ -135,11 +135,13 @@ class _ReadingBackgroundCustomTile extends StatelessWidget {
       children: [
         _ReadingBackgroundTile(
           metrics: metrics,
-          label: selected ? '自定义' : '自定义',
+          label: selected ? '自定义' : '添加',
           palette: palette,
           preference: effectivePreference,
           selected: selected,
-          onTap: () => onTap(),
+          onTap: () {
+            onTap();
+          },
         ),
         if (!selected)
           Positioned(
@@ -211,34 +213,10 @@ class _ReadingBackgroundPreview extends StatelessWidget {
               alignment: preference.alignment,
               child: Opacity(
                 opacity: _previewOpacity,
-                child: ColorFiltered(
-                  colorFilter: const ColorFilter.matrix(<double>[
-                    0.2126,
-                    0.7152,
-                    0.0722,
-                    0,
-                    0,
-                    0.2126,
-                    0.7152,
-                    0.0722,
-                    0,
-                    0,
-                    0.2126,
-                    0.7152,
-                    0.0722,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    1,
-                    0,
-                  ]),
-                  child: _PreviewImage(
-                    preference: preference,
-                    fit: _imageFit,
-                    tint: palette.accent ?? palette.foreground,
-                  ),
+                child: _PreviewImage(
+                  preference: preference,
+                  fit: _imageFit,
+                  tint: palette.accent ?? palette.foreground,
                 ),
               ),
             ),
@@ -316,27 +294,64 @@ class _PreviewImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget image;
     final assetPath = preference.assetPath;
     if (assetPath != null && assetPath.isNotEmpty) {
-      return Image.asset(
+      image = Image.asset(
         assetPath,
         fit: fit,
         alignment: preference.alignment,
-        color: tint,
-        colorBlendMode: BlendMode.modulate,
+        color: preference.tintEnabled ? tint : null,
+        colorBlendMode: preference.tintEnabled ? BlendMode.modulate : null,
       );
-    }
-    final filePath = preference.filePath;
-    if (filePath != null && filePath.isNotEmpty) {
-      return Image.file(
+    } else {
+      final filePath = preference.filePath;
+      if (filePath == null || filePath.isEmpty) {
+        return const SizedBox.shrink();
+      }
+      image = Image.file(
         File(filePath),
         fit: fit,
         alignment: preference.alignment,
-        color: tint,
-        colorBlendMode: BlendMode.modulate,
+        color: preference.tintEnabled ? tint : null,
+        colorBlendMode: preference.tintEnabled ? BlendMode.modulate : null,
       );
     }
-    return const SizedBox.shrink();
+    if (preference.grayscaleEnabled) {
+      image = ColorFiltered(
+        colorFilter: const ColorFilter.matrix(<double>[
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]),
+        child: image,
+      );
+    }
+    if (preference.blurRadius <= 0) return image;
+    return ImageFiltered(
+      imageFilter: ui.ImageFilter.blur(
+        sigmaX: preference.blurRadius,
+        sigmaY: preference.blurRadius,
+      ),
+      child: image,
+    );
   }
 }
 

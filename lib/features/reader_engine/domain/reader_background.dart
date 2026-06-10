@@ -19,11 +19,14 @@ class ReaderBackgroundPreference {
     this.alignment = Alignment.topRight,
     this.fit = BoxFit.cover,
     this.tintEnabled = true,
+    this.grayscaleEnabled = false,
+    this.blurRadius = 0,
   });
 
   static const solidId = 'solid';
   static const bambooId = 'bamboo_001';
   static const bambooAssetPath = 'assets/images/reader_backgrounds/001.webp';
+  static const maxBlurRadius = 18.0;
 
   factory ReaderBackgroundPreference.defaults() {
     return const ReaderBackgroundPreference(
@@ -63,6 +66,8 @@ class ReaderBackgroundPreference {
       alignment: _alignmentFromString(json['alignment'] as String?),
       fit: _fitFromString(json['fit'] as String?),
       tintEnabled: json['tintEnabled'] as bool?,
+      grayscaleEnabled: json['grayscaleEnabled'] as bool?,
+      blurRadius: (json['blurRadius'] as num?)?.toDouble(),
     );
     return resolved ?? ReaderBackgroundPreference.defaults();
   }
@@ -87,6 +92,8 @@ class ReaderBackgroundPreference {
   final Alignment alignment;
   final BoxFit fit;
   final bool tintEnabled;
+  final bool grayscaleEnabled;
+  final double blurRadius;
 
   bool get hasImage =>
       type != ReaderBackgroundType.solid &&
@@ -104,6 +111,8 @@ class ReaderBackgroundPreference {
       'alignment': _alignmentToString(alignment),
       'fit': _fitToString(fit),
       'tintEnabled': tintEnabled,
+      'grayscaleEnabled': grayscaleEnabled,
+      'blurRadius': blurRadius,
     };
   }
 
@@ -118,6 +127,8 @@ class ReaderBackgroundPreference {
     Alignment? alignment,
     BoxFit? fit,
     bool? tintEnabled,
+    bool? grayscaleEnabled,
+    double? blurRadius,
   }) {
     return ReaderBackgroundPreference(
       type: type ?? this.type,
@@ -128,6 +139,9 @@ class ReaderBackgroundPreference {
       alignment: alignment ?? this.alignment,
       fit: fit ?? this.fit,
       tintEnabled: tintEnabled ?? this.tintEnabled,
+      grayscaleEnabled: grayscaleEnabled ?? this.grayscaleEnabled,
+      blurRadius:
+          (blurRadius ?? this.blurRadius).clamp(0.0, maxBlurRadius).toDouble(),
     );
   }
 
@@ -141,7 +155,9 @@ class ReaderBackgroundPreference {
         other.opacity == opacity &&
         other.alignment == alignment &&
         other.fit == fit &&
-        other.tintEnabled == tintEnabled;
+        other.tintEnabled == tintEnabled &&
+        other.grayscaleEnabled == grayscaleEnabled &&
+        other.blurRadius == blurRadius;
   }
 
   @override
@@ -154,6 +170,8 @@ class ReaderBackgroundPreference {
         alignment,
         fit,
         tintEnabled,
+        grayscaleEnabled,
+        blurRadius,
       );
 }
 
@@ -191,6 +209,8 @@ class ReaderBackgroundCatalog {
     Alignment? alignment,
     BoxFit? fit,
     bool? tintEnabled,
+    bool? grayscaleEnabled,
+    double? blurRadius,
   }) {
     if (type == ReaderBackgroundType.solid ||
         id == ReaderBackgroundPreference.solidId) {
@@ -202,6 +222,8 @@ class ReaderBackgroundCatalog {
         alignment: alignment,
         fit: fit,
         tintEnabled: tintEnabled,
+        grayscaleEnabled: grayscaleEnabled,
+        blurRadius: blurRadius,
       );
     }
     if (type == ReaderBackgroundType.customImage &&
@@ -212,10 +234,14 @@ class ReaderBackgroundCatalog {
         id: id,
         filePath: filePath,
         assetPath: assetPath,
-        opacity: opacity ?? 0.12,
+        opacity: opacity ?? 0.18,
         alignment: alignment ?? Alignment.center,
         fit: fit ?? BoxFit.cover,
-        tintEnabled: tintEnabled ?? true,
+        tintEnabled: tintEnabled ?? false,
+        grayscaleEnabled: grayscaleEnabled ?? false,
+        blurRadius: (blurRadius ?? 0)
+            .clamp(0.0, ReaderBackgroundPreference.maxBlurRadius)
+            .toDouble(),
       );
     }
     return null;

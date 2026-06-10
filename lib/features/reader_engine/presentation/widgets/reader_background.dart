@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -103,7 +104,7 @@ class _ReaderBackgroundImage extends StatelessWidget {
       colorBlendMode: background.tintEnabled ? BlendMode.modulate : null,
       filterQuality: FilterQuality.medium,
     );
-    if (background.tintEnabled) {
+    if (background.grayscaleEnabled) {
       image = ColorFiltered(
         colorFilter: const ColorFilter.matrix(<double>[
           0.2126,
@@ -127,6 +128,15 @@ class _ReaderBackgroundImage extends StatelessWidget {
           1,
           0,
         ]),
+        child: image,
+      );
+    }
+    if (background.blurRadius > 0) {
+      image = ImageFiltered(
+        imageFilter: ui.ImageFilter.blur(
+          sigmaX: background.blurRadius,
+          sigmaY: background.blurRadius,
+        ),
         child: image,
       );
     }

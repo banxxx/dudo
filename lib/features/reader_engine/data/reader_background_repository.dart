@@ -91,10 +91,12 @@ class DriftReaderBackgroundRepository implements ReaderBackgroundRepository {
       type: ReaderBackgroundType.customImage,
       id: id,
       filePath: target.path,
-      opacity: 0.12,
+      opacity: 0.18,
       alignment: Alignment.center,
       fit: BoxFit.cover,
-      tintEnabled: true,
+      tintEnabled: false,
+      grayscaleEnabled: false,
+      blurRadius: 0,
     );
     await savePreference(preference);
     return preference;
