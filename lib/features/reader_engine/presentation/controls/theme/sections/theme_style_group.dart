@@ -10,6 +10,7 @@ class _ThemeStyleGroup extends StatelessWidget {
     required this.onPaletteChanged,
     required this.onBackgroundChanged,
     required this.onCustomBackgroundImport,
+    required this.onCustomBackgroundEdit,
   });
 
   final _ReaderOverlayMetrics metrics;
@@ -18,6 +19,7 @@ class _ThemeStyleGroup extends StatelessWidget {
   final ValueChanged<ReaderPalette> onPaletteChanged;
   final ValueChanged<ReaderBackgroundPreference> onBackgroundChanged;
   final Future<void> Function() onCustomBackgroundImport;
+  final VoidCallback onCustomBackgroundEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -140,259 +142,14 @@ class _ThemeStyleGroup extends StatelessWidget {
                       : null,
                   selected: backgroundPreference.type ==
                       ReaderBackgroundType.customImage,
-                  onTap: onCustomBackgroundImport,
+                  onTap: backgroundPreference.type ==
+                          ReaderBackgroundType.customImage
+                      ? () async => onCustomBackgroundEdit()
+                      : onCustomBackgroundImport,
                 ),
               ),
             ],
           ),
-        ),
-        if (backgroundPreference.type == ReaderBackgroundType.customImage) ...[
-          SizedBox(height: metrics.s(8)),
-          _CustomBackgroundControls(
-            metrics: metrics,
-            preference: backgroundPreference,
-            onChanged: onBackgroundChanged,
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _CustomBackgroundControls extends StatelessWidget {
-  const _CustomBackgroundControls({
-    required this.metrics,
-    required this.preference,
-    required this.onChanged,
-  });
-
-  final _ReaderOverlayMetrics metrics;
-  final ReaderBackgroundPreference preference;
-  final ValueChanged<ReaderBackgroundPreference> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final picker = context.readerControls.themePicker;
-    final blurValue =
-        (preference.blurRadius / ReaderBackgroundPreference.maxBlurRadius)
-            .clamp(0.0, 1.0)
-            .toDouble();
-    final opacityValue = preference.opacity.clamp(0.0, 1.0).toDouble();
-
-    return Container(
-      padding: EdgeInsets.all(metrics.s(10)),
-      decoration: BoxDecoration(
-        color: picker.paper,
-        borderRadius: BorderRadius.circular(metrics.s(18)),
-        border: Border.all(
-          color: picker.surfaceLine.withValues(alpha: 0.72),
-          width: metrics.s(1),
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _CustomBackgroundToggle(
-                  metrics: metrics,
-                  title: '灰度',
-                  enabled: preference.grayscaleEnabled,
-                  onChanged: (value) => onChanged(
-                    preference.copyWith(grayscaleEnabled: value),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: metrics.s(10)),
-          _CustomBackgroundSlider(
-            metrics: metrics,
-            label: '透明',
-            value: opacityValue,
-            valueLabel: '${(opacityValue * 100).round()}%',
-            onChanged: (value) => onChanged(
-              preference.copyWith(
-                opacity: value,
-              ),
-            ),
-          ),
-          SizedBox(height: metrics.s(10)),
-          _CustomBackgroundSlider(
-            metrics: metrics,
-            label: '模糊强度',
-            value: blurValue,
-            valueLabel: preference.blurRadius <= 0
-                ? '关'
-                : preference.blurRadius.toStringAsFixed(0),
-            onChanged: (value) => onChanged(
-              preference.copyWith(
-                blurRadius: value * ReaderBackgroundPreference.maxBlurRadius,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CustomBackgroundToggle extends StatelessWidget {
-  const _CustomBackgroundToggle({
-    required this.metrics,
-    required this.title,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final _ReaderOverlayMetrics metrics;
-  final String title;
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => onChanged(!enabled),
-      child: Container(
-        height: metrics.s(38),
-        padding: EdgeInsets.symmetric(horizontal: metrics.s(10)),
-        decoration: BoxDecoration(
-          color: context.readerControls.themePicker.panel,
-          borderRadius: BorderRadius.circular(metrics.s(14)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: DudoTextStyles.sans(
-                  color: context.readerControls.themePicker.ink,
-                  fontSize: metrics.s(12),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            _ThemeStaticSwitch(metrics: metrics, enabled: enabled),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CustomBackgroundSlider extends StatelessWidget {
-  const _CustomBackgroundSlider({
-    required this.metrics,
-    required this.label,
-    required this.value,
-    required this.valueLabel,
-    required this.onChanged,
-  });
-
-  final _ReaderOverlayMetrics metrics;
-  final String label;
-  final double value;
-  final String valueLabel;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final picker = context.readerControls.themePicker;
-    final clamped = value.clamp(0.0, 1.0).toDouble();
-
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: DudoTextStyles.sans(
-                  color: picker.ink,
-                  fontSize: metrics.s(12),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-            Text(
-              valueLabel,
-              style: DudoTextStyles.sans(
-                color: picker.muted,
-                fontSize: metrics.s(11),
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: metrics.s(8)),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            void updateFromOffset(double dx) {
-              onChanged((dx / constraints.maxWidth).clamp(0.0, 1.0).toDouble());
-            }
-
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: (details) =>
-                  updateFromOffset(details.localPosition.dx),
-              onHorizontalDragUpdate: (details) =>
-                  updateFromOffset(details.localPosition.dx),
-              child: SizedBox(
-                height: metrics.s(24),
-                child: Stack(
-                  alignment: Alignment.centerLeft,
-                  children: [
-                    Container(
-                      height: metrics.s(7),
-                      decoration: BoxDecoration(
-                        color: picker.surfaceLine,
-                        borderRadius: AppRadius.full,
-                      ),
-                    ),
-                    FractionallySizedBox(
-                      widthFactor: clamped == 0 ? 0.0001 : clamped,
-                      child: Container(
-                        height: metrics.s(7),
-                        decoration: BoxDecoration(
-                          color: picker.green,
-                          borderRadius: AppRadius.full,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: ((constraints.maxWidth - metrics.s(20)) * clamped)
-                          .toDouble(),
-                      child: Container(
-                        width: metrics.s(20),
-                        height: metrics.s(20),
-                        decoration: BoxDecoration(
-                          color: picker.panel,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: picker.green,
-                            width: metrics.s(2),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: picker.ink.withValues(alpha: 0.14),
-                              blurRadius: metrics.s(6),
-                              offset: Offset(0, metrics.s(2)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
         ),
       ],
     );

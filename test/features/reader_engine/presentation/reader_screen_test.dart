@@ -2,14 +2,20 @@ import 'package:dudo/features/reader_engine/application/reader_engine_providers.
 import 'package:dudo/features/reader_engine/data/reader_content_parser.dart';
 import 'package:dudo/features/reader_engine/data/reader_document_source.dart';
 import 'package:dudo/features/reader_engine/data/reader_progress_repository.dart';
+import 'package:dudo/features/reader_engine/domain/reader_background.dart';
 import 'package:dudo/features/reader_engine/domain/reader_chapter.dart';
 import 'package:dudo/features/reader_engine/domain/reader_document.dart';
 import 'package:dudo/features/reader_engine/domain/reader_location.dart';
+import 'package:dudo/features/reader_engine/domain/reader_overlay_mode.dart';
+import 'package:dudo/features/reader_engine/domain/reader_settings.dart';
 import 'package:dudo/features/reader_engine/domain/reader_source_type.dart';
+import 'package:dudo/features/reader_engine/domain/reader_turn_mode.dart';
+import 'package:dudo/features/reader_engine/presentation/reader_controls.dart';
 import 'package:dudo/features/reader_engine/presentation/reader_screen.dart';
 import 'package:dudo/features/reader_engine/presentation/widgets/reader_background.dart';
 import 'package:dudo/features/reader_engine/presentation/widgets/reader_canvas_page.dart';
 import 'package:dudo/features/reader_engine/domain/reader_theme.dart';
+import 'package:dudo/features/settings/typography_settings/domain/reader_font.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -298,6 +304,139 @@ void main() {
 
     expect(find.text('手势控制'), findsOneWidget);
     expect(find.text('屏蔽手势导航键'), findsOneWidget);
+  });
+
+  testWidgets('ReaderControls opens custom background settings page',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var importCalled = false;
+    ReaderBackgroundPreference? changedBackground;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: [
+              ReaderControls(
+                mode: ReaderOverlayMode.theme,
+                bookTitle: '测试书',
+                chapterLabel: '第一章',
+                chapterTitle: '第一章',
+                progress: 0.2,
+                remainingText: '约 1 分钟',
+                palette: ReaderTheme.parchment,
+                backgroundPreference: const ReaderBackgroundPreference(
+                  type: ReaderBackgroundType.customImage,
+                  id: 'custom_test',
+                  assetPath: ReaderBackgroundPreference.bambooAssetPath,
+                  opacity: 0.18,
+                  alignment: Alignment.center,
+                  fit: BoxFit.cover,
+                  tintEnabled: false,
+                ),
+                fontSize: 19,
+                lineHeight: 1.72,
+                paragraphSpacing: 15,
+                pageHorizontalMargin:
+                    ReaderSettings.defaultPageHorizontalMargin,
+                firstLineIndentEnabled: true,
+                textEnhancementEnabled: false,
+                fontLibraryValue: AsyncValue.data(
+                  ReaderFontLibrary(
+                    fonts: ReaderBuiltinFonts.values,
+                    selectedFamilyKey: ReaderBuiltinFonts.serifSc.familyKey,
+                  ),
+                ),
+                brightness: 1,
+                followSystemBrightness: false,
+                eyeComfortEnhanced: false,
+                timeBatteryHidden: false,
+                chapterProgressHidden: false,
+                systemStatusBarHidden: true,
+                pageEdgeHidden: false,
+                gestureNavigationBlocked: true,
+                pageTurnMode: ReaderTurnMode.slide,
+                volumePageTurnEnabled: true,
+                isListening: false,
+                currentChapterIndex: 0,
+                chapterCount: 1,
+                catalogItems: const [],
+                onBack: () {},
+                onClose: () {},
+                onModeChanged: (_) {},
+                onChapterSelected: (_) {},
+                onPreviousChapter: null,
+                onNextChapter: null,
+                onPaletteChanged: (_) {},
+                onBackgroundChanged: (background) {
+                  changedBackground = background;
+                },
+                onCustomBackgroundImport: () async {
+                  importCalled = true;
+                },
+                onFontSizeChanged: (_) {},
+                onLineHeightChanged: (_) {},
+                onParagraphSpacingChanged: (_) {},
+                onLineParagraphSpacingChanged: (_, __) {},
+                onPageHorizontalMarginChanged: (_) {},
+                onFontSelected: (_) {},
+                onManageFonts: () {},
+                onFirstLineIndentChanged: (_) {},
+                onTextEnhancementChanged: (_) {},
+                onBrightnessChanged: (_) {},
+                onFollowSystemBrightnessChanged: (_) {},
+                onEyeComfortEnhancedChanged: (_) {},
+                onTimeBatteryHiddenChanged: (_) {},
+                onChapterProgressHiddenChanged: (_) {},
+                onSystemStatusBarHiddenChanged: (_) {},
+                onPageEdgeHiddenChanged: (_) {},
+                onGestureNavigationBlockedChanged: (_) {},
+                onPageTurnModeChanged: (_) {},
+                onVolumePageTurnChanged: (_) {},
+                onListeningChanged: (_) {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('自定义'));
+    await tester.pumpAndSettle();
+
+    expect(importCalled, isFalse);
+    expect(
+      find.byKey(const ValueKey('reader-custom-background-settings-page')),
+      findsOneWidget,
+    );
+    expect(find.text('阅读背景 / 图片设置'), findsOneWidget);
+    expect(find.text('展示模式'), findsOneWidget);
+    expect(find.text('图片效果'), findsOneWidget);
+    expect(find.text('灰度'), findsOneWidget);
+    expect(find.text('模糊强度'), findsOneWidget);
+    expect(find.text('应用到阅读页'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('灰度'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('灰度'));
+    await tester.pumpAndSettle();
+
+    expect(changedBackground?.grayscaleEnabled, isTrue);
+
+    await tester.ensureVisible(find.text('应用到阅读页'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('应用到阅读页'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('reader-custom-background-settings-page')),
+      findsNothing,
+    );
   });
 
   testWidgets('ReaderScreen switches to scroll mode through reader controls',

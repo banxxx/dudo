@@ -29,6 +29,7 @@ part 'controls/typography/typography_panel.dart';
 part 'controls/theme/models/theme_style_option.dart';
 part 'controls/theme/models/theme_toggle_row_data.dart';
 part 'controls/theme/sections/brightness_eye_group.dart';
+part 'controls/theme/sections/custom_background_settings_page.dart';
 part 'controls/theme/sections/theme_style_group.dart';
 part 'controls/theme/sections/theme_toggle_group.dart';
 part 'controls/theme/theme_panel.dart';
