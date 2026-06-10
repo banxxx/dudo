@@ -266,19 +266,29 @@ ReaderBackgroundType? _typeFromString(String? value) {
 }
 
 String _alignmentToString(Alignment alignment) {
-  if (alignment == Alignment.topRight) return 'topRight';
-  if (alignment == Alignment.centerRight) return 'centerRight';
-  if (alignment == Alignment.center) return 'center';
+  if (alignment == Alignment.topLeft) return 'topLeft';
   if (alignment == Alignment.topCenter) return 'topCenter';
-  return 'topRight';
+  if (alignment == Alignment.topRight) return 'topRight';
+  if (alignment == Alignment.centerLeft) return 'centerLeft';
+  if (alignment == Alignment.center) return 'center';
+  if (alignment == Alignment.centerRight) return 'centerRight';
+  if (alignment == Alignment.bottomLeft) return 'bottomLeft';
+  if (alignment == Alignment.bottomCenter) return 'bottomCenter';
+  if (alignment == Alignment.bottomRight) return 'bottomRight';
+  return 'center';
 }
 
 Alignment? _alignmentFromString(String? value) {
   return switch (value) {
-    'topRight' => Alignment.topRight,
-    'centerRight' => Alignment.centerRight,
-    'center' => Alignment.center,
+    'topLeft' => Alignment.topLeft,
     'topCenter' => Alignment.topCenter,
+    'topRight' => Alignment.topRight,
+    'centerLeft' => Alignment.centerLeft,
+    'center' => Alignment.center,
+    'centerRight' => Alignment.centerRight,
+    'bottomLeft' => Alignment.bottomLeft,
+    'bottomCenter' => Alignment.bottomCenter,
+    'bottomRight' => Alignment.bottomRight,
     _ => null,
   };
 }

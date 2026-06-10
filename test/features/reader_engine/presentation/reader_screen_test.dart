@@ -84,6 +84,56 @@ void main() {
     expect(progressText.data, '0%');
   });
 
+  testWidgets('ReaderBackgroundLayer applies image display modes',
+      (tester) async {
+    Future<Image> pumpBackground(BoxFit fit) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            width: 390,
+            height: 844,
+            child: Stack(
+              children: [
+                ReaderBackgroundLayer(
+                  palette: ReaderTheme.parchment,
+                  background: ReaderBackgroundPreference(
+                    type: ReaderBackgroundType.customImage,
+                    id: 'custom-background-test',
+                    assetPath: ReaderBackgroundPreference.bambooAssetPath,
+                    opacity: 1,
+                    alignment: Alignment.center,
+                    fit: fit,
+                    tintEnabled: false,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      return tester.widget<Image>(find.byType(Image));
+    }
+
+    var image = await pumpBackground(BoxFit.cover);
+    expect(image.fit, BoxFit.cover);
+    expect(image.repeat, ImageRepeat.noRepeat);
+    expect(image.image, isA<AssetImage>());
+
+    image = await pumpBackground(BoxFit.contain);
+    expect(image.fit, BoxFit.contain);
+    expect(image.repeat, ImageRepeat.noRepeat);
+
+    image = await pumpBackground(BoxFit.fill);
+    expect(image.fit, BoxFit.fill);
+    expect(image.repeat, ImageRepeat.noRepeat);
+
+    image = await pumpBackground(BoxFit.none);
+    expect(image.fit, BoxFit.none);
+    expect(image.repeat, ImageRepeat.repeat);
+    expect(image.image, isA<ResizeImage>());
+  });
+
   testWidgets('ReaderScreen toggles gesture navigation pop blocking',
       (tester) async {
     tester.view.devicePixelRatio = 1;
@@ -420,6 +470,34 @@ void main() {
     expect(find.text('灰度'), findsOneWidget);
     expect(find.text('模糊强度'), findsOneWidget);
     expect(find.text('应用到阅读页'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('展示模式'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('适应'));
+    await tester.pumpAndSettle();
+    expect(changedBackground?.fit, BoxFit.contain);
+
+    await tester.tap(find.text('平铺'));
+    await tester.pumpAndSettle();
+    expect(changedBackground?.fit, BoxFit.none);
+
+    await tester.tap(find.text('拉伸'));
+    await tester.pumpAndSettle();
+    expect(changedBackground?.fit, BoxFit.fill);
+
+    await tester.tap(find.text('裁剪'));
+    await tester.pumpAndSettle();
+    expect(changedBackground?.fit, BoxFit.cover);
+
+    await tester.ensureVisible(find.text('展示区域'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('底部'));
+    await tester.pumpAndSettle();
+    expect(changedBackground?.alignment, Alignment.bottomCenter);
+
+    await tester.tap(find.bySemanticsLabel('展示区域右下'));
+    await tester.pumpAndSettle();
+    expect(changedBackground?.alignment, Alignment.bottomRight);
 
     await tester.ensureVisible(find.text('灰度'));
     await tester.pumpAndSettle();

@@ -185,42 +185,13 @@ class _ReadingBackgroundPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final assetPath = preference.assetPath;
-    final filePath = preference.filePath;
-    final hasImage = (assetPath != null && assetPath.isNotEmpty) ||
-        (filePath != null && filePath.isNotEmpty);
     return Stack(
       fit: StackFit.expand,
       children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                palette.background,
-                palette.backgroundEnd ?? palette.background,
-              ],
-            ),
-          ),
+        ReaderBackgroundLayer(
+          palette: palette,
+          background: preference,
         ),
-        if (hasImage)
-          Align(
-            alignment: preference.alignment,
-            child: FractionallySizedBox(
-              widthFactor: _imageWidthFactor,
-              heightFactor: _imageHeightFactor,
-              alignment: preference.alignment,
-              child: Opacity(
-                opacity: _previewOpacity,
-                child: _PreviewImage(
-                  preference: preference,
-                  fit: _imageFit,
-                  tint: palette.accent ?? palette.foreground,
-                ),
-              ),
-            ),
-          ),
         Positioned(
           left: metrics.s(10),
           top: metrics.s(12),
@@ -249,108 +220,6 @@ class _ReadingBackgroundPreview extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  double get _previewOpacity {
-    if (palette.background.computeLuminance() < 0.2) {
-      return (preference.opacity * 0.7).clamp(0.0, 0.14).toDouble();
-    }
-    return preference.opacity.clamp(0.0, 0.22).toDouble();
-  }
-
-  BoxFit get _imageFit {
-    if (preference.id == ReaderBackgroundPreference.bambooId) {
-      return BoxFit.contain;
-    }
-    return preference.fit;
-  }
-
-  double get _imageWidthFactor {
-    if (preference.id == ReaderBackgroundPreference.bambooId) {
-      return 0.62;
-    }
-    return 1;
-  }
-
-  double get _imageHeightFactor {
-    if (preference.id == ReaderBackgroundPreference.bambooId) {
-      return 0.62;
-    }
-    return 1;
-  }
-}
-
-class _PreviewImage extends StatelessWidget {
-  const _PreviewImage({
-    required this.preference,
-    required this.fit,
-    required this.tint,
-  });
-
-  final ReaderBackgroundPreference preference;
-  final BoxFit fit;
-  final Color tint;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget image;
-    final assetPath = preference.assetPath;
-    if (assetPath != null && assetPath.isNotEmpty) {
-      image = Image.asset(
-        assetPath,
-        fit: fit,
-        alignment: preference.alignment,
-        color: preference.tintEnabled ? tint : null,
-        colorBlendMode: preference.tintEnabled ? BlendMode.modulate : null,
-      );
-    } else {
-      final filePath = preference.filePath;
-      if (filePath == null || filePath.isEmpty) {
-        return const SizedBox.shrink();
-      }
-      image = Image.file(
-        File(filePath),
-        fit: fit,
-        alignment: preference.alignment,
-        color: preference.tintEnabled ? tint : null,
-        colorBlendMode: preference.tintEnabled ? BlendMode.modulate : null,
-      );
-    }
-    if (preference.grayscaleEnabled) {
-      image = ColorFiltered(
-        colorFilter: const ColorFilter.matrix(<double>[
-          0.2126,
-          0.7152,
-          0.0722,
-          0,
-          0,
-          0.2126,
-          0.7152,
-          0.0722,
-          0,
-          0,
-          0.2126,
-          0.7152,
-          0.0722,
-          0,
-          0,
-          0,
-          0,
-          0,
-          1,
-          0,
-        ]),
-        child: image,
-      );
-    }
-    if (preference.blurRadius <= 0) return image;
-    return ImageFiltered(
-      imageFilter: ui.ImageFilter.blur(
-        sigmaX: preference.blurRadius,
-        sigmaY: preference.blurRadius,
-      ),
-      child: image,
     );
   }
 }

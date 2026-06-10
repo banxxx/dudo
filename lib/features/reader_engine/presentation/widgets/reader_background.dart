@@ -93,69 +93,85 @@ class _ReaderBackgroundImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = _imageProvider;
-    if (provider == null) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final provider = _imageProvider(constraints);
+        if (provider == null) return const SizedBox.shrink();
 
-    Widget image = Image(
-      image: provider,
-      fit: _imageFit,
-      alignment: background.alignment,
-      color: background.tintEnabled ? _tintColor : null,
-      colorBlendMode: background.tintEnabled ? BlendMode.modulate : null,
-      filterQuality: FilterQuality.medium,
-    );
-    if (background.grayscaleEnabled) {
-      image = ColorFiltered(
-        colorFilter: const ColorFilter.matrix(<double>[
-          0.2126,
-          0.7152,
-          0.0722,
-          0,
-          0,
-          0.2126,
-          0.7152,
-          0.0722,
-          0,
-          0,
-          0.2126,
-          0.7152,
-          0.0722,
-          0,
-          0,
-          0,
-          0,
-          0,
-          1,
-          0,
-        ]),
-        child: image,
-      );
-    }
-    if (background.blurRadius > 0) {
-      image = ImageFiltered(
-        imageFilter: ui.ImageFilter.blur(
-          sigmaX: background.blurRadius,
-          sigmaY: background.blurRadius,
-        ),
-        child: image,
-      );
-    }
+        Widget image = Image(
+          image: provider,
+          fit: _imageFit,
+          alignment: background.alignment,
+          repeat: _imageRepeat,
+          color: background.tintEnabled ? _tintColor : null,
+          colorBlendMode: background.tintEnabled ? BlendMode.modulate : null,
+          filterQuality: FilterQuality.medium,
+        );
+        if (background.grayscaleEnabled) {
+          image = ColorFiltered(
+            colorFilter: const ColorFilter.matrix(<double>[
+              0.2126,
+              0.7152,
+              0.0722,
+              0,
+              0,
+              0.2126,
+              0.7152,
+              0.0722,
+              0,
+              0,
+              0.2126,
+              0.7152,
+              0.0722,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+            ]),
+            child: image,
+          );
+        }
+        if (background.blurRadius > 0) {
+          image = ImageFiltered(
+            imageFilter: ui.ImageFilter.blur(
+              sigmaX: background.blurRadius,
+              sigmaY: background.blurRadius,
+            ),
+            child: image,
+          );
+        }
 
-    return Align(
-      alignment: background.alignment,
-      child: FractionallySizedBox(
-        widthFactor: _widthFactor,
-        heightFactor: _heightFactor,
-        alignment: background.alignment,
-        child: Opacity(
-          opacity: _resolvedOpacity,
-          child: image,
-        ),
-      ),
+        return Align(
+          alignment: background.alignment,
+          child: FractionallySizedBox(
+            widthFactor: _widthFactor,
+            heightFactor: _heightFactor,
+            alignment: background.alignment,
+            child: Opacity(
+              opacity: _resolvedOpacity,
+              child: image,
+            ),
+          ),
+        );
+      },
     );
   }
 
-  ImageProvider? get _imageProvider {
+  ImageProvider? _imageProvider(BoxConstraints constraints) {
+    final provider = _baseImageProvider;
+    if (provider == null) return null;
+    if (background.fit != BoxFit.none) return provider;
+    return ResizeImage.resizeIfNeeded(
+      _tileCacheWidth(constraints),
+      null,
+      provider,
+    );
+  }
+
+  ImageProvider? get _baseImageProvider {
     final assetPath = background.assetPath;
     if (assetPath != null && assetPath.isNotEmpty) {
       return AssetImage(assetPath);
@@ -165,6 +181,14 @@ class _ReaderBackgroundImage extends StatelessWidget {
       return FileImage(File(filePath));
     }
     return null;
+  }
+
+  int _tileCacheWidth(BoxConstraints constraints) {
+    final shortestSide = constraints.biggest.shortestSide;
+    if (!shortestSide.isFinite || shortestSide <= 0) {
+      return 144;
+    }
+    return (shortestSide * 0.36).clamp(96.0, 180.0).round();
   }
 
   Color get _tintColor {
@@ -191,6 +215,11 @@ class _ReaderBackgroundImage extends StatelessWidget {
       return BoxFit.contain;
     }
     return background.fit;
+  }
+
+  ImageRepeat get _imageRepeat {
+    if (background.fit != BoxFit.none) return ImageRepeat.noRepeat;
+    return ImageRepeat.repeat;
   }
 
   double get _widthFactor {

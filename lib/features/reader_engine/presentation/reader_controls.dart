@@ -1,6 +1,3 @@
-import 'dart:io';
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -15,6 +12,7 @@ import '../../../shared/theme/app_fonts.dart';
 import '../domain/reader_theme.dart';
 import '../../../shared/theme/app_tokens.dart';
 import 'layout/reader_chrome_layout.dart';
+import 'widgets/reader_background.dart';
 
 part 'controls/shared/reader_overlay_metrics.dart';
 part 'controls/shared/glass_surface.dart';

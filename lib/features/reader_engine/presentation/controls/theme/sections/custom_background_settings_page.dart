@@ -89,11 +89,13 @@ class _CustomBackgroundSettingsPage extends StatelessWidget {
                 _CustomBackgroundDisplayModeSection(
                   metrics: metrics,
                   preference: preference,
+                  onChanged: onChanged,
                 ),
                 SizedBox(height: metrics.s(12)),
                 _CustomBackgroundDisplayAreaSection(
                   metrics: metrics,
                   preference: preference,
+                  onChanged: onChanged,
                 ),
                 SizedBox(height: metrics.s(12)),
                 _CustomBackgroundEffectSection(
@@ -269,9 +271,9 @@ class _CustomBackgroundCropPreview extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _CustomBackgroundPreviewImage(
-              preference: preference,
+            ReaderBackgroundLayer(
               palette: palette,
+              background: preference,
             ),
             Positioned(
               left: 0,
@@ -330,42 +332,6 @@ class _CustomBackgroundCropPreview extends StatelessWidget {
   }
 }
 
-class _CustomBackgroundPreviewImage extends StatelessWidget {
-  const _CustomBackgroundPreviewImage({
-    required this.preference,
-    required this.palette,
-  });
-
-  final ReaderBackgroundPreference preference;
-  final ReaderPalette palette;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!preference.hasImage) {
-      return const DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF6C7E62),
-              Color(0xFFCBD3B5),
-              Color(0xFFAFC6D5),
-              Color(0xFFD9C28C),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return _PreviewImage(
-      preference: preference,
-      fit: BoxFit.cover,
-      tint: palette.accent ?? palette.foreground,
-    );
-  }
-}
-
 class _CustomPreviewLine extends StatelessWidget {
   const _CustomPreviewLine({
     required this.metrics,
@@ -392,10 +358,12 @@ class _CustomBackgroundDisplayModeSection extends StatelessWidget {
   const _CustomBackgroundDisplayModeSection({
     required this.metrics,
     required this.preference,
+    required this.onChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
   final ReaderBackgroundPreference preference;
+  final ValueChanged<ReaderBackgroundPreference> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -421,24 +389,36 @@ class _CustomBackgroundDisplayModeSection extends StatelessWidget {
                 metrics: metrics,
                 label: '裁剪',
                 selected: selected == '裁剪',
+                onTap: () => onChanged(
+                  preference.copyWith(fit: BoxFit.cover),
+                ),
               ),
               SizedBox(width: metrics.s(6)),
               _CustomModeChip(
                 metrics: metrics,
                 label: '适应',
                 selected: selected == '适应',
+                onTap: () => onChanged(
+                  preference.copyWith(fit: BoxFit.contain),
+                ),
               ),
               SizedBox(width: metrics.s(6)),
               _CustomModeChip(
                 metrics: metrics,
                 label: '平铺',
-                selected: false,
+                selected: selected == '平铺',
+                onTap: () => onChanged(
+                  preference.copyWith(fit: BoxFit.none),
+                ),
               ),
               SizedBox(width: metrics.s(6)),
               _CustomModeChip(
                 metrics: metrics,
                 label: '拉伸',
                 selected: selected == '拉伸',
+                onTap: () => onChanged(
+                  preference.copyWith(fit: BoxFit.fill),
+                ),
               ),
             ],
           ),
@@ -453,34 +433,47 @@ class _CustomModeChip extends StatelessWidget {
     required this.metrics,
     required this.label,
     required this.selected,
+    required this.onTap,
   });
 
   final _ReaderOverlayMetrics metrics;
   final String label;
   final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final picker = context.readerControls.themePicker;
     return Expanded(
-      child: Container(
-        decoration: BoxDecoration(
-          color: selected ? picker.ink : picker.paper,
-          borderRadius: BorderRadius.circular(metrics.s(17)),
-          border: Border.all(
-            color: selected ? picker.ink : picker.surfaceLine,
-            width: metrics.s(1),
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: DudoTextStyles.sans(
-              color: selected ? picker.panel : picker.muted,
-              fontSize: metrics.s(12),
-              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: '展示模式$label',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              color: selected ? picker.ink : picker.paper,
+              borderRadius: BorderRadius.circular(metrics.s(17)),
+              border: Border.all(
+                color: selected ? picker.ink : picker.surfaceLine,
+                width: metrics.s(1),
+              ),
+            ),
+            child: Center(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: DudoTextStyles.sans(
+                  color: selected ? picker.panel : picker.muted,
+                  fontSize: metrics.s(12),
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                ),
+              ),
             ),
           ),
         ),
@@ -493,20 +486,28 @@ class _CustomBackgroundDisplayAreaSection extends StatelessWidget {
   const _CustomBackgroundDisplayAreaSection({
     required this.metrics,
     required this.preference,
+    required this.onChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
   final ReaderBackgroundPreference preference;
+  final ValueChanged<ReaderBackgroundPreference> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final picker = context.readerControls.themePicker;
-    final selected = _areaName(preference.alignment);
+    final selected = _verticalAreaName(preference.alignment);
     return SizedBox(
       height: metrics.s(96),
       child: Row(
         children: [
-          _CustomFocusGrid(metrics: metrics, selected: selected),
+          _CustomFocusGrid(
+            metrics: metrics,
+            selected: preference.alignment,
+            onChanged: (alignment) => onChanged(
+              preference.copyWith(alignment: alignment),
+            ),
+          ),
           SizedBox(width: metrics.s(12)),
           Expanded(
             child: Column(
@@ -523,7 +524,7 @@ class _CustomBackgroundDisplayAreaSection extends StatelessWidget {
                 ),
                 SizedBox(height: metrics.s(2)),
                 Text(
-                  '$selected取景',
+                  _alignmentLabel(preference.alignment),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: DudoTextStyles.sans(
@@ -541,18 +542,28 @@ class _CustomBackgroundDisplayAreaSection extends StatelessWidget {
                         metrics: metrics,
                         label: '顶部',
                         selected: selected == '顶部',
+                        onTap: () => onChanged(
+                          preference.copyWith(alignment: Alignment.topCenter),
+                        ),
                       ),
                       SizedBox(width: metrics.s(6)),
                       _CustomAreaChip(
                         metrics: metrics,
                         label: '居中',
                         selected: selected == '居中',
+                        onTap: () => onChanged(
+                          preference.copyWith(alignment: Alignment.center),
+                        ),
                       ),
                       SizedBox(width: metrics.s(6)),
                       _CustomAreaChip(
                         metrics: metrics,
                         label: '底部',
                         selected: selected == '底部',
+                        onTap: () => onChanged(
+                          preference.copyWith(
+                              alignment: Alignment.bottomCenter),
+                        ),
                       ),
                     ],
                   ),
@@ -845,14 +856,33 @@ class _CustomFocusGrid extends StatelessWidget {
   const _CustomFocusGrid({
     required this.metrics,
     required this.selected,
+    required this.onChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
-  final String selected;
+  final Alignment selected;
+  final ValueChanged<Alignment> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final picker = context.readerControls.themePicker;
+    const rows = [
+      [
+        (Alignment.topLeft, '左上'),
+        (Alignment.topCenter, '顶部'),
+        (Alignment.topRight, '右上'),
+      ],
+      [
+        (Alignment.centerLeft, '左侧'),
+        (Alignment.center, '居中'),
+        (Alignment.centerRight, '右侧'),
+      ],
+      [
+        (Alignment.bottomLeft, '左下'),
+        (Alignment.bottomCenter, '底部'),
+        (Alignment.bottomRight, '右下'),
+      ],
+    ];
     return Container(
       width: metrics.s(94),
       height: metrics.s(94),
@@ -864,41 +894,27 @@ class _CustomFocusGrid extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Expanded(
-            child: Row(
-              children: [
-                _FocusCell(metrics: metrics, selected: false),
-                SizedBox(width: metrics.s(5)),
-                _FocusCell(metrics: metrics, selected: selected == '顶部'),
-                SizedBox(width: metrics.s(5)),
-                _FocusCell(metrics: metrics, selected: false),
-              ],
+          for (var rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
+            Expanded(
+              child: Row(
+                children: [
+                  for (var columnIndex = 0;
+                      columnIndex < rows[rowIndex].length;
+                      columnIndex++) ...[
+                    _FocusCell(
+                      metrics: metrics,
+                      label: rows[rowIndex][columnIndex].$2,
+                      selected: selected == rows[rowIndex][columnIndex].$1,
+                      onTap: () => onChanged(rows[rowIndex][columnIndex].$1),
+                    ),
+                    if (columnIndex < rows[rowIndex].length - 1)
+                      SizedBox(width: metrics.s(5)),
+                  ],
+                ],
+              ),
             ),
-          ),
-          SizedBox(height: metrics.s(5)),
-          Expanded(
-            child: Row(
-              children: [
-                _FocusCell(metrics: metrics, selected: false),
-                SizedBox(width: metrics.s(5)),
-                _FocusCell(metrics: metrics, selected: selected == '居中'),
-                SizedBox(width: metrics.s(5)),
-                _FocusCell(metrics: metrics, selected: false),
-              ],
-            ),
-          ),
-          SizedBox(height: metrics.s(5)),
-          Expanded(
-            child: Row(
-              children: [
-                _FocusCell(metrics: metrics, selected: false),
-                SizedBox(width: metrics.s(5)),
-                _FocusCell(metrics: metrics, selected: selected == '底部'),
-                SizedBox(width: metrics.s(5)),
-                _FocusCell(metrics: metrics, selected: false),
-              ],
-            ),
-          ),
+            if (rowIndex < rows.length - 1) SizedBox(height: metrics.s(5)),
+          ],
         ],
       ),
     );
@@ -908,23 +924,38 @@ class _CustomFocusGrid extends StatelessWidget {
 class _FocusCell extends StatelessWidget {
   const _FocusCell({
     required this.metrics,
+    required this.label,
     required this.selected,
+    required this.onTap,
   });
 
   final _ReaderOverlayMetrics metrics;
+  final String label;
   final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final picker = context.readerControls.themePicker;
     return Expanded(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: selected ? picker.green : picker.paper,
-          borderRadius: BorderRadius.circular(metrics.s(8)),
-          border: Border.all(
-            color: selected ? picker.panel : picker.surfaceLine,
-            width: metrics.s(1),
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: '展示区域$label',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              color: selected ? picker.green : picker.paper,
+              borderRadius: BorderRadius.circular(metrics.s(8)),
+              border: Border.all(
+                color: selected ? picker.panel : picker.surfaceLine,
+                width: metrics.s(1),
+              ),
+            ),
           ),
         ),
       ),
@@ -937,34 +968,47 @@ class _CustomAreaChip extends StatelessWidget {
     required this.metrics,
     required this.label,
     required this.selected,
+    required this.onTap,
   });
 
   final _ReaderOverlayMetrics metrics;
   final String label;
   final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final picker = context.readerControls.themePicker;
     return Expanded(
-      child: Container(
-        decoration: BoxDecoration(
-          color: selected ? picker.greenSoft : picker.paper,
-          borderRadius: BorderRadius.circular(metrics.s(14)),
-          border: Border.all(
-            color: selected ? picker.greenLine : picker.surfaceLine,
-            width: metrics.s(1),
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: DudoTextStyles.sans(
-              color: selected ? picker.green : picker.muted,
-              fontSize: metrics.s(11),
-              fontWeight: FontWeight.w700,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: '展示区域$label',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              color: selected ? picker.greenSoft : picker.paper,
+              borderRadius: BorderRadius.circular(metrics.s(14)),
+              border: Border.all(
+                color: selected ? picker.greenLine : picker.surfaceLine,
+                width: metrics.s(1),
+              ),
+            ),
+            child: Center(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: DudoTextStyles.sans(
+                  color: selected ? picker.green : picker.muted,
+                  fontSize: metrics.s(11),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
         ),
@@ -1039,7 +1083,7 @@ String _fitLabel(BoxFit fit) {
     BoxFit.fill => '拉伸铺满',
     BoxFit.fitWidth => '适应宽度',
     BoxFit.fitHeight => '适应高度',
-    BoxFit.none => '原始尺寸',
+    BoxFit.none => '平铺重复',
     BoxFit.scaleDown => '缩小适应',
   };
 }
@@ -1052,17 +1096,24 @@ String _modeName(BoxFit fit) {
     BoxFit.scaleDown =>
       '适应',
     BoxFit.fill => '拉伸',
+    BoxFit.none => '平铺',
     _ => '裁剪',
   };
 }
 
 String _alignmentLabel(Alignment alignment) {
+  if (alignment.y < -0.3 && alignment.x < -0.3) return '左上取景';
+  if (alignment.y < -0.3 && alignment.x > 0.3) return '右上取景';
   if (alignment.y < -0.3) return '顶部取景';
+  if (alignment.y > 0.3 && alignment.x < -0.3) return '左下取景';
+  if (alignment.y > 0.3 && alignment.x > 0.3) return '右下取景';
   if (alignment.y > 0.3) return '底部取景';
+  if (alignment.x < -0.3) return '左侧取景';
+  if (alignment.x > 0.3) return '右侧取景';
   return '居中取景';
 }
 
-String _areaName(Alignment alignment) {
+String _verticalAreaName(Alignment alignment) {
   if (alignment.y < -0.3) return '顶部';
   if (alignment.y > 0.3) return '底部';
   return '居中';
