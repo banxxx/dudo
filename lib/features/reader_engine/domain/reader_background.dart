@@ -1,0 +1,283 @@
+import 'dart:convert';
+
+import 'package:flutter/widgets.dart';
+
+enum ReaderBackgroundType {
+  solid,
+  builtinImage,
+  customImage,
+}
+
+@immutable
+class ReaderBackgroundPreference {
+  const ReaderBackgroundPreference({
+    required this.type,
+    required this.id,
+    this.assetPath,
+    this.filePath,
+    this.opacity = 0.14,
+    this.alignment = Alignment.topRight,
+    this.fit = BoxFit.cover,
+    this.tintEnabled = true,
+  });
+
+  static const solidId = 'solid';
+  static const bambooId = 'bamboo_001';
+  static const bambooAssetPath = 'assets/images/reader_backgrounds/001.webp';
+
+  factory ReaderBackgroundPreference.defaults() {
+    return const ReaderBackgroundPreference(
+      type: ReaderBackgroundType.solid,
+      id: solidId,
+      opacity: 0,
+      alignment: Alignment.center,
+      tintEnabled: false,
+    );
+  }
+
+  factory ReaderBackgroundPreference.bamboo() {
+    return const ReaderBackgroundPreference(
+      type: ReaderBackgroundType.builtinImage,
+      id: bambooId,
+      assetPath: bambooAssetPath,
+      opacity: 0.14,
+      alignment: Alignment.topRight,
+      fit: BoxFit.cover,
+      tintEnabled: true,
+    );
+  }
+
+  factory ReaderBackgroundPreference.fromJson(Map<String, Object?> json) {
+    final type = _typeFromString(json['type'] as String?);
+    final id = json['id'] as String?;
+    if (type == null || id == null || id.trim().isEmpty) {
+      return ReaderBackgroundPreference.defaults();
+    }
+
+    final resolved = ReaderBackgroundCatalog.resolve(
+      id: id,
+      type: type,
+      assetPath: json['assetPath'] as String?,
+      filePath: json['filePath'] as String?,
+      opacity: (json['opacity'] as num?)?.toDouble(),
+      alignment: _alignmentFromString(json['alignment'] as String?),
+      fit: _fitFromString(json['fit'] as String?),
+      tintEnabled: json['tintEnabled'] as bool?,
+    );
+    return resolved ?? ReaderBackgroundPreference.defaults();
+  }
+
+  factory ReaderBackgroundPreference.fromJsonString(String value) {
+    try {
+      final decoded = jsonDecode(value);
+      if (decoded is! Map<String, Object?>) {
+        return ReaderBackgroundPreference.defaults();
+      }
+      return ReaderBackgroundPreference.fromJson(decoded);
+    } catch (_) {
+      return ReaderBackgroundPreference.defaults();
+    }
+  }
+
+  final ReaderBackgroundType type;
+  final String id;
+  final String? assetPath;
+  final String? filePath;
+  final double opacity;
+  final Alignment alignment;
+  final BoxFit fit;
+  final bool tintEnabled;
+
+  bool get hasImage =>
+      type != ReaderBackgroundType.solid &&
+      ((assetPath != null && assetPath!.isNotEmpty) ||
+          (filePath != null && filePath!.isNotEmpty));
+
+  Map<String, Object?> toJson() {
+    return {
+      'version': 1,
+      'type': _typeToString(type),
+      'id': id,
+      if (assetPath != null) 'assetPath': assetPath,
+      if (filePath != null) 'filePath': filePath,
+      'opacity': opacity,
+      'alignment': _alignmentToString(alignment),
+      'fit': _fitToString(fit),
+      'tintEnabled': tintEnabled,
+    };
+  }
+
+  String toJsonString() => jsonEncode(toJson());
+
+  ReaderBackgroundPreference copyWith({
+    ReaderBackgroundType? type,
+    String? id,
+    String? assetPath,
+    String? filePath,
+    double? opacity,
+    Alignment? alignment,
+    BoxFit? fit,
+    bool? tintEnabled,
+  }) {
+    return ReaderBackgroundPreference(
+      type: type ?? this.type,
+      id: id ?? this.id,
+      assetPath: assetPath ?? this.assetPath,
+      filePath: filePath ?? this.filePath,
+      opacity: opacity ?? this.opacity,
+      alignment: alignment ?? this.alignment,
+      fit: fit ?? this.fit,
+      tintEnabled: tintEnabled ?? this.tintEnabled,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ReaderBackgroundPreference &&
+        other.type == type &&
+        other.id == id &&
+        other.assetPath == assetPath &&
+        other.filePath == filePath &&
+        other.opacity == opacity &&
+        other.alignment == alignment &&
+        other.fit == fit &&
+        other.tintEnabled == tintEnabled;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+        type,
+        id,
+        assetPath,
+        filePath,
+        opacity,
+        alignment,
+        fit,
+        tintEnabled,
+      );
+}
+
+@immutable
+class ReaderBackgroundPreset {
+  const ReaderBackgroundPreset({
+    required this.label,
+    required this.preference,
+  });
+
+  final String label;
+  final ReaderBackgroundPreference preference;
+}
+
+class ReaderBackgroundCatalog {
+  ReaderBackgroundCatalog._();
+
+  static final presets = <ReaderBackgroundPreset>[
+    ReaderBackgroundPreset(
+      label: '纯色',
+      preference: ReaderBackgroundPreference.defaults(),
+    ),
+    ReaderBackgroundPreset(
+      label: '竹影',
+      preference: ReaderBackgroundPreference.bamboo(),
+    ),
+  ];
+
+  static ReaderBackgroundPreference? resolve({
+    required String id,
+    required ReaderBackgroundType type,
+    String? assetPath,
+    String? filePath,
+    double? opacity,
+    Alignment? alignment,
+    BoxFit? fit,
+    bool? tintEnabled,
+  }) {
+    if (type == ReaderBackgroundType.solid ||
+        id == ReaderBackgroundPreference.solidId) {
+      return ReaderBackgroundPreference.defaults();
+    }
+    if (id == ReaderBackgroundPreference.bambooId) {
+      return ReaderBackgroundPreference.bamboo().copyWith(
+        opacity: opacity,
+        alignment: alignment,
+        fit: fit,
+        tintEnabled: tintEnabled,
+      );
+    }
+    if (type == ReaderBackgroundType.customImage &&
+        filePath != null &&
+        filePath.isNotEmpty) {
+      return ReaderBackgroundPreference(
+        type: type,
+        id: id,
+        filePath: filePath,
+        assetPath: assetPath,
+        opacity: opacity ?? 0.12,
+        alignment: alignment ?? Alignment.center,
+        fit: fit ?? BoxFit.cover,
+        tintEnabled: tintEnabled ?? true,
+      );
+    }
+    return null;
+  }
+}
+
+String _typeToString(ReaderBackgroundType type) {
+  return switch (type) {
+    ReaderBackgroundType.solid => 'solid',
+    ReaderBackgroundType.builtinImage => 'builtinImage',
+    ReaderBackgroundType.customImage => 'customImage',
+  };
+}
+
+ReaderBackgroundType? _typeFromString(String? value) {
+  return switch (value) {
+    'solid' => ReaderBackgroundType.solid,
+    'builtinImage' => ReaderBackgroundType.builtinImage,
+    'customImage' => ReaderBackgroundType.customImage,
+    _ => null,
+  };
+}
+
+String _alignmentToString(Alignment alignment) {
+  if (alignment == Alignment.topRight) return 'topRight';
+  if (alignment == Alignment.centerRight) return 'centerRight';
+  if (alignment == Alignment.center) return 'center';
+  if (alignment == Alignment.topCenter) return 'topCenter';
+  return 'topRight';
+}
+
+Alignment? _alignmentFromString(String? value) {
+  return switch (value) {
+    'topRight' => Alignment.topRight,
+    'centerRight' => Alignment.centerRight,
+    'center' => Alignment.center,
+    'topCenter' => Alignment.topCenter,
+    _ => null,
+  };
+}
+
+String _fitToString(BoxFit fit) {
+  return switch (fit) {
+    BoxFit.contain => 'contain',
+    BoxFit.cover => 'cover',
+    BoxFit.fill => 'fill',
+    BoxFit.fitWidth => 'fitWidth',
+    BoxFit.fitHeight => 'fitHeight',
+    BoxFit.none => 'none',
+    BoxFit.scaleDown => 'scaleDown',
+  };
+}
+
+BoxFit? _fitFromString(String? value) {
+  return switch (value) {
+    'contain' => BoxFit.contain,
+    'cover' => BoxFit.cover,
+    'fill' => BoxFit.fill,
+    'fitWidth' => BoxFit.fitWidth,
+    'fitHeight' => BoxFit.fitHeight,
+    'none' => BoxFit.none,
+    'scaleDown' => BoxFit.scaleDown,
+    _ => null,
+  };
+}

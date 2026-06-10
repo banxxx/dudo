@@ -7,10 +7,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../settings/typography_settings/application/reader_font_providers.dart';
 import '../domain/reader_theme.dart';
+import '../application/reader_background_providers.dart';
 import '../application/reader_engine_providers.dart';
 import '../application/reader_engine_state.dart';
 import '../controller/reader_session_controller.dart';
 import '../controller/reader_viewport_controller.dart';
+import '../domain/reader_background.dart';
 import '../domain/reader_catalog_item.dart';
 import '../domain/reader_insets.dart';
 import '../domain/reader_location.dart';
@@ -126,6 +128,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final selectedFontFamily =
         ref.watch(selectedReaderFontFamilyProvider).valueOrNull ??
             ReaderSettings.defaults().fontFamily;
+    final backgroundPreference =
+        ref.watch(readerBackgroundControllerProvider).valueOrNull ??
+            ReaderBackgroundPreference.defaults();
     final statusStyle = foreground.computeLuminance() > 0.5
         ? SystemUiOverlayStyle.light
         : SystemUiOverlayStyle.dark;
@@ -160,7 +165,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                       return Stack(
                         fit: StackFit.expand,
                         children: [
-                          ReaderPaperBackground(palette: _palette),
+                          ReaderPaperBackground(
+                            palette: _palette,
+                            background: backgroundPreference,
+                          ),
                           if (!_pageEdgeHidden)
                             ReaderSoftPageEdge(layout: chromeLayout),
                           if (controller == null ||
@@ -185,6 +193,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                               metrics: metrics,
                               controller: controller,
                               state: state,
+                              backgroundPreference: backgroundPreference,
                             ),
                           ReaderBrightnessOverlay(
                             brightness: _brightness,
@@ -207,6 +216,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     required ReaderPageMetrics metrics,
     required ReaderSessionController controller,
     required ReaderSessionState state,
+    required ReaderBackgroundPreference backgroundPreference,
   }) {
     final document = state.document;
     final viewport = state.viewport;
@@ -291,6 +301,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         progress: bookProgress,
         remainingText: remainingText,
         palette: _palette,
+        backgroundPreference: backgroundPreference,
         fontSize: _fontSize,
         lineHeight: _lineHeight,
         paragraphSpacing: _paragraphSpacing,
@@ -337,6 +348,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             : () => _nextChapter(controller),
         onPaletteChanged: (palette) {
           setState(() => _palette = palette);
+        },
+        onBackgroundChanged: (background) {
+          unawaited(
+            ref.read(readerBackgroundControllerProvider.notifier).select(
+                  background,
+                ),
+          );
         },
         onFontSizeChanged: (value) => _updateFontSize(controller, state, value),
         onLineHeightChanged: (value) =>

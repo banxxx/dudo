@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../domain/reader_catalog_item.dart';
+import '../domain/reader_background.dart';
 import '../domain/reader_overlay_mode.dart';
 import '../domain/reader_settings.dart';
 import '../domain/reader_turn_mode.dart';
@@ -51,6 +52,7 @@ class ReaderControls extends StatelessWidget {
     required this.progress,
     required this.remainingText,
     required this.palette,
+    required this.backgroundPreference,
     required this.fontSize,
     required this.lineHeight,
     required this.paragraphSpacing,
@@ -82,6 +84,7 @@ class ReaderControls extends StatelessWidget {
     required this.onPreviousChapter,
     required this.onNextChapter,
     required this.onPaletteChanged,
+    required this.onBackgroundChanged,
     required this.onFontSizeChanged,
     required this.onLineHeightChanged,
     required this.onParagraphSpacingChanged,
@@ -111,6 +114,7 @@ class ReaderControls extends StatelessWidget {
   final double progress;
   final String remainingText;
   final ReaderPalette palette;
+  final ReaderBackgroundPreference backgroundPreference;
   final double fontSize;
   final double lineHeight;
   final double paragraphSpacing;
@@ -142,6 +146,7 @@ class ReaderControls extends StatelessWidget {
   final VoidCallback? onPreviousChapter;
   final VoidCallback? onNextChapter;
   final ValueChanged<ReaderPalette> onPaletteChanged;
+  final ValueChanged<ReaderBackgroundPreference> onBackgroundChanged;
   final ValueChanged<double> onFontSizeChanged;
   final ValueChanged<double> onLineHeightChanged;
   final ValueChanged<double> onParagraphSpacingChanged;
@@ -279,6 +284,7 @@ class ReaderControls extends StatelessWidget {
                   _ThemePanel(
                     metrics: metrics,
                     palette: palette,
+                    backgroundPreference: backgroundPreference,
                     brightness: brightness,
                     followSystemBrightness: followSystemBrightness,
                     eyeComfortEnhanced: eyeComfortEnhanced,
@@ -288,6 +294,7 @@ class ReaderControls extends StatelessWidget {
                     pageEdgeHidden: pageEdgeHidden,
                     gestureNavigationBlocked: gestureNavigationBlocked,
                     onPaletteChanged: onPaletteChanged,
+                    onBackgroundChanged: onBackgroundChanged,
                     onBrightnessChanged: onBrightnessChanged,
                     onFollowSystemBrightnessChanged:
                         onFollowSystemBrightnessChanged,

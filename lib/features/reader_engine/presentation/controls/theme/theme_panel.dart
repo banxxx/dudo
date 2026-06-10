@@ -6,6 +6,7 @@ class _ThemePanel extends StatelessWidget {
   const _ThemePanel({
     required this.metrics,
     required this.palette,
+    required this.backgroundPreference,
     required this.brightness,
     required this.followSystemBrightness,
     required this.eyeComfortEnhanced,
@@ -15,6 +16,7 @@ class _ThemePanel extends StatelessWidget {
     required this.pageEdgeHidden,
     required this.gestureNavigationBlocked,
     required this.onPaletteChanged,
+    required this.onBackgroundChanged,
     required this.onBrightnessChanged,
     required this.onFollowSystemBrightnessChanged,
     required this.onEyeComfortEnhancedChanged,
@@ -29,6 +31,7 @@ class _ThemePanel extends StatelessWidget {
 
   final _ReaderOverlayMetrics metrics;
   final ReaderPalette palette;
+  final ReaderBackgroundPreference backgroundPreference;
   final double brightness;
   final bool followSystemBrightness;
   final bool eyeComfortEnhanced;
@@ -38,6 +41,7 @@ class _ThemePanel extends StatelessWidget {
   final bool pageEdgeHidden;
   final bool gestureNavigationBlocked;
   final ValueChanged<ReaderPalette> onPaletteChanged;
+  final ValueChanged<ReaderBackgroundPreference> onBackgroundChanged;
   final ValueChanged<double> onBrightnessChanged;
   final ValueChanged<bool> onFollowSystemBrightnessChanged;
   final ValueChanged<bool> onEyeComfortEnhancedChanged;
@@ -83,7 +87,9 @@ class _ThemePanel extends StatelessWidget {
                   _ThemeStyleGroup(
                     metrics: metrics,
                     palette: palette,
+                    backgroundPreference: backgroundPreference,
                     onPaletteChanged: onPaletteChanged,
+                    onBackgroundChanged: onBackgroundChanged,
                   ),
                   SizedBox(height: metrics.s(12)),
                   _BrightnessEyeGroup(

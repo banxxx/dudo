@@ -114,6 +114,7 @@ flutter:
   generate: false
   assets:
     - assets/images/
+    - assets/images/reader_backgrounds/
     - assets/sources/
 
   fonts:

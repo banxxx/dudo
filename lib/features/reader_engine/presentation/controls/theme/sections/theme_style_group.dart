@@ -6,12 +6,16 @@ class _ThemeStyleGroup extends StatelessWidget {
   const _ThemeStyleGroup({
     required this.metrics,
     required this.palette,
+    required this.backgroundPreference,
     required this.onPaletteChanged,
+    required this.onBackgroundChanged,
   });
 
   final _ReaderOverlayMetrics metrics;
   final ReaderPalette palette;
+  final ReaderBackgroundPreference backgroundPreference;
   final ValueChanged<ReaderPalette> onPaletteChanged;
+  final ValueChanged<ReaderBackgroundPreference> onBackgroundChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -102,41 +106,27 @@ class _ThemeStyleGroup extends StatelessWidget {
         ),
         SizedBox(height: metrics.s(8)),
         SizedBox(
-          height: metrics.s(36),
+          height: metrics.s(68),
           child: Row(
             children: [
-              Expanded(
-                child: _ReadingBackgroundPill(
-                  metrics: metrics,
-                  label: '纯色',
-                  selected: true,
-                  fillColor: context.readerControls.themePicker.ink,
+              for (var i = 0;
+                  i < ReaderBackgroundCatalog.presets.length;
+                  i++) ...[
+                if (i > 0) SizedBox(width: metrics.s(9)),
+                Expanded(
+                  child: _ReadingBackgroundTile(
+                    metrics: metrics,
+                    label: ReaderBackgroundCatalog.presets[i].label,
+                    palette: palette,
+                    preference: ReaderBackgroundCatalog.presets[i].preference,
+                    selected: backgroundPreference.id ==
+                        ReaderBackgroundCatalog.presets[i].preference.id,
+                    onTap: () => onBackgroundChanged(
+                      ReaderBackgroundCatalog.presets[i].preference,
+                    ),
+                  ),
                 ),
-              ),
-              SizedBox(width: metrics.s(8)),
-              Expanded(
-                child: _ReadingBackgroundPill(
-                  metrics: metrics,
-                  label: '纸纹',
-                  fillColor: context.readerControls.action.paperTexture,
-                ),
-              ),
-              SizedBox(width: metrics.s(8)),
-              Expanded(
-                child: _ReadingBackgroundPill(
-                  metrics: metrics,
-                  label: '柔光',
-                  fillColor: context.readerControls.themePicker.greenSoft,
-                ),
-              ),
-              SizedBox(width: metrics.s(8)),
-              Expanded(
-                child: _ReadingBackgroundPill(
-                  metrics: metrics,
-                  label: '深色',
-                  fillColor: context.readerControls.themePicker.ink,
-                ),
-              ),
+              ],
             ],
           ),
         ),
