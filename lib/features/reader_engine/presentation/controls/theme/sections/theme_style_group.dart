@@ -110,7 +110,7 @@ class _ThemeStyleGroup extends StatelessWidget {
         ),
         SizedBox(height: metrics.s(8)),
         SizedBox(
-          height: metrics.s(68),
+          height: metrics.s(34),
           child: Row(
             children: [
               for (var i = 0;

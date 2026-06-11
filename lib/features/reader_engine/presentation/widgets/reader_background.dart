@@ -31,10 +31,14 @@ class ReaderBackgroundLayer extends StatelessWidget {
     super.key,
     required this.palette,
     required this.background,
+    this.decorationImageScale = 1,
+    this.imageOpacityMultiplier = 1,
   });
 
   final ReaderPalette palette;
   final ReaderBackgroundPreference background;
+  final double decorationImageScale;
+  final double imageOpacityMultiplier;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +62,8 @@ class ReaderBackgroundLayer extends StatelessWidget {
             _ReaderBackgroundImage(
               palette: palette,
               background: background,
+              decorationImageScale: decorationImageScale,
+              imageOpacityMultiplier: imageOpacityMultiplier,
             ),
           if (background.hasImage)
             DecoratedBox(
@@ -86,10 +92,14 @@ class _ReaderBackgroundImage extends StatelessWidget {
   const _ReaderBackgroundImage({
     required this.palette,
     required this.background,
+    required this.decorationImageScale,
+    required this.imageOpacityMultiplier,
   });
 
   final ReaderPalette palette;
   final ReaderBackgroundPreference background;
+  final double decorationImageScale;
+  final double imageOpacityMultiplier;
 
   @override
   Widget build(BuildContext context) {
@@ -200,14 +210,15 @@ class _ReaderBackgroundImage extends StatelessWidget {
   }
 
   double get _resolvedOpacity {
+    final multiplier = imageOpacityMultiplier.clamp(0.0, 4.0).toDouble();
     if (background.type == ReaderBackgroundType.customImage) {
-      return background.opacity.clamp(0.0, 1.0).toDouble();
+      return (background.opacity * multiplier).clamp(0.0, 1.0).toDouble();
     }
     final base = background.opacity.clamp(0.0, 0.32).toDouble();
     if (palette.background.computeLuminance() < 0.2) {
-      return (base * 0.58).clamp(0.0, 0.16).toDouble();
+      return (base * 0.58 * multiplier).clamp(0.0, 0.32).toDouble();
     }
-    return base;
+    return (base * multiplier).clamp(0.0, 0.32).toDouble();
   }
 
   BoxFit get _imageFit {
@@ -224,14 +235,14 @@ class _ReaderBackgroundImage extends StatelessWidget {
 
   double get _widthFactor {
     if (_isBambooDecoration) {
-      return 0.56;
+      return (0.56 * decorationImageScale).clamp(0.0, 1.0).toDouble();
     }
     return 1;
   }
 
   double get _heightFactor {
     if (_isBambooDecoration) {
-      return 0.46;
+      return (0.46 * decorationImageScale).clamp(0.0, 1.0).toDouble();
     }
     return 1;
   }

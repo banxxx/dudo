@@ -20,7 +20,7 @@ class _ReadingBackgroundTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controlTheme = context.readerControls;
-    final radius = BorderRadius.circular(metrics.s(14));
+    final radius = BorderRadius.circular(metrics.s(8));
     return Semantics(
       button: true,
       selected: selected,
@@ -33,6 +33,7 @@ class _ReadingBackgroundTile extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
             curve: Curves.easeOutCubic,
+            key: ValueKey('reader-background-${preference.id}'),
             decoration: BoxDecoration(
               borderRadius: radius,
               border: Border.all(
@@ -62,29 +63,10 @@ class _ReadingBackgroundTile extends StatelessWidget {
                     palette: palette,
                     preference: preference,
                   ),
-                  Positioned(
-                    left: metrics.s(8),
-                    right: metrics.s(8),
-                    bottom: metrics.s(6),
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: DudoTextStyles.sans(
-                        color: selected
-                            ? controlTheme.themePicker.ink
-                            : controlTheme.themePicker.secondaryText,
-                        fontSize: metrics.s(11),
-                        fontWeight:
-                            selected ? FontWeight.w700 : FontWeight.w600,
-                      ),
-                    ),
-                  ),
                   if (selected)
                     Positioned(
-                      top: metrics.s(6),
-                      right: metrics.s(6),
+                      top: metrics.s(5),
+                      right: metrics.s(5),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           color: controlTheme.themePicker.green,
@@ -145,8 +127,8 @@ class _ReadingBackgroundCustomTile extends StatelessWidget {
         ),
         if (!selected)
           Positioned(
-            top: metrics.s(10),
-            right: metrics.s(10),
+            top: metrics.s(6),
+            right: metrics.s(6),
             child: IgnorePointer(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -185,70 +167,16 @@ class _ReadingBackgroundPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        ReaderBackgroundLayer(
-          palette: palette,
-          background: preference,
-        ),
-        Positioned(
-          left: metrics.s(10),
-          top: metrics.s(12),
-          right: metrics.s(26),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _PreviewLine(
-                widthFactor: 0.78,
-                metrics: metrics,
-                color: palette.foreground.withValues(alpha: 0.36),
-              ),
-              SizedBox(height: metrics.s(5)),
-              _PreviewLine(
-                widthFactor: 0.62,
-                metrics: metrics,
-                color: palette.foreground.withValues(alpha: 0.24),
-              ),
-              SizedBox(height: metrics.s(5)),
-              _PreviewLine(
-                widthFactor: 0.48,
-                metrics: metrics,
-                color: palette.foreground.withValues(alpha: 0.18),
-              ),
-            ],
-          ),
-        ),
-      ],
+    return ReaderBackgroundLayer(
+      palette: palette,
+      background: preference,
+      decorationImageScale: _usesDecorationImage ? 1.72 : 1,
+      imageOpacityMultiplier: _usesDecorationImage ? 2.2 : 1,
     );
   }
-}
 
-class _PreviewLine extends StatelessWidget {
-  const _PreviewLine({
-    required this.widthFactor,
-    required this.metrics,
-    required this.color,
-  });
-
-  final double widthFactor;
-  final _ReaderOverlayMetrics metrics;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return FractionallySizedBox(
-      widthFactor: widthFactor,
-      alignment: Alignment.centerLeft,
-      child: SizedBox(
-        height: metrics.s(3),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(999),
-          ),
-        ),
-      ),
-    );
+  bool get _usesDecorationImage {
+    return preference.id == ReaderBackgroundPreference.bambooId ||
+        preference.id == ReaderBackgroundPreference.bambooCornerId;
   }
 }
