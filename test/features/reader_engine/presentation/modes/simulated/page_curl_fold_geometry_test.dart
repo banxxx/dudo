@@ -94,6 +94,37 @@ void main() {
     expect(lowerMiddle.touch.dy, 519);
   });
 
+  test('corner next-page drag keeps edge touch geometry stable', () {
+    PageCurlBezierGeometry build(Offset start, Offset current) {
+      final gesture = PageCurlGesture.fromPoints(
+        pageSize: const Size(320, 520),
+        start: start,
+        current: current,
+      );
+      return PageCurlBezierGeometry.fromGesture(
+        gesture: gesture,
+        turnType: PageCurlTurnType.nextPageOut,
+        pageSize: const Size(320, 520),
+      );
+    }
+
+    final top = build(
+      const Offset(320, 0),
+      const Offset(262.4, 0),
+    );
+    final bottom = build(
+      const Offset(320, 520),
+      const Offset(262.4, 520),
+    );
+
+    expect(top.corner, PageCurlFoldCorner.topRight);
+    expect(top.touch.dy, 1);
+    expect(top.control2.dy.abs(), lessThan(520 * 4));
+    expect(bottom.corner, PageCurlFoldCorner.bottomRight);
+    expect(bottom.touch.dy, 519);
+    expect(bottom.control2.dy.abs(), lessThan(520 * 4));
+  });
+
   test('previous-page drag uses the bottom-right retreat path', () {
     final gesture = PageCurlGesture.fromPoints(
       pageSize: const Size(320, 520),

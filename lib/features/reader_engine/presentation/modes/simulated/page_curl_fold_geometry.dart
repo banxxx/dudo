@@ -224,7 +224,11 @@ class PageCurlBezierGeometry {
       return bottomY;
     }
     if (gesture.anchor != PageCurlAnchor.middle) {
-      return gesture.current.dy;
+      return switch (gesture.anchor) {
+        PageCurlAnchor.top => math.max(topY, gesture.current.dy),
+        PageCurlAnchor.bottom => math.min(bottomY, gesture.current.dy),
+        PageCurlAnchor.middle => gesture.current.dy,
+      };
     }
     return gesture.start.dy < height / 2 ? topY : bottomY;
   }
