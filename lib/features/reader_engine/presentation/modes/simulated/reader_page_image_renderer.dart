@@ -1,7 +1,11 @@
 import 'dart:ui' as ui;
 
+import 'package:flutter/widgets.dart';
+
+import '../../../domain/reader_background.dart';
 import '../../../domain/reader_theme.dart';
 import '../../../layout/reader_line_layout_models.dart';
+import '../../widgets/reader_background_canvas.dart';
 import '../../widgets/reader_canvas_page.dart';
 import 'page_curl_snapshot.dart';
 
@@ -22,6 +26,13 @@ class ReaderPageImageKey {
   factory ReaderPageImageKey.fromPageLayout({
     required ReaderPageLayout pageLayout,
     required ReaderPalette palette,
+    ReaderBackgroundPreference background = const ReaderBackgroundPreference(
+      type: ReaderBackgroundType.solid,
+      id: ReaderBackgroundPreference.solidId,
+      opacity: 0,
+      alignment: Alignment.center,
+      tintEnabled: false,
+    ),
     required double pixelRatio,
   }) {
     return ReaderPageImageKey(
@@ -69,6 +80,7 @@ class ReaderPageImageKey {
       paletteDigest: [
         palette.background.toARGB32(),
         palette.foreground.toARGB32(),
+        ReaderBackgroundCanvas.digest(background),
       ].join('|'),
       pixelRatio: pixelRatio,
     );
@@ -230,11 +242,19 @@ class ReaderPageImageRenderer {
   Future<ReaderPageImageHandle> renderPage({
     required ReaderPageLayout pageLayout,
     required ReaderPalette palette,
+    ReaderBackgroundPreference background = const ReaderBackgroundPreference(
+      type: ReaderBackgroundType.solid,
+      id: ReaderBackgroundPreference.solidId,
+      opacity: 0,
+      alignment: Alignment.center,
+      tintEnabled: false,
+    ),
     required double pixelRatio,
   }) {
     final key = ReaderPageImageKey.fromPageLayout(
       pageLayout: pageLayout,
       palette: palette,
+      background: background,
       pixelRatio: pixelRatio,
     );
     final cache = this.cache;
@@ -243,6 +263,7 @@ class ReaderPageImageRenderer {
           .renderImage(
             pageLayout: pageLayout,
             palette: palette,
+            background: background,
             pixelRatio: pixelRatio,
           )
           .then(
@@ -257,6 +278,7 @@ class ReaderPageImageRenderer {
       render: () => rasterizer.renderImage(
         pageLayout: pageLayout,
         palette: palette,
+        background: background,
         pixelRatio: pixelRatio,
       ),
     );
@@ -266,17 +288,26 @@ class ReaderPageImageRenderer {
     required ReaderPageLayout currentPage,
     required ReaderPageLayout targetPage,
     required ReaderPalette palette,
+    ReaderBackgroundPreference background = const ReaderBackgroundPreference(
+      type: ReaderBackgroundType.solid,
+      id: ReaderBackgroundPreference.solidId,
+      opacity: 0,
+      alignment: Alignment.center,
+      tintEnabled: false,
+    ),
     required double pixelRatio,
   }) async {
     final current = await renderPage(
       pageLayout: currentPage,
       palette: palette,
+      background: background,
       pixelRatio: pixelRatio,
     );
     try {
       final target = await renderPage(
         pageLayout: targetPage,
         palette: palette,
+        background: background,
         pixelRatio: pixelRatio,
       );
       return PageCurlSnapshotPair(

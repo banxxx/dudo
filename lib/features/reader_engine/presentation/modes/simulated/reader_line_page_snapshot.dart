@@ -1,5 +1,6 @@
 import 'package:flutter/painting.dart';
 
+import '../../../domain/reader_background.dart';
 import '../../../domain/reader_theme.dart';
 import '../../../domain/reader_settings.dart';
 import '../../../layout/reader_line_layout_models.dart';
@@ -19,6 +20,13 @@ class ReaderLinePageSnapshotController {
     required ReaderPageLayout currentPage,
     required ReaderPageLayout targetPage,
     required ReaderPalette palette,
+    ReaderBackgroundPreference background = const ReaderBackgroundPreference(
+      type: ReaderBackgroundType.solid,
+      id: ReaderBackgroundPreference.solidId,
+      opacity: 0,
+      alignment: Alignment.center,
+      tintEnabled: false,
+    ),
     required double devicePixelRatio,
   }) async {
     try {
@@ -26,6 +34,7 @@ class ReaderLinePageSnapshotController {
         currentPage: currentPage,
         targetPage: targetPage,
         palette: palette,
+        background: background,
         pixelRatio: devicePixelRatio,
       );
     } catch (_) {
@@ -36,11 +45,19 @@ class ReaderLinePageSnapshotController {
   Future<void> warmPage({
     required ReaderPageLayout pageLayout,
     required ReaderPalette palette,
+    ReaderBackgroundPreference background = const ReaderBackgroundPreference(
+      type: ReaderBackgroundType.solid,
+      id: ReaderBackgroundPreference.solidId,
+      opacity: 0,
+      alignment: Alignment.center,
+      tintEnabled: false,
+    ),
     required double devicePixelRatio,
   }) async {
     final handle = await renderer.renderPage(
       pageLayout: pageLayout,
       palette: palette,
+      background: background,
       pixelRatio: devicePixelRatio,
     );
     handle.release();
@@ -61,6 +78,13 @@ class ReaderPageSliceSnapshotController {
     required ReaderResolvedPage targetPage,
     required ReaderSettings settings,
     required ReaderPalette palette,
+    ReaderBackgroundPreference background = const ReaderBackgroundPreference(
+      type: ReaderBackgroundType.solid,
+      id: ReaderBackgroundPreference.solidId,
+      opacity: 0,
+      alignment: Alignment.center,
+      tintEnabled: false,
+    ),
     required Size viewportSize,
     required double devicePixelRatio,
   }) async {
@@ -79,6 +103,7 @@ class ReaderPageSliceSnapshotController {
         currentPage: currentLayout,
         targetPage: targetLayout,
         palette: palette,
+        background: background,
         devicePixelRatio: devicePixelRatio,
       );
     } catch (_) {
@@ -90,6 +115,13 @@ class ReaderPageSliceSnapshotController {
     required Iterable<ReaderResolvedPage> pages,
     required ReaderSettings settings,
     required ReaderPalette palette,
+    ReaderBackgroundPreference background = const ReaderBackgroundPreference(
+      type: ReaderBackgroundType.solid,
+      id: ReaderBackgroundPreference.solidId,
+      opacity: 0,
+      alignment: Alignment.center,
+      tintEnabled: false,
+    ),
     required Size viewportSize,
     required double devicePixelRatio,
   }) async {
@@ -103,6 +135,7 @@ class ReaderPageSliceSnapshotController {
         await lineSnapshotController.warmPage(
           pageLayout: layout,
           palette: palette,
+          background: background,
           devicePixelRatio: devicePixelRatio,
         );
       } catch (_) {

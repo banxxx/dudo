@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:dudo/features/reader_engine/domain/reader_background.dart';
 import 'package:dudo/features/reader_engine/domain/reader_location.dart';
 import 'package:dudo/features/reader_engine/layout/reader_layout_settings.dart';
 import 'package:dudo/features/reader_engine/layout/reader_line_layout_models.dart';
@@ -131,6 +135,40 @@ void main() {
       expect(image.height, 320);
       image.dispose();
     });
+
+    test('renders custom image reading background into page image', () async {
+      const rasterizer = ReaderPageRasterizer();
+      final backgroundFile = await _createSolidPngFile(Colors.red);
+
+      final image = await rasterizer.renderImage(
+        pageLayout: _pageLayout(),
+        palette: _palette,
+        pixelRatio: 1,
+        background: ReaderBackgroundPreference(
+          type: ReaderBackgroundType.customImage,
+          id: 'custom_red_test',
+          filePath: backgroundFile.path,
+          opacity: 1,
+          alignment: Alignment.center,
+          fit: BoxFit.fill,
+          tintEnabled: false,
+        ),
+      );
+
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      expect(bytes, isNotNull);
+      final offset =
+          ((image.width * (image.height ~/ 2)) + image.width ~/ 2) * 4;
+      final red = bytes!.getUint8(offset);
+      final green = bytes.getUint8(offset + 1);
+      final blue = bytes.getUint8(offset + 2);
+
+      expect(red, greaterThan(green + 120));
+      expect(red, greaterThan(blue + 120));
+
+      image.dispose();
+      await backgroundFile.delete();
+    });
   });
 }
 
@@ -139,6 +177,22 @@ const _palette = ReaderPalette(
   background: Color(0xFFF8F4EA),
   foreground: Color(0xFF25251F),
 );
+
+Future<File> _createSolidPngFile(Color color) async {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  canvas.drawRect(const Rect.fromLTWH(0, 0, 4, 4), Paint()..color = color);
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(4, 4);
+  picture.dispose();
+  final data = await image.toByteData(format: ui.ImageByteFormat.png);
+  image.dispose();
+  final file = File(
+    '${Directory.systemTemp.path}/reader-background-${DateTime.now().microsecondsSinceEpoch}.png',
+  );
+  await file.writeAsBytes(data!.buffer.asUint8List(), flush: true);
+  return file;
+}
 
 ReaderPageLayout _pageLayout() {
   const style = TextStyle(

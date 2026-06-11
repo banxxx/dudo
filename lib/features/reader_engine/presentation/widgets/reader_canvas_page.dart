@@ -3,8 +3,10 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../domain/reader_background.dart';
 import '../../domain/reader_theme.dart';
 import '../../layout/reader_line_layout_models.dart';
+import 'reader_background_canvas.dart';
 import 'reader_canvas_highlight.dart';
 
 class ReaderCanvasPage extends StatelessWidget {
@@ -14,12 +16,14 @@ class ReaderCanvasPage extends StatelessWidget {
     required this.palette,
     this.highlights = const [],
     this.paintBackground = false,
+    this.background,
   });
 
   final ReaderPageLayout pageLayout;
   final ReaderPalette palette;
   final List<ReaderPageHighlight> highlights;
   final bool paintBackground;
+  final ReaderBackgroundPreference? background;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +34,7 @@ class ReaderCanvasPage extends StatelessWidget {
         palette: palette,
         highlights: highlights,
         paintBackground: paintBackground,
+        background: background,
       ),
     );
   }
@@ -41,12 +46,14 @@ class ReaderPagePainter extends CustomPainter {
     required this.palette,
     this.highlights = const [],
     this.paintBackground = false,
+    this.background,
   });
 
   final ReaderPageLayout pageLayout;
   final ReaderPalette palette;
   final List<ReaderPageHighlight> highlights;
   final bool paintBackground;
+  final ReaderBackgroundPreference? background;
 
   static void paintPage({
     required Canvas canvas,
@@ -54,12 +61,24 @@ class ReaderPagePainter extends CustomPainter {
     required ReaderPalette palette,
     List<ReaderPageHighlight> highlights = const [],
     bool paintBackground = false,
+    ReaderBackgroundPreference? background,
+    ui.Image? backgroundImage,
   }) {
     if (paintBackground) {
-      canvas.drawRect(
-        pageLayout.pageRect,
-        Paint()..color = palette.background,
-      );
+      if (background != null) {
+        ReaderBackgroundCanvas.paint(
+          canvas: canvas,
+          rect: pageLayout.pageRect,
+          palette: palette,
+          background: background,
+          image: backgroundImage,
+        );
+      } else {
+        canvas.drawRect(
+          pageLayout.pageRect,
+          Paint()..color = palette.background,
+        );
+      }
     }
 
     canvas.save();
@@ -95,6 +114,7 @@ class ReaderPagePainter extends CustomPainter {
       palette: palette,
       highlights: highlights,
       paintBackground: paintBackground,
+      background: background,
     );
   }
 
@@ -103,7 +123,8 @@ class ReaderPagePainter extends CustomPainter {
     return oldDelegate.pageLayout != pageLayout ||
         oldDelegate.palette != palette ||
         !listEquals(oldDelegate.highlights, highlights) ||
-        oldDelegate.paintBackground != paintBackground;
+        oldDelegate.paintBackground != paintBackground ||
+        oldDelegate.background != background;
   }
 }
 
@@ -115,6 +136,8 @@ class ReaderPageRasterizer {
     required ReaderPalette palette,
     List<ReaderPageHighlight> highlights = const [],
     bool paintBackground = true,
+    ReaderBackgroundPreference? background,
+    ui.Image? backgroundImage,
   }) {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
@@ -124,6 +147,8 @@ class ReaderPageRasterizer {
       palette: palette,
       highlights: highlights,
       paintBackground: paintBackground,
+      background: background,
+      backgroundImage: backgroundImage,
     );
     return recorder.endRecording();
   }
@@ -134,9 +159,13 @@ class ReaderPageRasterizer {
     required double pixelRatio,
     List<ReaderPageHighlight> highlights = const [],
     bool paintBackground = true,
+    ReaderBackgroundPreference? background,
   }) async {
     final width = (pageLayout.pageRect.width * pixelRatio).round();
     final height = (pageLayout.pageRect.height * pixelRatio).round();
+    final backgroundImage = paintBackground && background != null
+        ? await ReaderBackgroundCanvas.resolveImage(background)
+        : null;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.scale(pixelRatio, pixelRatio);
@@ -146,6 +175,8 @@ class ReaderPageRasterizer {
       palette: palette,
       highlights: highlights,
       paintBackground: paintBackground,
+      background: background,
+      backgroundImage: backgroundImage,
     );
     final picture = recorder.endRecording();
     try {

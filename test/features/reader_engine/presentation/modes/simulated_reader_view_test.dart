@@ -1,4 +1,5 @@
 import 'package:dudo/features/reader_engine/domain/reader_chapter.dart';
+import 'package:dudo/features/reader_engine/domain/reader_background.dart';
 import 'package:dudo/features/reader_engine/domain/reader_content_block.dart';
 import 'package:dudo/features/reader_engine/domain/reader_location.dart';
 import 'package:dudo/features/reader_engine/domain/reader_settings.dart';
@@ -9,6 +10,7 @@ import 'package:dudo/features/reader_engine/presentation/modes/simulated/page_cu
 import 'package:dudo/features/reader_engine/presentation/modes/simulated/page_curl_gesture.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/simulated/page_curl_render_box.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/simulated/simulated_reader_view.dart';
+import 'package:dudo/features/reader_engine/presentation/widgets/reader_background.dart';
 import 'package:dudo/features/reader_engine/domain/reader_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -67,6 +69,46 @@ void main() {
     expect(reportedLocations.single.offset, 10);
     expect(find.byKey(const ValueKey('reader-engine-simulated-current-0-1')),
         findsOneWidget);
+  });
+
+  testWidgets('SimulatedReaderView paints page-local reading backgrounds',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 520);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final center = _item(0, pageCount: 2);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 520,
+          child: SimulatedReaderView(
+            viewport: ReaderViewportState(
+              center: center,
+              currentLocation: ReaderLocation.startOfChapter(
+                bookId: 'book-1',
+                chapterIndex: 0,
+              ),
+              currentLayout: center.layout,
+            ),
+            settings: ReaderSettings.defaults(),
+            palette: ReaderTheme.parchment,
+            backgroundPreference: ReaderBackgroundPreference.bamboo(),
+            controlsVisible: false,
+            onContentTap: () {},
+            onPreviousBoundary: () {},
+            onNextBoundary: () {},
+            onLocationChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(ReaderBackgroundLayer), findsWidgets);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('SimulatedReaderView keeps the curl painter during page handoff',

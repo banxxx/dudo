@@ -1,4 +1,5 @@
 import 'package:dudo/features/reader_engine/domain/reader_chapter.dart';
+import 'package:dudo/features/reader_engine/domain/reader_background.dart';
 import 'package:dudo/features/reader_engine/domain/reader_content_block.dart';
 import 'package:dudo/features/reader_engine/domain/reader_insets.dart';
 import 'package:dudo/features/reader_engine/domain/reader_location.dart';
@@ -72,6 +73,38 @@ void main() {
       );
       expect(identical(first.image, third.image), isFalse);
       third.release();
+
+      cache.dispose();
+    });
+
+    test('keys cached page images by reading background', () async {
+      final cache = ReaderPageImageCache(maximumEntries: 3);
+      final renderer = ReaderPageImageRenderer(cache: cache);
+      final pageLayout = _pageLayout(text: 'cached page');
+
+      final solid = await renderer.renderPage(
+        pageLayout: pageLayout,
+        palette: _palette,
+        pixelRatio: 1,
+      );
+      solid.release();
+
+      final bamboo = await renderer.renderPage(
+        pageLayout: pageLayout,
+        palette: _palette,
+        background: ReaderBackgroundPreference.bamboo(),
+        pixelRatio: 1,
+      );
+      expect(identical(solid.image, bamboo.image), isFalse);
+      bamboo.release();
+
+      final solidAgain = await renderer.renderPage(
+        pageLayout: pageLayout,
+        palette: _palette,
+        pixelRatio: 1,
+      );
+      expect(identical(solid.image, solidAgain.image), isTrue);
+      solidAgain.release();
 
       cache.dispose();
     });

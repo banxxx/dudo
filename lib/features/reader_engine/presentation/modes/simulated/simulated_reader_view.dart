@@ -3,10 +3,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../domain/reader_background.dart';
 import '../../../domain/reader_theme.dart';
 import '../../../domain/reader_location.dart';
 import '../../../domain/reader_settings.dart';
 import '../../../domain/reader_viewport_state.dart';
+import '../../widgets/reader_background.dart';
+import '../../widgets/reader_background_canvas.dart';
 import '../reader_page_slice_canvas_surface.dart';
 import '../reader_paged_window.dart';
 import 'page_curl_controller.dart';
@@ -23,6 +26,13 @@ class SimulatedReaderView extends StatefulWidget {
     required this.viewport,
     required this.settings,
     required this.palette,
+    this.backgroundPreference = const ReaderBackgroundPreference(
+      type: ReaderBackgroundType.solid,
+      id: ReaderBackgroundPreference.solidId,
+      opacity: 0,
+      alignment: Alignment.center,
+      tintEnabled: false,
+    ),
     required this.controlsVisible,
     this.externalPageTurnRequestId = 0,
     this.externalPageTurnDirection = 0,
@@ -35,6 +45,7 @@ class SimulatedReaderView extends StatefulWidget {
   final ReaderViewportState viewport;
   final ReaderSettings settings;
   final ReaderPalette palette;
+  final ReaderBackgroundPreference backgroundPreference;
   final bool controlsVisible;
   final int externalPageTurnRequestId;
   final int externalPageTurnDirection;
@@ -131,9 +142,11 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       _resetTurnState(stopAnimation: true, disposeSnapshots: true);
     }
     if (oldWidget.settings != widget.settings ||
-        oldWidget.palette != widget.palette) {
+        oldWidget.palette != widget.palette ||
+        oldWidget.backgroundPreference != widget.backgroundPreference) {
       _imageWarmupKey = null;
       _pageImageCache.clear();
+      _disposeSnapshots();
     }
     _handleExternalPageTurnIfNeeded();
   }
@@ -173,7 +186,6 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
           devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
         );
         final target = _transitionTarget ?? window.current;
-        final pageColor = widget.palette.background;
         final committedTarget = _committedTarget;
         if (committedTarget != null) {
           return SizedBox.expand(
@@ -182,18 +194,16 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
               behavior: HitTestBehavior.opaque,
               onTapUp: (details) => _handleTap(details.localPosition),
               child: ClipRect(
-                child: ColoredBox(
-                  color: pageColor,
-                  child: ReaderPageSliceCanvasSurface(
-                    key: ValueKey(
-                      'reader-engine-simulated-committed-'
-                      '${committedTarget.chapterIndex}-'
-                      '${committedTarget.pageIndex}',
-                    ),
-                    resolvedPage: committedTarget,
-                    settings: widget.settings,
-                    palette: widget.palette,
+                child: _SimulatedReaderPageSurface(
+                  key: ValueKey(
+                    'reader-engine-simulated-committed-'
+                    '${committedTarget.chapterIndex}-'
+                    '${committedTarget.pageIndex}',
                   ),
+                  resolvedPage: committedTarget,
+                  settings: widget.settings,
+                  palette: widget.palette,
+                  backgroundPreference: widget.backgroundPreference,
                 ),
               ),
             ),
@@ -230,35 +240,31 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
                 children: [
                   RepaintBoundary(
                     key: _targetPageKey,
-                    child: ColoredBox(
-                      color: pageColor,
-                      child: ReaderPageSliceCanvasSurface(
-                        key: ValueKey(
-                          'reader-engine-simulated-under-'
-                          '${target.chapterIndex}-${target.pageIndex}',
-                        ),
-                        resolvedPage: target,
-                        settings: widget.settings,
-                        palette: widget.palette,
+                    child: _SimulatedReaderPageSurface(
+                      key: ValueKey(
+                        'reader-engine-simulated-under-'
+                        '${target.chapterIndex}-${target.pageIndex}',
                       ),
+                      resolvedPage: target,
+                      settings: widget.settings,
+                      palette: widget.palette,
+                      backgroundPreference: widget.backgroundPreference,
                     ),
                   ),
                   Transform.translate(
                     offset: elasticOffset,
                     child: RepaintBoundary(
                       key: _currentPageKey,
-                      child: ColoredBox(
-                        color: pageColor,
-                        child: ReaderPageSliceCanvasSurface(
-                          key: ValueKey(
-                            'reader-engine-simulated-current-'
-                            '${window.current.chapterIndex}-'
-                            '${window.current.pageIndex}',
-                          ),
-                          resolvedPage: window.current,
-                          settings: widget.settings,
-                          palette: widget.palette,
+                      child: _SimulatedReaderPageSurface(
+                        key: ValueKey(
+                          'reader-engine-simulated-current-'
+                          '${window.current.chapterIndex}-'
+                          '${window.current.pageIndex}',
                         ),
+                        resolvedPage: window.current,
+                        settings: widget.settings,
+                        palette: widget.palette,
+                        backgroundPreference: widget.backgroundPreference,
                       ),
                     ),
                   ),
@@ -267,7 +273,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
                       key: const ValueKey('reader-engine-page-curl-painter'),
                       controller: _curlController,
                       snapshots: snapshots,
-                      pageColor: pageColor,
+                      pageColor: widget.palette.background,
                       quality: PageCurlQuality.high,
                     ),
                 ],
@@ -734,6 +740,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
           targetPage: captureTarget,
           settings: widget.settings,
           palette: widget.palette,
+          background: widget.backgroundPreference,
           viewportSize: Size(_viewportWidth, _viewportHeight),
           devicePixelRatio: devicePixelRatio,
         );
@@ -808,6 +815,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       widget.settings.pagePadding.bottom,
       widget.palette.background.toARGB32(),
       widget.palette.foreground.toARGB32(),
+      ReaderBackgroundCanvas.digest(widget.backgroundPreference),
       for (final page in pages) ...[
         page.chapterIndex,
         page.pageIndex,
@@ -825,6 +833,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
           pages: pages,
           settings: widget.settings,
           palette: widget.palette,
+          background: widget.backgroundPreference,
           viewportSize: Size(_viewportWidth, _viewportHeight),
           devicePixelRatio: devicePixelRatio,
         );
@@ -946,6 +955,39 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
       );
       _startProgrammaticTurn(direction, start);
     });
+  }
+}
+
+class _SimulatedReaderPageSurface extends StatelessWidget {
+  const _SimulatedReaderPageSurface({
+    super.key,
+    required this.resolvedPage,
+    required this.settings,
+    required this.palette,
+    required this.backgroundPreference,
+  });
+
+  final ReaderResolvedPage resolvedPage;
+  final ReaderSettings settings;
+  final ReaderPalette palette;
+  final ReaderBackgroundPreference backgroundPreference;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ReaderBackgroundLayer(
+          palette: palette,
+          background: backgroundPreference,
+        ),
+        ReaderPageSliceCanvasSurface(
+          resolvedPage: resolvedPage,
+          settings: settings,
+          palette: palette,
+        ),
+      ],
+    );
   }
 }
 

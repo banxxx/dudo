@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../domain/reader_theme.dart';
 import '../application/reader_engine_state.dart';
 import '../data/reader_document_source.dart';
+import '../domain/reader_background.dart';
 import '../domain/reader_location.dart';
 import '../domain/reader_turn_mode.dart';
 import '../layout/reader_layout_engine.dart';
@@ -17,6 +18,7 @@ class ReaderViewport extends StatelessWidget {
     super.key,
     required this.state,
     required this.palette,
+    required this.backgroundPreference,
     required this.controlsVisible,
     required this.source,
     required this.layoutEngine,
@@ -32,6 +34,7 @@ class ReaderViewport extends StatelessWidget {
 
   final ReaderSessionState state;
   final ReaderPalette palette;
+  final ReaderBackgroundPreference backgroundPreference;
   final bool controlsVisible;
   final ReaderDocumentSource source;
   final ReaderLayoutEngine layoutEngine;
@@ -81,6 +84,7 @@ class ReaderViewport extends StatelessWidget {
           viewport: viewport,
           settings: state.settings,
           palette: palette,
+          backgroundPreference: backgroundPreference,
           controlsVisible: controlsVisible,
           externalPageTurnRequestId: externalPageTurnRequestId,
           externalPageTurnDirection: externalPageTurnDirection,
