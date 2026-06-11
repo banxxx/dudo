@@ -25,6 +25,7 @@ class ReaderBackgroundPreference {
 
   static const solidId = 'solid';
   static const bambooId = 'bamboo_001';
+  static const parchmentId = 'parchment_001';
   static const bambooAssetPath = 'assets/images/reader_backgrounds/001.webp';
   static const maxBlurRadius = 18.0;
 
@@ -47,6 +48,17 @@ class ReaderBackgroundPreference {
       alignment: Alignment.topRight,
       fit: BoxFit.cover,
       tintEnabled: true,
+    );
+  }
+
+  factory ReaderBackgroundPreference.parchment() {
+    return const ReaderBackgroundPreference(
+      type: ReaderBackgroundType.builtinImage,
+      id: parchmentId,
+      opacity: 0.18,
+      alignment: Alignment.center,
+      fit: BoxFit.cover,
+      tintEnabled: false,
     );
   }
 
@@ -198,6 +210,10 @@ class ReaderBackgroundCatalog {
       label: '竹影',
       preference: ReaderBackgroundPreference.bamboo(),
     ),
+    ReaderBackgroundPreset(
+      label: '羊皮纸',
+      preference: ReaderBackgroundPreference.parchment(),
+    ),
   ];
 
   static ReaderBackgroundPreference? resolve({
@@ -218,6 +234,16 @@ class ReaderBackgroundCatalog {
     }
     if (id == ReaderBackgroundPreference.bambooId) {
       return ReaderBackgroundPreference.bamboo().copyWith(
+        opacity: opacity,
+        alignment: alignment,
+        fit: fit,
+        tintEnabled: tintEnabled,
+        grayscaleEnabled: grayscaleEnabled,
+        blurRadius: blurRadius,
+      );
+    }
+    if (id == ReaderBackgroundPreference.parchmentId) {
+      return ReaderBackgroundPreference.parchment().copyWith(
         opacity: opacity,
         alignment: alignment,
         fit: fit,
