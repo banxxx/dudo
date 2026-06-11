@@ -44,9 +44,9 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
     }
 
     final contentWidth =
-        math.max(1.0, viewportSize.width - settings.pagePadding.horizontal);
+    math.max(1.0, viewportSize.width - settings.pagePadding.horizontal);
     final pageHeight =
-        math.max(1.0, viewportSize.height - settings.pagePadding.vertical);
+    math.max(1.0, viewportSize.height - settings.pagePadding.vertical);
     final blockLayouts = <ReaderBlockLayout>[];
     final pages = <ReaderPageSlice>[];
     final pageBlocks = <ReaderContentBlock>[];
@@ -114,10 +114,10 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
         while (localStart < block.text.length) {
           final remainingText = block.text.substring(localStart);
           final remainingHeight = _measureText(
-                text: remainingText,
-                style: _styleForBlock(block, settings),
-                maxWidth: contentWidth,
-              ) +
+            text: remainingText,
+            style: _styleForBlock(block, settings),
+            maxWidth: contentWidth,
+          ) +
               settings.paragraphSpacing;
           var availableHeight = pageHeight - pageContentHeight;
 
@@ -262,7 +262,7 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
     required Size viewportSize,
   }) async {
     final lineLayout =
-        await const FlutterReaderLineLayoutEngine().layoutChapter(
+    await const FlutterReaderLineLayoutEngine().layoutChapter(
       chapter: chapter,
       settings: ReaderLayoutSettings.fromReaderSettings(settings),
       viewportSize: viewportSize,
@@ -377,9 +377,9 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
   }
 
   ReaderContentBlock _contentFragmentForLineBlock(
-    ReaderContentBlock block,
-    ReaderPageBlockLayout blockLayout,
-  ) {
+      ReaderContentBlock block,
+      ReaderPageBlockLayout blockLayout,
+      ) {
     final localStart = (blockLayout.textRange.startOffset - block.startOffset)
         .clamp(0, block.length)
         .toInt();
@@ -389,38 +389,38 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
 
     return switch (block) {
       ReaderHeadingBlock(:final text, :final level) => ReaderHeadingBlock(
-          blockId: block.blockId,
-          chapterIndex: block.chapterIndex,
-          startOffset: block.startOffset + localStart,
-          endOffset: block.startOffset + localEnd,
-          text: text.substring(localStart, localEnd),
-          level: level,
-        ),
+        blockId: block.blockId,
+        chapterIndex: block.chapterIndex,
+        startOffset: block.startOffset + localStart,
+        endOffset: block.startOffset + localEnd,
+        text: text.substring(localStart, localEnd),
+        level: level,
+      ),
       ReaderParagraphBlock(
-        :final text,
-        :final paragraphIndex,
-        :final addBottomSpacing,
-        :final startsAtParagraphStart,
+          :final text,
+          :final paragraphIndex,
+          :final addBottomSpacing,
+          :final startsAtParagraphStart,
       ) =>
-        ReaderParagraphBlock(
-          blockId: block.blockId,
-          chapterIndex: block.chapterIndex,
-          startOffset: block.startOffset + localStart,
-          endOffset: block.startOffset + localEnd,
-          text: text.substring(localStart, localEnd),
-          paragraphIndex: paragraphIndex,
-          addBottomSpacing:
-              blockLayout.isLastFragmentOfBlock && addBottomSpacing,
-          startsAtParagraphStart: localStart == 0 && startsAtParagraphStart,
-        ),
+          ReaderParagraphBlock(
+            blockId: block.blockId,
+            chapterIndex: block.chapterIndex,
+            startOffset: block.startOffset + localStart,
+            endOffset: block.startOffset + localEnd,
+            text: text.substring(localStart, localEnd),
+            paragraphIndex: paragraphIndex,
+            addBottomSpacing:
+            blockLayout.isLastFragmentOfBlock && addBottomSpacing,
+            startsAtParagraphStart: localStart == 0 && startsAtParagraphStart,
+          ),
       ReaderImageBlock(:final source, :final alt) => ReaderImageBlock(
-          blockId: block.blockId,
-          chapterIndex: block.chapterIndex,
-          startOffset: block.startOffset + localStart,
-          endOffset: block.startOffset + localEnd,
-          source: source,
-          alt: alt?.substring(localStart, localEnd),
-        ),
+        blockId: block.blockId,
+        chapterIndex: block.chapterIndex,
+        startOffset: block.startOffset + localStart,
+        endOffset: block.startOffset + localEnd,
+        source: source,
+        alt: alt?.substring(localStart, localEnd),
+      ),
     };
   }
 
@@ -430,10 +430,10 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
     required double maxWidth,
   }) {
     return _measureText(
-          text: _textForBlock(block),
-          style: _styleForBlock(block, settings),
-          maxWidth: maxWidth,
-        ) +
+      text: _textForBlock(block),
+      style: _styleForBlock(block, settings),
+      maxWidth: maxWidth,
+    ) +
         _bottomSpacingForBlock(block, settings);
   }
 
@@ -450,32 +450,32 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
   }
 
   TextStyle _styleForBlock(
-    ReaderContentBlock block,
-    ReaderSettings settings,
-  ) {
+      ReaderContentBlock block,
+      ReaderSettings settings,
+      ) {
     return switch (block) {
       ReaderHeadingBlock() => DudoTextStyles.serif(
-          fontSize: settings.fontSize * (24 / 19),
-          height: settings.lineHeight,
-          fontWeight: settings.textEnhancementEnabled
-              ? FontWeight.w700
-              : FontWeight.w600,
-        ),
+        fontSize: settings.fontSize * (24 / 19),
+        height: settings.lineHeight,
+        fontWeight: settings.textEnhancementEnabled
+            ? FontWeight.w700
+            : FontWeight.w600,
+      ),
       ReaderParagraphBlock() => DudoTextStyles.serif(
-          fontSize: settings.fontSize,
-          height: settings.lineHeight,
-          fontWeight: settings.textEnhancementEnabled
-              ? FontWeight.w500
-              : FontWeight.w400,
-          letterSpacing: 0.4,
-        ),
+        fontSize: settings.fontSize,
+        height: settings.lineHeight,
+        fontWeight: settings.textEnhancementEnabled
+            ? FontWeight.w500
+            : FontWeight.w400,
+        letterSpacing: 0.4,
+      ),
       ReaderImageBlock() => DudoTextStyles.serif(
-          fontSize: settings.fontSize,
-          height: settings.lineHeight,
-          fontWeight: settings.textEnhancementEnabled
-              ? FontWeight.w500
-              : FontWeight.w400,
-        ),
+        fontSize: settings.fontSize,
+        height: settings.lineHeight,
+        fontWeight: settings.textEnhancementEnabled
+            ? FontWeight.w500
+            : FontWeight.w400,
+      ),
     };
   }
 
@@ -488,9 +488,9 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
   }
 
   double _bottomSpacingForBlock(
-    ReaderContentBlock block,
-    ReaderSettings settings,
-  ) {
+      ReaderContentBlock block,
+      ReaderSettings settings,
+      ) {
     if (block is ReaderParagraphBlock && !block.addBottomSpacing) {
       return 0;
     }
