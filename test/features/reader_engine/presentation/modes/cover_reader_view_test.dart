@@ -1,10 +1,12 @@
 import 'package:dudo/features/reader_engine/domain/reader_chapter.dart';
+import 'package:dudo/features/reader_engine/domain/reader_background.dart';
 import 'package:dudo/features/reader_engine/domain/reader_content_block.dart';
 import 'package:dudo/features/reader_engine/domain/reader_location.dart';
 import 'package:dudo/features/reader_engine/domain/reader_settings.dart';
 import 'package:dudo/features/reader_engine/domain/reader_viewport_state.dart';
 import 'package:dudo/features/reader_engine/layout/reader_layout_models.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/cover_reader_view.dart';
+import 'package:dudo/features/reader_engine/presentation/widgets/reader_background.dart';
 import 'package:dudo/features/reader_engine/domain/reader_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -146,6 +148,78 @@ void main() {
     expect(reportedLocations, hasLength(1));
     expect(reportedLocations.single.chapterIndex, 0);
     expect(reportedLocations.single.offset, 0);
+  });
+
+  testWidgets('CoverReaderView keeps reading backgrounds on covered pages',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 520);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final center = _item(0, pageCount: 2);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 520,
+          child: CoverReaderView(
+            viewport: ReaderViewportState(
+              center: center,
+              currentLocation: ReaderLocation.startOfChapter(
+                bookId: 'book-1',
+                chapterIndex: 0,
+              ),
+              currentLayout: center.layout,
+            ),
+            settings: ReaderSettings.defaults(),
+            palette: ReaderTheme.parchment,
+            backgroundPreference: ReaderBackgroundPreference.bamboo(),
+            controlsVisible: false,
+            onContentTap: () {},
+            onPreviousBoundary: () {},
+            onNextBoundary: () {},
+            onLocationChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(ReaderBackgroundLayer), findsOneWidget);
+
+    await tester.drag(
+      find.byKey(const ValueKey('reader-engine-cover-view')),
+      const Offset(-140, 0),
+    );
+    await tester.pump();
+
+    expect(find.byType(ReaderBackgroundLayer), findsNWidgets(2));
+    expect(
+      find.byKey(const ValueKey('reader-engine-cover-target-0-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('reader-engine-cover-moving-current')),
+      findsOneWidget,
+    );
+
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const ValueKey('reader-engine-cover-view')),
+      const Offset(140, 0),
+    );
+    await tester.pump();
+
+    expect(find.byType(ReaderBackgroundLayer), findsNWidgets(2));
+    expect(
+      find.byKey(const ValueKey('reader-engine-cover-current-0-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('reader-engine-cover-moving-target')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('CoverReaderView locks direction during one drag gesture',

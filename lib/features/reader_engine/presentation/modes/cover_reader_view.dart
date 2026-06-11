@@ -2,10 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../domain/reader_background.dart';
 import '../../domain/reader_theme.dart';
 import '../../domain/reader_location.dart';
 import '../../domain/reader_settings.dart';
 import '../../domain/reader_viewport_state.dart';
+import '../widgets/reader_background.dart';
 import 'reader_page_slice_canvas_surface.dart';
 import 'reader_paged_window.dart';
 
@@ -15,6 +17,13 @@ class CoverReaderView extends StatefulWidget {
     required this.viewport,
     required this.settings,
     required this.palette,
+    this.backgroundPreference = const ReaderBackgroundPreference(
+      type: ReaderBackgroundType.solid,
+      id: ReaderBackgroundPreference.solidId,
+      opacity: 0,
+      alignment: Alignment.center,
+      tintEnabled: false,
+    ),
     required this.controlsVisible,
     this.externalPageTurnRequestId = 0,
     this.externalPageTurnDirection = 0,
@@ -27,6 +36,7 @@ class CoverReaderView extends StatefulWidget {
   final ReaderViewportState viewport;
   final ReaderSettings settings;
   final ReaderPalette palette;
+  final ReaderBackgroundPreference backgroundPreference;
   final bool controlsVisible;
   final int externalPageTurnRequestId;
   final int externalPageTurnDirection;
@@ -128,7 +138,7 @@ class _CoverReaderViewState extends State<CoverReaderView>
               onHorizontalDragCancel:
                   widget.controlsVisible ? null : _handleHorizontalDragCancel,
               child: ClipRect(
-                child: ReaderPageSliceCanvasSurface(
+                child: _CoverReaderPageSurface(
                   key: ValueKey(
                     'reader-engine-cover-committed-'
                     '${committedTarget.chapterIndex}-'
@@ -137,6 +147,7 @@ class _CoverReaderViewState extends State<CoverReaderView>
                   resolvedPage: committedTarget,
                   settings: widget.settings,
                   palette: widget.palette,
+                  backgroundPreference: widget.backgroundPreference,
                 ),
               ),
             ),
@@ -173,6 +184,7 @@ class _CoverReaderViewState extends State<CoverReaderView>
                     width: width,
                     settings: widget.settings,
                     palette: widget.palette,
+                    backgroundPreference: widget.backgroundPreference,
                   ),
                 ],
               ),
@@ -421,6 +433,7 @@ class _CurrentCoverStack extends StatelessWidget {
     required this.width,
     required this.settings,
     required this.palette,
+    required this.backgroundPreference,
   });
 
   final ReaderPagedWindow window;
@@ -430,11 +443,12 @@ class _CurrentCoverStack extends StatelessWidget {
   final double width;
   final ReaderSettings settings;
   final ReaderPalette palette;
+  final ReaderBackgroundPreference backgroundPreference;
 
   @override
   Widget build(BuildContext context) {
     if (target == null || direction == 0) {
-      return ReaderPageSliceCanvasSurface(
+      return _CoverReaderPageSurface(
         key: ValueKey(
           'reader-engine-cover-current-'
           '${window.current.chapterIndex}-${window.current.pageIndex}',
@@ -442,6 +456,7 @@ class _CurrentCoverStack extends StatelessWidget {
         resolvedPage: window.current,
         settings: settings,
         palette: palette,
+        backgroundPreference: backgroundPreference,
       );
     }
 
@@ -449,7 +464,7 @@ class _CurrentCoverStack extends StatelessWidget {
       return Stack(
         fit: StackFit.expand,
         children: [
-          ReaderPageSliceCanvasSurface(
+          _CoverReaderPageSurface(
             key: ValueKey(
               'reader-engine-cover-target-'
               '${target!.chapterIndex}-${target!.pageIndex}',
@@ -457,12 +472,12 @@ class _CurrentCoverStack extends StatelessWidget {
             resolvedPage: target!,
             settings: settings,
             palette: palette,
+            backgroundPreference: backgroundPreference,
           ),
           _CoverPage(
             key: const ValueKey('reader-engine-cover-moving-current'),
             offset: Offset(offset, 0),
-            palette: palette,
-            child: ReaderPageSliceCanvasSurface(
+            child: _CoverReaderPageSurface(
               key: ValueKey(
                 'reader-engine-cover-current-'
                 '${window.current.chapterIndex}-${window.current.pageIndex}',
@@ -470,6 +485,7 @@ class _CurrentCoverStack extends StatelessWidget {
               resolvedPage: window.current,
               settings: settings,
               palette: palette,
+              backgroundPreference: backgroundPreference,
             ),
           ),
         ],
@@ -479,7 +495,7 @@ class _CurrentCoverStack extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        ReaderPageSliceCanvasSurface(
+        _CoverReaderPageSurface(
           key: ValueKey(
             'reader-engine-cover-current-'
             '${window.current.chapterIndex}-${window.current.pageIndex}',
@@ -487,12 +503,12 @@ class _CurrentCoverStack extends StatelessWidget {
           resolvedPage: window.current,
           settings: settings,
           palette: palette,
+          backgroundPreference: backgroundPreference,
         ),
         _CoverPage(
           key: const ValueKey('reader-engine-cover-moving-target'),
           offset: Offset(-width + offset, 0),
-          palette: palette,
-          child: ReaderPageSliceCanvasSurface(
+          child: _CoverReaderPageSurface(
             key: ValueKey(
               'reader-engine-cover-target-'
               '${target!.chapterIndex}-${target!.pageIndex}',
@@ -500,6 +516,7 @@ class _CurrentCoverStack extends StatelessWidget {
             resolvedPage: target!,
             settings: settings,
             palette: palette,
+            backgroundPreference: backgroundPreference,
           ),
         ),
       ],
@@ -511,12 +528,10 @@ class _CoverPage extends StatelessWidget {
   const _CoverPage({
     super.key,
     required this.offset,
-    required this.palette,
     required this.child,
   });
 
   final Offset offset;
-  final ReaderPalette palette;
   final Widget child;
 
   @override
@@ -532,27 +547,41 @@ class _CoverPage extends StatelessWidget {
         decoration: const BoxDecoration(
           boxShadow: [shadow],
         ),
-        child: SizedBox.expand(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      palette.background,
-                      palette.backgroundEnd ?? palette.background,
-                    ],
-                  ),
-                ),
-              ),
-              child,
-            ],
-          ),
-        ),
+        child: SizedBox.expand(child: child),
       ),
+    );
+  }
+}
+
+class _CoverReaderPageSurface extends StatelessWidget {
+  const _CoverReaderPageSurface({
+    super.key,
+    required this.resolvedPage,
+    required this.settings,
+    required this.palette,
+    required this.backgroundPreference,
+  });
+
+  final ReaderResolvedPage resolvedPage;
+  final ReaderSettings settings;
+  final ReaderPalette palette;
+  final ReaderBackgroundPreference backgroundPreference;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ReaderBackgroundLayer(
+          palette: palette,
+          background: backgroundPreference,
+        ),
+        ReaderPageSliceCanvasSurface(
+          resolvedPage: resolvedPage,
+          settings: settings,
+          palette: palette,
+        ),
+      ],
     );
   }
 }

@@ -97,6 +97,7 @@ class ReaderViewport extends StatelessWidget {
           viewport: viewport,
           settings: state.settings,
           palette: palette,
+          backgroundPreference: backgroundPreference,
           controlsVisible: controlsVisible,
           externalPageTurnRequestId: externalPageTurnRequestId,
           externalPageTurnDirection: externalPageTurnDirection,
