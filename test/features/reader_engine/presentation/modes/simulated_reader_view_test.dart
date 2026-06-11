@@ -653,6 +653,8 @@ void main() {
       find.byKey(const ValueKey('reader-engine-page-curl-painter')),
     );
     expect(renderBox.turnType, PageCurlTurnType.nextPageOut);
+    expect(renderBox.backPageAppearance.imageOpacity, lessThan(1));
+    expect(renderBox.backPageAppearance.veilOpacity, greaterThan(0));
 
     await gesture.moveBy(const Offset(110, 0));
     await tester.pump();

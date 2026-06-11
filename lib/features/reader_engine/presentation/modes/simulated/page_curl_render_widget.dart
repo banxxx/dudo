@@ -12,12 +12,14 @@ class PageCurlRenderWidget extends LeafRenderObjectWidget {
     required this.snapshots,
     required this.pageColor,
     required this.quality,
+    this.backPageAppearance = const PageCurlBackPageAppearance(),
   });
 
   final PageCurlController controller;
   final PageCurlSnapshotPair? snapshots;
   final Color pageColor;
   final PageCurlQuality quality;
+  final PageCurlBackPageAppearance backPageAppearance;
 
   @override
   PageCurlRenderBox createRenderObject(BuildContext context) {
@@ -26,6 +28,7 @@ class PageCurlRenderWidget extends LeafRenderObjectWidget {
       snapshots: snapshots,
       pageColor: pageColor,
       quality: quality,
+      backPageAppearance: backPageAppearance,
     );
   }
 
@@ -38,6 +41,7 @@ class PageCurlRenderWidget extends LeafRenderObjectWidget {
       ..controller = controller
       ..snapshots = snapshots
       ..pageColor = pageColor
-      ..quality = quality;
+      ..quality = quality
+      ..backPageAppearance = backPageAppearance;
   }
 }

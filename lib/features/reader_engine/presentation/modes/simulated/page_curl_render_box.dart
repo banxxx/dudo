@@ -25,20 +25,25 @@ class PageCurlRenderBox extends RenderBox {
     required PageCurlSnapshotPair? snapshots,
     required Color pageColor,
     required PageCurlQuality quality,
+    PageCurlBackPageAppearance backPageAppearance =
+        const PageCurlBackPageAppearance(),
   })  : _controller = controller,
         _snapshots = snapshots,
         _pageColor = pageColor,
-        _quality = quality;
+        _quality = quality,
+        _backPageAppearance = backPageAppearance;
 
   PageCurlController _controller;
   PageCurlSnapshotPair? _snapshots;
   Color _pageColor;
   PageCurlQuality _quality;
+  PageCurlBackPageAppearance _backPageAppearance;
 
   Color get pageColor => _pageColor;
   PageCurlGesture? get gesture => _controller.gesture;
   PageCurlTurnType? get turnType => _controller.turnType;
   PageCurlQuality get quality => _quality;
+  PageCurlBackPageAppearance get backPageAppearance => _backPageAppearance;
 
   set controller(PageCurlController value) {
     if (_controller == value) return;
@@ -63,6 +68,12 @@ class PageCurlRenderBox extends RenderBox {
   set quality(PageCurlQuality value) {
     if (_quality == value) return;
     _quality = value;
+    markNeedsPaint();
+  }
+
+  set backPageAppearance(PageCurlBackPageAppearance value) {
+    if (_backPageAppearance == value) return;
+    _backPageAppearance = value;
     markNeedsPaint();
   }
 
@@ -221,13 +232,37 @@ class PageCurlRenderBox extends RenderBox {
     canvas.clipRect(Offset.zero & size);
     _clipBezierBackArea(canvas, geometry);
     canvas.drawRect(Offset.zero & size, Paint()..color = _pageColor);
+    canvas.save();
     canvas.transform(geometry.reflectionMatrix.storage);
     _drawImageFullWithPaint(
       canvas,
       image,
-      Paint()..filterQuality = _imageFilterQuality,
+      _backPageImagePaint(),
     );
     canvas.restore();
+    _drawBackPageVeil(canvas);
+    canvas.restore();
+  }
+
+  Paint _backPageImagePaint() {
+    final opacity = _backPageAppearance.imageOpacity;
+    final paint = Paint()..filterQuality = _imageFilterQuality;
+    if (opacity < 1) {
+      paint.colorFilter = ColorFilter.mode(
+        const Color(0xFFFFFFFF).withValues(alpha: opacity),
+        BlendMode.modulate,
+      );
+    }
+    return paint;
+  }
+
+  void _drawBackPageVeil(Canvas canvas) {
+    final opacity = _backPageAppearance.veilOpacity;
+    if (opacity <= 0) return;
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = _pageColor.withValues(alpha: opacity),
+    );
   }
 
   void _drawBezierNextPageAreaShadow(
@@ -496,4 +531,26 @@ class PageCurlRenderBox extends RenderBox {
     );
     canvas.restore();
   }
+}
+
+class PageCurlBackPageAppearance {
+  const PageCurlBackPageAppearance({
+    this.imageOpacity = 0.78,
+    this.veilOpacity = 0.28,
+  })  : assert(imageOpacity >= 0 && imageOpacity <= 1),
+        assert(veilOpacity >= 0 && veilOpacity <= 1);
+
+  final double imageOpacity;
+  final double veilOpacity;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is PageCurlBackPageAppearance &&
+            other.imageOpacity == imageOpacity &&
+            other.veilOpacity == veilOpacity;
+  }
+
+  @override
+  int get hashCode => Object.hash(imageOpacity, veilOpacity);
 }

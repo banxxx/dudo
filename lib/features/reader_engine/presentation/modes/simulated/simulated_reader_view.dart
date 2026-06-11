@@ -15,6 +15,7 @@ import '../reader_paged_window.dart';
 import 'page_curl_controller.dart';
 import 'page_curl_gesture.dart';
 import 'page_curl_quality.dart';
+import 'page_curl_render_box.dart';
 import 'page_curl_render_widget.dart';
 import 'page_curl_snapshot.dart';
 import 'reader_line_page_snapshot.dart';
@@ -62,6 +63,8 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
     with SingleTickerProviderStateMixin {
   static const double _minDragCommitRatio = 0.22;
   static const double _dragExitTolerance = 8;
+  static const PageCurlBackPageAppearance _backPageAppearance =
+      PageCurlBackPageAppearance();
   static Duration get _commitTravelDuration =>
       const Duration(milliseconds: 380);
   static Duration get _cancelTravelDuration =>
@@ -275,6 +278,7 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
                       snapshots: snapshots,
                       pageColor: widget.palette.background,
                       quality: PageCurlQuality.high,
+                      backPageAppearance: _backPageAppearance,
                     ),
                 ],
               ),
