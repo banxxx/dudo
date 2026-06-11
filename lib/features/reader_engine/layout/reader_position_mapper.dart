@@ -59,9 +59,14 @@ class ReaderPositionMapper {
   }) {
     if (layout.pages.isEmpty) return 0;
     final page = layout.pages.firstWhere(
-      (page) =>
-          location.offset >= page.start.offset &&
-          location.offset <= page.end.offset,
+      (page) {
+        final isLastPage = page.pageIndex == layout.pages.last.pageIndex;
+        final startsInPage = location.offset >= page.start.offset;
+        final endsInPage = isLastPage
+            ? location.offset <= page.end.offset
+            : location.offset < page.end.offset;
+        return startsInPage && endsInPage;
+      },
       orElse: () {
         if (location.offset <= layout.pages.first.start.offset) {
           return layout.pages.first;

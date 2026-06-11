@@ -111,6 +111,58 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('SimulatedReaderView defers drag cancel reset during rebuild',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 520);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final center = _item(0, pageCount: 2);
+    var controlsVisible = false;
+
+    Widget buildReader() {
+      return MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 520,
+          child: SimulatedReaderView(
+            viewport: ReaderViewportState(
+              center: center,
+              currentLocation: ReaderLocation.startOfChapter(
+                bookId: 'book-1',
+                chapterIndex: 0,
+              ),
+              currentLayout: center.layout,
+            ),
+            settings: ReaderSettings.defaults(),
+            palette: ReaderTheme.parchment,
+            controlsVisible: controlsVisible,
+            onContentTap: () {},
+            onPreviousBoundary: () {},
+            onNextBoundary: () {},
+            onLocationChanged: (_) {},
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildReader());
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(
+          find.byKey(const ValueKey('reader-engine-simulated-view'))),
+    );
+    await gesture.moveBy(const Offset(-48, 0));
+    await tester.pump();
+
+    controlsVisible = true;
+    await tester.pumpWidget(buildReader());
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('SimulatedReaderView keeps the curl painter during page handoff',
       (tester) async {
     tester.view.devicePixelRatio = 1;

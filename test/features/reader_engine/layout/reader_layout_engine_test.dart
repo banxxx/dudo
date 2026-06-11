@@ -123,6 +123,28 @@ void main() {
         ),
       );
     });
+
+    test('maps a split page start to the following page', () async {
+      const engine = FlutterReaderLayoutEngine(
+        textMeasure: _LengthTextMeasure(charsPerLine: 5, lineHeight: 20),
+      );
+      final chapter = _chapterWithContent('ABCDEFGHIJKLMNOPQRSTUVWX');
+      final layout = await engine.layoutChapter(
+        chapter: chapter,
+        settings: _settings().copyWith(paragraphSpacing: 0),
+        viewportSize: const Size(320, 40),
+      );
+
+      expect(layout.pages.length, greaterThan(1));
+      expect(layout.pages.first.end.offset, layout.pages[1].start.offset);
+
+      final pageIndex = ReaderPositionMapper.pageIndexForLocation(
+        layout: layout,
+        location: layout.pages[1].start,
+      );
+
+      expect(pageIndex, 1);
+    });
   });
 
   group('ReaderLayoutCache', () {

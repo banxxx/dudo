@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../../domain/reader_background.dart';
 import '../../../domain/reader_theme.dart';
@@ -350,6 +351,15 @@ class _SimulatedReaderViewState extends State<SimulatedReaderView>
 
   void _handleHorizontalDragCancel() {
     if (_committingDirection != null) return;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _committingDirection != null) return;
+        _animateBackToRest();
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+      return;
+    }
     _animateBackToRest();
   }
 
