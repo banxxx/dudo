@@ -1,5 +1,6 @@
 import '../domain/reader_content_block.dart';
 import '../domain/reader_location.dart';
+import 'reader_line_layout_models.dart';
 
 class ReaderLayoutRevision {
   const ReaderLayoutRevision({
@@ -62,6 +63,7 @@ class ReaderPageSlice {
     required this.start,
     required this.end,
     required this.blocks,
+    this.lineLayout,
   });
 
   final int chapterIndex;
@@ -69,4 +71,5 @@ class ReaderPageSlice {
   final ReaderLocation start;
   final ReaderLocation end;
   final List<ReaderContentBlock> blocks;
+  final ReaderPageLayout? lineLayout;
 }

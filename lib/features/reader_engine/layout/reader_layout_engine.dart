@@ -7,7 +7,11 @@ import '../domain/reader_chapter.dart';
 import '../domain/reader_content_block.dart';
 import '../domain/reader_location.dart';
 import '../domain/reader_settings.dart';
+import '../domain/reader_turn_mode.dart';
 import 'reader_layout_models.dart';
+import 'reader_layout_settings.dart';
+import 'reader_line_layout_engine.dart';
+import 'reader_line_layout_models.dart';
 import 'reader_text_measure.dart';
 
 abstract interface class ReaderLayoutEngine {
@@ -31,6 +35,14 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
     required ReaderSettings settings,
     required Size viewportSize,
   }) async {
+    if (settings.turnMode != ReaderTurnMode.scroll) {
+      return _layoutChapterWithLinePages(
+        chapter: chapter,
+        settings: settings,
+        viewportSize: viewportSize,
+      );
+    }
+
     final contentWidth =
         math.max(1.0, viewportSize.width - settings.pagePadding.horizontal);
     final pageHeight =
@@ -244,6 +256,174 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
     );
   }
 
+  Future<ReaderChapterLayout> _layoutChapterWithLinePages({
+    required ReaderChapter chapter,
+    required ReaderSettings settings,
+    required Size viewportSize,
+  }) async {
+    final lineLayout =
+        await const FlutterReaderLineLayoutEngine().layoutChapter(
+      chapter: chapter,
+      settings: ReaderLayoutSettings.fromReaderSettings(settings),
+      viewportSize: viewportSize,
+    );
+    final pages = [
+      for (final page in lineLayout.pages)
+        _buildLineBackedPageSlice(
+          chapter: chapter,
+          page: page,
+        ),
+    ];
+
+    return ReaderChapterLayout(
+      chapterIndex: chapter.index,
+      revision: ReaderLayoutRevision(
+        contentHash: chapter.normalizedText.hashCode,
+        settingsDigest: _settingsDigest(settings, viewportSize),
+      ),
+      contentHeight: lineLayout.contentHeight,
+      blockLayouts: _blockLayoutsFromLineLayout(
+        chapter: chapter,
+        lineLayout: lineLayout,
+      ),
+      pages: List.unmodifiable(pages),
+    );
+  }
+
+  List<ReaderBlockLayout> _blockLayoutsFromLineLayout({
+    required ReaderChapter chapter,
+    required ReaderLineChapterLayout lineLayout,
+  }) {
+    final pageContentHeight = lineLayout.contentRect.height;
+    final fragmentsByBlockId = <String, List<_LineBlockFragment>>{};
+    for (final page in lineLayout.pages) {
+      for (final block in page.blocks) {
+        fragmentsByBlockId
+            .putIfAbsent(block.blockId, () => <_LineBlockFragment>[])
+            .add(_LineBlockFragment(pageIndex: page.pageIndex, layout: block));
+      }
+    }
+
+    return [
+      for (final block in chapter.blocks)
+        if (block.length > 0)
+          _blockLayoutFromLineFragments(
+            block: block,
+            fragments: fragmentsByBlockId[block.blockId] ??
+                const <_LineBlockFragment>[],
+            pageContentHeight: pageContentHeight,
+          ),
+    ];
+  }
+
+  ReaderBlockLayout _blockLayoutFromLineFragments({
+    required ReaderContentBlock block,
+    required List<_LineBlockFragment> fragments,
+    required double pageContentHeight,
+  }) {
+    if (fragments.isEmpty) {
+      return ReaderBlockLayout(
+        blockId: block.blockId,
+        chapterIndex: block.chapterIndex,
+        textStartOffset: block.startOffset,
+        textEndOffset: block.endOffset,
+        scrollStart: 0,
+        scrollEnd: 0,
+        pageIndex: 0,
+      );
+    }
+
+    final first = fragments.first;
+    final last = fragments.last;
+    final scrollStart =
+        first.pageIndex * pageContentHeight + first.layout.rect.top;
+    final scrollEnd =
+        last.pageIndex * pageContentHeight + last.layout.rect.bottom;
+    return ReaderBlockLayout(
+      blockId: block.blockId,
+      chapterIndex: block.chapterIndex,
+      textStartOffset: block.startOffset,
+      textEndOffset: block.endOffset,
+      scrollStart: scrollStart,
+      scrollEnd: math.max(scrollStart, scrollEnd),
+      pageIndex: first.pageIndex,
+    );
+  }
+
+  ReaderPageSlice _buildLineBackedPageSlice({
+    required ReaderChapter chapter,
+    required ReaderPageLayout page,
+  }) {
+    final sourceBlocks = {
+      for (final block in chapter.blocks) block.blockId: block,
+    };
+    final blocks = <ReaderContentBlock>[
+      for (final blockLayout in page.blocks)
+        if (sourceBlocks.containsKey(blockLayout.blockId))
+          _contentFragmentForLineBlock(
+            sourceBlocks[blockLayout.blockId]!,
+            blockLayout,
+          ),
+    ];
+
+    return ReaderPageSlice(
+      chapterIndex: page.chapterIndex,
+      pageIndex: page.pageIndex,
+      start: page.start,
+      end: page.end,
+      blocks: List.unmodifiable(blocks),
+      lineLayout: page,
+    );
+  }
+
+  ReaderContentBlock _contentFragmentForLineBlock(
+    ReaderContentBlock block,
+    ReaderPageBlockLayout blockLayout,
+  ) {
+    final localStart = (blockLayout.textRange.startOffset - block.startOffset)
+        .clamp(0, block.length)
+        .toInt();
+    final localEnd = (blockLayout.textRange.endOffset - block.startOffset)
+        .clamp(localStart, block.length)
+        .toInt();
+
+    return switch (block) {
+      ReaderHeadingBlock(:final text, :final level) => ReaderHeadingBlock(
+          blockId: block.blockId,
+          chapterIndex: block.chapterIndex,
+          startOffset: block.startOffset + localStart,
+          endOffset: block.startOffset + localEnd,
+          text: text.substring(localStart, localEnd),
+          level: level,
+        ),
+      ReaderParagraphBlock(
+        :final text,
+        :final paragraphIndex,
+        :final addBottomSpacing,
+        :final startsAtParagraphStart,
+      ) =>
+        ReaderParagraphBlock(
+          blockId: block.blockId,
+          chapterIndex: block.chapterIndex,
+          startOffset: block.startOffset + localStart,
+          endOffset: block.startOffset + localEnd,
+          text: text.substring(localStart, localEnd),
+          paragraphIndex: paragraphIndex,
+          addBottomSpacing:
+              blockLayout.isLastFragmentOfBlock && addBottomSpacing,
+          startsAtParagraphStart: localStart == 0 && startsAtParagraphStart,
+        ),
+      ReaderImageBlock(:final source, :final alt) => ReaderImageBlock(
+          blockId: block.blockId,
+          chapterIndex: block.chapterIndex,
+          startOffset: block.startOffset + localStart,
+          endOffset: block.startOffset + localEnd,
+          source: source,
+          alt: alt?.substring(localStart, localEnd),
+        ),
+    };
+  }
+
   double _measureBlock({
     required ReaderContentBlock block,
     required ReaderSettings settings,
@@ -409,4 +589,14 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
       viewportSize.height,
     ].join('|');
   }
+}
+
+class _LineBlockFragment {
+  const _LineBlockFragment({
+    required this.pageIndex,
+    required this.layout,
+  });
+
+  final int pageIndex;
+  final ReaderPageBlockLayout layout;
 }

@@ -26,6 +26,8 @@ class ReaderChromeLayout {
 
   double get topControlsHeight => metrics.s(58);
   double get bottomControlsHeight => metrics.s(124);
+  double get progressBottomGap => metrics.s(10);
+  double get progressReservedHeight => metrics.s(50);
   double get _panelGap => metrics.s(14);
   double get _floatingPanelGap => metrics.s(16);
   double get _controlEdgeGap => metrics.s(isCompactHeight ? 12 : 20);
@@ -52,7 +54,8 @@ class ReaderChromeLayout {
     final right =
         (size.width - left - contentWidth).clamp(0.0, size.width).toDouble();
     final top = safePadding.top + metrics.s(18);
-    final bottom = safePadding.bottom + metrics.s(60);
+    final bottom =
+        safePadding.bottom + progressBottomGap + progressReservedHeight;
 
     return ReaderInsets(
       left: left,

@@ -5,6 +5,7 @@ import 'package:dudo/features/reader_engine/domain/reader_document.dart';
 import 'package:dudo/features/reader_engine/domain/reader_location.dart';
 import 'package:dudo/features/reader_engine/domain/reader_settings.dart';
 import 'package:dudo/features/reader_engine/domain/reader_source_type.dart';
+import 'package:dudo/features/reader_engine/domain/reader_turn_mode.dart';
 import 'package:dudo/features/reader_engine/domain/reader_viewport_state.dart';
 import 'package:dudo/features/reader_engine/layout/reader_layout_engine.dart';
 import 'package:dudo/features/reader_engine/presentation/modes/scroll_reader_view.dart';
@@ -15,7 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('ScrollReaderView positions center chapter at the top directly',
       (tester) async {
-    final settings = ReaderSettings.defaults();
+    final settings = _scrollSettings();
     final previous = await _windowItem(0, settings);
     final center = await _windowItem(1, settings);
     final next = await _windowItem(2, settings);
@@ -66,7 +67,7 @@ void main() {
 
   testWidgets('ScrollReaderView reports adjacent chapter after natural scroll',
       (tester) async {
-    final settings = ReaderSettings.defaults();
+    final settings = _scrollSettings();
     final previous = await _windowItem(0, settings);
     final center = await _windowItem(1, settings);
     final next = await _windowItem(2, settings);
@@ -117,7 +118,7 @@ void main() {
 
   testWidgets('ScrollReaderView programmatic jump paints target chapter first',
       (tester) async {
-    final settings = ReaderSettings.defaults();
+    final settings = _scrollSettings();
     final previous = await _windowItem(19, settings);
     final center = await _windowItem(20, settings);
     final next = await _windowItem(21, settings);
@@ -167,6 +168,10 @@ void main() {
     );
     expect(centerTop.dy, closeTo(settings.pagePadding.top, 1));
   });
+}
+
+ReaderSettings _scrollSettings() {
+  return ReaderSettings.defaults().copyWith(turnMode: ReaderTurnMode.scroll);
 }
 
 Future<ReaderChapterWindowItem> _windowItem(

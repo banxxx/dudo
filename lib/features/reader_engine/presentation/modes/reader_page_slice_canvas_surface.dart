@@ -48,6 +48,15 @@ class _ReaderPageSliceCanvasSurfaceState
 
   @override
   Widget build(BuildContext context) {
+    final attachedLayout = widget.resolvedPage.page.lineLayout;
+    if (attachedLayout != null) {
+      return ReaderLinePageSurface(
+        pageLayout: attachedLayout,
+        palette: widget.palette,
+        highlights: widget.highlights,
+      );
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = Size(

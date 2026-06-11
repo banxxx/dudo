@@ -4,6 +4,7 @@ import 'package:dudo/features/reader_engine/domain/reader_content_block.dart';
 import 'package:dudo/features/reader_engine/domain/reader_insets.dart';
 import 'package:dudo/features/reader_engine/domain/reader_location.dart';
 import 'package:dudo/features/reader_engine/domain/reader_settings.dart';
+import 'package:dudo/features/reader_engine/domain/reader_turn_mode.dart';
 import 'package:dudo/features/reader_engine/layout/reader_layout_cache.dart';
 import 'package:dudo/features/reader_engine/layout/reader_layout_engine.dart';
 import 'package:dudo/features/reader_engine/layout/reader_position_mapper.dart';
@@ -156,6 +157,40 @@ void main() {
 
       expect(pageIndex, 1);
     });
+
+    test('builds non-scroll pages from line layouts without text gaps',
+        () async {
+      const engine = FlutterReaderLayoutEngine();
+      const text =
+          'ABCDEFGHIJKLMNOPQRSTUVWXABCDEFGHIJKLMNOPQRSTUVWXABCDEFGHIJKLMNOPQRSTUVWX';
+      final chapter = _singleParagraphChapter(text);
+      final layout = await engine.layoutChapter(
+        chapter: chapter,
+        settings: _settings(turnMode: ReaderTurnMode.paged).copyWith(
+          lineHeight: 1.8,
+          paragraphSpacing: 12,
+        ),
+        viewportSize: const Size(180, 150),
+      );
+
+      expect(layout.pages.length, greaterThan(1));
+      expect(
+        layout.pages.every((page) => page.lineLayout != null),
+        isTrue,
+      );
+      for (var index = 0; index < layout.pages.length - 1; index++) {
+        expect(
+          layout.pages[index].end.offset,
+          layout.pages[index + 1].start.offset,
+        );
+      }
+      final rebuiltText = layout.pages
+          .expand((page) => page.blocks)
+          .whereType<ReaderParagraphBlock>()
+          .map((block) => block.text)
+          .join();
+      expect(rebuiltText, text);
+    });
   });
 
   group('ReaderLayoutCache', () {
@@ -220,10 +255,32 @@ ReaderChapter _chapterWithContent(String content) {
   );
 }
 
-ReaderSettings _settings() {
+ReaderSettings _settings({ReaderTurnMode turnMode = ReaderTurnMode.scroll}) {
   return ReaderSettings.defaults().copyWith(
+    turnMode: turnMode,
     pagePadding: const ReaderInsets.all(0),
     paragraphSpacing: 10,
+  );
+}
+
+ReaderChapter _singleParagraphChapter(String text) {
+  return ReaderChapter(
+    id: 'chapter-1',
+    bookId: 'book-1',
+    index: 0,
+    title: 'chapter',
+    rawContent: text,
+    normalizedText: text,
+    blocks: [
+      ReaderParagraphBlock(
+        blockId: 'paragraph-0',
+        chapterIndex: 0,
+        startOffset: 0,
+        endOffset: text.length,
+        text: text,
+        paragraphIndex: 0,
+      ),
+    ],
   );
 }
 

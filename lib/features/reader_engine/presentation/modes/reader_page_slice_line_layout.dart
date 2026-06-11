@@ -25,6 +25,20 @@ class ReaderPageSliceLineLayoutResolver {
     required Size viewportSize,
   }) {
     final page = resolvedPage.page;
+    final lineLayout = page.lineLayout;
+    if (lineLayout != null) {
+      return [
+        resolvedPage.item.chapter.id,
+        resolvedPage.item.chapter.index,
+        page.pageIndex,
+        lineLayout.start.offset,
+        lineLayout.end.offset,
+        lineLayout.contentRect.left,
+        lineLayout.contentRect.top,
+        lineLayout.contentRect.right,
+        lineLayout.contentRect.bottom,
+      ].join('|');
+    }
     final layoutSettings = ReaderLayoutSettings.fromReaderSettings(settings);
     return [
       resolvedPage.item.chapter.id,
@@ -49,6 +63,8 @@ class ReaderPageSliceLineLayoutResolver {
     required ReaderSettings settings,
     required Size viewportSize,
   }) {
+    final lineLayout = resolvedPage.page.lineLayout;
+    if (lineLayout != null) return lineLayout;
     return _pageCache[cacheKeyForPage(
       resolvedPage: resolvedPage,
       settings: settings,
@@ -61,6 +77,8 @@ class ReaderPageSliceLineLayoutResolver {
     required ReaderSettings settings,
     required Size viewportSize,
   }) async {
+    final lineLayout = resolvedPage.page.lineLayout;
+    if (lineLayout != null) return lineLayout;
     final key = cacheKeyForPage(
       resolvedPage: resolvedPage,
       settings: settings,

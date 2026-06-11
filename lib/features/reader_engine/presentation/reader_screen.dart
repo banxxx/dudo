@@ -458,9 +458,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final location = state.location;
     if (pages.isEmpty || location == null) return 0;
     final page = pages.firstWhere(
-      (page) =>
-          location.offset >= page.start.offset &&
-          location.offset <= page.end.offset,
+      (page) {
+        final isLastPage = page.pageIndex == pages.last.pageIndex;
+        final startsInPage = location.offset >= page.start.offset;
+        final endsInPage = isLastPage
+            ? location.offset <= page.end.offset
+            : location.offset < page.end.offset;
+        return startsInPage && endsInPage;
+      },
       orElse: () => pages.last,
     );
     return page.pageIndex;
