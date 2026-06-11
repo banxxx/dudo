@@ -25,8 +25,11 @@ class ReaderBackgroundPreference {
 
   static const solidId = 'solid';
   static const bambooId = 'bamboo_001';
+  static const bambooCornerId = 'bamboo_002';
   static const parchmentId = 'parchment_001';
   static const bambooAssetPath = 'assets/images/reader_backgrounds/001.webp';
+  static const bambooCornerAssetPath =
+      'assets/images/reader_backgrounds/002.webp';
   static const maxBlurRadius = 18.0;
 
   factory ReaderBackgroundPreference.defaults() {
@@ -51,14 +54,15 @@ class ReaderBackgroundPreference {
     );
   }
 
-  factory ReaderBackgroundPreference.parchment() {
+  factory ReaderBackgroundPreference.bambooCorner() {
     return const ReaderBackgroundPreference(
       type: ReaderBackgroundType.builtinImage,
-      id: parchmentId,
-      opacity: 0.18,
-      alignment: Alignment.center,
+      id: bambooCornerId,
+      assetPath: bambooCornerAssetPath,
+      opacity: 0.14,
+      alignment: Alignment.bottomRight,
       fit: BoxFit.cover,
-      tintEnabled: false,
+      tintEnabled: true,
     );
   }
 
@@ -211,8 +215,8 @@ class ReaderBackgroundCatalog {
       preference: ReaderBackgroundPreference.bamboo(),
     ),
     ReaderBackgroundPreset(
-      label: '羊皮纸',
-      preference: ReaderBackgroundPreference.parchment(),
+      label: '竹韵',
+      preference: ReaderBackgroundPreference.bambooCorner(),
     ),
   ];
 
@@ -242,8 +246,8 @@ class ReaderBackgroundCatalog {
         blurRadius: blurRadius,
       );
     }
-    if (id == ReaderBackgroundPreference.parchmentId) {
-      return ReaderBackgroundPreference.parchment().copyWith(
+    if (id == ReaderBackgroundPreference.bambooCornerId) {
+      return ReaderBackgroundPreference.bambooCorner().copyWith(
         opacity: opacity,
         alignment: alignment,
         fit: fit,
@@ -251,6 +255,9 @@ class ReaderBackgroundCatalog {
         grayscaleEnabled: grayscaleEnabled,
         blurRadius: blurRadius,
       );
+    }
+    if (id == ReaderBackgroundPreference.parchmentId) {
+      return ReaderBackgroundPreference.bambooCorner();
     }
     if (type == ReaderBackgroundType.customImage &&
         filePath != null &&

@@ -54,7 +54,6 @@ class ReaderBackgroundLayer extends StatelessWidget {
               ),
             ),
           ),
-          if (_isParchment) const _ParchmentPaperLayer(),
           if (background.hasImage)
             _ReaderBackgroundImage(
               palette: palette,
@@ -81,105 +80,6 @@ class ReaderBackgroundLayer extends StatelessWidget {
   double get _veilOpacity {
     return palette.background.computeLuminance() < 0.2 ? 0.14 : 0.08;
   }
-
-  bool get _isParchment {
-    return background.id == ReaderBackgroundPreference.parchmentId;
-  }
-}
-
-class _ParchmentPaperLayer extends StatelessWidget {
-  const _ParchmentPaperLayer();
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _ParchmentPaperPainter(),
-      child: const SizedBox.expand(),
-    );
-  }
-}
-
-class _ParchmentPaperPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final basePaint = Paint()
-      ..shader = const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color(0xFFF7E7BE),
-          Color(0xFFE8C98C),
-          Color(0xFFF1DBA8),
-          Color(0xFFD9B678),
-        ],
-        stops: [0, 0.42, 0.72, 1],
-      ).createShader(rect);
-    canvas.drawRect(rect, basePaint);
-
-    final vignettePaint = Paint()
-      ..shader = const RadialGradient(
-        center: Alignment.center,
-        radius: 0.92,
-        colors: [
-          Color(0x00FFFFFF),
-          Color(0x339B6B2D),
-          Color(0x4D6F461B),
-        ],
-        stops: [0.48, 0.82, 1],
-      ).createShader(rect);
-    canvas.drawRect(rect, vignettePaint);
-
-    final fiberPaint = Paint()
-      ..color = const Color(0x2C8E6534)
-      ..strokeWidth = 1;
-    final lightFiberPaint = Paint()
-      ..color = const Color(0x36FFF6DA)
-      ..strokeWidth = 1;
-
-    final stepY = (size.height / 22).clamp(8.0, 22.0).toDouble();
-    for (var y = -stepY; y < size.height + stepY; y += stepY) {
-      final wobble = ((y / stepY).round().isEven ? 0.018 : -0.014) * size.width;
-      final path = Path()
-        ..moveTo(0, y)
-        ..cubicTo(
-          size.width * 0.28,
-          y + stepY * 0.36,
-          size.width * 0.58,
-          y - stepY * 0.42,
-          size.width,
-          y + wobble,
-        );
-      canvas.drawPath(path, fiberPaint);
-    }
-
-    final stepX = (size.width / 14).clamp(8.0, 20.0).toDouble();
-    for (var x = -stepX; x < size.width + stepX; x += stepX) {
-      final path = Path()
-        ..moveTo(x, 0)
-        ..cubicTo(
-          x + stepX * 0.34,
-          size.height * 0.3,
-          x - stepX * 0.28,
-          size.height * 0.68,
-          x + stepX * 0.18,
-          size.height,
-        );
-      canvas.drawPath(path, lightFiberPaint);
-    }
-
-    final speckPaint = Paint()..color = const Color(0x34805C2E);
-    final speckCount = (size.shortestSide / 2.4).round().clamp(32, 96);
-    for (var i = 0; i < speckCount; i++) {
-      final x = ((i * 37) % 101) / 101 * size.width;
-      final y = ((i * 53) % 97) / 97 * size.height;
-      final radius = 0.45 + ((i * 11) % 7) * 0.08;
-      canvas.drawCircle(Offset(x, y), radius, speckPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ParchmentPaperPainter oldDelegate) => false;
 }
 
 class _ReaderBackgroundImage extends StatelessWidget {
@@ -311,7 +211,7 @@ class _ReaderBackgroundImage extends StatelessWidget {
   }
 
   BoxFit get _imageFit {
-    if (background.id == ReaderBackgroundPreference.bambooId) {
+    if (_isBambooDecoration) {
       return BoxFit.contain;
     }
     return background.fit;
@@ -323,17 +223,22 @@ class _ReaderBackgroundImage extends StatelessWidget {
   }
 
   double get _widthFactor {
-    if (background.id == ReaderBackgroundPreference.bambooId) {
+    if (_isBambooDecoration) {
       return 0.56;
     }
     return 1;
   }
 
   double get _heightFactor {
-    if (background.id == ReaderBackgroundPreference.bambooId) {
+    if (_isBambooDecoration) {
       return 0.46;
     }
     return 1;
+  }
+
+  bool get _isBambooDecoration {
+    return background.id == ReaderBackgroundPreference.bambooId ||
+        background.id == ReaderBackgroundPreference.bambooCornerId;
   }
 }
 

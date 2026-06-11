@@ -15,6 +15,39 @@ void main() {
       expect(restored.assetPath, ReaderBackgroundPreference.bambooAssetPath);
     });
 
+    test('round trips builtin bamboo corner preference from json', () {
+      final preference = ReaderBackgroundPreference.bambooCorner();
+
+      final restored = ReaderBackgroundPreference.fromJsonString(
+        preference.toJsonString(),
+      );
+
+      expect(restored, preference);
+      expect(
+        restored.assetPath,
+        ReaderBackgroundPreference.bambooCornerAssetPath,
+      );
+      expect(restored.alignment, Alignment.bottomRight);
+    });
+
+    test('migrates legacy parchment preference to bamboo corner', () {
+      final restored = ReaderBackgroundPreference.fromJson(const {
+        'version': 1,
+        'type': 'builtinImage',
+        'id': ReaderBackgroundPreference.parchmentId,
+        'opacity': 0.18,
+        'alignment': 'center',
+      });
+
+      expect(restored.id, ReaderBackgroundPreference.bambooCornerId);
+      expect(
+        restored.assetPath,
+        ReaderBackgroundPreference.bambooCornerAssetPath,
+      );
+      expect(restored.opacity, 0.14);
+      expect(restored.alignment, Alignment.bottomRight);
+    });
+
     test('falls back to solid when json is invalid', () {
       expect(
         ReaderBackgroundPreference.fromJsonString('{bad json'),

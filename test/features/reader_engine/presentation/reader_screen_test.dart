@@ -325,7 +325,7 @@ void main() {
     expect(find.text('界面显示'), findsOneWidget);
     expect(find.text('暖棕'), findsOneWidget);
     expect(find.text('夜读'), findsOneWidget);
-    expect(find.text('羊皮纸'), findsOneWidget);
+    expect(find.text('竹韵'), findsOneWidget);
     expect(
       tester.getCenter(find.text('暖棕')).dx,
       lessThan(tester.getCenter(find.text('夜读')).dx),
@@ -347,12 +347,14 @@ void main() {
     expect(background.palette.name, ReaderTheme.night.name);
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('羊皮纸'));
+    await tester.tap(find.text('竹韵'));
     await tester.pumpAndSettle();
     background = tester.widget<ReaderPaperBackground>(
       find.byType(ReaderPaperBackground),
     );
-    expect(background.background?.id, ReaderBackgroundPreference.parchmentId);
+    expect(
+        background.background?.id, ReaderBackgroundPreference.bambooCornerId);
+    expect(background.background?.alignment, Alignment.bottomRight);
 
     await tester.drag(
       find.byKey(const ValueKey('reader-theme-panel')),
