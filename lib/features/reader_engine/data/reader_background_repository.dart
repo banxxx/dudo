@@ -13,6 +13,8 @@ import '../domain/reader_background.dart';
 abstract interface class ReaderBackgroundRepository {
   Future<ReaderBackgroundPreference> readPreference();
 
+  Future<ReaderBackgroundPreference?> readCustomPreference();
+
   Future<void> savePreference(ReaderBackgroundPreference preference);
 
   Future<ReaderBackgroundPreference?> pickAndImportBackground();
@@ -22,6 +24,7 @@ class DriftReaderBackgroundRepository implements ReaderBackgroundRepository {
   const DriftReaderBackgroundRepository(this._database);
 
   static const preferenceKey = 'reader.background.preference';
+  static const customPreferenceKey = 'reader.background.customPreference';
   static const _maxBackgroundBytes = 10 * 1024 * 1024;
 
   final AppDatabase _database;
@@ -39,14 +42,27 @@ class DriftReaderBackgroundRepository implements ReaderBackgroundRepository {
   }
 
   @override
-  Future<void> savePreference(ReaderBackgroundPreference preference) {
-    return _database.into(_database.appPreferences).insertOnConflictUpdate(
-          AppPreferencesCompanion(
-            key: const Value(preferenceKey),
-            value: Value(preference.toJsonString()),
-            updatedAt: Value(DateTime.now()),
-          ),
-        );
+  Future<ReaderBackgroundPreference?> readCustomPreference() async {
+    final preference = await (_database.select(_database.appPreferences)
+          ..where((table) => table.key.equals(customPreferenceKey)))
+        .getSingleOrNull();
+    final value = preference?.value;
+    if (value == null || value.isEmpty) return null;
+
+    final background = ReaderBackgroundPreference.fromJsonString(value);
+    if (background.type != ReaderBackgroundType.customImage) return null;
+    return background.hasImage ? background : null;
+  }
+
+  @override
+  Future<void> savePreference(ReaderBackgroundPreference preference) async {
+    final now = DateTime.now();
+    await _database.transaction(() async {
+      await _savePreferenceValue(preferenceKey, preference, now);
+      if (preference.type == ReaderBackgroundType.customImage) {
+        await _savePreferenceValue(customPreferenceKey, preference, now);
+      }
+    });
   }
 
   @override
@@ -112,6 +128,20 @@ class DriftReaderBackgroundRepository implements ReaderBackgroundRepository {
   Future<File> _resolveSupportFile(String relativePath) async {
     final dir = await getApplicationSupportDirectory();
     return File(p.join(dir.path, relativePath));
+  }
+
+  Future<void> _savePreferenceValue(
+    String key,
+    ReaderBackgroundPreference preference,
+    DateTime updatedAt,
+  ) {
+    return _database.into(_database.appPreferences).insertOnConflictUpdate(
+          AppPreferencesCompanion(
+            key: Value(key),
+            value: Value(preference.toJsonString()),
+            updatedAt: Value(updatedAt),
+          ),
+        );
   }
 }
 

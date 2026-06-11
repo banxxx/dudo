@@ -411,6 +411,15 @@ void main() {
                   fit: BoxFit.cover,
                   tintEnabled: false,
                 ),
+                customBackgroundPreference: const ReaderBackgroundPreference(
+                  type: ReaderBackgroundType.customImage,
+                  id: 'custom_test',
+                  assetPath: ReaderBackgroundPreference.bambooAssetPath,
+                  opacity: 0.18,
+                  alignment: Alignment.center,
+                  fit: BoxFit.cover,
+                  tintEnabled: false,
+                ),
                 fontSize: 19,
                 lineHeight: 1.72,
                 paragraphSpacing: 15,
@@ -540,6 +549,116 @@ void main() {
       find.byKey(const ValueKey('reader-custom-background-settings-page')),
       findsNothing,
     );
+  });
+
+  testWidgets('ReaderControls keeps custom background selectable after preset',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var importCalled = false;
+    ReaderBackgroundPreference? changedBackground;
+    const customBackground = ReaderBackgroundPreference(
+      type: ReaderBackgroundType.customImage,
+      id: 'custom_test',
+      assetPath: ReaderBackgroundPreference.bambooAssetPath,
+      opacity: 0.18,
+      alignment: Alignment.center,
+      fit: BoxFit.cover,
+      tintEnabled: false,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: [
+              ReaderControls(
+                mode: ReaderOverlayMode.theme,
+                bookTitle: '测试书',
+                chapterLabel: '第一章',
+                chapterTitle: '第一章',
+                progress: 0.2,
+                remainingText: '约 1 分钟',
+                palette: ReaderTheme.parchment,
+                backgroundPreference: ReaderBackgroundPreference.bambooCorner(),
+                customBackgroundPreference: customBackground,
+                fontSize: 19,
+                lineHeight: 1.72,
+                paragraphSpacing: 15,
+                pageHorizontalMargin:
+                    ReaderSettings.defaultPageHorizontalMargin,
+                firstLineIndentEnabled: true,
+                textEnhancementEnabled: false,
+                fontLibraryValue: AsyncValue.data(
+                  ReaderFontLibrary(
+                    fonts: ReaderBuiltinFonts.values,
+                    selectedFamilyKey: ReaderBuiltinFonts.serifSc.familyKey,
+                  ),
+                ),
+                brightness: 1,
+                followSystemBrightness: false,
+                eyeComfortEnhanced: false,
+                timeBatteryHidden: false,
+                chapterProgressHidden: false,
+                systemStatusBarHidden: true,
+                pageEdgeHidden: false,
+                gestureNavigationBlocked: true,
+                pageTurnMode: ReaderTurnMode.slide,
+                volumePageTurnEnabled: true,
+                isListening: false,
+                currentChapterIndex: 0,
+                chapterCount: 1,
+                catalogItems: const [],
+                onBack: () {},
+                onClose: () {},
+                onModeChanged: (_) {},
+                onChapterSelected: (_) {},
+                onPreviousChapter: null,
+                onNextChapter: null,
+                onPaletteChanged: (_) {},
+                onBackgroundChanged: (background) {
+                  changedBackground = background;
+                },
+                onCustomBackgroundImport: () async {
+                  importCalled = true;
+                },
+                onFontSizeChanged: (_) {},
+                onLineHeightChanged: (_) {},
+                onParagraphSpacingChanged: (_) {},
+                onLineParagraphSpacingChanged: (_, __) {},
+                onPageHorizontalMarginChanged: (_) {},
+                onFontSelected: (_) {},
+                onManageFonts: () {},
+                onFirstLineIndentChanged: (_) {},
+                onTextEnhancementChanged: (_) {},
+                onBrightnessChanged: (_) {},
+                onFollowSystemBrightnessChanged: (_) {},
+                onEyeComfortEnhancedChanged: (_) {},
+                onTimeBatteryHiddenChanged: (_) {},
+                onChapterProgressHiddenChanged: (_) {},
+                onSystemStatusBarHiddenChanged: (_) {},
+                onPageEdgeHiddenChanged: (_) {},
+                onGestureNavigationBlockedChanged: (_) {},
+                onPageTurnModeChanged: (_) {},
+                onVolumePageTurnChanged: (_) {},
+                onListeningChanged: (_) {},
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester
+        .tap(find.byKey(const ValueKey('reader-background-custom_test')));
+    await tester.pumpAndSettle();
+
+    expect(importCalled, isFalse);
+    expect(changedBackground, customBackground);
   });
 
   testWidgets('ReaderScreen switches to scroll mode through reader controls',

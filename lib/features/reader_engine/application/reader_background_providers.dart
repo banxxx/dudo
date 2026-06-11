@@ -10,14 +10,31 @@ final readerBackgroundRepositoryProvider =
 });
 
 final readerBackgroundControllerProvider = StateNotifierProvider<
-    ReaderBackgroundController, AsyncValue<ReaderBackgroundPreference>>((ref) {
+    ReaderBackgroundController, AsyncValue<ReaderBackgroundState>>((ref) {
   return ReaderBackgroundController(
     repository: ref.watch(readerBackgroundRepositoryProvider),
   );
 });
 
+class ReaderBackgroundState {
+  const ReaderBackgroundState({
+    required this.current,
+    required this.custom,
+  });
+
+  factory ReaderBackgroundState.defaults() {
+    return ReaderBackgroundState(
+      current: ReaderBackgroundPreference.defaults(),
+      custom: null,
+    );
+  }
+
+  final ReaderBackgroundPreference current;
+  final ReaderBackgroundPreference? custom;
+}
+
 class ReaderBackgroundController
-    extends StateNotifier<AsyncValue<ReaderBackgroundPreference>> {
+    extends StateNotifier<AsyncValue<ReaderBackgroundState>> {
   ReaderBackgroundController({
     required ReaderBackgroundRepository repository,
   })  : _repository = repository,
@@ -26,33 +43,61 @@ class ReaderBackgroundController
   }
 
   final ReaderBackgroundRepository _repository;
+  int _requestVersion = 0;
 
   Future<void> reload() async {
+    final requestVersion = ++_requestVersion;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(_repository.readPreference);
+    final next = await AsyncValue.guard(() async {
+      return ReaderBackgroundState(
+        current: await _repository.readPreference(),
+        custom: await _repository.readCustomPreference(),
+      );
+    });
+    if (requestVersion == _requestVersion) {
+      state = next;
+    }
   }
 
   Future<void> select(ReaderBackgroundPreference preference) async {
+    final requestVersion = ++_requestVersion;
     final previous = state;
-    state = AsyncValue.data(preference);
+    final previousValue =
+        previous.valueOrNull ?? ReaderBackgroundState.defaults();
+    final custom = preference.type == ReaderBackgroundType.customImage
+        ? preference
+        : previousValue.custom;
+    state = AsyncValue.data(
+      ReaderBackgroundState(current: preference, custom: custom),
+    );
     try {
       await _repository.savePreference(preference);
     } catch (error, stackTrace) {
-      state = previous;
+      if (requestVersion == _requestVersion) {
+        state = previous;
+      }
       return Future<void>.error(error, stackTrace);
     }
   }
 
   Future<ReaderBackgroundPreference?> importCustom() async {
+    final requestVersion = ++_requestVersion;
     final previous = state;
     try {
       final preference = await _repository.pickAndImportBackground();
       if (preference != null) {
-        state = AsyncValue.data(preference);
+        state = AsyncValue.data(
+          ReaderBackgroundState(
+            current: preference,
+            custom: preference,
+          ),
+        );
       }
       return preference;
     } catch (error, stackTrace) {
-      state = previous;
+      if (requestVersion == _requestVersion) {
+        state = previous;
+      }
       return Future<ReaderBackgroundPreference?>.error(error, stackTrace);
     }
   }

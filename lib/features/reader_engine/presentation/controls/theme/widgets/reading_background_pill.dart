@@ -111,13 +111,14 @@ class _ReadingBackgroundCustomTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectivePreference =
         preference ?? ReaderBackgroundPreference.defaults();
+    final label = preference == null ? '添加' : '自定义';
     final controlTheme = context.readerControls;
     return Stack(
       fit: StackFit.expand,
       children: [
         _ReadingBackgroundTile(
           metrics: metrics,
-          label: selected ? '自定义' : '添加',
+          label: label,
           palette: palette,
           preference: effectivePreference,
           selected: selected,

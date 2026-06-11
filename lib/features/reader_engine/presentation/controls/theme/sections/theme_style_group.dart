@@ -7,6 +7,7 @@ class _ThemeStyleGroup extends StatelessWidget {
     required this.metrics,
     required this.palette,
     required this.backgroundPreference,
+    required this.customBackgroundPreference,
     required this.onPaletteChanged,
     required this.onBackgroundChanged,
     required this.onCustomBackgroundImport,
@@ -16,6 +17,7 @@ class _ThemeStyleGroup extends StatelessWidget {
   final _ReaderOverlayMetrics metrics;
   final ReaderPalette palette;
   final ReaderBackgroundPreference backgroundPreference;
+  final ReaderBackgroundPreference? customBackgroundPreference;
   final ValueChanged<ReaderPalette> onPaletteChanged;
   final ValueChanged<ReaderBackgroundPreference> onBackgroundChanged;
   final Future<void> Function() onCustomBackgroundImport;
@@ -23,6 +25,13 @@ class _ThemeStyleGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveCustomBackground =
+        backgroundPreference.type == ReaderBackgroundType.customImage
+            ? backgroundPreference
+            : customBackgroundPreference;
+    final customSelected =
+        backgroundPreference.type == ReaderBackgroundType.customImage;
+
     // 主题卡片是四种主题的固定预览，不跟随当前已选阅读主题变色。
     const paper = Color(0xFFF8F4EA);
     const ink = Color(0xFF25251F);
@@ -136,16 +145,14 @@ class _ThemeStyleGroup extends StatelessWidget {
                 child: _ReadingBackgroundCustomTile(
                   metrics: metrics,
                   palette: palette,
-                  preference: backgroundPreference.type ==
-                          ReaderBackgroundType.customImage
-                      ? backgroundPreference
-                      : null,
-                  selected: backgroundPreference.type ==
-                      ReaderBackgroundType.customImage,
-                  onTap: backgroundPreference.type ==
-                          ReaderBackgroundType.customImage
+                  preference: effectiveCustomBackground,
+                  selected: customSelected,
+                  onTap: customSelected
                       ? () async => onCustomBackgroundEdit()
-                      : onCustomBackgroundImport,
+                      : effectiveCustomBackground != null
+                          ? () async =>
+                              onBackgroundChanged(effectiveCustomBackground)
+                          : onCustomBackgroundImport,
                 ),
               ),
             ],

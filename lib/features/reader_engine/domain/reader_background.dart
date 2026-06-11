@@ -26,7 +26,6 @@ class ReaderBackgroundPreference {
   static const solidId = 'solid';
   static const bambooId = 'bamboo_001';
   static const bambooCornerId = 'bamboo_002';
-  static const parchmentId = 'parchment_001';
   static const bambooAssetPath = 'assets/images/reader_backgrounds/001.webp';
   static const bambooCornerAssetPath =
       'assets/images/reader_backgrounds/002.webp';
@@ -255,9 +254,6 @@ class ReaderBackgroundCatalog {
         grayscaleEnabled: grayscaleEnabled,
         blurRadius: blurRadius,
       );
-    }
-    if (id == ReaderBackgroundPreference.parchmentId) {
-      return ReaderBackgroundPreference.bambooCorner();
     }
     if (type == ReaderBackgroundType.customImage &&
         filePath != null &&

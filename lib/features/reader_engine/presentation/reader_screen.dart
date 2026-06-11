@@ -128,9 +128,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final selectedFontFamily =
         ref.watch(selectedReaderFontFamilyProvider).valueOrNull ??
             ReaderSettings.defaults().fontFamily;
-    final backgroundPreference =
+    final backgroundState =
         ref.watch(readerBackgroundControllerProvider).valueOrNull ??
-            ReaderBackgroundPreference.defaults();
+            ReaderBackgroundState.defaults();
+    final backgroundPreference = backgroundState.current;
     final statusStyle = foreground.computeLuminance() > 0.5
         ? SystemUiOverlayStyle.light
         : SystemUiOverlayStyle.dark;
@@ -194,6 +195,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                               controller: controller,
                               state: state,
                               backgroundPreference: backgroundPreference,
+                              customBackgroundPreference:
+                                  backgroundState.custom,
                             ),
                           ReaderBrightnessOverlay(
                             brightness: _brightness,
@@ -217,6 +220,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     required ReaderSessionController controller,
     required ReaderSessionState state,
     required ReaderBackgroundPreference backgroundPreference,
+    required ReaderBackgroundPreference? customBackgroundPreference,
   }) {
     final document = state.document;
     final viewport = state.viewport;
@@ -302,6 +306,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         remainingText: remainingText,
         palette: _palette,
         backgroundPreference: backgroundPreference,
+        customBackgroundPreference: customBackgroundPreference,
         fontSize: _fontSize,
         lineHeight: _lineHeight,
         paragraphSpacing: _paragraphSpacing,

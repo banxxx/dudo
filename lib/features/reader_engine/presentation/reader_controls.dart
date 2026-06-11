@@ -55,6 +55,7 @@ class ReaderControls extends StatelessWidget {
     required this.remainingText,
     required this.palette,
     required this.backgroundPreference,
+    required this.customBackgroundPreference,
     required this.fontSize,
     required this.lineHeight,
     required this.paragraphSpacing,
@@ -118,6 +119,7 @@ class ReaderControls extends StatelessWidget {
   final String remainingText;
   final ReaderPalette palette;
   final ReaderBackgroundPreference backgroundPreference;
+  final ReaderBackgroundPreference? customBackgroundPreference;
   final double fontSize;
   final double lineHeight;
   final double paragraphSpacing;
@@ -289,6 +291,7 @@ class ReaderControls extends StatelessWidget {
                     metrics: metrics,
                     palette: palette,
                     backgroundPreference: backgroundPreference,
+                    customBackgroundPreference: customBackgroundPreference,
                     brightness: brightness,
                     followSystemBrightness: followSystemBrightness,
                     eyeComfortEnhanced: eyeComfortEnhanced,

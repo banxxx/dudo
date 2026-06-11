@@ -7,6 +7,7 @@ class _ThemePanel extends StatefulWidget {
     required this.metrics,
     required this.palette,
     required this.backgroundPreference,
+    required this.customBackgroundPreference,
     required this.brightness,
     required this.followSystemBrightness,
     required this.eyeComfortEnhanced,
@@ -33,6 +34,7 @@ class _ThemePanel extends StatefulWidget {
   final _ReaderOverlayMetrics metrics;
   final ReaderPalette palette;
   final ReaderBackgroundPreference backgroundPreference;
+  final ReaderBackgroundPreference? customBackgroundPreference;
   final double brightness;
   final bool followSystemBrightness;
   final bool eyeComfortEnhanced;
@@ -112,6 +114,7 @@ class _ThemePanelState extends State<_ThemePanel> {
                 metrics: widget.metrics,
                 palette: widget.palette,
                 backgroundPreference: widget.backgroundPreference,
+                customBackgroundPreference: widget.customBackgroundPreference,
                 brightness: widget.brightness,
                 followSystemBrightness: widget.followSystemBrightness,
                 eyeComfortEnhanced: widget.eyeComfortEnhanced,
@@ -148,6 +151,7 @@ class _ThemePanelHome extends StatelessWidget {
     required this.metrics,
     required this.palette,
     required this.backgroundPreference,
+    required this.customBackgroundPreference,
     required this.brightness,
     required this.followSystemBrightness,
     required this.eyeComfortEnhanced,
@@ -173,6 +177,7 @@ class _ThemePanelHome extends StatelessWidget {
   final _ReaderOverlayMetrics metrics;
   final ReaderPalette palette;
   final ReaderBackgroundPreference backgroundPreference;
+  final ReaderBackgroundPreference? customBackgroundPreference;
   final double brightness;
   final bool followSystemBrightness;
   final bool eyeComfortEnhanced;
@@ -224,6 +229,7 @@ class _ThemePanelHome extends StatelessWidget {
                   metrics: metrics,
                   palette: palette,
                   backgroundPreference: backgroundPreference,
+                  customBackgroundPreference: customBackgroundPreference,
                   onPaletteChanged: onPaletteChanged,
                   onBackgroundChanged: onBackgroundChanged,
                   onCustomBackgroundImport: onCustomBackgroundImport,
