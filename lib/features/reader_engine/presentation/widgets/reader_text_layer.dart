@@ -72,6 +72,7 @@ class _BlockText extends StatelessWidget {
     );
     final shouldIndent = currentBlock is ReaderParagraphBlock &&
         settings.firstLineIndentEnabled &&
+        currentBlock.startsAtParagraphStart &&
         text.isNotEmpty;
     return Padding(
       padding: EdgeInsets.only(bottom: bottomSpacing),

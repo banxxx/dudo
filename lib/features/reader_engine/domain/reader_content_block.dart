@@ -37,11 +37,13 @@ class ReaderParagraphBlock extends ReaderContentBlock {
     required this.text,
     required this.paragraphIndex,
     this.addBottomSpacing = true,
+    this.startsAtParagraphStart = true,
   });
 
   final String text;
   final int paragraphIndex;
   final bool addBottomSpacing;
+  final bool startsAtParagraphStart;
 }
 
 class ReaderImageBlock extends ReaderContentBlock {

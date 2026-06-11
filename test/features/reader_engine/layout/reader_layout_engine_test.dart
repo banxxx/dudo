@@ -122,6 +122,17 @@ void main() {
           ),
         ),
       );
+      final paragraphFragments = paragraphPages
+          .expand((page) => page.blocks)
+          .whereType<ReaderParagraphBlock>()
+          .toList();
+      expect(paragraphFragments.first.startsAtParagraphStart, isTrue);
+      expect(
+        paragraphFragments
+            .skip(1)
+            .every((block) => !block.startsAtParagraphStart),
+        isTrue,
+      );
     });
 
     test('maps a split page start to the following page', () async {

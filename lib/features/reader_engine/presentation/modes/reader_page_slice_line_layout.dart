@@ -1,6 +1,7 @@
 import 'package:flutter/painting.dart';
 
 import '../../domain/reader_chapter.dart';
+import '../../domain/reader_content_block.dart';
 import '../../domain/reader_settings.dart';
 import '../../layout/reader_layout_settings.dart';
 import '../../layout/reader_line_layout_engine.dart';
@@ -34,6 +35,12 @@ class ReaderPageSliceLineLayoutResolver {
       viewportSize.width,
       viewportSize.height,
       layoutSettings.digest,
+      for (final block in page.blocks) ...[
+        block.blockId,
+        block.startOffset,
+        block.endOffset,
+        if (block is ReaderParagraphBlock) block.startsAtParagraphStart,
+      ],
     ].join('|');
   }
 

@@ -198,7 +198,9 @@ class FlutterReaderLineLayoutEngine implements ReaderLineLayoutEngine {
     var isFirstLine = true;
 
     while (localStart < text.length) {
-      final indent = block is ReaderParagraphBlock && isFirstLine
+      final indent = block is ReaderParagraphBlock &&
+              block.startsAtParagraphStart &&
+              isFirstLine
           ? settings.firstLineIndent
           : 0.0;
       final maxWidth = math.max(1.0, contentWidth - indent);

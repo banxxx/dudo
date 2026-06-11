@@ -64,6 +64,36 @@ void main() {
       expect(layout.blocks.last.isFirstFragmentOfBlock, isFalse);
     });
 
+    test('does not indent continuation paragraph fragments', () async {
+      const engine = FlutterReaderLineLayoutEngine();
+      final settings = _settings().copyWith(firstLineIndent: 24);
+      const block = ReaderParagraphBlock(
+        blockId: 'paragraph-0',
+        chapterIndex: 0,
+        startOffset: 10,
+        endOffset: 32,
+        text: 'continuation paragraph',
+        paragraphIndex: 0,
+        startsAtParagraphStart: false,
+      );
+
+      final layout = await engine.layoutChapter(
+        chapter: const ReaderChapter(
+          id: 'chapter-0',
+          bookId: 'book-1',
+          index: 0,
+          title: 'chapter',
+          rawContent: 'continuation paragraph',
+          normalizedText: 'continuation paragraph',
+          blocks: [block],
+        ),
+        settings: settings,
+        viewportSize: const Size(240, 120),
+      );
+
+      expect(layout.pages.first.lines.first.x, layout.contentRect.left);
+    });
+
     test('returns one empty page for empty chapters', () async {
       const engine = FlutterReaderLineLayoutEngine();
 

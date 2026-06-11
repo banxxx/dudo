@@ -358,6 +358,7 @@ class FlutterReaderLayoutEngine implements ReaderLayoutEngine {
       text: block.text.substring(safeStart, safeEnd),
       paragraphIndex: block.paragraphIndex,
       addBottomSpacing: addBottomSpacing,
+      startsAtParagraphStart: safeStart == 0 && block.startsAtParagraphStart,
     );
   }
 

@@ -57,6 +57,32 @@ void main() {
     );
   });
 
+  test('does not indent continuation page slice fragments', () async {
+    const resolver = ReaderPageSliceLineLayoutResolver();
+    final settings = ReaderSettings.defaults();
+    const block = ReaderParagraphBlock(
+      blockId: 'paragraph-0',
+      chapterIndex: 0,
+      startOffset: 12,
+      endOffset: 40,
+      text: 'continued paragraph fragment',
+      paragraphIndex: 0,
+      startsAtParagraphStart: false,
+    );
+    final resolvedPage = _resolvedPageWithBlock(
+      chapterId: 'chapter-continuation',
+      block: block,
+    );
+
+    final pageLayout = await resolver.resolvePage(
+      resolvedPage: resolvedPage,
+      settings: settings,
+      viewportSize: const Size(320, 640),
+    );
+
+    expect(pageLayout.lines.first.x, pageLayout.contentRect.left);
+  });
+
   testWidgets('uses cached Canvas layout on the first frame', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(320, 640);
@@ -180,6 +206,52 @@ ReaderResolvedPage _resolvedPage({required String chapterId}) {
           bookId: 'book-1',
           chapterIndex: 0,
           offset: text.length,
+        ),
+        blocks: [block],
+      ),
+    ],
+  );
+  return ReaderResolvedPage(
+    item: ReaderChapterWindowItem(
+      chapter: chapter,
+      layout: layout,
+      status: ReaderChapterLoadStatus.loaded,
+    ),
+    page: layout.pages.first,
+  );
+}
+
+ReaderResolvedPage _resolvedPageWithBlock({
+  required String chapterId,
+  required ReaderParagraphBlock block,
+}) {
+  final chapter = ReaderChapter(
+    id: chapterId,
+    bookId: 'book-1',
+    index: 0,
+    title: 'chapter',
+    rawContent: block.text,
+    normalizedText: block.text,
+    blocks: [block],
+  );
+  final layout = ReaderChapterLayout(
+    chapterIndex: 0,
+    revision: const ReaderLayoutRevision(contentHash: 1, settingsDigest: 's'),
+    contentHeight: 100,
+    blockLayouts: const [],
+    pages: [
+      ReaderPageSlice(
+        chapterIndex: 0,
+        pageIndex: 0,
+        start: ReaderLocation(
+          bookId: 'book-1',
+          chapterIndex: 0,
+          offset: block.startOffset,
+        ),
+        end: ReaderLocation(
+          bookId: 'book-1',
+          chapterIndex: 0,
+          offset: block.endOffset,
         ),
         blocks: [block],
       ),
