@@ -10,13 +10,36 @@ enum AndroidUpdateDisplayState {
   hasUpdate,
 }
 
-class AndroidAboutAppPage extends StatelessWidget {
+const _lucideGitHubIcon = IconData(
+  57574,
+  fontFamily: 'Lucide',
+  fontPackage: 'lucide_icons_flutter',
+);
+
+class AndroidAboutAppPage extends StatefulWidget {
   const AndroidAboutAppPage({
     super.key,
-    this.updateState = AndroidUpdateDisplayState.hasUpdate,
+    this.initialUpdateState = AndroidUpdateDisplayState.beforeCheck,
   });
 
-  final AndroidUpdateDisplayState updateState;
+  final AndroidUpdateDisplayState initialUpdateState;
+
+  @override
+  State<AndroidAboutAppPage> createState() => _AndroidAboutAppPageState();
+}
+
+class _AndroidAboutAppPageState extends State<AndroidAboutAppPage> {
+  late AndroidUpdateDisplayState _updateState;
+
+  @override
+  void initState() {
+    super.initState();
+    _updateState = widget.initialUpdateState;
+  }
+
+  void _checkForUpdates() {
+    setState(() => _updateState = AndroidUpdateDisplayState.hasUpdate);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +56,10 @@ class AndroidAboutAppPage extends StatelessWidget {
             const SizedBox(height: 14),
             const _AndroidAppIdentityCard(),
             const SizedBox(height: 14),
-            _AndroidUpdateSection(state: updateState),
+            _AndroidUpdateSection(
+              state: _updateState,
+              onCheckUpdates: _checkForUpdates,
+            ),
             const SizedBox(height: 14),
             const _AndroidSupportSection(),
             const SizedBox(height: 14),
@@ -208,9 +234,13 @@ class _AndroidAppIdentityHeader extends StatelessWidget {
 }
 
 class _AndroidUpdateSection extends StatelessWidget {
-  const _AndroidUpdateSection({required this.state});
+  const _AndroidUpdateSection({
+    required this.state,
+    required this.onCheckUpdates,
+  });
 
   final AndroidUpdateDisplayState state;
+  final VoidCallback onCheckUpdates;
 
   @override
   Widget build(BuildContext context) {
@@ -219,16 +249,20 @@ class _AndroidUpdateSection extends StatelessWidget {
       children: [
         const _AndroidSectionTitle('应用更新'),
         const SizedBox(height: 8),
-        _AndroidUpdateCard(state: state),
+        _AndroidUpdateCard(state: state, onCheckUpdates: onCheckUpdates),
       ],
     );
   }
 }
 
 class _AndroidUpdateCard extends StatelessWidget {
-  const _AndroidUpdateCard({required this.state});
+  const _AndroidUpdateCard({
+    required this.state,
+    required this.onCheckUpdates,
+  });
 
   final AndroidUpdateDisplayState state;
+  final VoidCallback onCheckUpdates;
 
   bool get _hasUpdate => state == AndroidUpdateDisplayState.hasUpdate;
 
@@ -264,9 +298,10 @@ class _AndroidUpdateCard extends StatelessWidget {
               backgroundColor: _AndroidAboutColors.darkButton,
               foregroundColor: _AndroidAboutColors.buttonLightText,
               shadowColor: const Color(0x40000000),
+              onTap: _hasUpdate ? null : onCheckUpdates,
             ),
             right: const _AndroidUpdateButton.primary(
-              icon: LucideIcons.folderGit,
+              icon: _lucideGitHubIcon,
               label: '仓库地址',
               backgroundColor: _AndroidAboutColors.brownButton,
               foregroundColor: _AndroidAboutColors.repoText,
@@ -275,9 +310,10 @@ class _AndroidUpdateCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _AndroidActionRow(
-            left: const _AndroidUpdateButton.secondary(
+            left: _AndroidUpdateButton.secondary(
               icon: LucideIcons.refreshCw,
               label: '检测更新',
+              onTap: onCheckUpdates,
             ),
             right: _AndroidUpdateButton.secondary(
               icon: LucideIcons.listChecks,
@@ -510,9 +546,9 @@ class _AndroidUpdateButton extends StatelessWidget {
     required this.backgroundColor,
     required this.foregroundColor,
     required this.shadowColor,
+    this.onTap,
   })  : height = 48,
-        borderColor = null,
-        onTap = null;
+        borderColor = null;
 
   const _AndroidUpdateButton.secondary({
     required this.icon,

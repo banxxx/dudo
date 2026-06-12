@@ -7,6 +7,9 @@ import '../../../../app/router/app_router.dart';
 import '../../../../features/bookshelf/application/bookshelf_providers.dart';
 import '../../../../features/bookshelf/data/local_book_import_service.dart';
 import '../../../../features/bookshelf/presentation/book_title_display.dart';
+import '../../../../features/sources/application/source_providers.dart';
+import '../../../../features/sources/data/source_import_service.dart';
+import '../../../../features/sources/domain/source_import_models.dart';
 import '../../../../shared/messages/app_message.dart';
 import '../../../../shared/messages/app_message_service.dart';
 import '../../../../shared/theme/app_fonts.dart';
@@ -14,6 +17,8 @@ import '../../../../shared/theme/app_tokens.dart';
 import '../../shared/widgets/settings_detail_scaffold.dart';
 
 const _localBookImportMessageKey = 'source-add-local-book-import';
+const _sourceRuleImportLoadingMessageKey = 'source-add-rule-import-loading';
+const _sourceRuleImportResultMessageKey = 'source-add-rule-import-result';
 
 class SourceAddSettingsPage extends ConsumerStatefulWidget {
   const SourceAddSettingsPage({super.key});
@@ -26,6 +31,7 @@ class SourceAddSettingsPage extends ConsumerStatefulWidget {
 class _SourceAddSettingsPageState extends ConsumerState<SourceAddSettingsPage> {
   late AppMessageService _messageService;
   late GoRouter _router;
+  bool _isImportingRuleFile = false;
 
   @override
   void didChangeDependencies() {
@@ -36,9 +42,9 @@ class _SourceAddSettingsPageState extends ConsumerState<SourceAddSettingsPage> {
 
   @override
   void dispose() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _messageService.dismiss(_localBookImportMessageKey);
-    });
+    _messageService.dismiss(_localBookImportMessageKey);
+    _messageService.dismiss(_sourceRuleImportLoadingMessageKey);
+    _messageService.dismiss(_sourceRuleImportResultMessageKey);
     super.dispose();
   }
 
@@ -58,7 +64,10 @@ class _SourceAddSettingsPageState extends ConsumerState<SourceAddSettingsPage> {
         const SizedBox(height: 10),
         const _SourceAddressInput(),
         const SizedBox(height: 10),
-        const _RuleFileImportRow(),
+        _RuleFileImportRow(
+          importing: _isImportingRuleFile,
+          onImport: _importRuleFile,
+        ),
         const SizedBox(height: 14),
         const _ImportNoticeCard(),
       ],
@@ -129,6 +138,89 @@ class _SourceAddSettingsPageState extends ConsumerState<SourceAddSettingsPage> {
             visualStyle: AppMessageVisualStyle.paper,
           );
     }
+  }
+
+  Future<void> _importRuleFile() async {
+    if (_isImportingRuleFile) return;
+    setState(() => _isImportingRuleFile = true);
+
+    final importService = ref.read(sourceImportServiceProvider);
+    try {
+      final path = await importService.pickRuleFilePath();
+      if (!mounted) return;
+
+      if (path == null) {
+        ref.read(appMessageServiceProvider).info(
+              '没有选择任何规则文件',
+              title: '已取消导入',
+              dedupeKey: _sourceRuleImportResultMessageKey,
+              visualStyle: AppMessageVisualStyle.paper,
+            );
+        return;
+      }
+
+      ref.read(appMessageServiceProvider).loading(
+            title: '正在导入书源',
+            description: '正在解析 Legado 书源规则文件，请稍候',
+            dedupeKey: _sourceRuleImportLoadingMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+
+      final result = await importService.importRuleFilePath(path);
+      if (!mounted) return;
+
+      ref.invalidate(sourcesProvider);
+      ref.read(appMessageServiceProvider).success(
+        _formatRuleImportSummary(result),
+        title: '书源导入成功',
+        dedupeKey: _sourceRuleImportResultMessageKey,
+        visualStyle: AppMessageVisualStyle.paper,
+        actionLabel: '查看',
+        onAction: () {
+          _messageService.dismiss(_sourceRuleImportResultMessageKey);
+          if (context.canPop()) {
+            context.pop(true);
+            return;
+          }
+          _router.go(AppRoutes.sourceSettings);
+        },
+      );
+    } on SourceImportException catch (error) {
+      if (!mounted) return;
+      ref.read(appMessageServiceProvider).error(
+            error.message,
+            title: '导入失败',
+            dedupeKey: _sourceRuleImportResultMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    } catch (_) {
+      if (!mounted) return;
+      ref.read(appMessageServiceProvider).error(
+            '请确认文件为可读取的 Legado JSON 书源文件后重试',
+            title: '导入失败',
+            dedupeKey: _sourceRuleImportResultMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    } finally {
+      _messageService.dismiss(_sourceRuleImportLoadingMessageKey);
+      if (mounted) {
+        setState(() => _isImportingRuleFile = false);
+      }
+    }
+  }
+
+  String _formatRuleImportSummary(SourceImportPersistResult result) {
+    final parts = <String>[
+      '读取 ${result.totalInputCount} 条',
+      if (result.insertedCount > 0) '新增 ${result.insertedCount} 个',
+      if (result.updatedCount > 0) '更新 ${result.updatedCount} 个',
+      if (result.skippedExistingCount > 0)
+        '跳过 ${result.skippedExistingCount} 个',
+      if (result.duplicateInFileCount > 0)
+        '合并重复 ${result.duplicateInFileCount} 条',
+      if (result.invalidCount > 0) '无效 ${result.invalidCount} 条',
+    ];
+    return parts.join('，');
   }
 
   Future<LocalBookDuplicateResolution?> _showDuplicateLocalBookDialog(
@@ -417,52 +509,73 @@ class _SourceAddressInput extends StatelessWidget {
 }
 
 class _RuleFileImportRow extends StatelessWidget {
-  const _RuleFileImportRow();
+  const _RuleFileImportRow({
+    required this.onImport,
+    required this.importing,
+  });
+
+  final VoidCallback onImport;
+  final bool importing;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 58,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: DudoColors.surface,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: importing ? null : onImport,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: DudoColors.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          const _SourceIconWrap(icon: LucideIcons.fileCode),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '导入规则文件',
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '适合已有书源配置文件',
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.secondary,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
+        child: Container(
+          height: 58,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: DudoColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: DudoColors.outlineVariant),
           ),
-          const Icon(
-            LucideIcons.chevronRight,
-            color: DudoColors.outline,
-            size: 18,
+          child: Row(
+            children: [
+              const _SourceIconWrap(icon: LucideIcons.fileCode),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '导入规则文件',
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '支持 Legado JSON，后续会支持 dudo 书源',
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.secondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (importing)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                const Icon(
+                  LucideIcons.chevronRight,
+                  color: DudoColors.outline,
+                  size: 18,
+                ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

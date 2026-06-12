@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// Source-rule data model — mirrors the Legado 3.0 JSON shape but is
 /// intentionally permissive so we can evolve.
 class SourceRule {
@@ -63,9 +65,7 @@ class SourceRule {
               exploreUrl: json['exploreUrl'] as String?,
             )
           : null,
-      headers: ((json['header'] as Map?) ?? const {}).map(
-        (k, v) => MapEntry(k.toString(), v.toString()),
-      ),
+      headers: _parseHeaders(json['header']),
       loginUrl: json['loginUrl'] as String?,
     );
   }
@@ -224,4 +224,52 @@ class ExploreRule {
         coverUrl: j['coverUrl'] as String?,
         bookUrl: j['bookUrl'] as String?,
       );
+}
+
+Map<String, String> _parseHeaders(Object? raw) {
+  if (raw == null) return const {};
+  if (raw is Map) return _headersFromMap(raw);
+  if (raw is String) return _headersFromString(raw);
+  return const {};
+}
+
+Map<String, String> _headersFromMap(Map raw) {
+  final headers = <String, String>{};
+  for (final entry in raw.entries) {
+    final value = entry.value;
+    if (value == null) continue;
+    headers[entry.key.toString()] = value.toString();
+  }
+  return headers;
+}
+
+Map<String, String> _headersFromString(String raw) {
+  final text = raw.trim();
+  if (text.isEmpty) return const {};
+
+  try {
+    final decoded = jsonDecode(text);
+    if (decoded is Map) return _headersFromMap(decoded);
+  } catch (_) {
+    // Fall through to Legado's common single-quoted flat-object format.
+  }
+
+  return _headersFromFlatObjectString(text);
+}
+
+Map<String, String> _headersFromFlatObjectString(String text) {
+  final objectMatch = RegExp(r'^\s*\{([\s\S]*)\}\s*$').firstMatch(text);
+  if (objectMatch == null) return const {};
+
+  final body = objectMatch.group(1) ?? '';
+  final headers = <String, String>{};
+  final pairPattern = RegExp(
+    r'''["']([^"']+)["']\s*:\s*["']([^"']*)["']''',
+  );
+  for (final match in pairPattern.allMatches(body)) {
+    final key = match.group(1)?.trim();
+    if (key == null || key.isEmpty) continue;
+    headers[key] = match.group(2) ?? '';
+  }
+  return headers;
 }
