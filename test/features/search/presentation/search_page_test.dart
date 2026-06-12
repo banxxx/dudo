@@ -1,3 +1,5 @@
+import 'package:dudo/features/search/application/search_providers.dart';
+import 'package:dudo/features/search/domain/online_search_models.dart';
 import 'package:dudo/features/search/presentation/search_page.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
@@ -5,14 +7,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('renders the Pencil B2 initial search design', (tester) async {
+  testWidgets('renders the initial search design', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
+      ProviderScope(
+        overrides: [
+          enabledSourceCountProvider.overrideWith((ref) async => 0),
+        ],
+        child: const MaterialApp(
           home: SearchPage(),
         ),
       ),
     );
+    await tester.pump();
 
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(scaffold.backgroundColor, DudoColors.paperBackground);
@@ -25,7 +31,7 @@ void main() {
     expect(find.text('本地书架'), findsOneWidget);
     expect(find.text('优先缓存'), findsOneWidget);
     expect(find.text('网络书源'), findsOneWidget);
-    expect(find.text('12 个启用'), findsOneWidget);
+    expect(find.text('0 个启用'), findsOneWidget);
     expect(find.text('输入关键词开始找书'), findsOneWidget);
     expect(find.text('可以搜索书名、作者，也可以从搜索来源中选择本地或在线书库。'), findsOneWidget);
 
@@ -100,11 +106,31 @@ void main() {
     expect(emptyText.style?.height, 1.45);
   });
 
-  testWidgets('renders the Pencil B1 typed keyword search design',
+  testWidgets('renders real online search results from provider state',
       (tester) async {
+    const response = OnlineSearchResponse(
+      searchedSourceCount: 1,
+      availableSourceCount: 1,
+      failures: [],
+      results: [
+        OnlineSearchBookResult(
+          sourceId: 'https://source.example',
+          sourceName: '测试书源',
+          name: '三体',
+          author: '刘慈欣',
+          intro: '文明在宇宙尺度中的回响，从一次偶然监听开始。',
+          bookUrl: 'https://source.example/book/1',
+        ),
+      ],
+    );
+
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
+      ProviderScope(
+        overrides: [
+          enabledSourceCountProvider.overrideWith((ref) async => 1),
+          onlineSearchProvider('三体').overrideWith((ref) async => response),
+        ],
+        child: const MaterialApp(
           home: SearchPage(),
         ),
       ),
@@ -113,21 +139,16 @@ void main() {
     await tester.tap(find.text('搜索书名、作者、关键词'));
     await tester.enterText(find.byType(EditableText), '三体');
     await tester.pump();
+    await tester.pump();
 
     expect(find.text('三体'), findsWidgets);
     expect(find.text('最近搜索'), findsOneWidget);
     expect(find.text('长夜余火'), findsOneWidget);
     expect(find.text('刘慈欣'), findsWidgets);
     expect(find.text('搜索结果'), findsOneWidget);
-    expect(find.text('24 条'), findsOneWidget);
-    expect(find.text('三体：黑暗森林'), findsOneWidget);
-    expect(find.text('三体全集'), findsOneWidget);
-    expect(find.text('刘慈欣 · 科幻 · 本地书架'), findsOneWidget);
-    expect(find.text('刘慈欣 · 网络书源 · 已缓存'), findsOneWidget);
-    expect(find.text('刘慈欣 · 网络书源 · 6 个来源'), findsOneWidget);
+    expect(find.text('1 条'), findsOneWidget);
+    expect(find.text('刘慈欣 · 测试书源'), findsOneWidget);
     expect(find.text('文明在宇宙尺度中的回响，从一次偶然监听开始。'), findsOneWidget);
-    expect(find.text('面壁计划、黑暗森林法则，以及人类文......'), findsOneWidget);
-    expect(find.text('三部曲合集，适合一次性加入书架后离线阅读。'), findsOneWidget);
     expect(find.text('输入关键词开始找书'), findsNothing);
 
     final searchField = tester.widget<Container>(
@@ -170,7 +191,7 @@ void main() {
     final firstResult = tester.widget<Container>(
       find
           .ancestor(
-            of: find.text('刘慈欣 · 科幻 · 本地书架'),
+            of: find.text('刘慈欣 · 测试书源'),
             matching: find.byType(Container),
           )
           .last,
@@ -187,7 +208,7 @@ void main() {
     expect(firstResultTitle.style?.fontSize, 15);
     expect(firstResultTitle.style?.fontWeight, FontWeight.w600);
 
-    final firstResultMeta = tester.widget<Text>(find.text('刘慈欣 · 科幻 · 本地书架'));
+    final firstResultMeta = tester.widget<Text>(find.text('刘慈欣 · 测试书源'));
     expect(firstResultMeta.style?.color, DudoColors.secondary);
     expect(firstResultMeta.style?.fontSize, 12);
 

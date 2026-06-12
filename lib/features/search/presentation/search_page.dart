@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../shared/theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
+import '../application/search_providers.dart';
+import '../domain/online_search_models.dart';
 
 class SearchPage extends ConsumerStatefulWidget {
   const SearchPage({super.key});
@@ -44,6 +46,11 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    final query = _controller.text.trim();
+    final enabledSourceCount = ref.watch(enabledSourceCountProvider);
+    final searchResults =
+        _hasQuery ? ref.watch(onlineSearchProvider(query)) : null;
+
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
       body: DudoPageFrame(
@@ -60,10 +67,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             const _RecentSearchSection(),
             const SizedBox(height: 14),
           ],
-          const _SourceSelectorSection(),
+          _SourceSelectorSection(enabledSourceCount: enabledSourceCount),
           const SizedBox(height: 14),
           if (_hasQuery)
-            const _SearchResultsSection()
+            _SearchResultsSection(
+              query: query,
+              results: searchResults!,
+            )
           else
             const _SearchEmptySuggestions(),
         ],
@@ -248,10 +258,18 @@ class _SearchField extends StatelessWidget {
 }
 
 class _SourceSelectorSection extends StatelessWidget {
-  const _SourceSelectorSection();
+  const _SourceSelectorSection({required this.enabledSourceCount});
+
+  final AsyncValue<int> enabledSourceCount;
 
   @override
   Widget build(BuildContext context) {
+    final onlineSubtitle = enabledSourceCount.when(
+      data: (count) => '$count 个启用',
+      loading: () => '读取中',
+      error: (_, __) => '读取失败',
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -278,9 +296,9 @@ class _SourceSelectorSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        const Row(
+        Row(
           children: [
-            Expanded(
+            const Expanded(
               child: _SourceCard(
                 title: '本地书架',
                 subtitle: '优先缓存',
@@ -291,11 +309,11 @@ class _SourceSelectorSection extends StatelessWidget {
                 iconColor: DudoColors.primaryDark,
               ),
             ),
-            SizedBox(width: 10),
+            const SizedBox(width: 10),
             Expanded(
               child: _SourceCard(
                 title: '网络书源',
-                subtitle: '12 个启用',
+                subtitle: onlineSubtitle,
                 icon: LucideIcons.globe,
                 fill: DudoColors.surface,
                 border: DudoColors.outlineVariant,
@@ -501,65 +519,184 @@ class _RecentSearchChip extends StatelessWidget {
 }
 
 class _SearchResultsSection extends StatelessWidget {
-  const _SearchResultsSection();
+  const _SearchResultsSection({
+    required this.query,
+    required this.results,
+  });
 
-  static const _results = [
-    _SearchResultData(
-      title: '三体',
-      meta: '刘慈欣 · 科幻 · 本地书架',
-      intro: '文明在宇宙尺度中的回响，从一次偶然监听开始。',
-      start: Color(0xFF2F3A4D),
-      end: Color(0xFF9AA7B8),
-    ),
-    _SearchResultData(
-      title: '三体：黑暗森林',
-      meta: '刘慈欣 · 网络书源 · 已缓存',
-      intro: '面壁计划、黑暗森林法则，以及人类文......',
-      start: DudoColors.primary,
-      end: DudoColors.primaryContainer,
-    ),
-    _SearchResultData(
-      title: '三体全集',
-      meta: '刘慈欣 · 网络书源 · 6 个来源',
-      intro: '三部曲合集，适合一次性加入书架后离线阅读。',
-      start: DudoColors.secondary,
-      end: DudoColors.secondaryContainer,
-    ),
-  ];
+  final String query;
+  final AsyncValue<OnlineSearchResponse> results;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    return results.when(
+      loading: () => const _SearchStatusCard(
+        icon: LucideIcons.loaderCircle,
+        title: '正在搜索在线书源',
+        message: '正在读取启用书源并执行规则，请稍候。',
+      ),
+      error: (error, _) => _SearchStatusCard(
+        icon: LucideIcons.triangleAlert,
+        title: '搜索失败',
+        message: error.toString(),
+      ),
+      data: (response) {
+        if (response.availableSourceCount == 0) {
+          return const _SearchStatusCard(
+            icon: LucideIcons.rss,
+            title: '暂无启用书源',
+            message: '请先在书源管理中导入并启用 Legado 书源。',
+          );
+        }
+        if (response.allSearchedSourcesFailed) {
+          return _SearchStatusCard(
+            icon: LucideIcons.triangleAlert,
+            title: '在线书源暂不可用',
+            message: '已尝试 ${response.searchedSourceCount} 个书源，但规则或网络请求全部失败。',
+          );
+        }
+        if (response.results.isEmpty) {
+          return _SearchStatusCard(
+            icon: LucideIcons.searchX,
+            title: '没有找到“$query”',
+            message: response.hasFailures
+                ? '部分书源搜索失败，其余启用书源没有返回结果。'
+                : '已搜索 ${response.searchedSourceCount} 个启用书源，没有匹配结果。',
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text(
-                '搜索结果',
-                style: DudoTextStyles.sans(
-                  color: DudoColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '搜索结果',
+                    style: DudoTextStyles.sans(
+                      color: DudoColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
+                Text(
+                  '${response.results.length} 条',
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.secondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
             ),
-            Text(
-              '24 条',
+            if (response.hasFailures) ...[
+              const SizedBox(height: 8),
+              _PartialFailureNotice(failureCount: response.failures.length),
+            ],
+            const SizedBox(height: 10),
+            for (final result in response.results) ...[
+              _SearchResultCard(result: result),
+              if (result != response.results.last) const SizedBox(height: 8),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PartialFailureNotice extends StatelessWidget {
+  const _PartialFailureNotice({required this.failureCount});
+
+  final int failureCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: DudoColors.secondaryContainer,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.info, color: DudoColors.secondary, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '$failureCount 个书源搜索失败，已展示其余可用结果。',
               style: DudoTextStyles.sans(
                 color: DudoColors.secondary,
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        for (final result in _results) ...[
-          _SearchResultCard(result: result),
-          if (result != _results.last) const SizedBox(height: 8),
+          ),
         ],
-      ],
+      ),
+    );
+  }
+}
+
+class _SearchStatusCard extends StatelessWidget {
+  const _SearchStatusCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: DudoColors.primaryContainer,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: DudoColors.surface,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Icon(icon, color: DudoColors.primary, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: DudoTextStyles.serif(
+                    color: DudoColors.textPrimary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  message,
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.textSecondary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -567,7 +704,7 @@ class _SearchResultsSection extends StatelessWidget {
 class _SearchResultCard extends StatelessWidget {
   const _SearchResultCard({required this.result});
 
-  final _SearchResultData result;
+  final OnlineSearchBookResult result;
 
   @override
   Widget build(BuildContext context) {
@@ -589,7 +726,7 @@ class _SearchResultCard extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [result.start, result.end],
+                colors: const [DudoColors.primary, DudoColors.primaryContainer],
               ),
             ),
           ),
@@ -600,7 +737,7 @@ class _SearchResultCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  result.title,
+                  result.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: DudoTextStyles.sans(
@@ -611,7 +748,7 @@ class _SearchResultCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  result.meta,
+                  _resultMeta(result),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: DudoTextStyles.sans(
@@ -622,7 +759,7 @@ class _SearchResultCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  result.intro,
+                  _resultIntro(result),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: DudoTextStyles.sans(
@@ -641,20 +778,17 @@ class _SearchResultCard extends StatelessWidget {
   }
 }
 
-class _SearchResultData {
-  const _SearchResultData({
-    required this.title,
-    required this.meta,
-    required this.intro,
-    required this.start,
-    required this.end,
-  });
+String _resultMeta(OnlineSearchBookResult result) {
+  final author = result.author.trim().isEmpty ? '作者未知' : result.author.trim();
+  return '$author · ${result.sourceName}';
+}
 
-  final String title;
-  final String meta;
-  final String intro;
-  final Color start;
-  final Color end;
+String _resultIntro(OnlineSearchBookResult result) {
+  final intro = result.intro?.trim();
+  if (intro != null && intro.isNotEmpty) return intro;
+  final bookUrl = result.bookUrl?.trim();
+  if (bookUrl != null && bookUrl.isNotEmpty) return bookUrl;
+  return '暂无简介，后续详情解析会补充更多信息。';
 }
 
 void _handleOpenFilters() {

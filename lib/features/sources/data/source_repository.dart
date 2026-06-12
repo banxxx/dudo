@@ -40,6 +40,22 @@ class SourceRepository {
     return query.get();
   }
 
+  Future<List<Source>> listEnabledSources() {
+    final query = database.select(database.sources)
+      ..where((source) => source.enabled.equals(true))
+      ..orderBy([
+        (source) => OrderingTerm(
+              expression: source.sortOrder,
+              mode: OrderingMode.desc,
+            ),
+        (source) => OrderingTerm(
+              expression: source.updatedAt,
+              mode: OrderingMode.desc,
+            ),
+      ]);
+    return query.get();
+  }
+
   Future<SourceImportPersistResult> upsertImportedSources(
     SourceImportParseResult parseResult, {
     ExistingSourceStrategy existingStrategy = ExistingSourceStrategy.update,
