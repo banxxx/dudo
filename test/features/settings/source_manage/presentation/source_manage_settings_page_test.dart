@@ -36,8 +36,9 @@ void main() {
 
     expect(find.text('全选'), findsOneWidget);
     expect(find.text('批量启用'), findsOneWidget);
+    expect(find.text('批量禁用'), findsOneWidget);
     expect(find.text('批量删除'), findsOneWidget);
-    expect(find.text('管理模式 · 可启用或删除'), findsOneWidget);
+    expect(find.text('管理模式 · 可启用、禁用或删除'), findsOneWidget);
     expect(find.text('删除'), findsNWidgets(2));
 
     await tester.tap(find.byIcon(LucideIcons.slidersHorizontal));
@@ -45,7 +46,8 @@ void main() {
 
     expect(find.text('全选'), findsNothing);
     expect(find.text('批量启用'), findsNothing);
-    expect(find.text('管理模式 · 可启用或删除'), findsNothing);
+    expect(find.text('批量禁用'), findsNothing);
+    expect(find.text('管理模式 · 可启用、禁用或删除'), findsNothing);
     expect(find.text('删除'), findsNothing);
   });
 
@@ -108,6 +110,49 @@ void main() {
 
     expect(harness.repository.sourceById('fanqie').enabled, isTrue);
     expect(harness.repository.sourceById('qidian').enabled, isTrue);
+  });
+
+  testWidgets('bulk select and disable only filtered enabled sources',
+      (tester) async {
+    final harness = await _pumpSourceManageSettings(tester);
+    addTearDown(harness.dispose);
+
+    await tester.enterText(find.byType(TextField), '起点');
+    await tester.pump();
+    await tester.tap(find.byIcon(LucideIcons.slidersHorizontal));
+    await tester.pump();
+
+    expect(find.text('搜索结果 · 1 / 2 个'), findsOneWidget);
+    await tester.tap(find.text('全选'));
+    await tester.pump();
+    expect(find.text('已选 1/1'), findsOneWidget);
+
+    await tester.tap(find.text('批量禁用'));
+    await tester.pump();
+
+    expect(harness.repository.sourceById('qidian').enabled, isFalse);
+    expect(harness.repository.sourceById('fanqie').enabled, isFalse);
+  });
+
+  testWidgets(
+      'management bar wraps bulk actions on compact screens without overflow',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 720);
+    addTearDown(tester.view.reset);
+
+    final harness = await _pumpSourceManageSettings(tester);
+    addTearDown(harness.dispose);
+
+    await tester.tap(find.byIcon(LucideIcons.slidersHorizontal));
+    await tester.pump();
+
+    expect(find.text('全选'), findsOneWidget);
+    expect(find.text('已选 0/2'), findsOneWidget);
+    expect(find.text('批量启用'), findsOneWidget);
+    expect(find.text('批量禁用'), findsOneWidget);
+    expect(find.text('批量删除'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
 

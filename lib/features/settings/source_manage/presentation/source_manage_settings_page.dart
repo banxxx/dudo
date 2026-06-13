@@ -151,6 +151,42 @@ class _SourceManageSettingsPageState
     }
   }
 
+  Future<void> _disableSelectedSources(List<Source> sources) async {
+    final selectedEnabledSources = sources
+        .where(
+          (source) => _selectedSourceIds.contains(source.id) && source.enabled,
+        )
+        .toList(growable: false);
+    if (selectedEnabledSources.isEmpty) return;
+
+    try {
+      final repository = ref.read(sourceRepositoryProvider);
+      for (final source in selectedEnabledSources) {
+        await repository.setSourceEnabled(source.id, false);
+      }
+      if (!mounted) return;
+      setState(() {
+        for (final source in selectedEnabledSources) {
+          _selectedSourceIds.remove(source.id);
+        }
+      });
+      ref.read(appMessageServiceProvider).success(
+            '已禁用 ${selectedEnabledSources.length} 个书源',
+            title: '批量禁用完成',
+            dedupeKey: _sourceManageMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    } catch (_) {
+      if (!mounted) return;
+      ref.read(appMessageServiceProvider).error(
+            '批量禁用失败，请稍后重试。',
+            title: '操作失败',
+            dedupeKey: _sourceManageMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    }
+  }
+
   Future<void> _confirmDeleteSource(Source source) async {
     final confirmed = await _showDeleteConfirmation(
       title: '删除书源？',
@@ -311,6 +347,7 @@ class _SourceManageSettingsPageState
                     onSelectAll: () =>
                         _toggleAllFilteredSources(filteredSources),
                     onEnableSelected: () => _enableSelectedSources(sources),
+                    onDisableSelected: () => _disableSelectedSources(sources),
                     onDeleteSelected: () =>
                         _confirmDeleteSelectedSources(sources),
                   ),
@@ -478,6 +515,7 @@ class _SourceManagementBar extends StatelessWidget {
     required this.allSelected,
     required this.onSelectAll,
     required this.onEnableSelected,
+    required this.onDisableSelected,
     required this.onDeleteSelected,
   });
 
@@ -486,6 +524,7 @@ class _SourceManagementBar extends StatelessWidget {
   final bool allSelected;
   final VoidCallback onSelectAll;
   final VoidCallback onEnableSelected;
+  final VoidCallback onDisableSelected;
   final VoidCallback onDeleteSelected;
 
   @override
@@ -493,64 +532,81 @@ class _SourceManagementBar extends StatelessWidget {
     final hasSelection = selectedCount > 0;
 
     return Container(
-      height: 46,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: DudoColors.surface,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: DudoColors.outlineVariant),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            onTap: onSelectAll,
-            borderRadius: BorderRadius.circular(12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _SourceSelectionBox(selected: allSelected),
-                const SizedBox(width: 7),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '全选',
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.textPrimary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: onSelectAll,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _SourceSelectionBox(selected: allSelected),
+                        const SizedBox(width: 7),
+                        Text(
+                          '全选',
+                          style: DudoTextStyles.sans(
+                            color: DudoColors.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      '已选 $selectedCount/$totalCount',
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.secondary,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ],
-            ),
+              ),
+              Text(
+                '已选 $selectedCount/$totalCount',
+                style: DudoTextStyles.sans(
+                  color: DudoColors.secondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-          const Spacer(),
-          _BulkActionButton(
-            icon: LucideIcons.check,
-            label: '批量启用',
-            enabled: hasSelection,
-            fill: DudoColors.primaryContainer,
-            color: DudoColors.primary,
-            onTap: onEnableSelected,
-          ),
-          const SizedBox(width: 6),
-          _BulkActionButton(
-            icon: LucideIcons.trash2,
-            label: '批量删除',
-            enabled: hasSelection,
-            fill: _dangerFill,
-            color: _dangerText,
-            onTap: onDeleteSelected,
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 8,
+            children: [
+              _BulkActionButton(
+                icon: LucideIcons.check,
+                label: '批量启用',
+                enabled: hasSelection,
+                fill: DudoColors.primaryContainer,
+                color: DudoColors.primary,
+                onTap: onEnableSelected,
+              ),
+              _BulkActionButton(
+                icon: LucideIcons.ban,
+                label: '批量禁用',
+                enabled: hasSelection,
+                fill: DudoColors.surfaceLow,
+                color: DudoColors.secondaryDark,
+                onTap: onDisableSelected,
+              ),
+              _BulkActionButton(
+                icon: LucideIcons.trash2,
+                label: '批量删除',
+                enabled: hasSelection,
+                fill: _dangerFill,
+                color: _dangerText,
+                onTap: onDeleteSelected,
+              ),
+            ],
           ),
         ],
       ),
@@ -734,7 +790,7 @@ class _SourceListHeader extends StatelessWidget {
         ),
         if (isManageMode)
           Text(
-            '管理模式 · 可启用或删除',
+            '管理模式 · 可启用、禁用或删除',
             style: DudoTextStyles.sans(
               color: DudoColors.secondary,
               fontSize: 11,
