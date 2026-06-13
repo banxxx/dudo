@@ -65,6 +65,10 @@ class RuleAnalyzer {
 
       if (_atTopLevel(parenDepth, bracketDepth, braceDepth) &&
           input.startsWith(token, i)) {
+        if (token == '@' && buffer.isEmpty) {
+          buffer.write(char);
+          continue;
+        }
         _addPart(parts, buffer);
         i += token.length - 1;
         continue;

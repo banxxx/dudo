@@ -1,3 +1,5 @@
+import '../legado/rule/rule_analyzer.dart';
+
 /// A composite rule expression — a `||`-separated chain where the first
 /// non-empty result wins, optionally with `@`-chained sub-selectors.
 class RuleChain {
@@ -6,12 +8,16 @@ class RuleChain {
 
   /// Parses a Legado-flavored rule like `class.book-list@tag.li@a@href`.
   factory RuleChain.parse(String raw) {
-    final cleaned = _stripEmbeddedScripts(raw).replaceAll('&&', '||').trim();
+    final cleaned = _stripEmbeddedScripts(raw).trim();
     if (cleaned.isEmpty) {
       return RuleChain(const []);
     }
-    final segs = cleaned
-        .split('||')
+    const analyzer = RuleAnalyzer();
+    final fallbackParts = analyzer.split(cleaned, LegadoRuleDelimiter.fallback);
+    final appendExpanded = fallbackParts.expand(
+      (part) => analyzer.split(part, LegadoRuleDelimiter.append),
+    );
+    final segs = appendExpanded
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
         .map(RuleSegment.parse)
@@ -38,8 +44,9 @@ class RuleSegment {
   factory RuleSegment.parse(String raw) {
     final type = _detectType(raw);
     final clean = _stripPrefix(raw, type);
-    final steps = clean
-        .split('@')
+    const analyzer = RuleAnalyzer();
+    final steps = analyzer
+        .split(clean, LegadoRuleDelimiter.pipeline)
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
         .map(RuleStep.parse)

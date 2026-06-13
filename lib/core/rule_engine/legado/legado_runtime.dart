@@ -4,10 +4,10 @@ import '../parsers/jsonpath_parser.dart';
 import '../parsers/parser.dart';
 import '../parsers/regex_parser.dart';
 import '../parsers/xpath_parser.dart';
-import '../legacy_rule_evaluator.dart';
 import 'decode/response_decoder.dart';
 import 'legado_models.dart';
 import 'pipeline/search_pipeline.dart';
+import 'rule/analyze_rule.dart';
 import 'url/analyze_url.dart';
 import 'url/request_executor.dart';
 
@@ -26,14 +26,14 @@ class LegadoRuntime {
       ..register(XPathParser())
       ..register(JsonPathParser())
       ..register(RegexParser());
-    final evaluator = LegacyRuleEvaluator(registry);
+    final analyzeRule = AnalyzeRule(registry: registry);
     return LegadoRuntime(
       registry: registry,
       searchPipeline: SearchPipeline(
         analyzeUrl: const AnalyzeUrl(),
         executor: executor ?? const DioLegadoRequestExecutor(),
         decoder: const ResponseDecoder(),
-        evaluator: evaluator,
+        analyzeRule: analyzeRule,
       ),
     );
   }

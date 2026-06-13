@@ -44,6 +44,54 @@ void main() {
     });
   });
 
+  group('SourceRule nested rule block parsing', () {
+    test('accepts stringified JSON ruleBookInfo', () {
+      final rule = SourceRule.fromJson({
+        'bookSourceName': '测试源',
+        'bookSourceUrl': 'https://example.com',
+        'ruleBookInfo': r'{"name":"$.name","author":"$.author"}',
+      });
+
+      expect(rule.bookInfo?.name, r'$.name');
+      expect(rule.bookInfo?.author, r'$.author');
+    });
+
+    test('accepts stringified JSON ruleToc', () {
+      final rule = SourceRule.fromJson({
+        'bookSourceName': '测试源',
+        'bookSourceUrl': 'https://example.com',
+        'ruleToc': r'{"chapterList":"$.chapters[*]","chapterName":"$.name"}',
+      });
+
+      expect(rule.toc?.chapterList, r'$.chapters[*]');
+      expect(rule.toc?.chapterName, r'$.name');
+    });
+
+    test('accepts stringified JSON ruleContent', () {
+      final rule = SourceRule.fromJson({
+        'bookSourceName': '测试源',
+        'bookSourceUrl': 'https://example.com',
+        'ruleContent': r'{"content":"$.content","title":"$.title"}',
+      });
+
+      expect(rule.content?.content, r'$.content');
+      expect(rule.content?.title, r'$.title');
+    });
+
+    test('accepts stringified JSON ruleExplore', () {
+      final rule = SourceRule.fromJson({
+        'bookSourceName': '测试源',
+        'bookSourceUrl': 'https://example.com',
+        'exploreUrl': 'https://example.com/explore',
+        'ruleExplore': r'{"bookList":"$.books[*]","name":"$.name"}',
+      });
+
+      expect(rule.explore?.exploreUrl, 'https://example.com/explore');
+      expect(rule.explore?.bookList, r'$.books[*]');
+      expect(rule.explore?.name, r'$.name');
+    });
+  });
+
   group('SourceRule header parsing', () {
     test('accepts map headers', () {
       final rule = SourceRule.fromJson({
