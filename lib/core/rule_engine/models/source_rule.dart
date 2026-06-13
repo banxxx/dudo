@@ -44,27 +44,21 @@ class SourceRule {
               _parseRuleMap(json['ruleSearch'])!,
               searchUrl: _stringValue(json['searchUrl']),
             ),
-      bookInfo: json['ruleBookInfo'] is Map
-          ? BookInfoRule.fromJson(
-              (json['ruleBookInfo'] as Map).cast<String, dynamic>(),
-            )
-          : null,
-      toc: json['ruleToc'] is Map
-          ? TocRule.fromJson(
-              (json['ruleToc'] as Map).cast<String, dynamic>(),
-            )
-          : null,
-      content: json['ruleContent'] is Map
-          ? ContentRule.fromJson(
-              (json['ruleContent'] as Map).cast<String, dynamic>(),
-            )
-          : null,
-      explore: json['ruleExplore'] is Map
-          ? ExploreRule.fromJson(
-              (json['ruleExplore'] as Map).cast<String, dynamic>(),
-              exploreUrl: json['exploreUrl'] as String?,
-            )
-          : null,
+      bookInfo: _parseRuleMap(json['ruleBookInfo']) == null
+          ? null
+          : BookInfoRule.fromJson(_parseRuleMap(json['ruleBookInfo'])!),
+      toc: _parseRuleMap(json['ruleToc']) == null
+          ? null
+          : TocRule.fromJson(_parseRuleMap(json['ruleToc'])!),
+      content: _parseRuleMap(json['ruleContent']) == null
+          ? null
+          : ContentRule.fromJson(_parseRuleMap(json['ruleContent'])!),
+      explore: _parseRuleMap(json['ruleExplore']) == null
+          ? null
+          : ExploreRule.fromJson(
+              _parseRuleMap(json['ruleExplore'])!,
+              exploreUrl: _stringValue(json['exploreUrl']),
+            ),
       headers: _parseHeaders(json['header']),
       loginUrl: json['loginUrl'] as String?,
     );

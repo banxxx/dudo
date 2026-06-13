@@ -1,0 +1,39 @@
+import 'package:dudo/core/rule_engine/legado/rule/rule_analyzer.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('RuleAnalyzer', () {
+    const analyzer = RuleAnalyzer();
+
+    test('splits fallback only at top level', () {
+      expect(
+        analyzer.split(
+          r'$.items[?(@.name=="a||b")]||$.books',
+          LegadoRuleDelimiter.fallback,
+        ),
+        [r'$.items[?(@.name=="a||b")]', r'$.books'],
+      );
+    });
+
+    test('does not split inside JS blocks', () {
+      expect(
+        analyzer.split(
+          '<js>result = a@b || c && d;</js>@text',
+          LegadoRuleDelimiter.pipeline,
+        ),
+        ['<js>result = a@b || c && d;</js>', 'text'],
+      );
+    });
+
+    test('splits append and interleave delimiters', () {
+      expect(
+        analyzer.split(r'$.a&&$.b', LegadoRuleDelimiter.append),
+        [r'$.a', r'$.b'],
+      );
+      expect(
+        analyzer.split(r'$.a%%$.b', LegadoRuleDelimiter.interleave),
+        [r'$.a', r'$.b'],
+      );
+    });
+  });
+}

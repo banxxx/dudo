@@ -1,0 +1,47 @@
+import '../models/source_rule.dart';
+import '../parsers/css_parser.dart';
+import '../parsers/jsonpath_parser.dart';
+import '../parsers/parser.dart';
+import '../parsers/regex_parser.dart';
+import '../parsers/xpath_parser.dart';
+import '../legacy_rule_evaluator.dart';
+import 'decode/response_decoder.dart';
+import 'legado_models.dart';
+import 'pipeline/search_pipeline.dart';
+import 'url/analyze_url.dart';
+import 'url/request_executor.dart';
+
+class LegadoRuntime {
+  LegadoRuntime({
+    required this.registry,
+    required this.searchPipeline,
+  });
+
+  final ParserRegistry registry;
+  final SearchPipeline searchPipeline;
+
+  factory LegadoRuntime.create({LegadoRequestExecutor? executor}) {
+    final registry = ParserRegistry()
+      ..register(CssParser())
+      ..register(XPathParser())
+      ..register(JsonPathParser())
+      ..register(RegexParser());
+    final evaluator = LegacyRuleEvaluator(registry);
+    return LegadoRuntime(
+      registry: registry,
+      searchPipeline: SearchPipeline(
+        analyzeUrl: const AnalyzeUrl(),
+        executor: executor ?? const DioLegadoRequestExecutor(),
+        decoder: const ResponseDecoder(),
+        evaluator: evaluator,
+      ),
+    );
+  }
+
+  Future<List<LegadoSearchItem>> search(
+    SourceRule source,
+    String keyword,
+  ) {
+    return searchPipeline.search(source, keyword);
+  }
+}
