@@ -46,5 +46,7 @@ class OnlineSearchResponse {
   bool get hasResults => results.isNotEmpty;
   bool get hasFailures => failures.isNotEmpty;
   bool get allSearchedSourcesFailed =>
-      searchedSourceCount > 0 && results.isEmpty && failures.isNotEmpty;
+      searchedSourceCount > 0 &&
+      results.isEmpty &&
+      failures.length >= searchedSourceCount;
 }

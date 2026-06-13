@@ -6,16 +6,24 @@ class RuleChain {
 
   /// Parses a Legado-flavored rule like `class.book-list@tag.li@a@href`.
   factory RuleChain.parse(String raw) {
-    if (raw.trim().isEmpty) {
+    final cleaned = _stripEmbeddedScripts(raw).replaceAll('&&', '||').trim();
+    if (cleaned.isEmpty) {
       return RuleChain(const []);
     }
-    final segs = raw
+    final segs = cleaned
         .split('||')
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
         .map(RuleSegment.parse)
         .toList();
     return RuleChain(segs);
+  }
+
+  static String _stripEmbeddedScripts(String raw) {
+    return raw
+        .replaceAll(RegExp(r'<js>[\s\S]*?</js>', caseSensitive: false), '')
+        .replaceAll(RegExp(r'@js:[\s\S]*$', caseSensitive: false), '')
+        .trim();
   }
 
   bool get isEmpty => segments.isEmpty;
@@ -30,14 +38,21 @@ class RuleSegment {
   factory RuleSegment.parse(String raw) {
     final type = _detectType(raw);
     final clean = _stripPrefix(raw, type);
-    final steps =
-        clean.split('@').map((s) => s.trim()).map(RuleStep.parse).toList();
+    final steps = clean
+        .split('@')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .map(RuleStep.parse)
+        .toList();
     return RuleSegment(type, steps);
   }
 
   static RuleType _detectType(String s) {
     if (s.startsWith('@CSS:') || s.startsWith('@css:')) return RuleType.css;
     if (s.startsWith('@XPath:') || s.startsWith('//')) return RuleType.xpath;
+    if (s.startsWith('@JSon:') || s.startsWith('@json:')) {
+      return RuleType.jsonPath;
+    }
     if (s.startsWith(r'$.') || s.startsWith(r'$..')) return RuleType.jsonPath;
     if (s.startsWith('@JS:') || s.startsWith('<js>')) return RuleType.js;
     if (s.contains(':') && RegExp(r'^\s*/.+/').hasMatch(s)) {
@@ -53,6 +68,7 @@ class RuleSegment {
       case RuleType.xpath:
         return s.replaceFirst('@XPath:', '');
       case RuleType.jsonPath:
+        return s.replaceFirst(RegExp(r'^@(?:JSon|json):'), '');
       case RuleType.regex:
       case RuleType.js:
         return s;

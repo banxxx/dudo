@@ -372,6 +372,39 @@ void main() {
     expect(find.text('已尝试 2 个书源，但规则或网络请求全部失败。'), findsOneWidget);
   });
 
+  testWidgets(
+      'shows empty state instead of all-failed when some sources return no results',
+      (tester) async {
+    const response = OnlineSearchResponse(
+      searchedSourceCount: 2,
+      availableSourceCount: 2,
+      failures: [
+        OnlineSearchFailure(
+          sourceId: 'source-a',
+          sourceName: '失败书源 A',
+          message: 'fail A',
+        ),
+      ],
+      results: [],
+    );
+
+    await _pumpSearchPage(
+      tester,
+      overrides: [
+        enabledSourceCountProvider
+            .overrideWith((ref) => const AsyncValue.data(2)),
+        onlineSearchProvider('三体').overrideWith((ref) async => response),
+      ],
+    );
+
+    await _enterQuery(tester, '三体');
+    await tester.pump();
+
+    expect(find.text('在线书源暂不可用'), findsNothing);
+    expect(find.text('没有找到“三体”'), findsOneWidget);
+    expect(find.text('部分书源搜索失败，其余启用书源没有返回结果。'), findsOneWidget);
+  });
+
   testWidgets('keeps results visible when some sources fail', (tester) async {
     const response = OnlineSearchResponse(
       searchedSourceCount: 2,

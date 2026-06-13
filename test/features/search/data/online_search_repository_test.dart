@@ -87,7 +87,7 @@ void main() {
 
     final repository = OnlineSearchRepository(
       sourceRepository: sourceRepository,
-      searchRule: (_, keyword) async => [
+      searchRule: (_, keyword) async => const [
         SearchResult(
           name: '三体',
           author: '刘慈欣',

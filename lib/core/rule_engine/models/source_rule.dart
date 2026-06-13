@@ -36,14 +36,14 @@ class SourceRule {
       id: (json['bookSourceUrl'] ?? json['id'] ?? '').toString(),
       name: (json['bookSourceName'] ?? json['name'] ?? '').toString(),
       url: (json['bookSourceUrl'] ?? json['url'] ?? '').toString(),
-      group: json['bookSourceGroup'] as String?,
-      comment: json['bookSourceComment'] as String?,
-      search: json['ruleSearch'] is Map
-          ? SearchRule.fromJson(
-              (json['ruleSearch'] as Map).cast<String, dynamic>(),
-              searchUrl: json['searchUrl'] as String?,
-            )
-          : null,
+      group: _stringValue(json['bookSourceGroup']),
+      comment: _stringValue(json['bookSourceComment']),
+      search: _parseRuleMap(json['ruleSearch']) == null
+          ? null
+          : SearchRule.fromJson(
+              _parseRuleMap(json['ruleSearch'])!,
+              searchUrl: _stringValue(json['searchUrl']),
+            ),
       bookInfo: json['ruleBookInfo'] is Map
           ? BookInfoRule.fromJson(
               (json['ruleBookInfo'] as Map).cast<String, dynamic>(),
@@ -97,14 +97,14 @@ class SearchRule {
   factory SearchRule.fromJson(Map<String, dynamic> j, {String? searchUrl}) =>
       SearchRule(
         searchUrl: searchUrl,
-        bookList: j['bookList'] as String?,
-        name: j['name'] as String?,
-        author: j['author'] as String?,
-        kind: j['kind'] as String?,
-        lastChapter: j['lastChapter'] as String?,
-        intro: j['intro'] as String?,
-        coverUrl: j['coverUrl'] as String?,
-        bookUrl: j['bookUrl'] as String?,
+        bookList: _stringValue(j['bookList']),
+        name: _stringValue(j['name']),
+        author: _stringValue(j['author']),
+        kind: _stringValue(j['kind']),
+        lastChapter: _stringValue(j['lastChapter']),
+        intro: _stringValue(j['intro']),
+        coverUrl: _stringValue(j['coverUrl']),
+        bookUrl: _stringValue(j['bookUrl']),
       );
 }
 
@@ -224,6 +224,25 @@ class ExploreRule {
         coverUrl: j['coverUrl'] as String?,
         bookUrl: j['bookUrl'] as String?,
       );
+}
+
+Map<String, dynamic>? _parseRuleMap(Object? raw) {
+  if (raw is Map) return raw.cast<String, dynamic>();
+  if (raw is! String || raw.trim().isEmpty) return null;
+
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is Map) return decoded.cast<String, dynamic>();
+  } catch (_) {
+    return null;
+  }
+  return null;
+}
+
+String? _stringValue(Object? value) {
+  if (value == null) return null;
+  if (value is String) return value;
+  return value.toString();
 }
 
 Map<String, String> _parseHeaders(Object? raw) {

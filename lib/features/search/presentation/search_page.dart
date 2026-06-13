@@ -723,10 +723,10 @@ class _SearchResultCard extends StatelessWidget {
             height: 68,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(9),
-              gradient: LinearGradient(
+              gradient: const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: const [DudoColors.primary, DudoColors.primaryContainer],
+                colors: [DudoColors.primary, DudoColors.primaryContainer],
               ),
             ),
           ),
