@@ -26,6 +26,16 @@ void main() {
       );
     });
 
+    test('does not split inside backtick strings', () {
+      expect(
+        analyzer.split(
+          r'@js:result = `${a}@${b}`@text',
+          LegadoRuleDelimiter.pipeline,
+        ),
+        [r'@js:result = `${a}@${b}`', 'text'],
+      );
+    });
+
     test('splits append and interleave delimiters', () {
       expect(
         analyzer.split(r'$.a&&$.b', LegadoRuleDelimiter.append),

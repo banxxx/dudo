@@ -1,12 +1,17 @@
 import '../../models/source_rule.dart';
+import '../common/balanced_text_scanner.dart';
 import 'request_executor.dart';
 import 'url_options.dart';
 import 'url_placeholder.dart';
 
 class AnalyzeUrl {
-  const AnalyzeUrl({this.placeholder = const LegadoUrlPlaceholder()});
+  const AnalyzeUrl({
+    this.placeholder = const LegadoUrlPlaceholder(),
+    this.scanner = const BalancedTextScanner(),
+  });
 
   final LegadoUrlPlaceholder placeholder;
+  final BalancedTextScanner scanner;
 
   LegadoRequest compileSearch({
     required SourceRule source,
@@ -37,53 +42,17 @@ class AnalyzeUrl {
   }
 
   SplitLegadoUrlOptions splitOptions(String rawUrl) {
-    var braceDepth = 0;
-    var bracketDepth = 0;
-    var parenDepth = 0;
-    var quote = '';
-    var escaped = false;
+    final index = scanner.indexWhereTopLevel(
+      rawUrl,
+      ',',
+      (index) => rawUrl.substring(index + 1).trimLeft().startsWith('{'),
+    );
+    if (index < 0) return SplitLegadoUrlOptions(rawUrl, null);
 
-    for (var i = 0; i < rawUrl.length - 1; i++) {
-      final char = rawUrl[i];
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-      if (char == r'\') {
-        escaped = true;
-        continue;
-      }
-      if (quote.isNotEmpty) {
-        if (char == quote) quote = '';
-        continue;
-      }
-      if (char == '"' || char == "'") {
-        quote = char;
-        continue;
-      }
-      switch (char) {
-        case '{':
-          braceDepth += 1;
-        case '}':
-          if (braceDepth > 0) braceDepth -= 1;
-        case '[':
-          bracketDepth += 1;
-        case ']':
-          if (bracketDepth > 0) bracketDepth -= 1;
-        case '(':
-          parenDepth += 1;
-        case ')':
-          if (parenDepth > 0) parenDepth -= 1;
-        case ',':
-          if (braceDepth == 0 && bracketDepth == 0 && parenDepth == 0) {
-            final rest = rawUrl.substring(i + 1).trimLeft();
-            if (rest.startsWith('{')) {
-              return SplitLegadoUrlOptions(rawUrl.substring(0, i), rest);
-            }
-          }
-      }
-    }
-    return SplitLegadoUrlOptions(rawUrl, null);
+    return SplitLegadoUrlOptions(
+      rawUrl.substring(0, index),
+      rawUrl.substring(index + 1).trimLeft(),
+    );
   }
 
   String _analyzeSearchUrl(String rawUrl, String keyword, int page) {

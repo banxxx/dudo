@@ -34,6 +34,69 @@ void main() {
       expect(split.url, 'https://source.example/search?tag=a,b&x=(1,2)');
       expect(split.optionJson, '{"charset":"utf-8"}');
     });
+
+    test('splits options after nested JSON and quoted comma content', () {
+      const analyzeUrl = AnalyzeUrl();
+      final split = analyzeUrl.splitOptions(
+        'https://source.example/search?q=foo,{"method":"POST","body":{"ids":[1,2,{"x":"a,b"}]},"headers":{"X":"{not split, here}"}}',
+      );
+
+      expect(split.url, 'https://source.example/search?q=foo');
+      expect(
+        split.optionJson,
+        '{"method":"POST","body":{"ids":[1,2,{"x":"a,b"}]},"headers":{"X":"{not split, here}"}}',
+      );
+    });
+
+    test('ignores option-looking commas inside JS-like URL expressions', () {
+      const analyzeUrl = AnalyzeUrl();
+      final split = analyzeUrl.splitOptions(
+        '@js:result = buildUrl(foo({a:[1,2,"x,y"]})),{"charset":"utf-8"}',
+      );
+
+      expect(split.url, '@js:result = buildUrl(foo({a:[1,2,"x,y"]}))');
+      expect(split.optionJson, '{"charset":"utf-8"}');
+    });
+
+    test('ignores commas inside JS blocks before options', () {
+      const analyzeUrl = AnalyzeUrl();
+      final split = analyzeUrl.splitOptions(
+        '<js>result = fn({a: "x,y"}, [1,2]);</js>,{"charset":"utf-8"}',
+      );
+
+      expect(split.url, '<js>result = fn({a: "x,y"}, [1,2]);</js>');
+      expect(split.optionJson, '{"charset":"utf-8"}');
+    });
+
+    test('ignores commas inside backtick strings before options', () {
+      const analyzeUrl = AnalyzeUrl();
+      final split = analyzeUrl.splitOptions(
+        r'@js:result = `${foo},${bar}`,{"charset":"utf-8"}',
+      );
+
+      expect(split.url, r'@js:result = `${foo},${bar}`');
+      expect(split.optionJson, r'{"charset":"utf-8"}');
+    });
+
+    test('does not split top-level comma followed by non-options text', () {
+      const analyzeUrl = AnalyzeUrl();
+      final split = analyzeUrl.splitOptions(
+        'https://source.example/search?a=1,notOptions',
+      );
+
+      expect(split.url, 'https://source.example/search?a=1,notOptions');
+      expect(split.optionJson, isNull);
+    });
+
+    test('does not split object-like text nested in URL side', () {
+      const analyzeUrl = AnalyzeUrl();
+      final split = analyzeUrl.splitOptions(
+        'https://source.example/search?q=fn({"a":"b,c"})',
+      );
+
+      expect(split.url, 'https://source.example/search?q=fn({"a":"b,c"})');
+      expect(split.optionJson, isNull);
+    });
   });
 }
 
