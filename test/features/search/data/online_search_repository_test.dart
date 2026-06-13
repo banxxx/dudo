@@ -180,6 +180,10 @@ class _FakeSourceRepository implements SourceRepository {
   Future<void> deleteSource(String id) => throw UnimplementedError();
 
   @override
+  Future<void> deleteSources(Iterable<String> ids) =>
+      throw UnimplementedError();
+
+  @override
   Future<List<Source>> listEnabledSources() async {
     final enabledSources = sources.where((source) => source.enabled).toList()
       ..sort((a, b) {
@@ -195,6 +199,10 @@ class _FakeSourceRepository implements SourceRepository {
 
   @override
   Future<void> setSourceEnabled(String id, bool enabled) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> setSourcesEnabled(Iterable<String> ids, bool enabled) =>
       throw UnimplementedError();
 
   @override

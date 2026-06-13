@@ -5,6 +5,8 @@ import 'package:drift/drift.dart';
 import '../../../core/database/app_database.dart';
 import '../domain/source_import_models.dart';
 
+const _sourceBatchChunkSize = 400;
+
 class SourceRepository {
   const SourceRepository(this.database);
 
@@ -151,10 +153,7 @@ class SourceRepository {
     if (uniqueIds.isEmpty) return const [];
 
     final rows = <Source>[];
-    const chunkSize = 400;
-    for (var start = 0; start < uniqueIds.length; start += chunkSize) {
-      final end = (start + chunkSize).clamp(0, uniqueIds.length);
-      final chunk = uniqueIds.sublist(start, end);
+    for (final chunk in _sourceIdChunks(uniqueIds)) {
       final chunkRows = await (database.select(database.sources)
             ..where(
               (source) => source.id.isIn(chunk) | source.url.isIn(chunk),
@@ -165,20 +164,50 @@ class SourceRepository {
     return rows;
   }
 
-  Future<void> setSourceEnabled(String id, bool enabled) async {
-    await (database.update(database.sources)
-          ..where((source) => source.id.equals(id)))
-        .write(
-      SourcesCompanion(
-        enabled: Value(enabled),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+  Iterable<List<String>> _sourceIdChunks(List<String> ids) sync* {
+    for (var start = 0; start < ids.length; start += _sourceBatchChunkSize) {
+      final end = (start + _sourceBatchChunkSize).clamp(0, ids.length);
+      yield ids.sublist(start, end);
+    }
   }
 
-  Future<void> deleteSource(String id) async {
-    await (database.delete(database.sources)
-          ..where((source) => source.id.equals(id)))
-        .go();
+  Future<void> setSourceEnabled(String id, bool enabled) {
+    return setSourcesEnabled([id], enabled);
+  }
+
+  Future<void> setSourcesEnabled(Iterable<String> ids, bool enabled) async {
+    final uniqueIds = ids.toSet().toList(growable: false);
+    if (uniqueIds.isEmpty) return;
+
+    final now = DateTime.now();
+    await database.transaction(() async {
+      for (final chunk in _sourceIdChunks(uniqueIds)) {
+        await (database.update(database.sources)
+              ..where((source) => source.id.isIn(chunk)))
+            .write(
+          SourcesCompanion(
+            enabled: Value(enabled),
+            updatedAt: Value(now),
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> deleteSource(String id) {
+    return deleteSources([id]);
+  }
+
+  Future<void> deleteSources(Iterable<String> ids) async {
+    final uniqueIds = ids.toSet().toList(growable: false);
+    if (uniqueIds.isEmpty) return;
+
+    await database.transaction(() async {
+      for (final chunk in _sourceIdChunks(uniqueIds)) {
+        await (database.delete(database.sources)
+              ..where((source) => source.id.isIn(chunk)))
+            .go();
+      }
+    });
   }
 }

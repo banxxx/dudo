@@ -88,6 +88,8 @@ void main() {
 
     expect(harness.repository.sourceCount, 1);
     expect(find.text('番茄小说'), findsNothing);
+    expect(harness.repository.deleteSourceCallCount, 1);
+    expect(harness.repository.deleteSourcesCallCount, 0);
   });
 
   testWidgets('bulk select and enable only filtered disabled sources',
@@ -110,6 +112,10 @@ void main() {
 
     expect(harness.repository.sourceById('fanqie').enabled, isTrue);
     expect(harness.repository.sourceById('qidian').enabled, isTrue);
+    expect(harness.repository.setSourcesEnabledCallCount, 1);
+    expect(harness.repository.setSourceEnabledCallCount, 0);
+    expect(harness.repository.lastSetSourcesEnabledIds, {'fanqie'});
+    expect(harness.repository.lastSetSourcesEnabledValue, isTrue);
   });
 
   testWidgets('bulk select and disable only filtered enabled sources',
@@ -132,6 +138,29 @@ void main() {
 
     expect(harness.repository.sourceById('qidian').enabled, isFalse);
     expect(harness.repository.sourceById('fanqie').enabled, isFalse);
+    expect(harness.repository.setSourcesEnabledCallCount, 1);
+    expect(harness.repository.setSourceEnabledCallCount, 0);
+    expect(harness.repository.lastSetSourcesEnabledIds, {'qidian'});
+    expect(harness.repository.lastSetSourcesEnabledValue, isFalse);
+  });
+
+  testWidgets('bulk delete uses repository batch delete once', (tester) async {
+    final harness = await _pumpSourceManageSettings(tester);
+    addTearDown(harness.dispose);
+
+    await tester.tap(find.byIcon(LucideIcons.slidersHorizontal));
+    await tester.pump();
+    await tester.tap(find.text('全选'));
+    await tester.pump();
+    await tester.tap(find.text('批量删除'));
+    await tester.pump();
+    await tester.tap(find.text('删除').last);
+    await tester.pump();
+
+    expect(harness.repository.sourceCount, 0);
+    expect(harness.repository.deleteSourcesCallCount, 1);
+    expect(harness.repository.deleteSourceCallCount, 0);
+    expect(harness.repository.lastDeleteSourcesIds, {'fanqie', 'qidian'});
   });
 
   testWidgets(
@@ -221,6 +250,14 @@ class _FakeSourceRepository implements SourceRepository {
   final List<Source> _sources;
   final _controller = StreamController<List<Source>>.broadcast();
 
+  int setSourceEnabledCallCount = 0;
+  int setSourcesEnabledCallCount = 0;
+  int deleteSourceCallCount = 0;
+  int deleteSourcesCallCount = 0;
+  Set<String> lastSetSourcesEnabledIds = const {};
+  bool? lastSetSourcesEnabledValue;
+  Set<String> lastDeleteSourcesIds = const {};
+
   int get sourceCount => _sources.length;
 
   Source sourceById(String id) {
@@ -254,18 +291,59 @@ class _FakeSourceRepository implements SourceRepository {
 
   @override
   Future<void> setSourceEnabled(String id, bool enabled) async {
-    final index = _sources.indexWhere((source) => source.id == id);
-    final source = _sources[index];
-    _sources[index] = source.copyWith(
-      enabled: enabled,
-      updatedAt: DateTime(2026, 6, 13, 12),
-    );
+    setSourceEnabledCallCount += 1;
+    await _setSourcesEnabled({id}, enabled, recordBatchCall: false);
+  }
+
+  @override
+  Future<void> setSourcesEnabled(Iterable<String> ids, bool enabled) async {
+    setSourcesEnabledCallCount += 1;
+    await _setSourcesEnabled(ids, enabled);
+  }
+
+  Future<void> _setSourcesEnabled(
+    Iterable<String> ids,
+    bool enabled, {
+    bool recordBatchCall = true,
+  }) async {
+    final idSet = ids.toSet();
+    if (recordBatchCall) {
+      lastSetSourcesEnabledIds = idSet;
+      lastSetSourcesEnabledValue = enabled;
+    }
+    for (var i = 0; i < _sources.length; i++) {
+      final source = _sources[i];
+      if (idSet.contains(source.id)) {
+        _sources[i] = source.copyWith(
+          enabled: enabled,
+          updatedAt: DateTime(2026, 6, 13, 12),
+        );
+      }
+    }
     _emit();
   }
 
   @override
   Future<void> deleteSource(String id) async {
-    _sources.removeWhere((source) => source.id == id);
+    deleteSourceCallCount += 1;
+    await _deleteSources({id}, recordBatchCall: false);
+  }
+
+  @override
+  Future<void> deleteSources(Iterable<String> ids) async {
+    deleteSourcesCallCount += 1;
+    await _deleteSources(ids);
+  }
+
+  Future<void> _deleteSources(
+    Iterable<String> ids, {
+    bool recordBatchCall = true,
+  }) async {
+    final idSet = ids.toSet();
+    if (recordBatchCall) {
+      lastDeleteSourcesIds = idSet;
+    }
+    _sources.removeWhere((source) => idSet.contains(source.id));
     _emit();
   }
 

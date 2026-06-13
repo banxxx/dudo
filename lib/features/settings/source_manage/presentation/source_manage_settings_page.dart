@@ -124,10 +124,10 @@ class _SourceManageSettingsPageState
     if (selectedDisabledSources.isEmpty) return;
 
     try {
-      final repository = ref.read(sourceRepositoryProvider);
-      for (final source in selectedDisabledSources) {
-        await repository.setSourceEnabled(source.id, true);
-      }
+      await ref.read(sourceRepositoryProvider).setSourcesEnabled(
+            selectedDisabledSources.map((source) => source.id),
+            true,
+          );
       if (!mounted) return;
       setState(() {
         for (final source in selectedDisabledSources) {
@@ -160,10 +160,10 @@ class _SourceManageSettingsPageState
     if (selectedEnabledSources.isEmpty) return;
 
     try {
-      final repository = ref.read(sourceRepositoryProvider);
-      for (final source in selectedEnabledSources) {
-        await repository.setSourceEnabled(source.id, false);
-      }
+      await ref.read(sourceRepositoryProvider).setSourcesEnabled(
+            selectedEnabledSources.map((source) => source.id),
+            false,
+          );
       if (!mounted) return;
       setState(() {
         for (final source in selectedEnabledSources) {
@@ -228,10 +228,9 @@ class _SourceManageSettingsPageState
     if (confirmed != true || !mounted) return;
 
     try {
-      final repository = ref.read(sourceRepositoryProvider);
-      for (final source in selectedSources) {
-        await repository.deleteSource(source.id);
-      }
+      await ref.read(sourceRepositoryProvider).deleteSources(
+            selectedSources.map((source) => source.id),
+          );
       if (!mounted) return;
       setState(() {
         for (final source in selectedSources) {
