@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/rule_engine/rule_engine.dart';
@@ -17,12 +19,23 @@ final onlineSearchRepositoryProvider = Provider<OnlineSearchRepository>((ref) {
 });
 
 final onlineSearchProvider =
-    FutureProvider.family<OnlineSearchResponse, String>((ref, keyword) {
-  return ref.watch(onlineSearchRepositoryProvider).search(keyword);
+    FutureProvider.family<OnlineSearchResponse, String>((ref, keyword) async {
+  final enabledSources = await _requireData(ref.watch(enabledSourcesProvider));
+  return ref
+      .watch(onlineSearchRepositoryProvider)
+      .searchSources(keyword, enabledSources);
 });
 
-final enabledSourceCountProvider = FutureProvider<int>((ref) async {
-  final sources =
-      await ref.watch(sourceRepositoryProvider).listEnabledSources();
-  return sources.length;
+final enabledSourceCountProvider = Provider<AsyncValue<int>>((ref) {
+  return ref
+      .watch(enabledSourcesProvider)
+      .whenData((sources) => sources.length);
 });
+
+Future<T> _requireData<T>(AsyncValue<T> value) {
+  return value.when(
+    data: Future.value,
+    loading: () => Completer<T>().future,
+    error: (error, stackTrace) => Future<T>.error(error, stackTrace),
+  );
+}

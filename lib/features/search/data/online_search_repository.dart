@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../../../core/rule_engine/models/source_rule.dart';
 import '../../../core/rule_engine/rule_engine.dart' as engine;
 import '../../sources/data/source_repository.dart';
+import '../../../core/database/app_database.dart';
 import '../domain/online_search_models.dart';
 
 typedef RuleSearch = Future<List<engine.SearchResult>> Function(
@@ -30,6 +31,14 @@ class OnlineSearchRepository {
   final RuleSearch searchRule;
 
   Future<OnlineSearchResponse> search(String keyword) async {
+    final sources = await sourceRepository.listEnabledSources();
+    return searchSources(keyword, sources);
+  }
+
+  Future<OnlineSearchResponse> searchSources(
+    String keyword,
+    List<Source> sources,
+  ) async {
     final normalizedKeyword = keyword.trim();
     if (normalizedKeyword.isEmpty) {
       return const OnlineSearchResponse(
@@ -40,7 +49,6 @@ class OnlineSearchRepository {
       );
     }
 
-    final sources = await sourceRepository.listEnabledSources();
     final results = <OnlineSearchBookResult>[];
     final failures = <OnlineSearchFailure>[];
     var searchedSourceCount = 0;

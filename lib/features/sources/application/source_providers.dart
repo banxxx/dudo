@@ -33,3 +33,10 @@ final sourceImportServiceProvider = Provider<SourceImportService>((ref) {
 final sourcesProvider = StreamProvider<List<Source>>((ref) {
   return ref.watch(sourceRepositoryProvider).watchSources();
 });
+
+final enabledSourcesProvider = Provider<AsyncValue<List<Source>>>((ref) {
+  return ref.watch(sourcesProvider).whenData(
+        (sources) =>
+            sources.where((source) => source.enabled).toList(growable: false),
+      );
+});

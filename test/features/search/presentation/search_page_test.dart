@@ -1,8 +1,14 @@
 import 'dart:async';
 
+import 'package:dudo/core/database/app_database.dart';
+import 'package:dudo/core/rule_engine/rule_engine.dart';
 import 'package:dudo/features/search/application/search_providers.dart';
+import 'package:dudo/features/search/data/online_search_repository.dart';
 import 'package:dudo/features/search/domain/online_search_models.dart';
 import 'package:dudo/features/search/presentation/search_page.dart';
+import 'package:dudo/features/sources/application/source_providers.dart';
+import 'package:dudo/features/sources/data/source_repository.dart';
+import 'package:dudo/features/sources/domain/source_import_models.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +19,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          enabledSourceCountProvider.overrideWith((ref) async => 0),
+          enabledSourceCountProvider
+              .overrideWith((ref) => const AsyncValue.data(0)),
         ],
         child: const MaterialApp(
           home: SearchPage(),
@@ -118,7 +125,8 @@ void main() {
     await _pumpSearchPage(
       tester,
       overrides: [
-        enabledSourceCountProvider.overrideWith((ref) async => 1),
+        enabledSourceCountProvider
+            .overrideWith((ref) => const AsyncValue.data(1)),
         onlineSearchProvider('三体').overrideWith((ref) => completer.future),
       ],
     );
@@ -168,7 +176,8 @@ void main() {
     await _pumpSearchPage(
       tester,
       overrides: [
-        enabledSourceCountProvider.overrideWith((ref) async => 1),
+        enabledSourceCountProvider
+            .overrideWith((ref) => const AsyncValue.data(1)),
         onlineSearchProvider('三体').overrideWith((ref) async => response),
       ],
     );
@@ -268,7 +277,8 @@ void main() {
     await _pumpSearchPage(
       tester,
       overrides: [
-        enabledSourceCountProvider.overrideWith((ref) async => 1),
+        enabledSourceCountProvider
+            .overrideWith((ref) => const AsyncValue.data(1)),
         onlineSearchProvider('不存在的书').overrideWith((ref) async => response),
       ],
     );
@@ -286,7 +296,8 @@ void main() {
     await _pumpSearchPage(
       tester,
       overrides: [
-        enabledSourceCountProvider.overrideWith((ref) async => 1),
+        enabledSourceCountProvider
+            .overrideWith((ref) => const AsyncValue.data(1)),
         onlineSearchProvider('三体').overrideWith(
           (ref) async => throw StateError('network exploded'),
         ),
@@ -312,7 +323,8 @@ void main() {
     await _pumpSearchPage(
       tester,
       overrides: [
-        enabledSourceCountProvider.overrideWith((ref) async => 0),
+        enabledSourceCountProvider
+            .overrideWith((ref) => const AsyncValue.data(0)),
         onlineSearchProvider('三体').overrideWith((ref) async => response),
       ],
     );
@@ -347,7 +359,8 @@ void main() {
     await _pumpSearchPage(
       tester,
       overrides: [
-        enabledSourceCountProvider.overrideWith((ref) async => 2),
+        enabledSourceCountProvider
+            .overrideWith((ref) => const AsyncValue.data(2)),
         onlineSearchProvider('三体').overrideWith((ref) async => response),
       ],
     );
@@ -384,7 +397,8 @@ void main() {
     await _pumpSearchPage(
       tester,
       overrides: [
-        enabledSourceCountProvider.overrideWith((ref) async => 2),
+        enabledSourceCountProvider
+            .overrideWith((ref) => const AsyncValue.data(2)),
         onlineSearchProvider('三体').overrideWith((ref) async => response),
       ],
     );
@@ -396,6 +410,71 @@ void main() {
     expect(find.text('三体'), findsWidgets);
     expect(find.text('刘慈欣 · 可用书源'), findsOneWidget);
     expect(find.text('1 个书源搜索失败，已展示其余可用结果。'), findsOneWidget);
+  });
+
+  testWidgets('updates enabled source count when source stream changes',
+      (tester) async {
+    final repository = _StreamSourceRepository([
+      _source(id: 'source-a', name: '书源 A', enabled: true),
+      _source(id: 'source-b', name: '书源 B', enabled: false),
+    ]);
+    addTearDown(repository.dispose);
+
+    await _pumpSearchPage(
+      tester,
+      overrides: [sourceRepositoryProvider.overrideWithValue(repository)],
+    );
+
+    expect(find.text('1 个启用'), findsOneWidget);
+
+    repository.setEnabled('source-b', true);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('2 个启用'), findsOneWidget);
+
+    repository.deleteById('source-a');
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('1 个启用'), findsOneWidget);
+  });
+
+  testWidgets('refreshes active search when enabled sources change',
+      (tester) async {
+    final repository = _StreamSourceRepository([
+      _source(id: 'source-a', name: '书源 A', enabled: true),
+    ]);
+    addTearDown(repository.dispose);
+
+    await _pumpSearchPage(
+      tester,
+      overrides: [
+        sourceRepositoryProvider.overrideWithValue(repository),
+        onlineSearchRepositoryProvider.overrideWith(
+          (ref) => OnlineSearchRepository(
+            sourceRepository: repository,
+            searchRule: (_, __) async => const [
+              SearchResult(name: '三体', author: '刘慈欣'),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    await _enterQuery(tester, '三体');
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('刘慈欣 · 书源 A'), findsOneWidget);
+
+    repository.setEnabled('source-a', false);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('刘慈欣 · 书源 A'), findsNothing);
+    expect(find.text('暂无启用书源'), findsOneWidget);
+    expect(find.text('0 个启用'), findsOneWidget);
   });
 }
 
@@ -418,4 +497,122 @@ Future<void> _enterQuery(WidgetTester tester, String query) async {
   await tester.tap(find.byType(EditableText));
   await tester.enterText(find.byType(EditableText), query);
   await tester.pump();
+}
+
+Source _source({
+  required String id,
+  required String name,
+  required bool enabled,
+}) {
+  final now = DateTime(2026, 6, 13);
+  return Source(
+    id: id,
+    name: name,
+    url: id,
+    enabled: enabled,
+    rulesJson: _rulesJson(url: id, name: name),
+    sortOrder: 0,
+    createdAt: now,
+    updatedAt: now,
+  );
+}
+
+String _rulesJson({required String url, required String name}) {
+  return '{'
+      '"bookSourceUrl":"$url",'
+      '"bookSourceName":"$name",'
+      '"searchUrl":"$url/search?q={{key}}",'
+      '"ruleSearch":{'
+      '"bookList":".book",'
+      '"name":".name@text",'
+      '"author":".author@text",'
+      '"bookUrl":".book@href"'
+      '}'
+      '}';
+}
+
+class _StreamSourceRepository implements SourceRepository {
+  _StreamSourceRepository(List<Source> sources) : _sources = [...sources];
+
+  final List<Source> _sources;
+  final _controller = StreamController<List<Source>>.broadcast();
+
+  void dispose() {
+    _controller.close();
+  }
+
+  void setEnabled(String id, bool enabled) {
+    final index = _sources.indexWhere((source) => source.id == id);
+    final source = _sources[index];
+    _sources[index] = source.copyWith(
+      enabled: enabled,
+      updatedAt: DateTime(2026, 6, 13, 12),
+    );
+    _emit();
+  }
+
+  void deleteById(String id) {
+    _sources.removeWhere((source) => source.id == id);
+    _emit();
+  }
+
+  void _emit() {
+    _controller.add(List<Source>.unmodifiable(_sources));
+  }
+
+  @override
+  AppDatabase get database => throw UnimplementedError();
+
+  @override
+  Stream<List<Source>> watchSources() async* {
+    yield List<Source>.unmodifiable(_sources);
+    yield* _controller.stream;
+  }
+
+  @override
+  Future<List<Source>> listEnabledSources() async =>
+      _sources.where((source) => source.enabled).toList(growable: false);
+
+  @override
+  Future<List<Source>> listSources() async =>
+      List<Source>.unmodifiable(_sources);
+
+  @override
+  Future<void> setSourceEnabled(String id, bool enabled) async {
+    setEnabled(id, enabled);
+  }
+
+  @override
+  Future<void> setSourcesEnabled(Iterable<String> ids, bool enabled) async {
+    for (final id in ids) {
+      final index = _sources.indexWhere((source) => source.id == id);
+      if (index == -1) continue;
+      final source = _sources[index];
+      _sources[index] = source.copyWith(
+        enabled: enabled,
+        updatedAt: DateTime(2026, 6, 13, 12),
+      );
+    }
+    _emit();
+  }
+
+  @override
+  Future<void> deleteSource(String id) async {
+    deleteById(id);
+  }
+
+  @override
+  Future<void> deleteSources(Iterable<String> ids) async {
+    final idSet = ids.toSet();
+    _sources.removeWhere((source) => idSet.contains(source.id));
+    _emit();
+  }
+
+  @override
+  Future<SourceImportPersistResult> upsertImportedSources(
+    SourceImportParseResult parseResult, {
+    ExistingSourceStrategy existingStrategy = ExistingSourceStrategy.update,
+  }) {
+    throw UnimplementedError();
+  }
 }
