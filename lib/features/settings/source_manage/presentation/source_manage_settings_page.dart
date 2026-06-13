@@ -15,6 +15,8 @@ import '../../shared/widgets/settings_detail_scaffold.dart';
 
 const _sourceManageMessageKey = 'source-manage-actions';
 const _sourcePageSize = 100;
+const _dangerFill = Color(0xFFF4DDD2);
+const _dangerText = Color(0xFFA8553A);
 
 class SourceManageSettingsPage extends ConsumerStatefulWidget {
   const SourceManageSettingsPage({super.key});
@@ -27,8 +29,10 @@ class SourceManageSettingsPage extends ConsumerStatefulWidget {
 class _SourceManageSettingsPageState
     extends ConsumerState<SourceManageSettingsPage> {
   final TextEditingController _searchController = TextEditingController();
+  final Set<String> _selectedSourceIds = <String>{};
   String _searchQuery = '';
   int _visibleCount = _sourcePageSize;
+  bool _isManageMode = false;
 
   @override
   void dispose() {
@@ -43,6 +47,15 @@ class _SourceManageSettingsPageState
     }
   }
 
+  void _toggleManageMode() {
+    setState(() {
+      _isManageMode = !_isManageMode;
+      if (!_isManageMode) {
+        _selectedSourceIds.clear();
+      }
+    });
+  }
+
   void _updateSearchQuery(String value) {
     setState(() {
       _searchQuery = value.trim();
@@ -54,6 +67,199 @@ class _SourceManageSettingsPageState
     setState(() => _visibleCount += _sourcePageSize);
   }
 
+  void _toggleSourceSelected(String sourceId) {
+    setState(() {
+      if (_selectedSourceIds.contains(sourceId)) {
+        _selectedSourceIds.remove(sourceId);
+      } else {
+        _selectedSourceIds.add(sourceId);
+      }
+    });
+  }
+
+  void _toggleAllFilteredSources(List<Source> filteredSources) {
+    if (filteredSources.isEmpty) return;
+    final filteredIds = filteredSources.map((source) => source.id).toSet();
+    final allFilteredSelected = filteredIds.every(_selectedSourceIds.contains);
+    setState(() {
+      if (allFilteredSelected) {
+        _selectedSourceIds.removeAll(filteredIds);
+      } else {
+        _selectedSourceIds.addAll(filteredIds);
+      }
+    });
+  }
+
+  Future<void> _enableSource(Source source) async {
+    if (source.enabled) return;
+    try {
+      await ref
+          .read(sourceRepositoryProvider)
+          .setSourceEnabled(source.id, true);
+      if (!mounted) return;
+      setState(() => _selectedSourceIds.remove(source.id));
+      ref.read(appMessageServiceProvider).success(
+            '已启用“${source.name}”',
+            title: '书源已启用',
+            dedupeKey: _sourceManageMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    } catch (_) {
+      if (!mounted) return;
+      ref.read(appMessageServiceProvider).error(
+            '启用失败，请稍后重试。',
+            title: '操作失败',
+            dedupeKey: _sourceManageMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    }
+  }
+
+  Future<void> _enableSelectedSources(List<Source> sources) async {
+    final selectedDisabledSources = sources
+        .where(
+          (source) => _selectedSourceIds.contains(source.id) && !source.enabled,
+        )
+        .toList(growable: false);
+    if (selectedDisabledSources.isEmpty) return;
+
+    try {
+      final repository = ref.read(sourceRepositoryProvider);
+      for (final source in selectedDisabledSources) {
+        await repository.setSourceEnabled(source.id, true);
+      }
+      if (!mounted) return;
+      setState(() {
+        for (final source in selectedDisabledSources) {
+          _selectedSourceIds.remove(source.id);
+        }
+      });
+      ref.read(appMessageServiceProvider).success(
+            '已启用 ${selectedDisabledSources.length} 个书源',
+            title: '批量启用完成',
+            dedupeKey: _sourceManageMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    } catch (_) {
+      if (!mounted) return;
+      ref.read(appMessageServiceProvider).error(
+            '批量启用失败，请稍后重试。',
+            title: '操作失败',
+            dedupeKey: _sourceManageMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    }
+  }
+
+  Future<void> _confirmDeleteSource(Source source) async {
+    final confirmed = await _showDeleteConfirmation(
+      title: '删除书源？',
+      message: '将删除“${source.name}”，此操作不可撤销。',
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref.read(sourceRepositoryProvider).deleteSource(source.id);
+      if (!mounted) return;
+      setState(() => _selectedSourceIds.remove(source.id));
+      ref.read(appMessageServiceProvider).success(
+            '已删除“${source.name}”',
+            title: '书源已删除',
+            dedupeKey: _sourceManageMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    } catch (_) {
+      if (!mounted) return;
+      ref.read(appMessageServiceProvider).error(
+            '删除失败，请稍后重试。',
+            title: '操作失败',
+            dedupeKey: _sourceManageMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    }
+  }
+
+  Future<void> _confirmDeleteSelectedSources(List<Source> sources) async {
+    final selectedSources = sources
+        .where((source) => _selectedSourceIds.contains(source.id))
+        .toList(growable: false);
+    if (selectedSources.isEmpty) return;
+
+    final confirmed = await _showDeleteConfirmation(
+      title: '删除选中的书源？',
+      message: '将删除 ${selectedSources.length} 个书源，此操作不可撤销。',
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final repository = ref.read(sourceRepositoryProvider);
+      for (final source in selectedSources) {
+        await repository.deleteSource(source.id);
+      }
+      if (!mounted) return;
+      setState(() {
+        for (final source in selectedSources) {
+          _selectedSourceIds.remove(source.id);
+        }
+      });
+      ref.read(appMessageServiceProvider).success(
+            '已删除 ${selectedSources.length} 个书源',
+            title: '批量删除完成',
+            dedupeKey: _sourceManageMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    } catch (_) {
+      if (!mounted) return;
+      ref.read(appMessageServiceProvider).error(
+            '批量删除失败，请稍后重试。',
+            title: '操作失败',
+            dedupeKey: _sourceManageMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    }
+  }
+
+  Future<bool?> _showDeleteConfirmation({
+    required String title,
+    required String message,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: DudoColors.surface,
+          surfaceTintColor: Colors.transparent,
+          title: Text(
+            title,
+            style: DudoTextStyles.sans(
+              color: DudoColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: Text(
+            message,
+            style: DudoTextStyles.sans(
+              color: DudoColors.secondaryDark,
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('删除'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final sourcesValue = ref.watch(sourcesProvider);
@@ -63,8 +269,8 @@ class _SourceManageSettingsPageState
         SettingsDetailHeader(
           eyebrow: '内容与书源',
           title: '书源管理',
-          actionIcon: LucideIcons.plus,
-          onActionTap: () => _openSourceAddPage(context),
+          actionIcon: LucideIcons.slidersHorizontal,
+          onActionTap: _toggleManageMode,
         ),
         const SizedBox(height: 14),
         sourcesValue.when(
@@ -76,21 +282,57 @@ class _SourceManageSettingsPageState
           ),
         ),
         const SizedBox(height: 14),
-        _SourceQuickActions(ref: ref),
+        _SourceQuickActions(
+          ref: ref,
+          onAddSource: () => _openSourceAddPage(context),
+        ),
         const SizedBox(height: 14),
         sourcesValue.when(
           loading: () => const _LoadingSourcesCard(),
           error: (error, _) => _SourceErrorCard(
             onRetry: () => ref.invalidate(sourcesProvider),
           ),
-          data: (sources) => _SourceListSection(
-            sources: sources,
-            query: _searchQuery,
-            visibleCount: _visibleCount,
-            searchController: _searchController,
-            onSearchChanged: _updateSearchQuery,
-            onLoadMore: _loadMoreSources,
-          ),
+          data: (sources) {
+            final filteredSources = _filterSources(sources, _searchQuery);
+            final selectedFilteredCount = filteredSources
+                .where((source) => _selectedSourceIds.contains(source.id))
+                .length;
+            final allFilteredSelected = filteredSources.isNotEmpty &&
+                selectedFilteredCount == filteredSources.length;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_isManageMode) ...[
+                  _SourceManagementBar(
+                    selectedCount: selectedFilteredCount,
+                    totalCount: filteredSources.length,
+                    allSelected: allFilteredSelected,
+                    onSelectAll: () =>
+                        _toggleAllFilteredSources(filteredSources),
+                    onEnableSelected: () => _enableSelectedSources(sources),
+                    onDeleteSelected: () =>
+                        _confirmDeleteSelectedSources(sources),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                _SourceListSection(
+                  sources: sources,
+                  filteredSources: filteredSources,
+                  query: _searchQuery,
+                  visibleCount: _visibleCount,
+                  searchController: _searchController,
+                  isManageMode: _isManageMode,
+                  selectedSourceIds: _selectedSourceIds,
+                  onSearchChanged: _updateSearchQuery,
+                  onLoadMore: _loadMoreSources,
+                  onToggleSelected: _toggleSourceSelected,
+                  onEnableSource: _enableSource,
+                  onDeleteSource: _confirmDeleteSource,
+                ),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -119,13 +361,23 @@ class _SourceSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final disabledCount = (totalCount - enabledCount).clamp(0, totalCount);
+    final title = message == null
+        ? disabledCount > 0
+            ? '$disabledCount 个书源待启用'
+            : totalCount == 0
+                ? '还没有书源'
+                : '全部书源已启用'
+        : '$enabledCount 个书源已启用';
     final description = message ??
         (totalCount == 0
-            ? '还没有导入在线书源，可从 Legado JSON 规则文件开始。'
-            : '共导入 $totalCount 个书源，当前支持本地规则管理；在线搜索、目录解析和阅读会后续接入。');
+            ? '先导入 Legado JSON 规则文件，再进入管理模式启用或删除。'
+            : disabledCount > 0
+                ? '启用后才会参与搜索与章节更新，可通过右上角进入管理模式。'
+                : '共导入 $totalCount 个书源，可进入管理模式查看或删除。');
 
     return Container(
-      height: 118,
+      height: 108,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: DudoColors.primaryContainer,
@@ -141,7 +393,7 @@ class _SourceSummary extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$enabledCount 个书源已启用',
+                  title,
                   style: DudoTextStyles.sans(
                     color: DudoColors.textPrimary,
                     fontSize: 18,
@@ -169,14 +421,15 @@ class _SourceSummary extends StatelessWidget {
 }
 
 class _SourceQuickActions extends StatelessWidget {
-  const _SourceQuickActions({required this.ref});
+  const _SourceQuickActions({required this.ref, required this.onAddSource});
 
   final WidgetRef ref;
+  final VoidCallback onAddSource;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 64,
+      height: 58,
       child: Row(
         children: [
           Expanded(
@@ -184,7 +437,7 @@ class _SourceQuickActions extends StatelessWidget {
               icon: LucideIcons.plus,
               label: '添加书源',
               selected: true,
-              onTap: () => context.push(AppRoutes.sourceAdd),
+              onTap: onAddSource,
             ),
           ),
           const SizedBox(width: 10),
@@ -218,22 +471,176 @@ class _SourceQuickActions extends StatelessWidget {
   }
 }
 
+class _SourceManagementBar extends StatelessWidget {
+  const _SourceManagementBar({
+    required this.selectedCount,
+    required this.totalCount,
+    required this.allSelected,
+    required this.onSelectAll,
+    required this.onEnableSelected,
+    required this.onDeleteSelected,
+  });
+
+  final int selectedCount;
+  final int totalCount;
+  final bool allSelected;
+  final VoidCallback onSelectAll;
+  final VoidCallback onEnableSelected;
+  final VoidCallback onDeleteSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasSelection = selectedCount > 0;
+
+    return Container(
+      height: 46,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: DudoColors.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          InkWell(
+            onTap: onSelectAll,
+            borderRadius: BorderRadius.circular(12),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _SourceSelectionBox(selected: allSelected),
+                const SizedBox(width: 7),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '全选',
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '已选 $selectedCount/$totalCount',
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.secondary,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const Spacer(),
+          _BulkActionButton(
+            icon: LucideIcons.check,
+            label: '批量启用',
+            enabled: hasSelection,
+            fill: DudoColors.primaryContainer,
+            color: DudoColors.primary,
+            onTap: onEnableSelected,
+          ),
+          const SizedBox(width: 6),
+          _BulkActionButton(
+            icon: LucideIcons.trash2,
+            label: '批量删除',
+            enabled: hasSelection,
+            fill: _dangerFill,
+            color: _dangerText,
+            onTap: onDeleteSelected,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BulkActionButton extends StatelessWidget {
+  const _BulkActionButton({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.fill,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final Color fill;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveColor = enabled ? color : DudoColors.secondary;
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(15),
+        child: Container(
+          height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 9),
+          decoration: BoxDecoration(
+            color: enabled ? fill : DudoColors.surfaceLow,
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: effectiveColor),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: DudoTextStyles.sans(
+                  color: effectiveColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SourceListSection extends StatelessWidget {
   const _SourceListSection({
     required this.sources,
+    required this.filteredSources,
     required this.query,
     required this.visibleCount,
     required this.searchController,
+    required this.isManageMode,
+    required this.selectedSourceIds,
     required this.onSearchChanged,
     required this.onLoadMore,
+    required this.onToggleSelected,
+    required this.onEnableSource,
+    required this.onDeleteSource,
   });
 
   final List<Source> sources;
+  final List<Source> filteredSources;
   final String query;
   final int visibleCount;
   final TextEditingController searchController;
+  final bool isManageMode;
+  final Set<String> selectedSourceIds;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onLoadMore;
+  final ValueChanged<String> onToggleSelected;
+  final ValueChanged<Source> onEnableSource;
+  final ValueChanged<Source> onDeleteSource;
 
   @override
   Widget build(BuildContext context) {
@@ -245,7 +652,6 @@ class _SourceListSection extends StatelessWidget {
       );
     }
 
-    final filteredSources = _filterSources(sources, query);
     final visibleSources = filteredSources.take(visibleCount).toList();
     final hiddenCount = filteredSources.length - visibleSources.length;
 
@@ -257,10 +663,11 @@ class _SourceListSection extends StatelessWidget {
           onChanged: onSearchChanged,
         ),
         const SizedBox(height: 12),
-        SettingsSectionTitle(
-          query.isEmpty
-              ? '书源列表 · ${sources.length} 个'
-              : '搜索结果 · ${filteredSources.length} / ${sources.length} 个',
+        _SourceListHeader(
+          query: query,
+          totalCount: sources.length,
+          filteredCount: filteredSources.length,
+          isManageMode: isManageMode,
         ),
         const SizedBox(height: 8),
         if (filteredSources.isEmpty)
@@ -271,7 +678,14 @@ class _SourceListSection extends StatelessWidget {
           )
         else ...[
           for (var i = 0; i < visibleSources.length; i++) ...[
-            _SourceRow.fromSource(visibleSources[i]),
+            _SourceRow.fromSource(
+              visibleSources[i],
+              isManageMode: isManageMode,
+              selected: selectedSourceIds.contains(visibleSources[i].id),
+              onToggleSelected: () => onToggleSelected(visibleSources[i].id),
+              onEnable: () => onEnableSource(visibleSources[i]),
+              onDelete: () => onDeleteSource(visibleSources[i]),
+            ),
             if (i != visibleSources.length - 1) const SizedBox(height: 8),
           ],
           if (hiddenCount > 0) ...[
@@ -285,16 +699,50 @@ class _SourceListSection extends StatelessWidget {
       ],
     );
   }
+}
 
-  List<Source> _filterSources(List<Source> sources, String query) {
-    if (query.isEmpty) return sources;
-    final keyword = query.toLowerCase();
-    return sources.where((source) {
-      return source.name.toLowerCase().contains(keyword) ||
-          source.url.toLowerCase().contains(keyword) ||
-          (source.groupName?.toLowerCase().contains(keyword) ?? false) ||
-          (source.comment?.toLowerCase().contains(keyword) ?? false);
-    }).toList(growable: false);
+class _SourceListHeader extends StatelessWidget {
+  const _SourceListHeader({
+    required this.query,
+    required this.totalCount,
+    required this.filteredCount,
+    required this.isManageMode,
+  });
+
+  final String query;
+  final int totalCount;
+  final int filteredCount;
+  final bool isManageMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = query.isEmpty
+        ? '书源列表 · $totalCount 个'
+        : '搜索结果 · $filteredCount / $totalCount 个';
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: DudoTextStyles.sans(
+              color: DudoColors.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        if (isManageMode)
+          Text(
+            '管理模式 · 可启用或删除',
+            style: DudoTextStyles.sans(
+              color: DudoColors.secondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+      ],
+    );
   }
 }
 
@@ -461,8 +909,8 @@ class _QuickAction extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(height: 5),
+              Icon(icon, color: color, size: 17),
+              const SizedBox(height: 4),
               Text(
                 label,
                 style: DudoTextStyles.sans(
@@ -481,15 +929,23 @@ class _QuickAction extends StatelessWidget {
 
 class _SourceRow extends StatelessWidget {
   const _SourceRow({
-    required this.name,
+    required this.source,
     required this.description,
-    required this.state,
-    required this.stateColor,
-    required this.dotColor,
-    required this.dotFill,
+    required this.isManageMode,
+    required this.selected,
+    required this.onToggleSelected,
+    required this.onEnable,
+    required this.onDelete,
   });
 
-  factory _SourceRow.fromSource(Source source) {
+  factory _SourceRow.fromSource(
+    Source source, {
+    required bool isManageMode,
+    required bool selected,
+    required VoidCallback onToggleSelected,
+    required VoidCallback onEnable,
+    required VoidCallback onDelete,
+  }) {
     final descriptionParts = <String>[
       if (source.groupName != null && source.groupName!.trim().isNotEmpty)
         source.groupName!.trim(),
@@ -499,90 +955,218 @@ class _SourceRow extends StatelessWidget {
     ];
 
     return _SourceRow(
-      name: source.name,
+      source: source,
       description: descriptionParts.join(' · '),
-      state: source.enabled ? '启用中' : '已停用',
-      stateColor: source.enabled ? DudoColors.primary : DudoColors.secondary,
-      dotColor: source.enabled ? DudoColors.primary : DudoColors.secondary,
-      dotFill:
-          source.enabled ? DudoColors.primaryContainer : DudoColors.surfaceLow,
+      isManageMode: isManageMode,
+      selected: selected,
+      onToggleSelected: onToggleSelected,
+      onEnable: onEnable,
+      onDelete: onDelete,
     );
   }
 
-  final String name;
+  final Source source;
   final String description;
-  final String state;
-  final Color stateColor;
-  final Color dotColor;
-  final Color dotFill;
+  final bool isManageMode;
+  final bool selected;
+  final VoidCallback onToggleSelected;
+  final VoidCallback onEnable;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final dotColor = source.enabled ? DudoColors.primary : DudoColors.secondary;
+    final dotFill =
+        source.enabled ? DudoColors.primaryContainer : DudoColors.surfaceLow;
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: isManageMode ? onToggleSelected : null,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          height: 64,
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          decoration: BoxDecoration(
+            color: DudoColors.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: DudoColors.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              if (isManageMode) ...[
+                _SourceSelectionBox(selected: selected),
+                const SizedBox(width: 8),
+              ],
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: dotFill,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                alignment: Alignment.center,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration:
+                      BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      source.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.secondary,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (isManageMode) ...[
+                _ActionPill(
+                  icon: source.enabled ? LucideIcons.check : LucideIcons.power,
+                  label: source.enabled ? '已启用' : '启用',
+                  fill: source.enabled
+                      ? DudoColors.primaryContainer
+                      : DudoColors.textPrimary,
+                  color: source.enabled
+                      ? DudoColors.primary
+                      : DudoColors.surfaceHigh,
+                  onTap: source.enabled ? null : onEnable,
+                ),
+                const SizedBox(width: 5),
+                _ActionPill(
+                  icon: LucideIcons.trash2,
+                  label: '删除',
+                  fill: _dangerFill,
+                  color: _dangerText,
+                  onTap: onDelete,
+                ),
+              ] else
+                Text(
+                  source.enabled ? '启用中' : '已停用',
+                  style: DudoTextStyles.sans(
+                    color: source.enabled
+                        ? DudoColors.primary
+                        : DudoColors.secondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SourceSelectionBox extends StatelessWidget {
+  const _SourceSelectionBox({required this.selected});
+
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 62,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      width: 20,
+      height: 20,
       decoration: BoxDecoration(
-        color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: DudoColors.outlineVariant),
+        color: selected ? DudoColors.primary : DudoColors.surface,
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(
+          color: selected ? DudoColors.primary : DudoColors.outline,
+        ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: dotFill,
-              borderRadius: BorderRadius.circular(17),
-            ),
-            alignment: Alignment.center,
-            child: Container(
-              width: 9,
-              height: 9,
-              decoration:
-                  BoxDecoration(color: dotColor, shape: BoxShape.circle),
-            ),
+      alignment: Alignment.center,
+      child: selected
+          ? const Icon(LucideIcons.check,
+              color: DudoColors.surfaceHigh, size: 13)
+          : null,
+    );
+  }
+}
+
+class _ActionPill extends StatelessWidget {
+  const _ActionPill({
+    required this.icon,
+    required this.label,
+    required this.fill,
+    required this.color,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color fill;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(15),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(15),
+        child: Container(
+          height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: BorderRadius.circular(15),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: color),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: DudoTextStyles.sans(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  description,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.secondary,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Text(
-            state,
-            style: DudoTextStyles.sans(
-              color: stateColor,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
+}
+
+List<Source> _filterSources(List<Source> sources, String query) {
+  if (query.isEmpty) return sources;
+  final keyword = query.toLowerCase();
+  return sources.where((source) {
+    return source.name.toLowerCase().contains(keyword) ||
+        source.url.toLowerCase().contains(keyword) ||
+        (source.groupName?.toLowerCase().contains(keyword) ?? false) ||
+        (source.comment?.toLowerCase().contains(keyword) ?? false);
+  }).toList(growable: false);
 }

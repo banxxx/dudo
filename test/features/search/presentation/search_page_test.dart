@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dudo/features/search/application/search_providers.dart';
 import 'package:dudo/features/search/domain/online_search_models.dart';
 import 'package:dudo/features/search/presentation/search_page.dart';
@@ -34,6 +36,9 @@ void main() {
     expect(find.text('0 个启用'), findsOneWidget);
     expect(find.text('输入关键词开始找书'), findsOneWidget);
     expect(find.text('可以搜索书名、作者，也可以从搜索来源中选择本地或在线书库。'), findsOneWidget);
+    expect(find.text('搜索结果'), findsNothing);
+    expect(find.text('正在搜索在线书源'), findsNothing);
+    expect(find.text('刘慈欣 · 测试书源'), findsNothing);
 
     final eyebrow = tester.widget<Text>(find.text('探索书源与作品'));
     expect(eyebrow.style?.color, DudoColors.textSecondary);
@@ -106,6 +111,34 @@ void main() {
     expect(emptyText.style?.height, 1.45);
   });
 
+  testWidgets('shows loading state while online search is pending',
+      (tester) async {
+    final completer = Completer<OnlineSearchResponse>();
+
+    await _pumpSearchPage(
+      tester,
+      overrides: [
+        enabledSourceCountProvider.overrideWith((ref) async => 1),
+        onlineSearchProvider('三体').overrideWith((ref) => completer.future),
+      ],
+    );
+
+    await _enterQuery(tester, '三体');
+
+    expect(find.text('正在搜索在线书源'), findsOneWidget);
+    expect(find.text('正在读取启用书源并执行规则，请稍候。'), findsOneWidget);
+    expect(find.text('搜索结果'), findsNothing);
+
+    completer.complete(
+      const OnlineSearchResponse(
+        searchedSourceCount: 0,
+        availableSourceCount: 0,
+        failures: [],
+        results: [],
+      ),
+    );
+  });
+
   testWidgets('renders real online search results from provider state',
       (tester) async {
     const response = OnlineSearchResponse(
@@ -121,24 +154,26 @@ void main() {
           intro: '文明在宇宙尺度中的回响，从一次偶然监听开始。',
           bookUrl: 'https://source.example/book/1',
         ),
+        OnlineSearchBookResult(
+          sourceId: 'https://source.example',
+          sourceName: '测试书源',
+          name: '三体Ⅱ',
+          author: '',
+          intro: '',
+          bookUrl: 'https://source.example/book/2',
+        ),
       ],
     );
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          enabledSourceCountProvider.overrideWith((ref) async => 1),
-          onlineSearchProvider('三体').overrideWith((ref) async => response),
-        ],
-        child: const MaterialApp(
-          home: SearchPage(),
-        ),
-      ),
+    await _pumpSearchPage(
+      tester,
+      overrides: [
+        enabledSourceCountProvider.overrideWith((ref) async => 1),
+        onlineSearchProvider('三体').overrideWith((ref) async => response),
+      ],
     );
 
-    await tester.tap(find.text('搜索书名、作者、关键词'));
-    await tester.enterText(find.byType(EditableText), '三体');
-    await tester.pump();
+    await _enterQuery(tester, '三体');
     await tester.pump();
 
     expect(find.text('三体'), findsWidgets);
@@ -146,9 +181,11 @@ void main() {
     expect(find.text('长夜余火'), findsOneWidget);
     expect(find.text('刘慈欣'), findsWidgets);
     expect(find.text('搜索结果'), findsOneWidget);
-    expect(find.text('1 条'), findsOneWidget);
+    expect(find.text('2 条'), findsOneWidget);
     expect(find.text('刘慈欣 · 测试书源'), findsOneWidget);
+    expect(find.text('作者未知 · 测试书源'), findsOneWidget);
     expect(find.text('文明在宇宙尺度中的回响，从一次偶然监听开始。'), findsOneWidget);
+    expect(find.text('https://source.example/book/2'), findsOneWidget);
     expect(find.text('输入关键词开始找书'), findsNothing);
 
     final searchField = tester.widget<Container>(
@@ -218,4 +255,167 @@ void main() {
     expect(firstResultIntro.style?.fontSize, 12);
     expect(firstResultIntro.style?.height, 1.25);
   });
+
+  testWidgets('shows empty result state when enabled sources return no matches',
+      (tester) async {
+    const response = OnlineSearchResponse(
+      searchedSourceCount: 1,
+      availableSourceCount: 1,
+      failures: [],
+      results: [],
+    );
+
+    await _pumpSearchPage(
+      tester,
+      overrides: [
+        enabledSourceCountProvider.overrideWith((ref) async => 1),
+        onlineSearchProvider('不存在的书').overrideWith((ref) async => response),
+      ],
+    );
+
+    await _enterQuery(tester, '不存在的书');
+    await tester.pump();
+
+    expect(find.text('没有找到“不存在的书”'), findsOneWidget);
+    expect(find.text('已搜索 1 个启用书源，没有匹配结果。'), findsOneWidget);
+    expect(find.text('搜索结果'), findsNothing);
+  });
+
+  testWidgets('shows provider error state when search provider throws',
+      (tester) async {
+    await _pumpSearchPage(
+      tester,
+      overrides: [
+        enabledSourceCountProvider.overrideWith((ref) async => 1),
+        onlineSearchProvider('三体').overrideWith(
+          (ref) async => throw StateError('network exploded'),
+        ),
+      ],
+    );
+
+    await _enterQuery(tester, '三体');
+    await tester.pump();
+
+    expect(find.text('搜索失败'), findsOneWidget);
+    expect(find.textContaining('network exploded'), findsOneWidget);
+  });
+
+  testWidgets('shows no enabled source prompt when nothing can be searched',
+      (tester) async {
+    const response = OnlineSearchResponse(
+      searchedSourceCount: 0,
+      availableSourceCount: 0,
+      failures: [],
+      results: [],
+    );
+
+    await _pumpSearchPage(
+      tester,
+      overrides: [
+        enabledSourceCountProvider.overrideWith((ref) async => 0),
+        onlineSearchProvider('三体').overrideWith((ref) async => response),
+      ],
+    );
+
+    await _enterQuery(tester, '三体');
+    await tester.pump();
+
+    expect(find.text('暂无启用书源'), findsOneWidget);
+    expect(find.text('请先在书源管理中导入并启用 Legado 书源。'), findsOneWidget);
+  });
+
+  testWidgets('shows all-failed state when every searched source fails',
+      (tester) async {
+    const response = OnlineSearchResponse(
+      searchedSourceCount: 2,
+      availableSourceCount: 2,
+      failures: [
+        OnlineSearchFailure(
+          sourceId: 'source-a',
+          sourceName: '失败书源 A',
+          message: 'fail A',
+        ),
+        OnlineSearchFailure(
+          sourceId: 'source-b',
+          sourceName: '失败书源 B',
+          message: 'fail B',
+        ),
+      ],
+      results: [],
+    );
+
+    await _pumpSearchPage(
+      tester,
+      overrides: [
+        enabledSourceCountProvider.overrideWith((ref) async => 2),
+        onlineSearchProvider('三体').overrideWith((ref) async => response),
+      ],
+    );
+
+    await _enterQuery(tester, '三体');
+    await tester.pump();
+
+    expect(find.text('在线书源暂不可用'), findsOneWidget);
+    expect(find.text('已尝试 2 个书源，但规则或网络请求全部失败。'), findsOneWidget);
+  });
+
+  testWidgets('keeps results visible when some sources fail', (tester) async {
+    const response = OnlineSearchResponse(
+      searchedSourceCount: 2,
+      availableSourceCount: 2,
+      failures: [
+        OnlineSearchFailure(
+          sourceId: 'failing-source',
+          sourceName: '失败书源',
+          message: 'network failed',
+        ),
+      ],
+      results: [
+        OnlineSearchBookResult(
+          sourceId: 'good-source',
+          sourceName: '可用书源',
+          name: '三体',
+          author: '刘慈欣',
+          intro: '文明在宇宙尺度中的回响。',
+        ),
+      ],
+    );
+
+    await _pumpSearchPage(
+      tester,
+      overrides: [
+        enabledSourceCountProvider.overrideWith((ref) async => 2),
+        onlineSearchProvider('三体').overrideWith((ref) async => response),
+      ],
+    );
+
+    await _enterQuery(tester, '三体');
+    await tester.pump();
+
+    expect(find.text('搜索结果'), findsOneWidget);
+    expect(find.text('三体'), findsWidgets);
+    expect(find.text('刘慈欣 · 可用书源'), findsOneWidget);
+    expect(find.text('1 个书源搜索失败，已展示其余可用结果。'), findsOneWidget);
+  });
+}
+
+Future<void> _pumpSearchPage(
+  WidgetTester tester, {
+  required List<Override> overrides,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: overrides,
+      child: const MaterialApp(
+        home: SearchPage(),
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+Future<void> _enterQuery(WidgetTester tester, String query) async {
+  await tester.tap(find.byType(EditableText));
+  await tester.enterText(find.byType(EditableText), query);
+  await tester.pump();
 }
