@@ -16,6 +16,7 @@ import 'pipeline/toc_pipeline.dart';
 import 'rule/analyze_rule.dart';
 import 'url/analyze_url.dart';
 import 'url/request_executor.dart';
+import 'url/url_placeholder.dart';
 
 class LegadoRuntime {
   LegadoRuntime({
@@ -43,7 +44,10 @@ class LegadoRuntime {
       ..register(JsRuleParser(jsEngine: jsEngine));
     final analyzeRule = AnalyzeRule(registry: registry, jsEngine: jsEngine);
     final requestExecutor = executor ?? const DioLegadoRequestExecutor();
-    const analyzeUrl = AnalyzeUrl();
+    final analyzeUrl = AnalyzeUrl(
+      jsEngine: jsEngine,
+      placeholder: LegadoUrlPlaceholder(jsEngine: jsEngine),
+    );
     return LegadoRuntime(
       registry: registry,
       searchPipeline: SearchPipeline(

@@ -45,7 +45,14 @@ class SimpleLegadoJsEngine implements LegadoJsEngine {
   @override
   Object? eval(String script, {required LegadoJsContext context}) {
     final expression = _normalizeScript(script);
-    return _SimpleJsExpressionParser(expression, context).parse();
+    Object? result;
+    for (final statement in _splitStatements(expression)) {
+      result = _SimpleJsExpressionParser(
+        _normalizeScript(statement),
+        context,
+      ).parse();
+    }
+    return result;
   }
 
   @override
@@ -68,6 +75,68 @@ class SimpleLegadoJsEngine implements LegadoJsEngine {
     if (assignment != null) return assignment.group(1)!.trim();
 
     return expression;
+  }
+
+  List<String> _splitStatements(String script) {
+    final statements = <String>[];
+    final buffer = StringBuffer();
+    var quote = '';
+    var escaped = false;
+    var parenDepth = 0;
+    var bracketDepth = 0;
+    var braceDepth = 0;
+
+    for (var i = 0; i < script.length; i++) {
+      final char = script[i];
+      if (escaped) {
+        escaped = false;
+        buffer.write(char);
+        continue;
+      }
+      if (char == r'\') {
+        escaped = true;
+        buffer.write(char);
+        continue;
+      }
+      if (quote.isNotEmpty) {
+        if (char == quote) quote = '';
+        buffer.write(char);
+        continue;
+      }
+      if (char == '"' || char == "'" || char == '`') {
+        quote = char;
+        buffer.write(char);
+        continue;
+      }
+      switch (char) {
+        case '(':
+          parenDepth += 1;
+        case ')':
+          if (parenDepth > 0) parenDepth -= 1;
+        case '[':
+          bracketDepth += 1;
+        case ']':
+          if (bracketDepth > 0) bracketDepth -= 1;
+        case '{':
+          braceDepth += 1;
+        case '}':
+          if (braceDepth > 0) braceDepth -= 1;
+      }
+      if (char == ';' &&
+          parenDepth == 0 &&
+          bracketDepth == 0 &&
+          braceDepth == 0) {
+        final statement = buffer.toString().trim();
+        if (statement.isNotEmpty) statements.add(statement);
+        buffer.clear();
+        continue;
+      }
+      buffer.write(char);
+    }
+
+    final tail = buffer.toString().trim();
+    if (tail.isNotEmpty) statements.add(tail);
+    return statements;
   }
 }
 
@@ -92,6 +161,9 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
     } on LegadoJsException {
       rethrow;
     } catch (error) {
+      if (_isRuntimeUnavailable(error)) {
+        return const SimpleLegadoJsEngine().eval(script, context: context);
+      }
       throw LegadoJsException('JS execution failed: $error');
     }
   }
@@ -177,6 +249,9 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
     }
   };
   var __value = eval($escapedScript);
+  if (typeof __value === "undefined") {
+    __value = result;
+  }
   return JSON.stringify({ value: __value, variables: __ctx.variables });
 })()
 ''';
@@ -209,6 +284,12 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
         'JS output exceeds max length $maxOutputLength',
       );
     }
+  }
+
+  bool _isRuntimeUnavailable(Object error) {
+    final message = error.toString();
+    return message.contains('Failed to load dynamic library') ||
+        message.contains('quickjs_c_bridge');
   }
 
   Object? _sourceToJson(Object? source) {

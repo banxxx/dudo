@@ -1,10 +1,11 @@
 import 'dart:convert';
 
+import '../../../core/database/app_database.dart';
 import '../../../core/rule_engine/legado/common/legado_trace.dart';
 import '../../../core/rule_engine/models/source_rule.dart';
 import '../../../core/rule_engine/rule_engine.dart' as engine;
+import '../../../core/utils/logger.dart';
 import '../../sources/data/source_repository.dart';
-import '../../../core/database/app_database.dart';
 import '../domain/online_search_models.dart';
 
 typedef RuleSearch = Future<List<engine.SearchResult>> Function(
@@ -54,9 +55,19 @@ class OnlineSearchRepository {
     final failures = <OnlineSearchFailure>[];
     var searchedSourceCount = 0;
 
-    for (final source in sources) {
+    log.i(
+      '[online-search] start keyword="$normalizedKeyword" '
+      'enabledSources=${sources.length}',
+    );
+
+    for (var index = 0; index < sources.length; index++) {
+      final source = sources[index];
       final rule = _parseSourceRule(source.rulesJson);
       if (rule == null) {
+        log.w(
+          '[online-search] source ${index + 1}/${sources.length} '
+          'parse failed name="${source.name}" id="${source.id}"',
+        );
         failures.add(
           OnlineSearchFailure(
             sourceId: source.id,
@@ -68,12 +79,26 @@ class OnlineSearchRepository {
       }
       if (rule.search?.searchUrl == null ||
           rule.search!.searchUrl!.trim().isEmpty) {
+        log.d(
+          '[online-search] source ${index + 1}/${sources.length} '
+          'skipped empty searchUrl name="${source.name}" '
+          'id="${source.id}" base="${rule.url}"',
+        );
         continue;
       }
 
       searchedSourceCount += 1;
+      log.i(
+        '[online-search] source ${index + 1}/${sources.length} '
+        'searching name="${source.name}" id="${source.id}" '
+        'base="${rule.url}" rawSearchUrl="${rule.search!.searchUrl}"',
+      );
       try {
         final sourceResults = await searchRule(rule, normalizedKeyword);
+        log.i(
+          '[online-search] source ${index + 1}/${sources.length} '
+          'finished name="${source.name}" resultCount=${sourceResults.length}',
+        );
         results.addAll(
           sourceResults.map(
             (result) => OnlineSearchBookResult(
@@ -89,6 +114,11 @@ class OnlineSearchRepository {
         );
       } catch (error) {
         final diagnostics = _diagnosticsFor(error);
+        log.w(
+          '[online-search] source ${index + 1}/${sources.length} '
+          'failed name="${source.name}" id="${source.id}" '
+          'diagnostics=${diagnostics.join(' | ')} error=$error',
+        );
         failures.add(
           OnlineSearchFailure(
             sourceId: source.id,

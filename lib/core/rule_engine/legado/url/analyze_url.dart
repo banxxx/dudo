@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:charset_converter/charset_converter.dart';
 
 import '../../models/source_rule.dart';
 import '../common/balanced_text_scanner.dart';
@@ -74,15 +75,16 @@ class AnalyzeUrl {
     required String rawUrl,
     required String keyword,
     int page = 1,
-    Map<String, Object?> variables = const {},
+    Map<String, Object?>? variables,
     LegadoJsAjax? ajax,
   }) async {
+    final mutableVariables = variables ?? <String, Object?>{};
     final analyzedUrl = await _analyzeSearchUrlAsync(
       rawUrl,
       keyword,
       page,
       source,
-      variables: variables,
+      variables: mutableVariables,
       ajax: ajax,
     );
     final replaced = await placeholder.applyAsync(
@@ -91,7 +93,7 @@ class AnalyzeUrl {
       page: page,
       baseUrl: source.url,
       source: source,
-      variables: variables,
+      variables: mutableVariables,
       ajax: ajax,
     );
     final split = splitOptions(replaced);
@@ -104,16 +106,17 @@ class AnalyzeUrl {
     _mergeCookieHeader(headers, resolvedUri);
     final resolvedUrl = resolvedUri.toString();
     final request = options.method == 'POST'
-        ? _preparePostRequest(
+        ? await _preparePostRequestAsync(
             resolvedUrl: resolvedUrl,
             headers: headers,
             body: options.body,
             charset: options.charset,
           )
-        : _PreparedRequest(
-            url: resolvedUrl,
+        : await _prepareGetRequestAsync(
+            resolvedUrl: resolvedUrl,
             headers: headers,
             body: options.body,
+            charset: options.charset,
           );
     return LegadoRequest(
       url: request.url,
@@ -321,6 +324,74 @@ class AnalyzeUrl {
     );
   }
 
+  Future<_PreparedRequest> _preparePostRequestAsync({
+    required String resolvedUrl,
+    required Map<String, String> headers,
+    required Object? body,
+    required String? charset,
+  }) async {
+    final uri = Uri.parse(resolvedUrl);
+    final urlWithoutQuery = uri.replace(query: '').toString().replaceFirst(
+          RegExp(r'\?$'),
+          '',
+        );
+    final preparedHeaders = Map<String, String>.from(headers);
+    final rawBody = body ?? uri.query;
+    final normalizedBody = _normalizeBodyToString(rawBody);
+
+    if (_contentTypeOf(preparedHeaders) != null) {
+      return _PreparedRequest(
+        url: urlWithoutQuery,
+        headers: preparedHeaders,
+        body: normalizedBody,
+      );
+    }
+
+    if (_isJsonBody(normalizedBody)) {
+      preparedHeaders['Content-Type'] = 'application/json; charset=utf-8';
+      return _PreparedRequest(
+        url: urlWithoutQuery,
+        headers: preparedHeaders,
+        body: normalizedBody,
+      );
+    }
+    if (_isXmlBody(normalizedBody)) {
+      return _PreparedRequest(
+        url: urlWithoutQuery,
+        headers: preparedHeaders,
+        body: normalizedBody,
+      );
+    }
+
+    preparedHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+    return _PreparedRequest(
+      url: urlWithoutQuery,
+      headers: preparedHeaders,
+      body: normalizedBody.trimLeft().isEmpty
+          ? ''
+          : await _encodeParamsAsync(normalizedBody, charset),
+    );
+  }
+
+  Future<_PreparedRequest> _prepareGetRequestAsync({
+    required String resolvedUrl,
+    required Map<String, String> headers,
+    required Object? body,
+    required String? charset,
+  }) async {
+    final uri = Uri.parse(resolvedUrl);
+    if (!_usesNonUtf8Charset(charset) || uri.query.isEmpty) {
+      return _PreparedRequest(url: resolvedUrl, headers: headers, body: body);
+    }
+    final encodedQuery = await _encodeParamsAsync(uri.query, charset);
+    final urlWithoutQuery = uri.replace(query: '').toString().replaceFirst(
+          RegExp(r'\?$'),
+          '',
+        );
+    final encodedUrl = '$urlWithoutQuery?$encodedQuery';
+    return _PreparedRequest(url: encodedUrl, headers: headers, body: body);
+  }
+
   String _normalizeBodyToString(Object? body) {
     if (body == null) return '';
     if (body is String) return body;
@@ -352,6 +423,20 @@ class AnalyzeUrl {
     }).join('&');
   }
 
+  Future<String> _encodeParamsAsync(String params, String? charset) async {
+    return Future.wait(
+      params.split('&').map((part) async {
+        final equals = part.indexOf('=');
+        if (equals < 0) return _encodeParamPartAsync(part, charset);
+        final key = part.substring(0, equals);
+        final value = part.substring(equals + 1);
+        final encodedKey = await _encodeParamPartAsync(key, charset);
+        final encodedValue = await _encodeParamPartAsync(value, charset);
+        return '$encodedKey=$encodedValue';
+      }),
+    ).then((parts) => parts.join('&'));
+  }
+
   String _encodeParamPart(String value, String? charset) {
     final normalizedCharset = charset?.trim().toLowerCase();
     if (normalizedCharset == 'escape') return _escape(value);
@@ -361,6 +446,73 @@ class AnalyzeUrl {
       _ => utf8.encode(value),
     };
     return _percentEncodeBytes(bytes, preserveEscapesFrom: value);
+  }
+
+  Future<String> _encodeParamPartAsync(String value, String? charset) async {
+    final normalizedCharset = _normalizeCharset(charset);
+    if (normalizedCharset == 'escape') return _escape(value);
+    final source = _decodeUtf8PercentEscapes(value);
+    final bytes = await _encodeStringAsync(source, normalizedCharset);
+    return _percentEncodeBytes(bytes, preserveEscapesFrom: source);
+  }
+
+  Future<List<int>> _encodeStringAsync(
+    String value,
+    String? normalizedCharset,
+  ) async {
+    if (normalizedCharset == null || normalizedCharset == 'utf-8') {
+      return utf8.encode(value);
+    }
+    try {
+      return await CharsetConverter.encode(normalizedCharset, value);
+    } catch (_) {
+      return _encodeCommonChineseFallback(value, normalizedCharset) ??
+          utf8.encode(value);
+    }
+  }
+
+  bool _usesNonUtf8Charset(String? charset) {
+    final normalizedCharset = _normalizeCharset(charset);
+    return normalizedCharset != null &&
+        normalizedCharset != 'utf-8' &&
+        normalizedCharset != 'escape';
+  }
+
+  String? _normalizeCharset(String? charset) {
+    final normalized = charset?.trim().toLowerCase();
+    if (normalized == null || normalized.isEmpty) return null;
+    return switch (normalized) {
+      'utf8' => 'utf-8',
+      'gb2312' || 'gbk' || 'gb18030' => 'gb18030',
+      _ => normalized,
+    };
+  }
+
+  String _decodeUtf8PercentEscapes(String value) {
+    if (!value.contains('%')) return value;
+    try {
+      return Uri.decodeQueryComponent(value);
+    } catch (_) {
+      return value;
+    }
+  }
+
+  List<int>? _encodeCommonChineseFallback(
+    String value,
+    String normalizedCharset,
+  ) {
+    if (normalizedCharset != 'gb18030') return null;
+    final bytes = <int>[];
+    for (final rune in value.runes) {
+      if (rune < 0x80) {
+        bytes.add(rune);
+        continue;
+      }
+      final encoded = _gb18030Fallback[rune];
+      if (encoded == null) return null;
+      bytes.addAll(encoded);
+    }
+    return bytes;
   }
 
   String _percentEncodeBytes(
@@ -445,3 +597,10 @@ class _PreparedRequest {
   final Map<String, String> headers;
   final Object? body;
 }
+
+const _gb18030Fallback = <int, List<int>>{
+  0x4E09: [0xC8, 0xFD], // 三
+  0x4F53: [0xCC, 0xE5], // 体
+  0x6597: [0xB6, 0xB7], // 斗
+  0x7834: [0xC6, 0xC6], // 破
+};

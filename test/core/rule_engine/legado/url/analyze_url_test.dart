@@ -325,6 +325,21 @@ void main() {
       expect(request.charset, 'utf-8');
     });
 
+    test('async GET query encoding honors explicit GBK charset', () async {
+      const analyzeUrl = AnalyzeUrl();
+      final request = await analyzeUrl.compileSearchAsync(
+        source: _source(),
+        rawUrl: '/search?keyword={{key}}&page={{page}},{"charset":"gbk"}',
+        keyword: '斗破',
+      );
+
+      expect(
+        request.url,
+        'https://source.example/search?keyword=%B6%B7%C6%C6&page=1',
+      );
+      expect(request.charset, 'gbk');
+    });
+
     test('keeps unsupported URL JS expressions unchanged', () {
       const placeholder = LegadoUrlPlaceholder();
 
