@@ -1,6 +1,7 @@
 import '../models/source_rule.dart';
-import '../parsers/css_parser.dart';
-import '../parsers/jsonpath_parser.dart';
+import '../parsers/default_html_rule_parser.dart';
+import '../parsers/explicit_css_rule_parser.dart';
+import '../parsers/json_path_rule_parser.dart';
 import '../parsers/parser.dart';
 import '../parsers/regex_parser.dart';
 import '../parsers/xpath_parser.dart';
@@ -22,10 +23,11 @@ class LegadoRuntime {
 
   factory LegadoRuntime.create({LegadoRequestExecutor? executor}) {
     final registry = ParserRegistry()
-      ..register(CssParser())
-      ..register(XPathParser())
-      ..register(JsonPathParser())
-      ..register(RegexParser());
+      ..register(const DefaultHtmlRuleParser())
+      ..register(const ExplicitCssRuleParser())
+      ..register(const XPathParser())
+      ..register(const JsonPathRuleParser())
+      ..register(const RegexParser());
     final analyzeRule = AnalyzeRule(registry: registry);
     return LegadoRuntime(
       registry: registry,

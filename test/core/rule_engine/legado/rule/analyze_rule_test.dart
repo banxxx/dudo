@@ -4,7 +4,8 @@ import 'package:dudo/core/rule_engine/legado/rule/rule_context.dart';
 import 'package:dudo/core/rule_engine/legado/rule/rule_value.dart';
 import 'package:dudo/core/rule_engine/models/source_rule.dart';
 import 'package:dudo/core/rule_engine/parsers/css_parser.dart';
-import 'package:dudo/core/rule_engine/parsers/jsonpath_parser.dart';
+import 'package:dudo/core/rule_engine/parsers/explicit_css_rule_parser.dart';
+import 'package:dudo/core/rule_engine/parsers/json_path_rule_parser.dart';
 import 'package:dudo/core/rule_engine/parsers/parser.dart';
 import 'package:dudo/core/rule_engine/parsers/regex_parser.dart';
 import 'package:dudo/core/rule_engine/parsers/xpath_parser.dart';
@@ -92,7 +93,44 @@ void main() {
       expect(
           analyzeRule.string(nodes.single, 'class.name@text', context), '三体');
     });
+
+    test('combines JSONPath fallback append and interleave results', () {
+      final context = RuleContext(
+        source: _source(),
+        input: RuleInput(
+          rawText: '{"a":["A1","A2"],"b":["B1","B2"]}',
+          baseUri: Uri.parse('https://source.example'),
+        ),
+      );
+      final analyzeRule = AnalyzeRule(registry: _registry());
+
+      expect(
+        _strings(analyzeRule.parse(r'$.missing||$.a[0]', context)),
+        ['A1'],
+      );
+      expect(
+        _strings(analyzeRule.parse(r'$.a[*]&&$.b[*]', context)),
+        ['A1', 'A2', 'B1', 'B2'],
+      );
+      expect(
+        _strings(analyzeRule.parse(r'$.a[*]%%$.b[*]', context)),
+        ['A1', 'B1', 'A2', 'B2'],
+      );
+    });
   });
+}
+
+List<String> _strings(RuleValue value) {
+  return switch (value) {
+    RuleStringValue(:final value) => [value],
+    RuleListValue(:final values) => values.expand(_strings).toList(),
+    RuleNodeSetValue(:final nodes) =>
+      nodes.map((node) => node.toString()).toList(),
+    RuleJsonValue(:final value) =>
+      value == null ? const [] : [value.toString()],
+    RuleRegexCapturesValue(:final captures) => captures,
+    RuleJsValue(:final value) => value == null ? const [] : [value.toString()],
+  };
 }
 
 SourceRule _source() {
@@ -105,8 +143,9 @@ SourceRule _source() {
 
 ParserRegistry _registry() {
   return ParserRegistry()
-    ..register(CssParser())
-    ..register(XPathParser())
-    ..register(JsonPathParser())
-    ..register(RegexParser());
+    ..register(const CssParser())
+    ..register(const ExplicitCssRuleParser())
+    ..register(const XPathParser())
+    ..register(const JsonPathRuleParser())
+    ..register(const RegexParser());
 }

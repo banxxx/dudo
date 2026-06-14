@@ -96,6 +96,7 @@ class LegadoRuleAstParser {
         text.startsWith('css:')) {
       return LegadoRuleMode.css;
     }
+    if (_looksLikeRegex(text)) return LegadoRuleMode.regex;
     if (text.startsWith('@XPath:') ||
         text.startsWith('XPath:') ||
         text.startsWith('/')) {
@@ -119,10 +120,12 @@ class LegadoRuleAstParser {
         text.startsWith('<js>')) {
       return LegadoRuleMode.js;
     }
-    if (text.contains(':') && RegExp(r'^\s*/.+/').hasMatch(text)) {
-      return LegadoRuleMode.regex;
-    }
     return LegadoRuleMode.defaultHtml;
+  }
+
+  bool _looksLikeRegex(String text) {
+    if (text.startsWith('##')) return true;
+    return RegExp(r'^/(?:\\.|[^/])+/([\d$][\s\S]*)?$').hasMatch(text);
   }
 
   String _stripModePrefix(String raw) {

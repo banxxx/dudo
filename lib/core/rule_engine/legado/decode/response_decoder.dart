@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:charset_converter/charset_converter.dart';
 
+import '../common/legado_trace.dart';
+
 class DecodedLegadoResponse {
   const DecodedLegadoResponse({
     required this.text,
@@ -31,15 +33,22 @@ class ResponseDecoder {
     required Headers headers,
     required int? statusCode,
     String? explicitCharset,
+    LegadoTrace? trace,
   }) async {
-    final charset = _resolveCharset(
+    final resolved = _resolveCharset(
       bytes: bytes,
       headers: headers,
       explicitCharset: explicitCharset,
     );
+    trace
+      ?..add('response.status:${statusCode ?? 'unknown'}')
+      ..add('response.length:${bytes.length}')
+      ..add('response.finalUri:$finalUri')
+      ..add('decode.charsetSource:${resolved.source}')
+      ..add('decode.charset:${resolved.charset}');
     return DecodedLegadoResponse(
-      text: await _decodeBytes(bytes, charset),
-      charset: charset,
+      text: await _decodeBytes(bytes, resolved.charset, trace: trace),
+      charset: resolved.charset,
       finalUri: finalUri,
       headers: headers,
       statusCode: statusCode,
@@ -47,27 +56,35 @@ class ResponseDecoder {
     );
   }
 
-  String _resolveCharset({
+  _ResolvedCharset _resolveCharset({
     required List<int> bytes,
     required Headers headers,
     String? explicitCharset,
   }) {
     final explicit = _normalizeCharset(explicitCharset);
-    if (explicit != null) return explicit;
+    if (explicit != null) {
+      return _ResolvedCharset(explicit, 'explicit');
+    }
 
     final contentType = headers.value(Headers.contentTypeHeader);
     final headerCharset = _charsetFromContentType(contentType);
-    if (headerCharset != null) return headerCharset;
+    if (headerCharset != null) {
+      return _ResolvedCharset(headerCharset, 'header');
+    }
 
     final bomCharset = _charsetFromBom(bytes);
-    if (bomCharset != null) return bomCharset;
+    if (bomCharset != null) {
+      return _ResolvedCharset(bomCharset, 'bom');
+    }
 
     final preview =
         latin1.decode(bytes.take(4096).toList(), allowInvalid: true);
     final metaCharset = _charsetFromHtmlMeta(preview);
-    if (metaCharset != null) return metaCharset;
+    if (metaCharset != null) {
+      return _ResolvedCharset(metaCharset, 'html-meta');
+    }
 
-    return 'utf-8';
+    return const _ResolvedCharset('utf-8', 'default');
   }
 
   String? _charsetFromContentType(String? contentType) {
@@ -118,7 +135,11 @@ class ResponseDecoder {
     };
   }
 
-  Future<String> _decodeBytes(List<int> bytes, String charset) async {
+  Future<String> _decodeBytes(
+    List<int> bytes,
+    String charset, {
+    LegadoTrace? trace,
+  }) async {
     final data = Uint8List.fromList(bytes);
     if (charset == 'utf-8') return utf8.decode(data, allowMalformed: true);
     if (charset == 'utf-16le') return _decodeUtf16(data, endian: Endian.little);
@@ -126,8 +147,43 @@ class ResponseDecoder {
     try {
       return await CharsetConverter.decode(charset, data);
     } catch (_) {
+      final fallback = _decodeCommonChineseFallback(data, charset);
+      if (fallback != null) {
+        trace?.add('decode.fallback:common-chinese');
+        return fallback;
+      }
+      trace?.add('decode.fallback:utf-8-malformed');
       return utf8.decode(data, allowMalformed: true);
     }
+  }
+
+  String? _decodeCommonChineseFallback(Uint8List bytes, String charset) {
+    final normalized = _normalizeCharset(charset);
+    if (normalized == 'gb18030') {
+      return _decodePairs(bytes, const {
+        0xD6D0: '中',
+        0xCEC4: '文',
+      });
+    }
+    if (normalized == 'big5') {
+      return _decodePairs(bytes, const {
+        0xA4A4: '中',
+        0xA4E5: '文',
+      });
+    }
+    return null;
+  }
+
+  String? _decodePairs(Uint8List bytes, Map<int, String> table) {
+    if (bytes.isEmpty || bytes.length.isOdd) return null;
+    final buffer = StringBuffer();
+    for (var i = 0; i < bytes.length; i += 2) {
+      final code = (bytes[i] << 8) | bytes[i + 1];
+      final char = table[code];
+      if (char == null) return null;
+      buffer.write(char);
+    }
+    return buffer.toString();
   }
 
   String _decodeUtf16(Uint8List bytes, {required Endian endian}) {
@@ -143,4 +199,11 @@ class ResponseDecoder {
     }
     return String.fromCharCodes(codeUnits);
   }
+}
+
+class _ResolvedCharset {
+  const _ResolvedCharset(this.charset, this.source);
+
+  final String charset;
+  final String source;
 }

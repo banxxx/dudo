@@ -57,29 +57,17 @@ class AnalyzeRule {
           source,
           wantsElements: wantsElements,
         ),
-      LegadoAppendRule(:final parts) => RuleListValue(
-          parts
-              .map(
-                (part) => evaluate(
-                  part,
-                  context,
-                  source,
-                  wantsElements: wantsElements,
-                ),
-              )
-              .toList(growable: false),
+      LegadoAppendRule(:final parts) => _evaluateAppend(
+          parts,
+          context,
+          source,
+          wantsElements: wantsElements,
         ),
-      LegadoInterleaveRule(:final parts) => RuleListValue(
-          parts
-              .map(
-                (part) => evaluate(
-                  part,
-                  context,
-                  source,
-                  wantsElements: wantsElements,
-                ),
-              )
-              .toList(growable: false),
+      LegadoInterleaveRule(:final parts) => _evaluateInterleave(
+          parts,
+          context,
+          source,
+          wantsElements: wantsElements,
         ),
       LegadoPipelineRule(:final steps) => _evaluatePipeline(
           steps,
@@ -108,6 +96,59 @@ class AnalyzeRule {
     return const RuleListValue([]);
   }
 
+  RuleValue _evaluateAppend(
+    List<LegadoRuleAst> parts,
+    RuleContext context,
+    Object source, {
+    required bool wantsElements,
+  }) {
+    return RuleListValue(
+      parts
+          .expand(
+            (part) => _flatValues(
+              evaluate(
+                part,
+                context,
+                source,
+                wantsElements: wantsElements,
+              ),
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+
+  RuleValue _evaluateInterleave(
+    List<LegadoRuleAst> parts,
+    RuleContext context,
+    Object source, {
+    required bool wantsElements,
+  }) {
+    final values = parts
+        .map(
+          (part) => _flatValues(
+            evaluate(
+              part,
+              context,
+              source,
+              wantsElements: wantsElements,
+            ),
+          ).toList(growable: false),
+        )
+        .toList(growable: false);
+    final maxLength = values.fold<int>(
+      0,
+      (max, list) => list.length > max ? list.length : max,
+    );
+    final interleaved = <RuleValue>[];
+    for (var i = 0; i < maxLength; i++) {
+      for (final list in values) {
+        if (i < list.length) interleaved.add(list[i]);
+      }
+    }
+    return RuleListValue(interleaved);
+  }
+
   RuleValue _evaluatePipeline(
     List<LegadoRuleStep> steps,
     RuleContext context,
@@ -134,7 +175,7 @@ class AnalyzeRule {
 
   RuleType _parserTypeFor(LegadoRuleMode mode, Object source) {
     return switch (mode) {
-      LegadoRuleMode.css => RuleType.css,
+      LegadoRuleMode.css => RuleType.explicitCss,
       LegadoRuleMode.jsonPath => RuleType.jsonPath,
       LegadoRuleMode.xpath => RuleType.xpath,
       LegadoRuleMode.regex => RuleType.regex,
@@ -187,5 +228,16 @@ class AnalyzeRule {
       RuleRegexCapturesValue(:final captures) => captures,
       RuleJsValue(:final value) => value == null ? const [] : [value],
     };
+  }
+
+  Iterable<RuleValue> _flatValues(RuleValue value) sync* {
+    switch (value) {
+      case RuleListValue(:final values):
+        for (final item in values) {
+          yield* _flatValues(item);
+        }
+      default:
+        if (!value.isEmpty) yield value;
+    }
   }
 }

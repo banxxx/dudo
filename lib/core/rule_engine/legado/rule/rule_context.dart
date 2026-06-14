@@ -1,5 +1,8 @@
 import '../../models/source_rule.dart';
+import '../common/legado_trace.dart';
 import 'rule_value.dart';
+
+export '../common/legado_trace.dart';
 
 class RuleContext {
   RuleContext({
@@ -27,12 +30,4 @@ class RuleContext {
     variables[key] = value;
     trace?.add('put:$key');
   }
-}
-
-class LegadoTrace {
-  LegadoTrace([List<String>? events]) : events = events ?? <String>[];
-
-  final List<String> events;
-
-  void add(String event) => events.add(event);
 }

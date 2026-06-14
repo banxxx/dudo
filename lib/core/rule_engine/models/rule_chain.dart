@@ -55,27 +55,40 @@ class RuleSegment {
   }
 
   static RuleType _detectType(String s) {
-    if (s.startsWith('@CSS:') || s.startsWith('@css:')) return RuleType.css;
-    if (s.startsWith('@XPath:') || s.startsWith('//')) return RuleType.xpath;
-    if (s.startsWith('@JSon:') || s.startsWith('@json:')) {
+    if (s.startsWith('@CSS:') || s.startsWith('@css:')) {
+      return RuleType.explicitCss;
+    }
+    if (_looksLikeRegex(s)) return RuleType.regex;
+    if (RegExp(r'^@?XPath:', caseSensitive: false).hasMatch(s) ||
+        s.startsWith('/')) {
+      return RuleType.xpath;
+    }
+    if (s.startsWith('@JSon:') ||
+        s.startsWith('@Json:') ||
+        s.startsWith('@json:')) {
       return RuleType.jsonPath;
     }
     if (s.startsWith(r'$.') || s.startsWith(r'$..')) return RuleType.jsonPath;
     if (s.startsWith('@JS:') || s.startsWith('<js>')) return RuleType.js;
-    if (s.contains(':') && RegExp(r'^\s*/.+/').hasMatch(s)) {
-      return RuleType.regex;
-    }
     return RuleType.css; // default legado-style
+  }
+
+  static bool _looksLikeRegex(String s) {
+    if (s.startsWith('##')) return true;
+    final match = RegExp(r'^/(?:\\.|[^/])+/([\d$][\s\S]*)?$').firstMatch(s);
+    return match != null;
   }
 
   static String _stripPrefix(String s, RuleType type) {
     switch (type) {
-      case RuleType.css:
+      case RuleType.explicitCss:
         return s.replaceFirst(RegExp(r'^@(?:CSS|css):'), '');
+      case RuleType.css:
+        return s;
       case RuleType.xpath:
-        return s.replaceFirst('@XPath:', '');
+        return s.replaceFirst(RegExp(r'^@?XPath:', caseSensitive: false), '');
       case RuleType.jsonPath:
-        return s.replaceFirst(RegExp(r'^@(?:JSon|json):'), '');
+        return s.replaceFirst(RegExp(r'^@(?:JSon|Json|json):'), '');
       case RuleType.regex:
       case RuleType.js:
         return s;
@@ -89,4 +102,4 @@ class RuleStep {
   factory RuleStep.parse(String s) => RuleStep(s);
 }
 
-enum RuleType { css, xpath, jsonPath, regex, js }
+enum RuleType { css, explicitCss, xpath, jsonPath, regex, js }
