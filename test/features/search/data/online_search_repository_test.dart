@@ -166,6 +166,144 @@ void main() {
     expect(response.failures, hasLength(1));
     expect(response.failures.single.sourceName, '失败书源');
   });
+
+  test('searches enabled sources in Legado customOrder order', () async {
+    sourceRepository.sources = [
+      _source(
+        id: 'late-source',
+        name: '后搜书源',
+        enabled: true,
+        rulesJson: _rulesJson(url: 'https://late.example'),
+        sortOrder: 20,
+      ),
+      _source(
+        id: 'early-source',
+        name: '先搜书源',
+        enabled: true,
+        rulesJson: _rulesJson(url: 'https://early.example'),
+        sortOrder: -10,
+      ),
+    ];
+    final searched = <String>[];
+
+    final repository = OnlineSearchRepository(
+      sourceRepository: sourceRepository,
+      searchRule: (source, _) async {
+        searched.add(source.id);
+        return const [];
+      },
+    );
+
+    await repository.search('三体');
+
+    expect(searched, ['https://early.example', 'https://late.example']);
+  });
+
+  test('merges same name and author across sources like Legado', () async {
+    sourceRepository.sources = [
+      _source(
+        id: 'source-a',
+        name: '书源 A',
+        enabled: true,
+        rulesJson: _rulesJson(url: 'https://a.example'),
+        sortOrder: 1,
+      ),
+      _source(
+        id: 'source-b',
+        name: '书源 B',
+        enabled: true,
+        rulesJson: _rulesJson(url: 'https://b.example'),
+        sortOrder: 2,
+      ),
+    ];
+
+    final repository = OnlineSearchRepository(
+      sourceRepository: sourceRepository,
+      searchRule: (source, _) async {
+        if (source.id == 'https://a.example') {
+          return const [
+            SearchResult(
+              name: '三体',
+              author: '刘慈欣',
+              bookUrl: 'https://a.example/book/1',
+            ),
+          ];
+        }
+        return const [
+          SearchResult(
+            name: '三体',
+            author: '刘慈欣',
+            bookUrl: 'https://b.example/book/1',
+          ),
+          SearchResult(name: '三体前传', author: '刘慈欣'),
+        ];
+      },
+    );
+
+    final response = await repository.search('三体');
+
+    expect(response.results, hasLength(2));
+    expect(response.results.first.name, '三体');
+    expect(response.results.first.sourceId, 'source-a');
+    expect(response.results.first.sourceName, '书源 A、书源 B');
+    expect(response.results.first.bookUrl, 'https://a.example/book/1');
+    expect(response.results.last.name, '三体前传');
+  });
+  test('ranks kind matches before loose matches and keeps origins', () async {
+    sourceRepository.sources = [
+      _source(
+        id: 'source-a',
+        name: 'Source A',
+        enabled: true,
+        rulesJson: _rulesJson(url: 'https://a.example'),
+        sortOrder: 1,
+      ),
+      _source(
+        id: 'source-b',
+        name: 'Source B',
+        enabled: true,
+        rulesJson: _rulesJson(url: 'https://b.example'),
+        sortOrder: 2,
+      ),
+    ];
+
+    final repository = OnlineSearchRepository(
+      sourceRepository: sourceRepository,
+      searchRule: (source, _) async {
+        if (source.id == 'https://a.example') {
+          return const [
+            SearchResult(
+              name: 'Other',
+              author: 'Someone',
+              kind: 'target tag',
+              bookUrl: 'https://a.example/other',
+            ),
+            SearchResult(
+              name: 'Target Story',
+              author: 'Someone',
+              bookUrl: 'https://a.example/target',
+            ),
+          ];
+        }
+        return const [
+          SearchResult(
+            name: 'Other',
+            author: 'Someone',
+            kind: 'target tag',
+            bookUrl: 'https://b.example/other',
+          ),
+        ];
+      },
+    );
+
+    final response = await repository.search('target');
+
+    expect(response.results, hasLength(2));
+    expect(response.results.first.name, 'Other');
+    expect(response.results.first.origins, hasLength(2));
+    expect(response.results.first.sourceName, 'Source A、Source B');
+    expect(response.results.last.name, 'Target Story');
+  });
 }
 
 class _FakeSourceRepository implements SourceRepository {
@@ -187,7 +325,7 @@ class _FakeSourceRepository implements SourceRepository {
   Future<List<Source>> listEnabledSources() async {
     final enabledSources = sources.where((source) => source.enabled).toList()
       ..sort((a, b) {
-        final sortOrder = b.sortOrder.compareTo(a.sortOrder);
+        final sortOrder = a.sortOrder.compareTo(b.sortOrder);
         if (sortOrder != 0) return sortOrder;
         return b.updatedAt.compareTo(a.updatedAt);
       });

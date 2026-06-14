@@ -7,6 +7,10 @@ class OnlineSearchBookResult {
     this.intro,
     this.coverUrl,
     this.bookUrl,
+    this.kind,
+    this.lastChapter,
+    this.wordCount,
+    this.origins = const [],
   });
 
   final String sourceId;
@@ -15,6 +19,22 @@ class OnlineSearchBookResult {
   final String author;
   final String? intro;
   final String? coverUrl;
+  final String? bookUrl;
+  final String? kind;
+  final String? lastChapter;
+  final String? wordCount;
+  final List<OnlineSearchOrigin> origins;
+}
+
+class OnlineSearchOrigin {
+  const OnlineSearchOrigin({
+    required this.sourceId,
+    required this.sourceName,
+    this.bookUrl,
+  });
+
+  final String sourceId;
+  final String sourceName;
   final String? bookUrl;
 }
 

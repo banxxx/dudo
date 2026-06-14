@@ -72,7 +72,7 @@ class OnlineSearchRepository {
           OnlineSearchFailure(
             sourceId: source.id,
             sourceName: source.name,
-            message: '书源规则无法解析',
+            message: '\u4e66\u6e90\u89c4\u5219\u65e0\u6cd5\u89e3\u6790',
           ),
         );
         continue;
@@ -109,6 +109,16 @@ class OnlineSearchRepository {
               intro: result.intro,
               coverUrl: result.coverUrl,
               bookUrl: result.bookUrl,
+              kind: result.kind,
+              lastChapter: result.lastChapter,
+              wordCount: result.wordCount,
+              origins: [
+                OnlineSearchOrigin(
+                  sourceId: source.id,
+                  sourceName: source.name,
+                  bookUrl: result.bookUrl,
+                ),
+              ],
             ),
           ),
         );
@@ -131,11 +141,60 @@ class OnlineSearchRepository {
     }
 
     return OnlineSearchResponse(
-      results: results,
+      results: _mergeAndRankResults(results, normalizedKeyword),
       failures: failures,
       searchedSourceCount: searchedSourceCount,
       availableSourceCount: sources.length,
     );
+  }
+
+  List<OnlineSearchBookResult> _mergeAndRankResults(
+    List<OnlineSearchBookResult> results,
+    String keyword,
+  ) {
+    final mergedByBook = <String, _MergedSearchResult>{};
+    for (final result in results) {
+      final key = '${result.name}\u0000${result.author}';
+      final existing = mergedByBook[key];
+      if (existing == null) {
+        mergedByBook[key] = _MergedSearchResult(result, mergedByBook.length);
+      } else {
+        existing.add(result);
+      }
+    }
+
+    final equal = <_MergedSearchResult>[];
+    final tags = <_MergedSearchResult>[];
+    final contains = <_MergedSearchResult>[];
+    final other = <_MergedSearchResult>[];
+    for (final result in mergedByBook.values) {
+      final book = result.result;
+      if (book.name == keyword || book.author == keyword) {
+        equal.add(result);
+      } else if (book.kind?.contains(keyword) == true) {
+        tags.add(result);
+      } else if (book.name.contains(keyword) || book.author.contains(keyword)) {
+        contains.add(result);
+      } else {
+        other.add(result);
+      }
+    }
+
+    int compareMerged(_MergedSearchResult a, _MergedSearchResult b) {
+      final sourceCount = b.sourceCount.compareTo(a.sourceCount);
+      if (sourceCount != 0) return sourceCount;
+      return a.index.compareTo(b.index);
+    }
+
+    equal.sort(compareMerged);
+    tags.sort(compareMerged);
+    contains.sort(compareMerged);
+    return [
+      ...equal,
+      ...tags,
+      ...contains,
+      ...other,
+    ].map((result) => result.displayResult).toList(growable: false);
   }
 
   SourceRule? _parseSourceRule(String rulesJson) {
@@ -155,4 +214,63 @@ class OnlineSearchRepository {
       ...?error.trace?.events,
     ];
   }
+}
+
+class _MergedSearchResult {
+  _MergedSearchResult(this.result, this.index)
+      : _sourceNames = <String>{},
+        _sourceIds = <String>{},
+        _origins = <OnlineSearchOrigin>[] {
+    _addOrigins(result);
+  }
+
+  OnlineSearchBookResult result;
+  final int index;
+  final Set<String> _sourceNames;
+  final Set<String> _sourceIds;
+  final List<OnlineSearchOrigin> _origins;
+
+  int get sourceCount => _sourceIds.length;
+
+  void add(OnlineSearchBookResult next) {
+    _addOrigins(next);
+    final currentBookUrl = result.bookUrl?.trim();
+    final nextBookUrl = next.bookUrl?.trim();
+    if ((currentBookUrl == null || currentBookUrl.isEmpty) &&
+        nextBookUrl != null &&
+        nextBookUrl.isNotEmpty) {
+      result = next;
+    }
+  }
+
+  void _addOrigins(OnlineSearchBookResult next) {
+    final origins = next.origins.isEmpty
+        ? [
+            OnlineSearchOrigin(
+              sourceId: next.sourceId,
+              sourceName: next.sourceName,
+              bookUrl: next.bookUrl,
+            ),
+          ]
+        : next.origins;
+    for (final origin in origins) {
+      if (!_sourceIds.add(origin.sourceId)) continue;
+      _sourceNames.add(origin.sourceName);
+      _origins.add(origin);
+    }
+  }
+
+  OnlineSearchBookResult get displayResult => OnlineSearchBookResult(
+        sourceId: result.sourceId,
+        sourceName: _sourceNames.join('\u3001'),
+        name: result.name,
+        author: result.author,
+        intro: result.intro,
+        coverUrl: result.coverUrl,
+        bookUrl: result.bookUrl,
+        kind: result.kind,
+        lastChapter: result.lastChapter,
+        wordCount: result.wordCount,
+        origins: List.unmodifiable(_origins),
+      );
 }

@@ -1,5 +1,6 @@
 import 'package:dudo/features/home/presentation/home_page.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
+import 'package:dudo/shared/utils/time_greeting.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -69,7 +70,7 @@ void main() {
     );
 
     expect(find.text('今日阅读'), findsOneWidget);
-    expect(find.text('晚上好，继续沉入书页'), findsOneWidget);
+    expect(find.text('${timeGreeting()}，继续沉入书页'), findsOneWidget);
     expect(find.text('继续阅读'), findsOneWidget);
     expect(find.text('三体 · 第 24 章'), findsOneWidget);
     expect(find.text('今天想读点什么？'), findsNothing);

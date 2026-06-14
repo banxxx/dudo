@@ -10,6 +10,7 @@ void main() {
         {
           'bookSourceName': '测试源',
           'bookSourceUrl': 'https://example.com',
+          'customOrder': -20,
           'header': "{'User-Agent': 'Mozilla/5.0'}",
         },
       ]);
@@ -19,6 +20,7 @@ void main() {
       expect(result.candidates, hasLength(1));
       expect(result.candidates.single.name, '测试源');
       expect(result.candidates.single.url, 'https://example.com');
+      expect(result.candidates.single.sortOrder, -20);
     });
 
     test('keeps valid sources when one item has incompatible rule fields',

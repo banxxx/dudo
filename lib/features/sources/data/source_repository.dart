@@ -48,7 +48,7 @@ class SourceRepository {
       ..orderBy([
         (source) => OrderingTerm(
               expression: source.sortOrder,
-              mode: OrderingMode.desc,
+              mode: OrderingMode.asc,
             ),
         (source) => OrderingTerm(
               expression: source.updatedAt,
@@ -100,7 +100,8 @@ class SourceRepository {
           final candidate = candidates[i];
           final existing =
               existingById[candidate.id] ?? existingById[candidate.url];
-          final sortOrder = now.millisecondsSinceEpoch + i;
+          final sortOrder =
+              candidate.sortOrder ?? now.millisecondsSinceEpoch + i;
           final rulesJson = jsonEncode(candidate.rawJson);
 
           if (existing != null) {

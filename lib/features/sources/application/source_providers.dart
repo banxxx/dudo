@@ -36,7 +36,11 @@ final sourcesProvider = StreamProvider<List<Source>>((ref) {
 
 final enabledSourcesProvider = Provider<AsyncValue<List<Source>>>((ref) {
   return ref.watch(sourcesProvider).whenData(
-        (sources) =>
-            sources.where((source) => source.enabled).toList(growable: false),
+        (sources) => sources.where((source) => source.enabled).toList()
+          ..sort((a, b) {
+            final sortOrder = a.sortOrder.compareTo(b.sortOrder);
+            if (sortOrder != 0) return sortOrder;
+            return b.updatedAt.compareTo(a.updatedAt);
+          }),
       );
 });

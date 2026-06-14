@@ -8,6 +8,7 @@ class SourceRule {
   final String url;
   final String? group;
   final String? comment;
+  final String? bookUrlPattern;
   final SearchRule? search;
   final BookInfoRule? bookInfo;
   final TocRule? toc;
@@ -22,6 +23,7 @@ class SourceRule {
     required this.url,
     this.group,
     this.comment,
+    this.bookUrlPattern,
     this.search,
     this.bookInfo,
     this.toc,
@@ -38,6 +40,7 @@ class SourceRule {
       url: (json['bookSourceUrl'] ?? json['url'] ?? '').toString(),
       group: _stringValue(json['bookSourceGroup']),
       comment: _stringValue(json['bookSourceComment']),
+      bookUrlPattern: _stringValue(json['bookUrlPattern']),
       search: _parseRuleMap(json['ruleSearch']) == null
           ? null
           : SearchRule.fromJson(

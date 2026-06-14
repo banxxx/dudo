@@ -6,6 +6,7 @@ class SourceImportCandidate {
     required this.name,
     required this.url,
     required this.rawJson,
+    this.sortOrder,
     this.groupName,
     this.comment,
   });
@@ -14,6 +15,7 @@ class SourceImportCandidate {
   final String name;
   final String url;
   final Map<String, dynamic> rawJson;
+  final int? sortOrder;
   final String? groupName;
   final String? comment;
 }

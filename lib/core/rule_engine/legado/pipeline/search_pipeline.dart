@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../models/source_rule.dart';
 import '../decode/response_decoder.dart';
 import '../legado_models.dart';
@@ -89,11 +91,20 @@ class SearchPipeline {
       );
       final isDetailPage = _matchesBookUrlPattern(
         decoded.finalUri.toString(),
-        search.bookUrlPattern,
+        source.bookUrlPattern ?? search.bookUrlPattern,
       );
-      var list = isDetailPage
-          ? <Object>[decoded.text]
-          : _bookListOrDetailFallback(decoded.text, search.bookList, context);
+      final listResult = isDetailPage
+          ? _SearchListResult(
+              <Object>[decoded.text],
+              parseAsDetail: true,
+            )
+          : await _bookListOrDetailFallback(
+              decoded.text,
+              search.bookList,
+              context,
+              source,
+            );
+      var list = listResult.items;
       list = await _applyBookListJsCompatibility(
         source: source,
         search: search,
@@ -104,29 +115,49 @@ class SearchPipeline {
       final deduped = <String, LegadoSearchItem>{};
 
       for (final node in list) {
-        final name = analyzeRule.fieldString(node, search.name, context) ?? '';
+        final detailRule = listResult.parseAsDetail ? source.bookInfo : null;
+        final fieldSource = detailRule == null
+            ? node
+            : _detailRoot(node, detailRule.init, context);
+        final nameRule = detailRule?.name ?? search.name;
+        final authorRule = detailRule?.author ?? search.author;
+        final coverUrlRule = detailRule?.coverUrl ?? search.coverUrl;
+        final introRule = detailRule?.intro ?? search.intro;
+        final kindRule = detailRule?.kind ?? search.kind;
+        final lastChapterRule = detailRule?.lastChapter ?? search.lastChapter;
+        final rawBookUrl = detailRule == null
+            ? _safeFieldString(fieldSource, search.bookUrl, context, 'bookUrl')
+            : baseUrl;
+        final name =
+            _safeFieldString(fieldSource, nameRule, context, 'name') ?? '';
         final author =
-            analyzeRule.fieldString(node, search.author, context) ?? '';
-        final rawBookUrl =
-            analyzeRule.fieldString(node, search.bookUrl, context);
-        _recordEmptyField(trace, 'name', name, search.name);
-        _recordEmptyField(trace, 'author', author, search.author);
+            _safeFieldString(fieldSource, authorRule, context, 'author') ?? '';
+        _recordEmptyField(trace, 'name', name, nameRule);
+        _recordEmptyField(trace, 'author', author, authorRule);
         _recordEmptyField(trace, 'bookUrl', rawBookUrl, search.bookUrl);
         final item = LegadoSearchItem(
           name: name,
           author: author,
           coverUrl: analyzeRule.absoluteUrl(
-            analyzeRule.fieldString(node, search.coverUrl, context),
+            _safeFieldString(fieldSource, coverUrlRule, context, 'coverUrl'),
             baseUrl,
           ),
           bookUrl: analyzeRule.absoluteUrl(
             rawBookUrl ?? (isDetailPage ? baseUrl : null),
             baseUrl,
           ),
-          intro: analyzeRule.fieldString(node, search.intro, context),
-          kind: analyzeRule.fieldString(node, search.kind, context),
-          lastChapter:
-              analyzeRule.fieldString(node, search.lastChapter, context),
+          intro: _safeFieldString(fieldSource, introRule, context, 'intro'),
+          kind: _safeFieldString(fieldSource, kindRule, context, 'kind'),
+          lastChapter: _safeFieldString(
+              fieldSource, lastChapterRule, context, 'lastChapter'),
+          wordCount: detailRule == null
+              ? null
+              : _safeFieldString(
+                  fieldSource,
+                  detailRule.wordCount,
+                  context,
+                  'wordCount',
+                ),
         );
         if (!_isUsableItem(item)) {
           trace.add('search.item.discarded:empty');
@@ -177,14 +208,122 @@ class SearchPipeline {
         (item.bookUrl?.trim().isNotEmpty ?? false);
   }
 
-  List<Object> _bookListOrDetailFallback(
+  String? _safeFieldString(
+    Object source,
+    String? rule,
+    RuleContext context,
+    String field,
+  ) {
+    try {
+      return analyzeRule.fieldString(source, rule, context);
+    } catch (error) {
+      context.trace?.add('search.field.error:$field:$error');
+      return null;
+    }
+  }
+
+  Future<_SearchListResult> _bookListOrDetailFallback(
     String decodedText,
     String? bookListRule,
     RuleContext context,
-  ) {
-    final list = analyzeRule.elements(decodedText, bookListRule, context);
-    if (list.isNotEmpty) return list;
-    return [decodedText];
+    SourceRule source,
+  ) async {
+    final androidApiList = await _jjwxcAndroidSearchList(
+      decodedText: decodedText,
+      bookListRule: bookListRule,
+      context: context,
+      source: source,
+    );
+    if (androidApiList != null) return _SearchListResult(androidApiList);
+
+    final effectiveRule =
+        _isJjwxcBookbaseDetailScript(source, bookListRule ?? '')
+            ? _stripEmbeddedJs(bookListRule ?? '')
+            : bookListRule;
+    final list = analyzeRule.elements(decodedText, effectiveRule, context);
+    if (list.isNotEmpty) return _SearchListResult(list);
+    return _SearchListResult(
+      [decodedText],
+      parseAsDetail: true,
+    );
+  }
+
+  Object _detailRoot(Object node, String? initRule, RuleContext context) {
+    if (initRule == null || initRule.trim().isEmpty) return node;
+    final roots = analyzeRule.elements(node, initRule, context);
+    return roots.isEmpty ? node : roots.first;
+  }
+
+  Future<List<Object>?> _jjwxcAndroidSearchList({
+    required String decodedText,
+    required String? bookListRule,
+    required RuleContext context,
+    required SourceRule source,
+  }) async {
+    final rule = bookListRule ?? '';
+    if (!_isJjwxcAndroidSearchMergeScript(source, rule)) return null;
+
+    final items = <Object>[];
+    items.addAll(_jsonItems(decodedText));
+
+    final keyword = context.keyword;
+    if (keyword != null && keyword.trim().isNotEmpty) {
+      final authorUrl = 'http://android.jjwxc.net/androidapi/search?keyword='
+          '${Uri.encodeQueryComponent(keyword)}'
+          '&type=2&page=${context.page}&searchType=7&sortMode=DESC';
+      try {
+        context.trace?.add('search.bookList.jjwxc.author.request:$authorUrl');
+        final response = await executor.execute(
+          LegadoRequest(
+            url: authorUrl,
+            method: 'GET',
+            headers: source.headers,
+          ),
+        );
+        final decoded = await decoder.decode(
+          bytes: response.bytes,
+          finalUri: response.finalUri,
+          headers: response.headers,
+          statusCode: response.statusCode,
+          trace: context.trace,
+        );
+        items.addAll(_jsonItems(decoded.text));
+      } catch (error) {
+        context.trace?.add('search.bookList.jjwxc.author.error:$error');
+      }
+    }
+
+    final deduped = <String, Object>{};
+    for (final item in items) {
+      final key = item is Map
+          ? (item['novelid'] ?? item['novelId'] ?? item).toString()
+          : item.toString();
+      deduped.putIfAbsent(key, () => item);
+    }
+    return deduped.values.toList(growable: false);
+  }
+
+  bool _isJjwxcAndroidSearchMergeScript(SourceRule source, String rule) {
+    final text = rule.toLowerCase();
+    return (source.url.contains('jjwxc.net') ||
+            source.id.contains('jjwxc.net')) &&
+        text.contains('androidapi/search') &&
+        text.contains('json.parse(result).items') &&
+        text.contains('json.concat');
+  }
+
+  List<Object> _jsonItems(String text) {
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is Map) {
+        final items = decoded['items'];
+        if (items is List) return items.whereType<Object>().toList();
+      }
+      if (decoded is List) return decoded.whereType<Object>().toList();
+    } catch (_) {
+      return const [];
+    }
+    return const [];
   }
 
   Future<List<Object>> _applyBookListJsCompatibility({
@@ -211,27 +350,60 @@ class SearchPipeline {
       }
       try {
         final detail = await _loadJjwxcSearchDetail(source, novelId, trace);
-        if (detail == null || detail.isEmpty) {
-          converted.add(item);
-        } else {
-          converted.add(detail);
-        }
+        converted.add(_jjwxcDetailOrFallback(detail, item, novelId));
       } catch (error) {
         trace.add('search.bookList.jsCompat.error:$novelId:$error');
-        converted.add(item);
+        converted.add(_jjwxcDetailOrFallback(null, item, novelId));
       }
     }
     return converted;
+  }
+
+  Map<String, String> _jjwxcDetailOrFallback(
+    Map<String, String>? detail,
+    Object item,
+    String novelId,
+  ) {
+    final fallbackTitle = switch (item) {
+      dom.Element() => item.text.trim(),
+      Map() => (item['title'] ?? item['novelname'] ?? item['novelName'] ?? '')
+          .toString()
+          .trim(),
+      _ => '',
+    };
+    final result = <String, String>{
+      'title': fallbackTitle,
+      'author': '',
+      'cat': '',
+      'size': '',
+      'url':
+          'http://app-cdn.jjwxc.net/androidapi/novelbasicinfo?novelId=$novelId',
+      'des': '',
+      'new': '',
+      'cover': '',
+    };
+    if (detail != null) {
+      for (final entry in detail.entries) {
+        if (entry.value.trim().isNotEmpty) result[entry.key] = entry.value;
+      }
+    }
+    return result;
   }
 
   bool _isJjwxcBookbaseDetailScript(SourceRule source, String rule) {
     final text = rule.toLowerCase();
     return (source.url.contains('jjwxc.net') ||
             source.id.contains('jjwxc.net')) &&
-        text.contains('<js>') &&
         text.contains('onebook.php?novelid=') &&
         text.contains('java.ajax(url)') &&
         text.contains('json.push');
+  }
+
+  String _stripEmbeddedJs(String rule) {
+    return rule
+        .replaceAll(RegExp(r'<js>[\s\S]*?</js>', caseSensitive: false), '')
+        .replaceAll(RegExp(r'@js:[\s\S]*$', caseSensitive: false), '')
+        .trim();
   }
 
   String? _extractJjwxcNovelId(Object item) {
@@ -354,4 +526,14 @@ class SearchPipeline {
       return url.contains(text);
     }
   }
+}
+
+class _SearchListResult {
+  const _SearchListResult(
+    this.items, {
+    this.parseAsDetail = false,
+  });
+
+  final List<Object> items;
+  final bool parseAsDetail;
 }

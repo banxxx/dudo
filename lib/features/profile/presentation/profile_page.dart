@@ -146,6 +146,25 @@ class _ProfileIdentityCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      LucideIcons.badgeCheck,
+                      color: DudoColors.primaryContainer,
+                      size: 15,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '静读会员',
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.primaryContainer,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

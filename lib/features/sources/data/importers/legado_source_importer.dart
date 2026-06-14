@@ -99,6 +99,7 @@ class LegadoSourceImporter extends SourceImporter {
         url: url,
         groupName: _stringValue(rawJson['bookSourceGroup']),
         comment: _stringValue(rawJson['bookSourceComment']),
+        sortOrder: _intValue(rawJson['customOrder']),
         rawJson: rawJson,
       );
     }
@@ -126,5 +127,12 @@ class LegadoSourceImporter extends SourceImporter {
     if (value == null) return null;
     final text = value.toString().trim();
     return text.isEmpty ? null : text;
+  }
+
+  int? _intValue(Object? value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString().trim());
   }
 }

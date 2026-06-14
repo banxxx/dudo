@@ -26,8 +26,19 @@ class AnalyzeRule {
   String? string(Object source, String? rawRule, RuleContext context) {
     if (rawRule == null || rawRule.trim().isEmpty) return null;
     context.trace?.add('rule.stage:string');
+    final preparedRule = _replaceDynamicRule(rawRule, context, source: source);
+    if (preparedRule != rawRule && _looksLikeLiteral(preparedRule)) {
+      return preparedRule;
+    }
+    final embedded = _evaluateEmbeddedJsRule(
+      source,
+      preparedRule,
+      context,
+      wantsElements: false,
+    );
+    if (embedded != null) return _firstString(embedded);
     final value = evaluate(
-      astParser.parse(_replaceDynamicRule(rawRule, context, source: source)),
+      astParser.parse(preparedRule),
       context,
       source,
     );
@@ -37,6 +48,13 @@ class AnalyzeRule {
   List<Object> elements(Object source, String? rawRule, RuleContext context) {
     if (rawRule == null || rawRule.trim().isEmpty) return const <Object>[];
     context.trace?.add('rule.stage:elements');
+    final embedded = _evaluateEmbeddedJsRule(
+      source,
+      rawRule,
+      context,
+      wantsElements: true,
+    );
+    if (embedded != null) return _objects(embedded);
     final value = evaluate(
       astParser.parse(_replaceDynamicRule(rawRule, context, source: source)),
       context,
@@ -116,6 +134,19 @@ class AnalyzeRule {
       _ => context.getVariable(key),
     };
     if (direct != null) return direct;
+
+    if (_looksLikeRule(key)) {
+      try {
+        final value = evaluate(
+          astParser.parse(_replaceDynamicRule(key, context, source: source)),
+          context,
+          source ?? context.input.rawText,
+        );
+        return _firstString(value);
+      } on Exception {
+        return null;
+      }
+    }
 
     try {
       return jsEngine.eval(
@@ -267,15 +298,17 @@ class AnalyzeRule {
     required bool wantsElements,
   }) {
     if (steps.isEmpty) return const RuleListValue([]);
+    final normalizedSteps = _applyPutSteps(steps, context, source);
+    if (normalizedSteps.isEmpty) return const RuleListValue([]);
     final variableValue = _evaluateVariableCommand(
-      steps,
+      normalizedSteps,
       context,
       source,
       wantsElements: wantsElements,
     );
     if (variableValue != null) return variableValue;
 
-    final mode = steps.first.mode;
+    final mode = normalizedSteps.first.mode;
     final parserType = _parserTypeFor(mode, source);
     context.trace?.add('rule.parserMode:${mode.name}');
     final parser = registry.forType(parserType);
@@ -284,9 +317,9 @@ class AnalyzeRule {
       return const RuleListValue([]);
     }
 
-    final rule = steps.first.mode == LegadoRuleMode.js
-        ? _jsRuleChain(steps)
-        : RuleChain.parse(_rawRuleForParser(steps));
+    final rule = normalizedSteps.first.mode == LegadoRuleMode.js
+        ? _jsRuleChain(normalizedSteps)
+        : RuleChain.parse(_rawRuleForParser(normalizedSteps));
     if (wantsElements) {
       return RuleNodeSetValue(parser.parseElements(source, rule));
     }
@@ -296,6 +329,119 @@ class AnalyzeRule {
           .map(RuleStringValue.new)
           .toList(growable: false),
     );
+  }
+
+  RuleValue? _evaluateEmbeddedJsRule(
+    Object source,
+    String rawRule,
+    RuleContext context, {
+    required bool wantsElements,
+  }) {
+    final parts = _splitEmbeddedJs(rawRule);
+    if (parts == null || parts.length < 2) return null;
+
+    Object? current = source;
+    var sawJs = false;
+    for (var i = 0; i < parts.length; i++) {
+      final part = parts[i];
+      if (part.text.trim().isEmpty) continue;
+      if (part.isJs) {
+        sawJs = true;
+        current = jsEngine.eval(
+          part.text,
+          context: LegadoJsContext(
+            key: context.keyword ?? '',
+            page: context.page,
+            baseUrl: context.baseUri.toString(),
+            src: source,
+            result: current,
+            source: context.source,
+            variables: context.variables,
+          ),
+        );
+        continue;
+      }
+
+      final isLast = i == parts.length - 1;
+      final value = evaluate(
+        astParser
+            .parse(_replaceDynamicRule(part.text, context, source: current)),
+        context,
+        current ?? '',
+        wantsElements: wantsElements && isLast,
+      );
+      if (wantsElements && isLast) return value;
+      current = _objectFromValue(value);
+    }
+
+    return sawJs
+        ? _valueFromObject(current, wantsElements: wantsElements)
+        : null;
+  }
+
+  List<_EmbeddedRulePart>? _splitEmbeddedJs(String rawRule) {
+    final pattern = RegExp(
+      r'<js>([\s\S]*?)</js>|@js:([\s\S]*)',
+      caseSensitive: false,
+    );
+    final matches = pattern.allMatches(rawRule).toList();
+    if (matches.isEmpty) return null;
+
+    final parts = <_EmbeddedRulePart>[];
+    var start = 0;
+    for (final match in matches) {
+      if (match.start > start) {
+        parts.add(
+            _EmbeddedRulePart(rawRule.substring(start, match.start), false));
+      }
+      parts
+          .add(_EmbeddedRulePart(match.group(1) ?? match.group(2) ?? '', true));
+      start = match.end;
+    }
+    if (rawRule.length > start) {
+      parts.add(_EmbeddedRulePart(rawRule.substring(start), false));
+    }
+    return parts;
+  }
+
+  List<LegadoRuleStep> _applyPutSteps(
+    List<LegadoRuleStep> steps,
+    RuleContext context,
+    Object source,
+  ) {
+    final out = <LegadoRuleStep>[];
+    for (final step in steps) {
+      if (_isPut(step.raw)) {
+        final payload = _commandPayload(step.raw, 'put');
+        if (payload != null) {
+          for (final entry in _parsePutPayload(payload, source).entries) {
+            final rawValue = entry.value;
+            final value = rawValue is String && _looksLikeRule(rawValue)
+                ? string(source, rawValue, context)
+                : rawValue;
+            context.putVariable(entry.key, value);
+          }
+        }
+      } else {
+        out.add(step);
+      }
+    }
+    return out;
+  }
+
+  bool _looksLikeRule(String rule) {
+    final text = rule.trim();
+    return text.startsWith('@') ||
+        text.startsWith(r'$.') ||
+        text.startsWith(r'$[') ||
+        text.startsWith(r'$..') ||
+        text.startsWith('//');
+  }
+
+  bool _looksLikeLiteral(String rule) {
+    final text = rule.trim();
+    return RegExp(r'^[a-z][a-z0-9+.-]*://', caseSensitive: false)
+        .hasMatch(text);
   }
 
   RuleValue? _evaluateVariableCommand(
@@ -425,6 +571,21 @@ class AnalyzeRule {
     return text;
   }
 
+  Object? _objectFromValue(RuleValue value) {
+    return switch (value) {
+      RuleStringValue(:final value) => value,
+      RuleListValue(:final values) => values.length == 1
+          ? _objectFromValue(values.single)
+          : [
+              for (final item in values) _objectFromValue(item),
+            ],
+      RuleNodeSetValue(:final nodes) => nodes,
+      RuleJsonValue(:final value) => value,
+      RuleRegexCapturesValue(:final captures) => captures,
+      RuleJsValue(:final value) => value,
+    };
+  }
+
   RuleValue _valueFromObject(Object? value, {required bool wantsElements}) {
     if (value == null) return const RuleListValue([]);
     if (wantsElements) {
@@ -504,6 +665,13 @@ class AnalyzeRule {
         if (!value.isEmpty) yield value;
     }
   }
+}
+
+class _EmbeddedRulePart {
+  const _EmbeddedRulePart(this.text, this.isJs);
+
+  final String text;
+  final bool isJs;
 }
 
 const _namedHtmlEntities = {

@@ -33,6 +33,9 @@ class RuleEngine {
           coverUrl: item.coverUrl,
           bookUrl: item.bookUrl,
           intro: item.intro,
+          kind: item.kind,
+          lastChapter: item.lastChapter,
+          wordCount: item.wordCount,
         ),
     ];
   }
@@ -383,12 +386,18 @@ class SearchResult {
   final String? coverUrl;
   final String? bookUrl;
   final String? intro;
+  final String? kind;
+  final String? lastChapter;
+  final String? wordCount;
   const SearchResult({
     required this.name,
     required this.author,
     this.coverUrl,
     this.bookUrl,
     this.intro,
+    this.kind,
+    this.lastChapter,
+    this.wordCount,
   });
 }
 

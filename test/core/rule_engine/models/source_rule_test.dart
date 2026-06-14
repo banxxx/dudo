@@ -7,6 +7,7 @@ void main() {
       final rule = SourceRule.fromJson({
         'bookSourceName': '测试源',
         'bookSourceUrl': 'https://example.com',
+        'bookUrlPattern': r'https://example.com/book/\d+',
         'searchUrl': 'https://example.com/search?q={{key}}',
         'ruleSearch': {
           'bookList': '.book',
@@ -15,6 +16,7 @@ void main() {
       });
 
       expect(rule.search?.searchUrl, 'https://example.com/search?q={{key}}');
+      expect(rule.bookUrlPattern, r'https://example.com/book/\d+');
       expect(rule.search?.bookList, '.book');
       expect(rule.search?.name, '.name@text');
     });
