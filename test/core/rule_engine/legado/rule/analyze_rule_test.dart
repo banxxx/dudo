@@ -167,6 +167,10 @@ void main() {
         analyzeRule.string('Name: Gamma', r'/{{result}}/0', context),
         'Name: Gamma',
       );
+      expect(
+        analyzeRule.string('Page 3', r'/Page ({{page + 1}})/1', context),
+        '3',
+      );
     });
 
     test('normalizes field HTML entities and resolves URLs', () {

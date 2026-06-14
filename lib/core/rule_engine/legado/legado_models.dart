@@ -71,3 +71,15 @@ class LegadoTocResult {
   final List<LegadoTocChapter> chapters;
   final String? nextTocUrl;
 }
+
+class LegadoContentResult {
+  const LegadoContentResult({
+    required this.title,
+    required this.content,
+    this.nextContentUrl,
+  });
+
+  final String title;
+  final String content;
+  final String? nextContentUrl;
+}

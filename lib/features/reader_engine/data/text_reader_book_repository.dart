@@ -16,6 +16,13 @@ abstract interface class TextReaderBookRepository {
     required String bookId,
     required int chapterIndex,
   });
+
+  Future<void> cacheChapterContent({
+    required String bookId,
+    required int chapterIndex,
+    required String content,
+    required int normalizedContentLength,
+  });
 }
 
 class BookshelfTextReaderBookRepository implements TextReaderBookRepository {
@@ -33,6 +40,7 @@ class BookshelfTextReaderBookRepository implements TextReaderBookRepository {
       author: book.author,
       coverUrl: book.coverUrl,
       sourceId: book.sourceId,
+      sourceBookUrl: book.sourceBookUrl,
       localPath: book.localPath,
     );
   }
@@ -67,6 +75,21 @@ class BookshelfTextReaderBookRepository implements TextReaderBookRepository {
     );
     return chapter == null ? null : ReaderChapterRecord.fromDbChapter(chapter);
   }
+
+  @override
+  Future<void> cacheChapterContent({
+    required String bookId,
+    required int chapterIndex,
+    required String content,
+    required int normalizedContentLength,
+  }) {
+    return repository.cacheChapterContentForBookAtIndex(
+      bookId: bookId,
+      chapterIndex: chapterIndex,
+      content: content,
+      normalizedContentLength: normalizedContentLength,
+    );
+  }
 }
 
 class ReaderBookRecord {
@@ -76,6 +99,7 @@ class ReaderBookRecord {
     this.author,
     this.coverUrl,
     this.sourceId,
+    this.sourceBookUrl,
     this.localPath,
   });
 
@@ -84,6 +108,7 @@ class ReaderBookRecord {
   final String? author;
   final String? coverUrl;
   final String? sourceId;
+  final String? sourceBookUrl;
   final String? localPath;
 }
 

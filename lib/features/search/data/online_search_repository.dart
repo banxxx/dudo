@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../../core/rule_engine/legado/common/legado_trace.dart';
 import '../../../core/rule_engine/models/source_rule.dart';
 import '../../../core/rule_engine/rule_engine.dart' as engine;
 import '../../sources/data/source_repository.dart';
@@ -87,11 +88,13 @@ class OnlineSearchRepository {
           ),
         );
       } catch (error) {
+        final diagnostics = _diagnosticsFor(error);
         failures.add(
           OnlineSearchFailure(
             sourceId: source.id,
             sourceName: source.name,
             message: error.toString(),
+            diagnostics: diagnostics,
           ),
         );
       }
@@ -113,5 +116,13 @@ class OnlineSearchRepository {
     } catch (_) {
       return null;
     }
+  }
+
+  List<String> _diagnosticsFor(Object error) {
+    if (error is! LegadoRuntimeException) return const [];
+    return [
+      if (error.stage != null) 'stage:${error.stage}',
+      ...?error.trace?.events,
+    ];
   }
 }

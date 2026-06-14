@@ -31,8 +31,7 @@ void main() {
         {
           'bookSourceName': '坏字段源',
           'bookSourceUrl': 'https://bad.example.com',
-          'searchUrl': 123,
-          'ruleSearch': {'bookList': '.book'},
+          'ruleBookInfo': {'init': 123},
         },
       ]);
 

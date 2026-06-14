@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../app/router/app_router.dart';
+import '../../../shared/messages/app_message_service.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
+import '../../bookshelf/application/bookshelf_providers.dart';
 import '../application/search_providers.dart';
 import '../domain/online_search_models.dart';
 
@@ -44,6 +48,37 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     _controller.clear();
   }
 
+  Future<void> _handleOpenResult(OnlineSearchBookResult result) async {
+    final bookUrl = result.bookUrl?.trim();
+    final messages = ref.read(appMessageServiceProvider);
+    if (bookUrl == null || bookUrl.isEmpty) {
+      messages.warning('该搜索结果缺少详情地址，无法打开');
+      return;
+    }
+
+    messages.info('正在加载《${result.name}》');
+    try {
+      final bookId =
+          await ref.read(remoteBookImportServiceProvider).importRemoteBook(
+                sourceId: result.sourceId,
+                bookUrl: bookUrl,
+                fallbackName: result.name,
+                fallbackAuthor: result.author,
+                fallbackCoverUrl: result.coverUrl,
+                fallbackIntro: result.intro,
+              );
+      if (!mounted) return;
+      ref
+        ..invalidate(shelfBooksProvider)
+        ..invalidate(bookByIdProvider(bookId))
+        ..invalidate(bookChapterMetasProvider(bookId))
+        ..invalidate(bookChapterCountProvider(bookId));
+      context.push('${AppRoutes.bookDetail}/$bookId');
+    } catch (error) {
+      messages.error('无法打开远程书籍：$error');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final query = _controller.text.trim();
@@ -73,6 +108,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             _SearchResultsSection(
               query: query,
               results: searchResults!,
+              onResultTap: _handleOpenResult,
             )
           else
             const _SearchEmptySuggestions(),
@@ -522,10 +558,12 @@ class _SearchResultsSection extends StatelessWidget {
   const _SearchResultsSection({
     required this.query,
     required this.results,
+    required this.onResultTap,
   });
 
   final String query;
   final AsyncValue<OnlineSearchResponse> results;
+  final Future<void> Function(OnlineSearchBookResult result) onResultTap;
 
   @override
   Widget build(BuildContext context) {
@@ -596,7 +634,7 @@ class _SearchResultsSection extends StatelessWidget {
             ],
             const SizedBox(height: 10),
             for (final result in response.results) ...[
-              _SearchResultCard(result: result),
+              _SearchResultCard(result: result, onTap: onResultTap),
               if (result != response.results.last) const SizedBox(height: 8),
             ],
           ],
@@ -702,77 +740,85 @@ class _SearchStatusCard extends StatelessWidget {
 }
 
 class _SearchResultCard extends StatelessWidget {
-  const _SearchResultCard({required this.result});
+  const _SearchResultCard({
+    required this.result,
+    required this.onTap,
+  });
 
   final OnlineSearchBookResult result;
+  final Future<void> Function(OnlineSearchBookResult result) onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 88,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: DudoColors.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 68,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(9),
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [DudoColors.primary, DudoColors.primaryContainer],
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => onTap(result),
+      child: Container(
+        height: 88,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: DudoColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: DudoColors.outlineVariant),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 68,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(9),
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [DudoColors.primary, DudoColors.primaryContainer],
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  result.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    result.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DudoTextStyles.sans(
+                      color: DudoColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _resultMeta(result),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.secondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
+                  const SizedBox(height: 4),
+                  Text(
+                    _resultMeta(result),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DudoTextStyles.sans(
+                      color: DudoColors.secondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  _resultIntro(result),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.textSecondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    height: 1.25,
+                  const SizedBox(height: 5),
+                  Text(
+                    _resultIntro(result),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DudoTextStyles.sans(
+                      color: DudoColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      height: 1.25,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

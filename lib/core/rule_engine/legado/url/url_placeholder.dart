@@ -17,6 +17,33 @@ class LegadoUrlPlaceholder {
     );
   }
 
+  Future<String> applyAsync({
+    required String rawUrl,
+    required String keyword,
+    int page = 1,
+    String? baseUrl,
+    Object? source,
+    Object? result,
+    Map<String, Object?> variables = const {},
+    String? cookie,
+    LegadoJsAjax? ajax,
+  }) async {
+    final context = LegadoJsContext(
+      key: keyword,
+      page: page,
+      baseUrl: baseUrl,
+      source: source,
+      result: result,
+      variables: variables,
+      cookie: cookie,
+      ajax: ajax,
+    );
+    return _replacePageSelectors(
+      await _replaceExpressionsAsync(rawUrl, context),
+      page,
+    );
+  }
+
   String _replaceExpressions(String rawUrl, LegadoJsContext context) {
     final buffer = StringBuffer();
     var index = 0;
@@ -45,6 +72,39 @@ class LegadoUrlPlaceholder {
     return buffer.toString();
   }
 
+  Future<String> _replaceExpressionsAsync(
+    String rawUrl,
+    LegadoJsContext context,
+  ) async {
+    final buffer = StringBuffer();
+    var index = 0;
+
+    while (index < rawUrl.length) {
+      final start = rawUrl.indexOf('{{', index);
+      if (start < 0) {
+        buffer.write(rawUrl.substring(index));
+        break;
+      }
+
+      buffer.write(rawUrl.substring(index, start));
+      final expressionStart = start + 2;
+      final end = _findExpressionEnd(rawUrl, expressionStart);
+      if (end < 0) {
+        buffer.write(rawUrl.substring(start));
+        break;
+      }
+
+      final expression = rawUrl.substring(expressionStart, end);
+      final original = rawUrl.substring(start, end + 2);
+      buffer.write(
+        await _replaceExpressionAsync(expression, original, context),
+      );
+      index = end + 2;
+    }
+
+    return buffer.toString();
+  }
+
   String _replaceExpression(
     String rawExpression,
     String original,
@@ -56,6 +116,24 @@ class LegadoUrlPlaceholder {
 
     try {
       return _stringify(jsEngine.eval(expression, context: context));
+    } on Exception {
+      return original;
+    }
+  }
+
+  Future<String> _replaceExpressionAsync(
+    String rawExpression,
+    String original,
+    LegadoJsContext context,
+  ) async {
+    final expression = rawExpression.trim();
+    if (expression == 'key') return context.encodedKey;
+    if (expression == 'page') return context.page.toString();
+
+    try {
+      return _stringify(
+        await jsEngine.evalAsync(expression, context: context),
+      );
     } on Exception {
       return original;
     }

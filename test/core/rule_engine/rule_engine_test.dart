@@ -53,7 +53,6 @@ void main() {
           'url-body-js-unsupported',
           'url-web-view-unsupported',
           'search-book-url-missing',
-          'rule-js-unsupported',
           'book-info-missing',
           'toc-missing',
           'content-missing',

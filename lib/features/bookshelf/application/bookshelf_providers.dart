@@ -2,9 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
+import '../../../core/rule_engine/rule_engine.dart';
+import '../../sources/application/source_providers.dart';
 import '../data/bookshelf_repository.dart';
 import '../data/local_book_chapter_analysis_service.dart';
 import '../data/local_book_import_service.dart';
+import '../data/remote_book_import_service.dart';
 
 final bookshelfTipsDismissedProvider = StateProvider<bool>((_) => false);
 
@@ -99,5 +102,14 @@ final localBookChapterAnalysisServiceProvider =
     Provider<LocalBookChapterAnalysisService>((ref) {
   return LocalBookChapterAnalysisService(
     repository: ref.watch(bookshelfRepositoryProvider),
+  );
+});
+
+final remoteBookImportServiceProvider =
+    Provider<RemoteBookImportService>((ref) {
+  return RemoteBookImportService(
+    bookshelfRepository: ref.watch(bookshelfRepositoryProvider),
+    sourceRepository: ref.watch(sourceRepositoryProvider),
+    ruleEngine: RuleEngine.create(),
   );
 });

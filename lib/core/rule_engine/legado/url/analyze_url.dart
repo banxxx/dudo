@@ -69,6 +69,65 @@ class AnalyzeUrl {
     );
   }
 
+  Future<LegadoRequest> compileSearchAsync({
+    required SourceRule source,
+    required String rawUrl,
+    required String keyword,
+    int page = 1,
+    Map<String, Object?> variables = const {},
+    LegadoJsAjax? ajax,
+  }) async {
+    final analyzedUrl = await _analyzeSearchUrlAsync(
+      rawUrl,
+      keyword,
+      page,
+      source,
+      variables: variables,
+      ajax: ajax,
+    );
+    final replaced = await placeholder.applyAsync(
+      rawUrl: analyzedUrl,
+      keyword: keyword,
+      page: page,
+      baseUrl: source.url,
+      source: source,
+      variables: variables,
+      ajax: ajax,
+    );
+    final split = splitOptions(replaced);
+    final options = LegadoUrlOptions.parse(split.optionJson);
+    final headers = <String, String>{
+      ...source.headers,
+      ...options.headers,
+    };
+    final resolvedUri = Uri.parse(source.url).resolve(split.url.trim());
+    _mergeCookieHeader(headers, resolvedUri);
+    final resolvedUrl = resolvedUri.toString();
+    final request = options.method == 'POST'
+        ? _preparePostRequest(
+            resolvedUrl: resolvedUrl,
+            headers: headers,
+            body: options.body,
+            charset: options.charset,
+          )
+        : _PreparedRequest(
+            url: resolvedUrl,
+            headers: headers,
+            body: options.body,
+          );
+    return LegadoRequest(
+      url: request.url,
+      method: options.method,
+      headers: request.headers,
+      body: request.body,
+      charset: options.charset,
+      bodyJs: options.bodyJs,
+      webJs: options.webJs,
+      useWebView: options.useWebView,
+      webViewDelayTime: options.webViewDelayTime,
+    );
+  }
+
   SplitLegadoUrlOptions splitOptions(String rawUrl) {
     final index = scanner.indexWhereTopLevel(
       rawUrl,
@@ -115,6 +174,56 @@ class AnalyzeUrl {
           baseUrl: source.url,
           result: result,
           source: source,
+        ),
+      );
+      buffer.write(_stringifyJsResult(result));
+      start = match.end;
+    }
+
+    _writeLiteralWithResult(
+      buffer,
+      rawUrl.substring(start),
+      result,
+    );
+    return buffer.toString();
+  }
+
+  Future<String> _analyzeSearchUrlAsync(
+    String rawUrl,
+    String keyword,
+    int page,
+    SourceRule source, {
+    required Map<String, Object?> variables,
+    LegadoJsAjax? ajax,
+  }) async {
+    final jsPattern = RegExp(
+      r'<js>([\s\S]*?)</js>|@js:([\s\S]*)',
+      caseSensitive: false,
+    );
+    final matches = jsPattern.allMatches(rawUrl).toList();
+    if (matches.isEmpty) return rawUrl;
+
+    final buffer = StringBuffer();
+    Object? result;
+    var start = 0;
+
+    for (final match in matches) {
+      _writeLiteralWithResult(
+        buffer,
+        rawUrl.substring(start, match.start),
+        result,
+      );
+      final script = match.group(1) ?? match.group(2) ?? '';
+      result = await jsEngine.evalAsync(
+        script,
+        context: LegadoJsContext(
+          key: keyword,
+          page: page,
+          baseUrl: source.url,
+          result: result,
+          source: source,
+          variables: variables,
+          ajax: ajax,
         ),
       );
       buffer.write(_stringifyJsResult(result));

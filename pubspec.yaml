@@ -90,6 +90,7 @@ dependencies:
   rxdart: ^0.27.7
   fl_chart: ^1.2.0
   flutter_animate: ^4.5.2
+  flutter_js: 0.8.7
 
 dev_dependencies:
   flutter_test:

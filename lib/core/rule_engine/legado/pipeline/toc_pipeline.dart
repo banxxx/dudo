@@ -6,6 +6,8 @@ import '../rule/rule_context.dart';
 import '../rule/rule_value.dart';
 import '../url/analyze_url.dart';
 import '../url/request_executor.dart';
+import 'java_ajax.dart';
+import 'pipeline_trace.dart';
 
 class TocPipeline {
   const TocPipeline({
@@ -27,13 +29,23 @@ class TocPipeline {
     final rule = source.toc;
     if (rule == null || tocUrl.trim().isEmpty) return null;
 
-    final request = analyzeUrl.compileSearch(
+    final trace = LegadoTrace();
+    final request = await analyzeUrl.compileSearchAsync(
       source: source,
       rawUrl: tocUrl,
       keyword: '',
+      ajax: createLegadoJavaAjax(
+        analyzeUrl: analyzeUrl,
+        executor: executor,
+        decoder: decoder,
+        source: source,
+        trace: trace,
+      ),
     );
-    final trace = LegadoTrace();
+    recordUnsupportedUrlOptionTrace(request, trace, stage: 'toc');
+    recordLegadoRequestTrace(request, trace, stage: 'toc');
     final response = await executor.execute(request);
+    recordLegadoResponseTrace(response, trace, stage: 'toc');
     final decoded = await decoder.decode(
       bytes: response.bytes,
       finalUri: response.finalUri,

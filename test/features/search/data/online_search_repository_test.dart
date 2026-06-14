@@ -195,6 +195,14 @@ class _FakeSourceRepository implements SourceRepository {
   }
 
   @override
+  Future<Source?> findSourceById(String id) async {
+    for (final source in sources) {
+      if (source.id == id) return source;
+    }
+    return null;
+  }
+
+  @override
   Future<List<Source>> listSources() => throw UnimplementedError();
 
   @override

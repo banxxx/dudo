@@ -139,4 +139,12 @@ class _FakeTextReaderBookRepository implements TextReaderBookRepository {
     }
     return null;
   }
+
+  @override
+  Future<void> cacheChapterContent({
+    required String bookId,
+    required int chapterIndex,
+    required String content,
+    required int normalizedContentLength,
+  }) async {}
 }

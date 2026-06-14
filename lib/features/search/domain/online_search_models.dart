@@ -23,11 +23,13 @@ class OnlineSearchFailure {
     required this.sourceId,
     required this.sourceName,
     required this.message,
+    this.diagnostics = const [],
   });
 
   final String sourceId;
   final String sourceName;
   final String message;
+  final List<String> diagnostics;
 }
 
 class OnlineSearchResponse {

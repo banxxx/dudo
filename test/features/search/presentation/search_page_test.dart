@@ -607,6 +607,14 @@ class _StreamSourceRepository implements SourceRepository {
       _sources.where((source) => source.enabled).toList(growable: false);
 
   @override
+  Future<Source?> findSourceById(String id) async {
+    for (final source in _sources) {
+      if (source.id == id) return source;
+    }
+    return null;
+  }
+
+  @override
   Future<List<Source>> listSources() async =>
       List<Source>.unmodifiable(_sources);
 

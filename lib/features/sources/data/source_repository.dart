@@ -58,6 +58,13 @@ class SourceRepository {
     return query.get();
   }
 
+  Future<Source?> findSourceById(String id) {
+    final query = database.select(database.sources)
+      ..where((source) => source.id.equals(id))
+      ..limit(1);
+    return query.getSingleOrNull();
+  }
+
   Future<SourceImportPersistResult> upsertImportedSources(
     SourceImportParseResult parseResult, {
     ExistingSourceStrategy existingStrategy = ExistingSourceStrategy.update,

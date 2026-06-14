@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../models/rule_chain.dart';
 import '../../parsers/parser.dart';
+import '../js/legado_js_engine.dart';
 import 'rule_ast.dart';
 import 'rule_context.dart';
 import 'rule_value.dart';
@@ -10,10 +11,12 @@ class AnalyzeRule {
   AnalyzeRule({
     required this.registry,
     this.astParser = const LegadoRuleAstParser(),
+    this.jsEngine = const SimpleLegadoJsEngine(),
   });
 
   final ParserRegistry registry;
   final LegadoRuleAstParser astParser;
+  final LegadoJsEngine jsEngine;
 
   RuleValue parse(String rawRule, RuleContext context) {
     final ast = astParser.parse(_replaceDynamicRule(rawRule, context));
@@ -22,6 +25,7 @@ class AnalyzeRule {
 
   String? string(Object source, String? rawRule, RuleContext context) {
     if (rawRule == null || rawRule.trim().isEmpty) return null;
+    context.trace?.add('rule.stage:string');
     final value = evaluate(
       astParser.parse(_replaceDynamicRule(rawRule, context, source: source)),
       context,
@@ -32,6 +36,7 @@ class AnalyzeRule {
 
   List<Object> elements(Object source, String? rawRule, RuleContext context) {
     if (rawRule == null || rawRule.trim().isEmpty) return const <Object>[];
+    context.trace?.add('rule.stage:elements');
     final value = evaluate(
       astParser.parse(_replaceDynamicRule(rawRule, context, source: source)),
       context,
@@ -54,6 +59,25 @@ class AnalyzeRule {
     return normalizeField(string(source, rawRule, context));
   }
 
+  List<String> fieldStrings(
+    Object source,
+    String? rawRule,
+    RuleContext context,
+  ) {
+    if (rawRule == null || rawRule.trim().isEmpty) return const [];
+    context.trace?.add('rule.stage:fieldStrings');
+    final value = evaluate(
+      astParser.parse(_replaceDynamicRule(rawRule, context, source: source)),
+      context,
+      source,
+    );
+    return _strings(value)
+        .map(normalizeField)
+        .whereType<String>()
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+  }
+
   String? normalizeField(String? value) {
     if (value == null) return null;
     return _htmlUnescape(value).replaceAll('\u00A0', ' ').trim();
@@ -67,8 +91,14 @@ class AnalyzeRule {
     return rawRule.replaceAllMapped(RegExp(r'\{\{([\s\S]+?)\}\}'), (match) {
       final expression = match.group(1)?.trim() ?? '';
       final value = _dynamicValue(expression, context, source: source);
-      return value?.toString() ?? '';
+      return _stringifyDynamicValue(value);
     });
+  }
+
+  String _stringifyDynamicValue(Object? value) {
+    if (value == null) return '';
+    if (value is double && value % 1 == 0) return value.toInt().toString();
+    return value.toString();
   }
 
   Object? _dynamicValue(
@@ -77,7 +107,7 @@ class AnalyzeRule {
     Object? source,
   }) {
     final key = _unquote(expression);
-    return switch (key) {
+    final direct = switch (key) {
       'key' => context.keyword,
       'page' => context.page,
       'baseUrl' || 'baseUri' => context.baseUri.toString(),
@@ -85,6 +115,24 @@ class AnalyzeRule {
       'result' => source ?? context.input.rawText,
       _ => context.getVariable(key),
     };
+    if (direct != null) return direct;
+
+    try {
+      return jsEngine.eval(
+        expression,
+        context: LegadoJsContext(
+          key: context.keyword ?? '',
+          page: context.page,
+          baseUrl: context.baseUri.toString(),
+          src: source,
+          result: source ?? context.input.rawText,
+          source: context.source,
+          variables: context.variables,
+        ),
+      );
+    } on Exception {
+      return null;
+    }
   }
 
   String _htmlUnescape(String input) {
@@ -229,10 +277,16 @@ class AnalyzeRule {
 
     final mode = steps.first.mode;
     final parserType = _parserTypeFor(mode, source);
+    context.trace?.add('rule.parserMode:${mode.name}');
     final parser = registry.forType(parserType);
-    if (parser == null) return const RuleListValue([]);
+    if (parser == null) {
+      context.trace?.add('rule.parser.unsupported:${parserType.name}');
+      return const RuleListValue([]);
+    }
 
-    final rule = RuleChain.parse(_rawRuleForParser(steps));
+    final rule = steps.first.mode == LegadoRuleMode.js
+        ? _jsRuleChain(steps)
+        : RuleChain.parse(_rawRuleForParser(steps));
     if (wantsElements) {
       return RuleNodeSetValue(parser.parseElements(source, rule));
     }
@@ -293,6 +347,15 @@ class AnalyzeRule {
       LegadoRuleMode.js => raw,
       LegadoRuleMode.defaultHtml => raw,
     };
+  }
+
+  RuleChain _jsRuleChain(List<LegadoRuleStep> steps) {
+    return RuleChain([
+      RuleSegment(
+        RuleType.js,
+        [RuleStep(steps.map((step) => step.raw).join('@'))],
+      ),
+    ]);
   }
 
   bool _isPut(String raw) =>
@@ -400,6 +463,23 @@ class AnalyzeRule {
       if (text != null) return text;
     }
     return null;
+  }
+
+  List<String> _strings(RuleValue value) {
+    return switch (value) {
+      RuleStringValue(:final value) => value.isEmpty ? const [] : [value],
+      RuleListValue(:final values) =>
+        values.expand(_strings).toList(growable: false),
+      RuleNodeSetValue(:final nodes) => [
+          for (final node in nodes)
+            if (node.toString().isNotEmpty) node.toString(),
+        ],
+      RuleJsonValue(:final value) =>
+        value == null ? const [] : [value.toString()],
+      RuleRegexCapturesValue(:final captures) => captures,
+      RuleJsValue(:final value) =>
+        value == null ? const [] : [value.toString()],
+    };
   }
 
   List<Object> _objects(RuleValue value) {

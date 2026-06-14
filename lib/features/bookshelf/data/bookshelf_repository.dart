@@ -71,6 +71,28 @@ class BookshelfRepository {
     return query.getSingleOrNull();
   }
 
+  Future<void> cacheChapterContentForBookAtIndex({
+    required String bookId,
+    required int chapterIndex,
+    required String content,
+    required int normalizedContentLength,
+  }) async {
+    await (database.update(database.chapters)
+          ..where(
+            (chapter) =>
+                chapter.bookId.equals(bookId) &
+                chapter.chapterIndex.equals(chapterIndex),
+          ))
+        .write(
+      ChaptersCompanion(
+        content: Value(content),
+        normalizedContentLength: Value(normalizedContentLength),
+        isCached: const Value(true),
+        fetchedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   Stream<int> watchChapterCount(String bookId) {
     final count = database.chapters.id.count();
     final query = database.selectOnly(database.chapters)
@@ -263,6 +285,24 @@ class BookshelfRepository {
       book: book,
       chapters: chapters,
     );
+  }
+
+  Future<void> upsertRemoteBook({
+    required BooksCompanion book,
+    required List<ChaptersCompanion> chapters,
+  }) async {
+    final bookId = book.id.value;
+    await database.transaction(() async {
+      await database.into(database.books).insertOnConflictUpdate(book);
+      await (database.delete(database.chapters)
+            ..where((chapter) => chapter.bookId.equals(bookId)))
+          .go();
+      if (chapters.isNotEmpty) {
+        await database.batch((batch) {
+          batch.insertAll(database.chapters, chapters);
+        });
+      }
+    });
   }
 
   Future<void> replaceImportedTxtBook({

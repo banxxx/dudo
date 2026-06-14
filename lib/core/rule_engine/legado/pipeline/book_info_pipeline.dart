@@ -6,6 +6,8 @@ import '../rule/rule_context.dart';
 import '../rule/rule_value.dart';
 import '../url/analyze_url.dart';
 import '../url/request_executor.dart';
+import 'java_ajax.dart';
+import 'pipeline_trace.dart';
 
 class BookInfoPipeline {
   const BookInfoPipeline({
@@ -27,13 +29,23 @@ class BookInfoPipeline {
     final rule = source.bookInfo;
     if (rule == null || bookUrl.trim().isEmpty) return null;
 
-    final request = analyzeUrl.compileSearch(
+    final trace = LegadoTrace();
+    final request = await analyzeUrl.compileSearchAsync(
       source: source,
       rawUrl: bookUrl,
       keyword: '',
+      ajax: createLegadoJavaAjax(
+        analyzeUrl: analyzeUrl,
+        executor: executor,
+        decoder: decoder,
+        source: source,
+        trace: trace,
+      ),
     );
-    final trace = LegadoTrace();
+    recordUnsupportedUrlOptionTrace(request, trace, stage: 'bookInfo');
+    recordLegadoRequestTrace(request, trace, stage: 'bookInfo');
     final response = await executor.execute(request);
+    recordLegadoResponseTrace(response, trace, stage: 'bookInfo');
     final decoded = await decoder.decode(
       bytes: response.bytes,
       finalUri: response.finalUri,

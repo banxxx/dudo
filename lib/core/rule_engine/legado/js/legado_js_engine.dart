@@ -1,3 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter_js/flutter_js.dart' as flutter_js;
+
+import '../../models/source_rule.dart';
+
 class LegadoJsContext {
   const LegadoJsContext({
     required this.key,
@@ -28,6 +35,8 @@ class LegadoJsContext {
 
 abstract interface class LegadoJsEngine {
   Object? eval(String script, {required LegadoJsContext context});
+
+  Future<Object?> evalAsync(String script, {required LegadoJsContext context});
 }
 
 class SimpleLegadoJsEngine implements LegadoJsEngine {
@@ -37,6 +46,186 @@ class SimpleLegadoJsEngine implements LegadoJsEngine {
   Object? eval(String script, {required LegadoJsContext context}) {
     final expression = _normalizeScript(script);
     return _SimpleJsExpressionParser(expression, context).parse();
+  }
+
+  @override
+  Future<Object?> evalAsync(
+    String script, {
+    required LegadoJsContext context,
+  }) async {
+    return eval(script, context: context);
+  }
+
+  String _normalizeScript(String script) {
+    var expression = script.trim();
+    while (expression.endsWith(';')) {
+      expression = expression.substring(0, expression.length - 1).trimRight();
+    }
+
+    final assignment = RegExp(
+      r'^(?:(?:var|let|const)\s+)?result\s*=\s*([\s\S]+)$',
+    ).firstMatch(expression);
+    if (assignment != null) return assignment.group(1)!.trim();
+
+    return expression;
+  }
+}
+
+class FlutterJsLegadoJsEngine implements LegadoJsEngine {
+  FlutterJsLegadoJsEngine({
+    flutter_js.JavascriptRuntime? runtime,
+    this.timeout = const Duration(seconds: 2),
+    this.maxOutputLength = 256 * 1024,
+  }) : _runtime = runtime;
+
+  flutter_js.JavascriptRuntime? _runtime;
+  final Duration timeout;
+  final int maxOutputLength;
+
+  @override
+  Object? eval(String script, {required LegadoJsContext context}) {
+    try {
+      final result = _runtimeForEval().evaluate(_wrapScript(script, context));
+      if (result.isError) throw LegadoJsException(result.stringResult);
+      _checkOutputSize(result.rawResult);
+      return _decodeResult(result.rawResult, context);
+    } on LegadoJsException {
+      rethrow;
+    } catch (error) {
+      throw LegadoJsException('JS execution failed: $error');
+    }
+  }
+
+  flutter_js.JavascriptRuntime _runtimeForEval() {
+    return _runtime ??=
+        flutter_js.QuickJsRuntime2(timeout: timeout.inMilliseconds);
+  }
+
+  @override
+  Future<Object?> evalAsync(
+    String script, {
+    required LegadoJsContext context,
+  }) async {
+    try {
+      return await Future<Object?>(
+        () => eval(script, context: context),
+      ).timeout(
+        timeout,
+        onTimeout: () {
+          throw LegadoJsException(
+            'JS execution timed out after ${timeout.inMilliseconds}ms',
+          );
+        },
+      );
+    } on LegadoJsException {
+      rethrow;
+    } catch (error) {
+      throw LegadoJsException('JS execution failed: $error');
+    }
+  }
+
+  String _wrapScript(String script, LegadoJsContext context) {
+    final bindings = <String, Object?>{
+      'key': context.key,
+      'keyword': context.key,
+      'page': context.page,
+      'baseUrl': context.baseUrl,
+      'src': context.src,
+      'result': context.result,
+      'source': _sourceToJson(context.source),
+      'book': context.book,
+      'variables': context.variables,
+      'cookie': context.cookie,
+    };
+    final encodedBindings = jsonEncode(bindings);
+    final escapedScript = jsonEncode(_normalizeScript(script));
+    return '''
+(function(){
+  var __ctx = $encodedBindings;
+  var key = __ctx.key;
+  var keyword = __ctx.keyword;
+  var page = __ctx.page;
+  var baseUrl = __ctx.baseUrl;
+  var src = __ctx.src;
+  var result = __ctx.result;
+  var source = __ctx.source;
+  var book = __ctx.book;
+  var java = {
+    getString: function(value) { return value == null ? "" : String(value); },
+    put: function(name, value) {
+      __ctx.variables[String(name)] = value;
+      return value;
+    },
+    get: function(name) { return __ctx.variables[String(name)]; },
+    ajax: function() {
+      throw new Error("java.ajax is only available through SimpleLegadoJsEngine");
+    }
+  };
+  var cookie = {
+    getKey: function(name) {
+      if (!__ctx.cookie) return null;
+      var parts = String(__ctx.cookie).split(';');
+      for (var i = 0; i < parts.length; i++) {
+        var part = parts[i].trim();
+        var index = part.indexOf('=');
+        if (index <= 0) continue;
+        if (part.substring(0, index).trim() === String(name)) {
+          return part.substring(index + 1).trim();
+        }
+      }
+      return null;
+    }
+  };
+  var __value = eval($escapedScript);
+  return JSON.stringify({ value: __value, variables: __ctx.variables });
+})()
+''';
+  }
+
+  Object? _decodeResult(Object? rawResult, LegadoJsContext context) {
+    final text = rawResult?.toString();
+    if (text == null || text == 'null') return null;
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is Map && decoded.containsKey('value')) {
+        final variables = decoded['variables'];
+        if (variables is Map) {
+          for (final entry in variables.entries) {
+            context.variables[entry.key.toString()] = entry.value;
+          }
+        }
+        return decoded['value'];
+      }
+    } catch (_) {
+      return rawResult;
+    }
+    return rawResult;
+  }
+
+  void _checkOutputSize(Object? rawResult) {
+    final length = rawResult?.toString().length ?? 0;
+    if (length > maxOutputLength) {
+      throw LegadoJsException(
+        'JS output exceeds max length $maxOutputLength',
+      );
+    }
+  }
+
+  Object? _sourceToJson(Object? source) {
+    if (source == null) return null;
+    if (source is String || source is num || source is bool || source is Map) {
+      return source;
+    }
+    if (source is Iterable) return source.toList(growable: false);
+    if (source is SourceRule) {
+      return {
+        'id': source.id,
+        'name': source.name,
+        'url': source.url,
+        'headers': source.headers,
+      };
+    }
+    return source.toString();
   }
 
   String _normalizeScript(String script) {
@@ -281,7 +470,7 @@ class _SimpleJsExpressionParser {
   bool get _isAtEnd => _peek().type == _TokenType.eof;
 }
 
-typedef LegadoJsAjax = Object? Function(String rawUrl);
+typedef LegadoJsAjax = FutureOr<Object?> Function(String rawUrl);
 
 enum _TokenType { identifier, number, string, symbol, eof }
 

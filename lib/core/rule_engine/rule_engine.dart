@@ -1,5 +1,4 @@
 import 'models/source_rule.dart';
-import 'parsers/js_rule_parser.dart';
 import 'parsers/parser.dart';
 import 'legado/legado_runtime.dart';
 import 'legado/rule/rule_ast.dart';
@@ -75,6 +74,19 @@ class RuleEngine {
           ),
       ],
       nextTocUrl: toc.nextTocUrl,
+    );
+  }
+
+  Future<ContentResult?> loadContent(
+    SourceRule source,
+    String contentUrl,
+  ) async {
+    final content = await _runtime.loadContent(source, contentUrl);
+    if (content == null) return null;
+    return ContentResult(
+      title: content.title,
+      content: content.content,
+      nextContentUrl: content.nextContentUrl,
     );
   }
 
@@ -257,23 +269,12 @@ class RuleEngine {
     final ast = const LegadoRuleAstParser().parse(text);
     final steps = _steps(ast).toList(growable: false);
     final hasRegexStep = steps.any((step) => step.mode == LegadoRuleMode.regex);
-    final hasJsStep = JsRuleParser.isJsRule(text) ||
-        steps.any((step) => step.mode == LegadoRuleMode.js);
     if (!hasRegexStep && RegExp(r'\$[1-9]').hasMatch(text)) {
       add(
         SourceCompatibilitySeverity.warning,
         'rule-regex-capture-reference-unsupported',
         path,
         'regex capture references are not implemented yet',
-      );
-    }
-
-    if (hasJsStep) {
-      add(
-        SourceCompatibilitySeverity.warning,
-        'rule-js-unsupported',
-        path,
-        'JS rule evaluation is not implemented yet',
       );
     }
 
@@ -439,6 +440,18 @@ class TocResult {
 
   final List<TocChapterResult> chapters;
   final String? nextTocUrl;
+}
+
+class ContentResult {
+  const ContentResult({
+    required this.title,
+    required this.content,
+    this.nextContentUrl,
+  });
+
+  final String title;
+  final String content;
+  final String? nextContentUrl;
 }
 
 class RuleValidationReport {
