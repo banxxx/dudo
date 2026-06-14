@@ -117,6 +117,82 @@ void main() {
         ['A1', 'B1', 'A2', 'B2'],
       );
     });
+
+    test('supports @put and @get variables', () {
+      final context = RuleContext(
+        source: _source(),
+        input: RuleInput(
+          rawText: 'Alpha',
+          baseUri: Uri.parse('https://source.example'),
+        ),
+      );
+      final analyzeRule = AnalyzeRule(registry: _registry());
+
+      expect(analyzeRule.parse('@put:{result}', context).isEmpty, isTrue);
+      expect(context.getVariable('result'), 'Alpha');
+      expect(analyzeRule.string('ignored', '@get:{result}', context), 'Alpha');
+
+      analyzeRule.parse(r'@put:{"name":"Beta","count":2}', context);
+      expect(analyzeRule.string('ignored', '@get:{name}', context), 'Beta');
+      expect(analyzeRule.string('ignored', '@get:{count}', context), '2');
+    });
+
+    test('replaces dynamic rule placeholders', () {
+      final context = RuleContext(
+        source: _source(),
+        input: RuleInput(
+          rawText: '{"books":[{"name":"Alpha"},{"name":"Beta"}]}',
+          baseUri: Uri.parse('https://source.example'),
+        ),
+        keyword: 'Alpha',
+        page: 2,
+        variables: {'field': 'name', 'index': '1'},
+      );
+      final analyzeRule = AnalyzeRule(registry: _registry());
+
+      expect(
+        analyzeRule.string(context.input.jsonDocument!,
+            r'$.books[{{index}}].{{field}}', context),
+        'Beta',
+      );
+      expect(
+        analyzeRule.string('Page 2', r'/Page ({{page}})/1', context),
+        '2',
+      );
+      expect(
+        analyzeRule.string('Title: Alpha', r'/Title: ({{key}})/1', context),
+        'Alpha',
+      );
+      expect(
+        analyzeRule.string('Name: Gamma', r'/{{result}}/0', context),
+        'Name: Gamma',
+      );
+    });
+
+    test('normalizes field HTML entities and resolves URLs', () {
+      final context = RuleContext(
+        source: _source(),
+        input: RuleInput(
+          rawText: '<a href="/book?a=1&amp;b=2">Tom &amp; Jerry</a>',
+          baseUri: Uri.parse('https://source.example'),
+        ),
+      );
+      final analyzeRule = AnalyzeRule(registry: _registry());
+
+      expect(
+        analyzeRule.fieldString(context.input.rawText, 'tag.a@text', context),
+        'Tom & Jerry',
+      );
+      expect(
+        analyzeRule.absoluteUrl(
+            '/book?a=1&amp;b=2', 'https://source.example/search'),
+        'https://source.example/book?a=1&b=2',
+      );
+      expect(
+        analyzeRule.normalizeField('&#65;&#x42;&nbsp;'),
+        'AB',
+      );
+    });
   });
 }
 

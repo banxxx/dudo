@@ -29,7 +29,7 @@ class AnalyzeUrl {
     required String keyword,
     int page = 1,
   }) {
-    final analyzedUrl = _analyzeSearchUrl(rawUrl, keyword, page);
+    final analyzedUrl = _analyzeSearchUrl(rawUrl, keyword, page, source);
     final replaced = placeholder.apply(
       rawUrl: analyzedUrl,
       keyword: keyword,
@@ -83,7 +83,12 @@ class AnalyzeUrl {
     );
   }
 
-  String _analyzeSearchUrl(String rawUrl, String keyword, int page) {
+  String _analyzeSearchUrl(
+    String rawUrl,
+    String keyword,
+    int page,
+    SourceRule source,
+  ) {
     final jsPattern = RegExp(
       r'<js>([\s\S]*?)</js>|@js:([\s\S]*)',
       caseSensitive: false,
@@ -107,7 +112,9 @@ class AnalyzeUrl {
         context: LegadoJsContext(
           key: keyword,
           page: page,
+          baseUrl: source.url,
           result: result,
+          source: source,
         ),
       );
       buffer.write(_stringifyJsResult(result));

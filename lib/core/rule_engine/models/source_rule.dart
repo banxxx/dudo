@@ -75,6 +75,7 @@ class SearchRule {
   final String? intro;
   final String? coverUrl;
   final String? bookUrl;
+  final String? bookUrlPattern;
 
   const SearchRule({
     this.searchUrl,
@@ -86,6 +87,7 @@ class SearchRule {
     this.intro,
     this.coverUrl,
     this.bookUrl,
+    this.bookUrlPattern,
   });
 
   factory SearchRule.fromJson(Map<String, dynamic> j, {String? searchUrl}) =>
@@ -99,6 +101,7 @@ class SearchRule {
         intro: _stringValue(j['intro']),
         coverUrl: _stringValue(j['coverUrl']),
         bookUrl: _stringValue(j['bookUrl']),
+        bookUrlPattern: _stringValue(j['bookUrlPattern']),
       );
 }
 
@@ -111,6 +114,7 @@ class BookInfoRule {
   final String? intro;
   final String? coverUrl;
   final String? tocUrl;
+  final String? wordCount;
 
   const BookInfoRule({
     this.init,
@@ -121,6 +125,7 @@ class BookInfoRule {
     this.intro,
     this.coverUrl,
     this.tocUrl,
+    this.wordCount,
   });
 
   factory BookInfoRule.fromJson(Map<String, dynamic> j) => BookInfoRule(
@@ -132,6 +137,7 @@ class BookInfoRule {
         intro: j['intro'] as String?,
         coverUrl: j['coverUrl'] as String?,
         tocUrl: j['tocUrl'] as String?,
+        wordCount: _stringValue(j['wordCount']),
       );
 }
 
@@ -143,6 +149,7 @@ class TocRule {
   final String? isVolume;
   final String? isVip;
   final String? isPay;
+  final String? updateTime;
 
   const TocRule({
     this.chapterList,
@@ -152,6 +159,7 @@ class TocRule {
     this.isVolume,
     this.isVip,
     this.isPay,
+    this.updateTime,
   });
 
   factory TocRule.fromJson(Map<String, dynamic> j) => TocRule(
@@ -162,6 +170,7 @@ class TocRule {
         isVolume: j['isVolume'] as String?,
         isVip: j['isVip'] as String?,
         isPay: j['isPay'] as String?,
+        updateTime: j['updateTime'] as String?,
       );
 }
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../models/rule_chain.dart';
 import '../../parsers/parser.dart';
 import 'rule_ast.dart';
@@ -14,20 +16,24 @@ class AnalyzeRule {
   final LegadoRuleAstParser astParser;
 
   RuleValue parse(String rawRule, RuleContext context) {
-    final ast = astParser.parse(rawRule);
+    final ast = astParser.parse(_replaceDynamicRule(rawRule, context));
     return evaluate(ast, context, context.input.rawText);
   }
 
   String? string(Object source, String? rawRule, RuleContext context) {
     if (rawRule == null || rawRule.trim().isEmpty) return null;
-    final value = evaluate(astParser.parse(rawRule), context, source);
+    final value = evaluate(
+      astParser.parse(_replaceDynamicRule(rawRule, context, source: source)),
+      context,
+      source,
+    );
     return _firstString(value);
   }
 
   List<Object> elements(Object source, String? rawRule, RuleContext context) {
     if (rawRule == null || rawRule.trim().isEmpty) return const <Object>[];
     final value = evaluate(
-      astParser.parse(rawRule),
+      astParser.parse(_replaceDynamicRule(rawRule, context, source: source)),
       context,
       source,
       wantsElements: true,
@@ -36,11 +42,68 @@ class AnalyzeRule {
   }
 
   String? absoluteUrl(String? rawUrl, String baseUrl) {
-    if (rawUrl == null || rawUrl.trim().isEmpty) return rawUrl;
-    final uri = Uri.tryParse(rawUrl.trim());
+    final normalized = normalizeField(rawUrl);
+    if (normalized == null || normalized.trim().isEmpty) return normalized;
+    final uri = Uri.tryParse(normalized.trim());
     if (uri == null) return rawUrl;
     if (uri.hasScheme) return uri.toString();
     return Uri.parse(baseUrl).resolveUri(uri).toString();
+  }
+
+  String? fieldString(Object source, String? rawRule, RuleContext context) {
+    return normalizeField(string(source, rawRule, context));
+  }
+
+  String? normalizeField(String? value) {
+    if (value == null) return null;
+    return _htmlUnescape(value).replaceAll('\u00A0', ' ').trim();
+  }
+
+  String _replaceDynamicRule(
+    String rawRule,
+    RuleContext context, {
+    Object? source,
+  }) {
+    return rawRule.replaceAllMapped(RegExp(r'\{\{([\s\S]+?)\}\}'), (match) {
+      final expression = match.group(1)?.trim() ?? '';
+      final value = _dynamicValue(expression, context, source: source);
+      return value?.toString() ?? '';
+    });
+  }
+
+  Object? _dynamicValue(
+    String expression,
+    RuleContext context, {
+    Object? source,
+  }) {
+    final key = _unquote(expression);
+    return switch (key) {
+      'key' => context.keyword,
+      'page' => context.page,
+      'baseUrl' || 'baseUri' => context.baseUri.toString(),
+      'redirectUrl' || 'redirectUri' => context.redirectUri.toString(),
+      'result' => source ?? context.input.rawText,
+      _ => context.getVariable(key),
+    };
+  }
+
+  String _htmlUnescape(String input) {
+    return input.replaceAllMapped(RegExp(r'&(#x?[0-9A-Fa-f]+|\w+);'), (match) {
+      final entity = match.group(1)!;
+      if (entity.startsWith('#x') || entity.startsWith('#X')) {
+        final codePoint = int.tryParse(entity.substring(2), radix: 16);
+        return codePoint == null
+            ? match.group(0)!
+            : String.fromCharCode(codePoint);
+      }
+      if (entity.startsWith('#')) {
+        final codePoint = int.tryParse(entity.substring(1));
+        return codePoint == null
+            ? match.group(0)!
+            : String.fromCharCode(codePoint);
+      }
+      return _namedHtmlEntities[entity] ?? match.group(0)!;
+    });
   }
 
   RuleValue evaluate(
@@ -156,6 +219,14 @@ class AnalyzeRule {
     required bool wantsElements,
   }) {
     if (steps.isEmpty) return const RuleListValue([]);
+    final variableValue = _evaluateVariableCommand(
+      steps,
+      context,
+      source,
+      wantsElements: wantsElements,
+    );
+    if (variableValue != null) return variableValue;
+
     final mode = steps.first.mode;
     final parserType = _parserTypeFor(mode, source);
     final parser = registry.forType(parserType);
@@ -171,6 +242,33 @@ class AnalyzeRule {
           .map(RuleStringValue.new)
           .toList(growable: false),
     );
+  }
+
+  RuleValue? _evaluateVariableCommand(
+    List<LegadoRuleStep> steps,
+    RuleContext context,
+    Object source, {
+    required bool wantsElements,
+  }) {
+    if (steps.length != 1) return null;
+    final raw = steps.single.raw.trim();
+    if (_isPut(raw)) {
+      final payload = _commandPayload(raw, 'put');
+      if (payload == null) return const RuleListValue([]);
+      for (final entry in _parsePutPayload(payload, source).entries) {
+        context.putVariable(entry.key, entry.value);
+      }
+      return const RuleListValue([]);
+    }
+    if (_isGet(raw)) {
+      final key = _commandPayload(raw, 'get');
+      if (key == null || key.trim().isEmpty) return const RuleListValue([]);
+      return _valueFromObject(
+        context.getVariable(_stripBraces(key).trim()),
+        wantsElements: wantsElements,
+      );
+    }
+    return null;
   }
 
   RuleType _parserTypeFor(LegadoRuleMode mode, Object source) {
@@ -195,6 +293,92 @@ class AnalyzeRule {
       LegadoRuleMode.js => raw,
       LegadoRuleMode.defaultHtml => raw,
     };
+  }
+
+  bool _isPut(String raw) =>
+      RegExp(r'^@?put\s*:', caseSensitive: false).hasMatch(raw);
+
+  bool _isGet(String raw) =>
+      RegExp(r'^@?get\s*:', caseSensitive: false).hasMatch(raw);
+
+  String? _commandPayload(String raw, String command) {
+    final match = RegExp(
+      '^@?$command\\s*:\\s*([\\s\\S]*)\$',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    return match?.group(1)?.trim();
+  }
+
+  Map<String, Object?> _parsePutPayload(String payload, Object source) {
+    final body = _stripBraces(payload).trim();
+    if (body.isEmpty) return const {};
+
+    final decoded = _tryDecodeJson(payload) ?? _tryDecodeJson('{$body}');
+    if (decoded is Map) {
+      return decoded.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+    }
+
+    if (!body.contains(':')) return {body: source};
+
+    final out = <String, Object?>{};
+    for (final part in body.split(',')) {
+      final separator = part.indexOf(':');
+      if (separator <= 0) continue;
+      final key = part.substring(0, separator).trim();
+      final value = part.substring(separator + 1).trim();
+      if (key.isEmpty) continue;
+      out[_unquote(key)] = _unquote(value);
+    }
+    return out;
+  }
+
+  Object? _tryDecodeJson(String raw) {
+    try {
+      return jsonDecode(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _stripBraces(String raw) {
+    final text = raw.trim();
+    if (text.startsWith('{') && text.endsWith('}')) {
+      return text.substring(1, text.length - 1);
+    }
+    return text;
+  }
+
+  String _unquote(String raw) {
+    final text = raw.trim();
+    if (text.length >= 2) {
+      final first = text[0];
+      final last = text[text.length - 1];
+      if ((first == '"' && last == '"') || (first == "'" && last == "'")) {
+        return text.substring(1, text.length - 1);
+      }
+    }
+    return text;
+  }
+
+  RuleValue _valueFromObject(Object? value, {required bool wantsElements}) {
+    if (value == null) return const RuleListValue([]);
+    if (wantsElements) {
+      if (value is Iterable) {
+        return RuleNodeSetValue(value.whereType<Object>().toList());
+      }
+      return RuleNodeSetValue([value]);
+    }
+    if (value is Iterable) {
+      return RuleListValue(
+        value
+            .whereType<Object?>()
+            .map((item) => RuleStringValue(item.toString()))
+            .toList(growable: false),
+      );
+    }
+    return RuleStringValue(value.toString());
   }
 
   String? _firstString(RuleValue value) {
@@ -241,3 +425,14 @@ class AnalyzeRule {
     }
   }
 }
+
+const _namedHtmlEntities = {
+  'amp': '&',
+  'lt': '<',
+  'gt': '>',
+  'quot': '"',
+  'apos': "'",
+  'nbsp': ' ',
+  'copy': '(c)',
+  'reg': '(r)',
+};

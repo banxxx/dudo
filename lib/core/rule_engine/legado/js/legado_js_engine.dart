@@ -3,13 +3,25 @@ class LegadoJsContext {
     required this.key,
     required this.page,
     this.baseUrl,
+    this.src,
     this.result,
+    this.source,
+    this.book,
+    this.variables = const {},
+    this.cookie,
+    this.ajax,
   });
 
   final String key;
   final int page;
   final String? baseUrl;
+  final Object? src;
   final Object? result;
+  final Object? source;
+  final Object? book;
+  final Map<String, Object?> variables;
+  final String? cookie;
+  final LegadoJsAjax? ajax;
 
   String get encodedKey => Uri.encodeQueryComponent(key);
 }
@@ -107,7 +119,7 @@ class _SimpleJsExpressionParser {
       return value;
     }
     if (_matchType(_TokenType.identifier)) {
-      final name = _previous().lexeme;
+      final name = _qualifiedIdentifier(_previous().lexeme);
       if (_match('(')) return _callFunction(name);
       return _resolveIdentifier(name);
     }
@@ -133,8 +145,24 @@ class _SimpleJsExpressionParser {
       'String' => _stringify(_expectArgument(name, arguments, 0)),
       'Number' => _toNumber(_expectArgument(name, arguments, 0)),
       'parseInt' => _parseInt(_expectArgument(name, arguments, 0)),
+      'java.getString' => _stringify(_expectArgument(name, arguments, 0)),
+      'java.ajax' => _javaAjax(arguments),
+      'java.put' => _javaPut(arguments),
+      'java.get' => _javaGet(arguments),
+      'cookie.getKey' => _cookieGetKey(arguments),
       _ => throw LegadoJsException('Unsupported function $name'),
     };
+  }
+
+  String _qualifiedIdentifier(String first) {
+    final parts = <String>[first];
+    while (_match('.')) {
+      if (!_matchType(_TokenType.identifier)) {
+        throw const LegadoJsException('Expected identifier after dot');
+      }
+      parts.add(_previous().lexeme);
+    }
+    return parts.join('.');
   }
 
   Object? _expectArgument(String name, List<Object?> arguments, int position) {
@@ -149,12 +177,53 @@ class _SimpleJsExpressionParser {
       'key' || 'keyword' => context.key,
       'page' => context.page.toDouble(),
       'baseUrl' => context.baseUrl,
+      'src' => context.src,
       'result' => context.result,
+      'source' => context.source,
+      'book' => context.book,
+      'java' => context.variables['java'],
+      'cookie' => context.cookie,
       'null' => null,
       'true' => true,
       'false' => false,
+      _ when context.variables.containsKey(name) => context.variables[name],
       _ => throw LegadoJsException('Unsupported identifier $name'),
     };
+  }
+
+  Object? _javaPut(List<Object?> arguments) {
+    final key = _stringify(_expectArgument('java.put', arguments, 0));
+    final value = arguments.length > 1 ? arguments[1] : null;
+    context.variables[key] = value;
+    return value;
+  }
+
+  Object? _javaAjax(List<Object?> arguments) {
+    final ajax = context.ajax;
+    if (ajax == null) {
+      throw const LegadoJsException('java.ajax is not configured');
+    }
+    return ajax(_stringify(_expectArgument('java.ajax', arguments, 0)));
+  }
+
+  Object? _javaGet(List<Object?> arguments) {
+    final key = _stringify(_expectArgument('java.get', arguments, 0));
+    return context.variables[key];
+  }
+
+  String? _cookieGetKey(List<Object?> arguments) {
+    final key = _stringify(_expectArgument('cookie.getKey', arguments, 0));
+    final cookie = context.cookie;
+    if (cookie == null || cookie.trim().isEmpty) return null;
+    for (final part in cookie.split(';')) {
+      final trimmed = part.trim();
+      final equals = trimmed.indexOf('=');
+      if (equals <= 0) continue;
+      if (trimmed.substring(0, equals).trim() == key) {
+        return trimmed.substring(equals + 1).trim();
+      }
+    }
+    return null;
   }
 
   Object? _add(Object? left, Object? right) {
@@ -212,6 +281,8 @@ class _SimpleJsExpressionParser {
   bool get _isAtEnd => _peek().type == _TokenType.eof;
 }
 
+typedef LegadoJsAjax = Object? Function(String rawUrl);
+
 enum _TokenType { identifier, number, string, symbol, eof }
 
 class _Token {
@@ -239,7 +310,7 @@ class _Tokenizer {
         _number(char);
       } else if (char == '"' || char == "'" || char == '`') {
         _string(char);
-      } else if ('+-*/%(),'.contains(char)) {
+      } else if ('+-*/%(),.'.contains(char)) {
         tokens.add(_Token(_TokenType.symbol, char));
       } else {
         throw LegadoJsException('Unsupported character $char');

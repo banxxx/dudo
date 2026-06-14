@@ -1,7 +1,9 @@
 import 'models/source_rule.dart';
+import 'parsers/js_rule_parser.dart';
 import 'parsers/parser.dart';
 import 'legado/legado_runtime.dart';
 import 'legado/rule/rule_ast.dart';
+import 'legado/url/request_executor.dart';
 
 /// Façade for the rule engine. Plug parsers in at construction time and call
 /// the high-level methods (`search`, `loadBookInfo`, `loadToc`, `loadContent`).
@@ -14,8 +16,8 @@ class RuleEngine {
   final ParserRegistry registry;
   final LegadoRuntime _runtime;
 
-  static RuleEngine create() {
-    final runtime = LegadoRuntime.create();
+  static RuleEngine create({LegadoRequestExecutor? executor}) {
+    final runtime = LegadoRuntime.create(executor: executor);
     return RuleEngine._(runtime.registry, runtime);
   }
 
@@ -34,6 +36,46 @@ class RuleEngine {
           intro: item.intro,
         ),
     ];
+  }
+
+  Future<BookInfoResult?> loadBookInfo(
+    SourceRule source,
+    String bookUrl,
+  ) async {
+    final info = await _runtime.loadBookInfo(source, bookUrl);
+    if (info == null) return null;
+    return BookInfoResult(
+      name: info.name,
+      author: info.author,
+      kind: info.kind,
+      lastChapter: info.lastChapter,
+      intro: info.intro,
+      coverUrl: info.coverUrl,
+      tocUrl: info.tocUrl,
+      wordCount: info.wordCount,
+    );
+  }
+
+  Future<TocResult?> loadToc(
+    SourceRule source,
+    String tocUrl,
+  ) async {
+    final toc = await _runtime.loadToc(source, tocUrl);
+    if (toc == null) return null;
+    return TocResult(
+      chapters: [
+        for (final chapter in toc.chapters)
+          TocChapterResult(
+            name: chapter.name,
+            url: chapter.url,
+            isVolume: chapter.isVolume,
+            isVip: chapter.isVip,
+            isPay: chapter.isPay,
+            updateTime: chapter.updateTime,
+          ),
+      ],
+      nextTocUrl: toc.nextTocUrl,
+    );
   }
 
   /// Validate a freshly-imported source. Returns a human-readable report.
@@ -203,14 +245,6 @@ class RuleEngine {
     final text = rawRule.trim();
     if (text.isEmpty) return;
 
-    if (RegExp(r'<js>|@js:', caseSensitive: false).hasMatch(text)) {
-      add(
-        SourceCompatibilitySeverity.warning,
-        'rule-js-unsupported',
-        path,
-        'JS rule evaluation is not implemented yet',
-      );
-    }
     if (RegExp(r'\{\{[\s\S]+?\}\}').hasMatch(text)) {
       add(
         SourceCompatibilitySeverity.warning,
@@ -223,6 +257,8 @@ class RuleEngine {
     final ast = const LegadoRuleAstParser().parse(text);
     final steps = _steps(ast).toList(growable: false);
     final hasRegexStep = steps.any((step) => step.mode == LegadoRuleMode.regex);
+    final hasJsStep = JsRuleParser.isJsRule(text) ||
+        steps.any((step) => step.mode == LegadoRuleMode.js);
     if (!hasRegexStep && RegExp(r'\$[1-9]').hasMatch(text)) {
       add(
         SourceCompatibilitySeverity.warning,
@@ -232,18 +268,22 @@ class RuleEngine {
       );
     }
 
+    if (hasJsStep) {
+      add(
+        SourceCompatibilitySeverity.warning,
+        'rule-js-unsupported',
+        path,
+        'JS rule evaluation is not implemented yet',
+      );
+    }
+
     for (final step in steps) {
       switch (step.mode) {
         case LegadoRuleMode.css:
         case LegadoRuleMode.xpath:
           break;
         case LegadoRuleMode.js:
-          add(
-            SourceCompatibilitySeverity.warning,
-            'rule-js-unsupported',
-            path,
-            'JS rule evaluation is not implemented yet',
-          );
+          break;
         case LegadoRuleMode.regex:
           add(
             SourceCompatibilitySeverity.warning,
@@ -300,6 +340,7 @@ class RuleEngine {
       yield _RuleField('ruleBookInfo.intro', bookInfo.intro);
       yield _RuleField('ruleBookInfo.coverUrl', bookInfo.coverUrl);
       yield _RuleField('ruleBookInfo.tocUrl', bookInfo.tocUrl);
+      yield _RuleField('ruleBookInfo.wordCount', bookInfo.wordCount);
     }
 
     final toc = rule.toc;
@@ -311,6 +352,7 @@ class RuleEngine {
       yield _RuleField('ruleToc.isVolume', toc.isVolume);
       yield _RuleField('ruleToc.isVip', toc.isVip);
       yield _RuleField('ruleToc.isPay', toc.isPay);
+      yield _RuleField('ruleToc.updateTime', toc.updateTime);
     }
 
     final content = rule.content;
@@ -347,6 +389,56 @@ class SearchResult {
     this.bookUrl,
     this.intro,
   });
+}
+
+class BookInfoResult {
+  const BookInfoResult({
+    required this.name,
+    required this.author,
+    this.kind,
+    this.lastChapter,
+    this.intro,
+    this.coverUrl,
+    this.tocUrl,
+    this.wordCount,
+  });
+
+  final String name;
+  final String author;
+  final String? kind;
+  final String? lastChapter;
+  final String? intro;
+  final String? coverUrl;
+  final String? tocUrl;
+  final String? wordCount;
+}
+
+class TocChapterResult {
+  const TocChapterResult({
+    required this.name,
+    this.url,
+    this.isVolume,
+    this.isVip,
+    this.isPay,
+    this.updateTime,
+  });
+
+  final String name;
+  final String? url;
+  final String? isVolume;
+  final String? isVip;
+  final String? isPay;
+  final String? updateTime;
+}
+
+class TocResult {
+  const TocResult({
+    required this.chapters,
+    this.nextTocUrl,
+  });
+
+  final List<TocChapterResult> chapters;
+  final String? nextTocUrl;
 }
 
 class RuleValidationReport {
