@@ -6,12 +6,20 @@ class LegadoUrlOptions {
     required this.headers,
     this.body,
     this.charset,
+    this.bodyJs,
+    this.webJs,
+    this.useWebView = false,
+    this.webViewDelayTime,
   });
 
   final String method;
   final Map<String, String> headers;
   final Object? body;
   final String? charset;
+  final String? bodyJs;
+  final String? webJs;
+  final bool useWebView;
+  final int? webViewDelayTime;
 
   static const empty = LegadoUrlOptions(method: 'GET', headers: {});
 
@@ -32,6 +40,10 @@ class LegadoUrlOptions {
         headers: _headersFrom(decoded['headers'] ?? decoded['header']),
         body: decoded['body'],
         charset: decoded['charset']?.toString(),
+        bodyJs: _blankToNull(decoded['bodyJs']),
+        webJs: _blankToNull(decoded['webJs']),
+        useWebView: _useWebView(decoded['webView']),
+        webViewDelayTime: _intFrom(decoded['webViewDelayTime']),
       );
     } catch (_) {
       return empty;
@@ -47,6 +59,26 @@ class LegadoUrlOptions {
       headers[entry.key.toString()] = value.toString();
     }
     return headers;
+  }
+
+  static String? _blankToNull(Object? value) {
+    final text = value?.toString();
+    if (text == null || text.trim().isEmpty) return null;
+    return text;
+  }
+
+  static bool _useWebView(Object? value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    final text = value.toString().trim().toLowerCase();
+    if (text.isEmpty || text == 'false') return false;
+    return true;
+  }
+
+  static int? _intFrom(Object? value) {
+    if (value == null) return null;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString().trim());
   }
 }
 

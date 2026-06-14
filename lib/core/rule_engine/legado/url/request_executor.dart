@@ -9,6 +9,10 @@ class LegadoRequest {
     required this.headers,
     this.body,
     this.charset,
+    this.bodyJs,
+    this.webJs,
+    this.useWebView = false,
+    this.webViewDelayTime,
   });
 
   final String url;
@@ -16,6 +20,10 @@ class LegadoRequest {
   final Map<String, String> headers;
   final Object? body;
   final String? charset;
+  final String? bodyJs;
+  final String? webJs;
+  final bool useWebView;
+  final int? webViewDelayTime;
 }
 
 class LegadoHttpResponse {
