@@ -92,7 +92,7 @@ void main() {
 
     expect(find.text('探索书源与作品'), findsOneWidget);
     expect(find.text('搜索书名、作者、关键词'), findsOneWidget);
-    expect(find.text('常用书源'), findsOneWidget);
+    expect(find.text('常用书源'), findsNothing);
 
     await tapBottomTab(tester, 3);
 

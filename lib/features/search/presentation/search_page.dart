@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,8 +25,10 @@ class SearchPage extends ConsumerStatefulWidget {
 class _SearchPageState extends ConsumerState<SearchPage> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
+  String? _submittedQuery;
 
   bool get _hasQuery => _controller.text.trim().isNotEmpty;
+  bool get _hasSubmittedQuery => _submittedQuery?.isNotEmpty ?? false;
 
   @override
   void initState() {
@@ -41,11 +46,37 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   void _handleQueryChanged() {
+    final query = _controller.text.trim();
+    if (query != _submittedQuery) {
+      _submittedQuery = null;
+    }
     setState(() {});
   }
 
   void _handleClearQuery() {
+    _submittedQuery = null;
     _controller.clear();
+  }
+
+  void _handleSelectRecentSearch(String keyword) {
+    _controller
+      ..text = keyword
+      ..selection = TextSelection.collapsed(offset: keyword.length);
+    _focusNode.requestFocus();
+  }
+
+  void _handleSubmitSearch(String value) {
+    final keyword = value.trim();
+    if (keyword.isEmpty) return;
+
+    setState(() {
+      _submittedQuery = keyword;
+    });
+    unawaited(ref.read(recentSearchRepositoryProvider).addSearch(keyword));
+  }
+
+  void _handleClearRecentSearches() {
+    unawaited(ref.read(recentSearchRepositoryProvider).clear());
   }
 
   Future<void> _handleOpenResult(OnlineSearchBookResult result) async {
@@ -81,10 +112,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final query = _controller.text.trim();
-    final enabledSourceCount = ref.watch(enabledSourceCountProvider);
-    final searchResults =
-        _hasQuery ? ref.watch(onlineSearchProvider(query)) : null;
+    final recentSearches =
+        ref.watch(recentSearchesProvider).valueOrNull ?? const <String>[];
+    final submittedQuery = _submittedQuery;
+    final searchResults = _hasSubmittedQuery
+        ? ref.watch(onlineSearchProvider(submittedQuery!))
+        : null;
 
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
@@ -96,17 +129,20 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             active: _hasQuery,
             onClear: _handleClearQuery,
             onFilter: _handleOpenFilters,
+            onSubmitted: _handleSubmitSearch,
           ),
           const SizedBox(height: 14),
-          if (_hasQuery) ...[
-            const _RecentSearchSection(),
+          if (recentSearches.isNotEmpty) ...[
+            _RecentSearchSection(
+              searches: recentSearches,
+              onSelected: _handleSelectRecentSearch,
+              onClear: _handleClearRecentSearches,
+            ),
             const SizedBox(height: 14),
           ],
-          _SourceSelectorSection(enabledSourceCount: enabledSourceCount),
-          const SizedBox(height: 14),
-          if (_hasQuery)
+          if (_hasSubmittedQuery)
             _SearchResultsSection(
-              query: query,
+              query: submittedQuery!,
               results: searchResults!,
               onResultTap: _handleOpenResult,
             )
@@ -125,6 +161,7 @@ class _SearchHeader extends StatelessWidget {
     required this.active,
     required this.onClear,
     required this.onFilter,
+    required this.onSubmitted,
   });
 
   final TextEditingController controller;
@@ -132,6 +169,7 @@ class _SearchHeader extends StatelessWidget {
   final bool active;
   final VoidCallback onClear;
   final VoidCallback onFilter;
+  final ValueChanged<String> onSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -195,6 +233,7 @@ class _SearchHeader extends StatelessWidget {
           focusNode: focusNode,
           active: active,
           onClear: onClear,
+          onSubmitted: onSubmitted,
         ),
       ],
     );
@@ -207,12 +246,14 @@ class _SearchField extends StatelessWidget {
     required this.focusNode,
     required this.active,
     required this.onClear,
+    required this.onSubmitted,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool active;
   final VoidCallback onClear;
+  final ValueChanged<String> onSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -260,6 +301,8 @@ class _SearchField extends StatelessWidget {
                   TextField(
                     controller: controller,
                     focusNode: focusNode,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: onSubmitted,
                     cursorColor: DudoColors.primary,
                     style: const TextStyle(
                       color: Colors.transparent,
@@ -288,153 +331,6 @@ class _SearchField extends StatelessWidget {
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _SourceSelectorSection extends StatelessWidget {
-  const _SourceSelectorSection({required this.enabledSourceCount});
-
-  final AsyncValue<int> enabledSourceCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final onlineSubtitle = enabledSourceCount.when(
-      data: (count) => '$count 个启用',
-      loading: () => '读取中',
-      error: (_, __) => '读取失败',
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '常用书源',
-                style: DudoTextStyles.sans(
-                  color: DudoColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            Text(
-              '全部',
-              style: DudoTextStyles.sans(
-                color: DudoColors.primary,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            const Expanded(
-              child: _SourceCard(
-                title: '本地书架',
-                subtitle: '优先缓存',
-                icon: LucideIcons.library,
-                fill: DudoColors.primaryContainer,
-                border: DudoColors.primaryContainerStrong,
-                iconFill: DudoColors.primaryContainerStrong,
-                iconColor: DudoColors.primaryDark,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _SourceCard(
-                title: '网络书源',
-                subtitle: onlineSubtitle,
-                icon: LucideIcons.globe,
-                fill: DudoColors.surface,
-                border: DudoColors.outlineVariant,
-                iconFill: DudoColors.surfaceLow,
-                iconColor: DudoColors.secondary,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _SourceCard extends StatelessWidget {
-  const _SourceCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.fill,
-    required this.border,
-    required this.iconFill,
-    required this.iconColor,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color fill;
-  final Color border;
-  final Color iconFill;
-  final Color iconColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 76,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: fill,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: border),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: iconFill,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Icon(icon, color: iconColor, size: 19),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.secondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -480,7 +376,7 @@ class _SearchEmptySuggestions extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '可以搜索书名、作者，也可以从搜索来源中选择本地或在线书库。',
+            '可以搜索书名、作者或关键词。',
             textAlign: TextAlign.center,
             style: DudoTextStyles.sans(
               color: DudoColors.textSecondary,
@@ -496,62 +392,323 @@ class _SearchEmptySuggestions extends StatelessWidget {
 }
 
 class _RecentSearchSection extends StatelessWidget {
-  const _RecentSearchSection();
+  const _RecentSearchSection({
+    required this.searches,
+    required this.onSelected,
+    required this.onClear,
+  });
+
+  final List<String> searches;
+  final ValueChanged<String> onSelected;
+  final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '最近搜索',
-          style: DudoTextStyles.sans(
-            color: DudoColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '\u6700\u8fd1\u641c\u7d22',
+                style: DudoTextStyles.sans(
+                  color: DudoColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            Material(
+              color: Colors.transparent,
+              borderRadius: AppRadius.full,
+              child: InkWell(
+                onTap: onClear,
+                borderRadius: AppRadius.full,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
+                  child: Text(
+                    '\u6e05\u9664\u5386\u53f2',
+                    style: DudoTextStyles.sans(
+                      color: DudoColors.primary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 10),
-        const Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _RecentSearchChip(label: '长夜余火'),
-            _RecentSearchChip(label: '三体'),
-            _RecentSearchChip(label: '刘慈欣'),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final textStyle = DudoTextStyles.sans(
+              color: DudoColors.secondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+            );
+            final chipMaxWidth = math.min(
+              _recentSearchChipMaxWidth,
+              constraints.maxWidth,
+            );
+            final visibleSearches = _visibleRecentSearchChips(
+              searches: searches,
+              maxWidth: constraints.maxWidth,
+              chipMaxWidth: chipMaxWidth,
+              textStyle: textStyle,
+              textDirection: Directionality.of(context),
+            );
+
+            return Row(
+              children: [
+                for (var index = 0;
+                    index < visibleSearches.length;
+                    index++) ...[
+                  if (index > 0) const SizedBox(width: _recentSearchChipGap),
+                  _RecentSearchChip(
+                    label: visibleSearches[index].label,
+                    width: visibleSearches[index].width,
+                    textStyle: textStyle,
+                    onTap: () => onSelected(visibleSearches[index].label),
+                  ),
+                ],
+              ],
+            );
+          },
         ),
       ],
     );
   }
 }
 
+const _recentSearchChipGap = 8.0;
+const _recentSearchChipMaxWidth = 148.0;
+const _recentSearchChipHorizontalPadding = 24.0;
+const _recentSearchMinimumVisibleText = '\u4e2d\u6587\u5b57\u7b26';
+const _recentSearchTextWidthSlack = 2.0;
+
 class _RecentSearchChip extends StatelessWidget {
-  const _RecentSearchChip({required this.label});
+  const _RecentSearchChip({
+    required this.label,
+    required this.width,
+    required this.textStyle,
+    required this.onTap,
+  });
 
   final String label;
+  final double width;
+  final TextStyle textStyle;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: DudoColors.surface,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: AppRadius.full,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: AppRadius.full,
-        border: Border.all(color: DudoColors.outlineVariant),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: DudoTextStyles.sans(
-          color: DudoColors.secondary,
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
+        child: Container(
+          width: width,
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: DudoColors.surface,
+            borderRadius: AppRadius.full,
+            border: Border.all(color: DudoColors.outlineVariant),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textStyle,
+          ),
         ),
       ),
     );
   }
+}
+
+class _VisibleRecentSearchChip {
+  const _VisibleRecentSearchChip({
+    required this.label,
+    required this.width,
+  });
+
+  final String label;
+  final double width;
+}
+
+List<_VisibleRecentSearchChip> _visibleRecentSearchChips({
+  required List<String> searches,
+  required double maxWidth,
+  required double chipMaxWidth,
+  required TextStyle textStyle,
+  required TextDirection textDirection,
+}) {
+  if (searches.isEmpty || maxWidth <= 0) return const [];
+
+  var usedWidth = 0.0;
+  final visibleMetrics = <_MeasuredRecentSearchChip>[];
+  var visibleWidths = <double>[];
+  for (final search in searches) {
+    final chip = _measureRecentSearchChip(
+      search,
+      textStyle,
+      textDirection,
+      chipMaxWidth,
+    );
+    if (chip == null) break;
+
+    final spacing = visibleMetrics.isEmpty ? 0.0 : _recentSearchChipGap;
+    final availableWidth = maxWidth - usedWidth - spacing;
+    if (availableWidth >= chip.minimumWidth) {
+      final width = math.min(chip.maxWidth, availableWidth);
+      visibleMetrics.add(chip);
+      visibleWidths.add(width);
+      usedWidth += spacing + width;
+      continue;
+    }
+
+    if (visibleMetrics.length == 1) {
+      final rescuedMetrics = [...visibleMetrics, chip];
+      final rescuedWidths = _allocateRecentSearchChipWidths(
+        rescuedMetrics,
+        maxWidth,
+      );
+      if (rescuedWidths != null) {
+        visibleMetrics
+          ..clear()
+          ..addAll(rescuedMetrics);
+        visibleWidths = rescuedWidths;
+        usedWidth = _recentSearchChipRowWidth(visibleWidths);
+        continue;
+      }
+    }
+
+    break;
+  }
+
+  return [
+    for (var index = 0; index < visibleMetrics.length; index++)
+      _VisibleRecentSearchChip(
+        label: visibleMetrics[index].label,
+        width: visibleWidths[index],
+      ),
+  ];
+}
+
+@visibleForTesting
+List<({String label, double width})> debugVisibleRecentSearchChips({
+  required List<String> searches,
+  required double maxWidth,
+  required double chipMaxWidth,
+  required TextStyle textStyle,
+  required TextDirection textDirection,
+}) {
+  return [
+    for (final chip in _visibleRecentSearchChips(
+      searches: searches,
+      maxWidth: maxWidth,
+      chipMaxWidth: chipMaxWidth,
+      textStyle: textStyle,
+      textDirection: textDirection,
+    ))
+      (label: chip.label, width: chip.width),
+  ];
+}
+
+List<double>? _allocateRecentSearchChipWidths(
+  List<_MeasuredRecentSearchChip> chips,
+  double maxWidth,
+) {
+  if (chips.isEmpty) return const [];
+
+  final minimumRowWidth =
+      chips.fold(0.0, (width, chip) => width + chip.minimumWidth) +
+          _recentSearchChipGap * (chips.length - 1);
+  if (minimumRowWidth > maxWidth) return null;
+
+  var remainingWidth = maxWidth - minimumRowWidth;
+  return [
+    for (final chip in chips)
+      chip.minimumWidth +
+          (() {
+            final extraWidth = math.min(
+              remainingWidth,
+              chip.maxWidth - chip.minimumWidth,
+            );
+            remainingWidth -= extraWidth;
+            return extraWidth;
+          })(),
+  ];
+}
+
+double _recentSearchChipRowWidth(List<double> widths) {
+  if (widths.isEmpty) return 0;
+  return widths.fold(0.0, (sum, width) => sum + width) +
+      _recentSearchChipGap * (widths.length - 1);
+}
+
+class _MeasuredRecentSearchChip {
+  const _MeasuredRecentSearchChip({
+    required this.label,
+    required this.minimumWidth,
+    required this.maxWidth,
+  });
+
+  final String label;
+  final double minimumWidth;
+  final double maxWidth;
+}
+
+_MeasuredRecentSearchChip? _measureRecentSearchChip(
+  String label,
+  TextStyle textStyle,
+  TextDirection textDirection,
+  double maxWidth,
+) {
+  final labelWidth = _measureRecentSearchTextWidth(
+    label,
+    textStyle,
+    textDirection,
+  );
+  final intrinsicWidth = labelWidth + _recentSearchChipHorizontalPadding;
+  final minimumVisibleWidth = _measureRecentSearchTextWidth(
+        _recentSearchMinimumVisibleText,
+        textStyle,
+        textDirection,
+      ) +
+      _recentSearchChipHorizontalPadding;
+  final minimumWidth = intrinsicWidth <= minimumVisibleWidth
+      ? intrinsicWidth
+      : minimumVisibleWidth;
+  final cappedMaxWidth = math.min(intrinsicWidth, maxWidth);
+
+  if (cappedMaxWidth < minimumWidth) return null;
+  return _MeasuredRecentSearchChip(
+    label: label,
+    minimumWidth: minimumWidth,
+    maxWidth: cappedMaxWidth,
+  );
+}
+
+double _measureRecentSearchTextWidth(
+  String text,
+  TextStyle textStyle,
+  TextDirection textDirection,
+) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: textStyle),
+    maxLines: 1,
+    textDirection: textDirection,
+  )..layout();
+  return painter.width.ceilToDouble() + _recentSearchTextWidthSlack;
 }
 
 class _SearchResultsSection extends StatelessWidget {

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/rule_engine/rule_engine.dart';
 import '../../sources/application/source_providers.dart';
 import '../data/online_search_repository.dart';
+import '../data/recent_search_repository.dart';
 import '../domain/online_search_models.dart';
 
 final ruleEngineProvider = Provider<RuleEngine>((ref) {
@@ -18,12 +19,22 @@ final onlineSearchRepositoryProvider = Provider<OnlineSearchRepository>((ref) {
   );
 });
 
+final recentSearchRepositoryProvider = Provider<RecentSearchRepository>((ref) {
+  return DriftRecentSearchRepository(
+      ref.watch(sourceRepositoryProvider).database);
+});
+
+final recentSearchesProvider = StreamProvider<List<String>>((ref) {
+  return ref.watch(recentSearchRepositoryProvider).watchRecentSearches();
+});
+
 final onlineSearchProvider =
     FutureProvider.family<OnlineSearchResponse, String>((ref, keyword) async {
+  final normalizedKeyword = keyword.trim();
   final enabledSources = await _requireData(ref.watch(enabledSourcesProvider));
   return ref
       .watch(onlineSearchRepositoryProvider)
-      .searchSources(keyword, enabledSources);
+      .searchSources(normalizedKeyword, enabledSources);
 });
 
 final enabledSourceCountProvider = Provider<AsyncValue<int>>((ref) {

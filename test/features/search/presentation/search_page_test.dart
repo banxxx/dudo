@@ -4,6 +4,7 @@ import 'package:dudo/core/database/app_database.dart';
 import 'package:dudo/core/rule_engine/rule_engine.dart';
 import 'package:dudo/features/search/application/search_providers.dart';
 import 'package:dudo/features/search/data/online_search_repository.dart';
+import 'package:dudo/features/search/data/recent_search_repository.dart';
 import 'package:dudo/features/search/domain/online_search_models.dart';
 import 'package:dudo/features/search/presentation/search_page.dart';
 import 'package:dudo/features/sources/application/source_providers.dart';
@@ -21,6 +22,9 @@ void main() {
         overrides: [
           enabledSourceCountProvider
               .overrideWith((ref) => const AsyncValue.data(0)),
+          recentSearchRepositoryProvider
+              .overrideWithValue(_NoopRecentSearchRepository()),
+          recentSearchesProvider.overrideWith((ref) => Stream.value(const [])),
         ],
         child: const MaterialApp(
           home: SearchPage(),
@@ -35,14 +39,10 @@ void main() {
     expect(find.text('探索书源与作品'), findsOneWidget);
     expect(find.text('搜索'), findsOneWidget);
     expect(find.text('搜索书名、作者、关键词'), findsOneWidget);
-    expect(find.text('常用书源'), findsOneWidget);
-    expect(find.text('全部'), findsOneWidget);
-    expect(find.text('本地书架'), findsOneWidget);
-    expect(find.text('优先缓存'), findsOneWidget);
-    expect(find.text('网络书源'), findsOneWidget);
-    expect(find.text('0 个启用'), findsOneWidget);
+    expect(find.text('常用书源'), findsNothing);
+    expect(find.text('最近搜索'), findsNothing);
     expect(find.text('输入关键词开始找书'), findsOneWidget);
-    expect(find.text('可以搜索书名、作者，也可以从搜索来源中选择本地或在线书库。'), findsOneWidget);
+    expect(find.text('可以搜索书名、作者或关键词。'), findsOneWidget);
     expect(find.text('搜索结果'), findsNothing);
     expect(find.text('正在搜索在线书源'), findsNothing);
     expect(find.text('刘慈欣 · 测试书源'), findsNothing);
@@ -74,24 +74,6 @@ void main() {
     expect(placeholder.style?.color, DudoColors.secondary);
     expect(placeholder.style?.fontSize, 14);
 
-    final localSource = tester.widget<Container>(
-      find
-          .ancestor(
-            of: find.text('本地书架'),
-            matching: find.byType(Container),
-          )
-          .first,
-    );
-    final localSourceDecoration = localSource.decoration! as BoxDecoration;
-    expect(localSource.constraints?.maxHeight, 76);
-    expect(localSource.padding, const EdgeInsets.all(14));
-    expect(localSourceDecoration.color, DudoColors.primaryContainer);
-    expect(localSourceDecoration.borderRadius, BorderRadius.circular(18));
-    expect(
-      localSourceDecoration.border?.top.color,
-      DudoColors.primaryContainerStrong,
-    );
-
     final emptyCard = tester.widget<Container>(
       find
           .ancestor(
@@ -111,11 +93,47 @@ void main() {
     expect(emptyTitle.style?.fontSize, 22);
     expect(emptyTitle.style?.fontWeight, FontWeight.w700);
 
-    final emptyText =
-        tester.widget<Text>(find.text('可以搜索书名、作者，也可以从搜索来源中选择本地或在线书库。'));
+    final emptyText = tester.widget<Text>(find.text('可以搜索书名、作者或关键词。'));
     expect(emptyText.style?.color, DudoColors.textSecondary);
     expect(emptyText.style?.fontSize, 13);
     expect(emptyText.style?.height, 1.45);
+  });
+
+  testWidgets('shows recent searches before typing and clears history',
+      (tester) async {
+    const recentKeyword = '三体';
+    final recentSearchRepository = _MemoryRecentSearchRepository(
+      const [recentKeyword],
+    );
+    addTearDown(recentSearchRepository.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          recentSearchRepositoryProvider
+              .overrideWithValue(recentSearchRepository),
+          recentSearchesProvider.overrideWith(
+            (ref) => recentSearchRepository.watchRecentSearches(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: SearchPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('最近搜索'), findsOneWidget);
+    expect(find.text('清除历史'), findsOneWidget);
+    expect(find.text(recentKeyword), findsOneWidget);
+    expect(find.text('常用书源'), findsNothing);
+
+    await tester.tap(find.text('清除历史'));
+    await tester.pump();
+
+    expect(find.text('最近搜索'), findsNothing);
+    expect(find.text('清除历史'), findsNothing);
+    expect(find.text(recentKeyword), findsNothing);
   });
 
   testWidgets('shows loading state while online search is pending',
@@ -178,6 +196,11 @@ void main() {
       overrides: [
         enabledSourceCountProvider
             .overrideWith((ref) => const AsyncValue.data(1)),
+        recentSearchesProvider.overrideWith(
+          (ref) => Stream.value(
+            const ['长夜余火', '非常非常非常长的搜索关键词会被省略', '刘慈欣'],
+          ),
+        ),
         onlineSearchProvider('三体').overrideWith((ref) async => response),
       ],
     );
@@ -445,34 +468,6 @@ void main() {
     expect(find.text('1 个书源搜索失败，已展示其余可用结果。'), findsOneWidget);
   });
 
-  testWidgets('updates enabled source count when source stream changes',
-      (tester) async {
-    final repository = _StreamSourceRepository([
-      _source(id: 'source-a', name: '书源 A', enabled: true),
-      _source(id: 'source-b', name: '书源 B', enabled: false),
-    ]);
-    addTearDown(repository.dispose);
-
-    await _pumpSearchPage(
-      tester,
-      overrides: [sourceRepositoryProvider.overrideWithValue(repository)],
-    );
-
-    expect(find.text('1 个启用'), findsOneWidget);
-
-    repository.setEnabled('source-b', true);
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.text('2 个启用'), findsOneWidget);
-
-    repository.deleteById('source-a');
-    await tester.pump();
-    await tester.pump();
-
-    expect(find.text('1 个启用'), findsOneWidget);
-  });
-
   testWidgets('refreshes active search when enabled sources change',
       (tester) async {
     final repository = _StreamSourceRepository([
@@ -507,7 +502,6 @@ void main() {
 
     expect(find.text('刘慈欣 · 书源 A'), findsNothing);
     expect(find.text('暂无启用书源'), findsOneWidget);
-    expect(find.text('0 个启用'), findsOneWidget);
   });
 }
 
@@ -517,7 +511,12 @@ Future<void> _pumpSearchPage(
 }) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: overrides,
+      overrides: [
+        recentSearchRepositoryProvider
+            .overrideWithValue(_NoopRecentSearchRepository()),
+        recentSearchesProvider.overrideWith((ref) => Stream.value(const [])),
+        ...overrides,
+      ],
       child: const MaterialApp(
         home: SearchPage(),
       ),
@@ -529,6 +528,8 @@ Future<void> _pumpSearchPage(
 Future<void> _enterQuery(WidgetTester tester, String query) async {
   await tester.tap(find.byType(EditableText));
   await tester.enterText(find.byType(EditableText), query);
+  await tester.pump();
+  await tester.testTextInput.receiveAction(TextInputAction.search);
   await tester.pump();
 }
 
@@ -656,4 +657,51 @@ class _StreamSourceRepository implements SourceRepository {
   }) {
     throw UnimplementedError();
   }
+}
+
+class _MemoryRecentSearchRepository implements RecentSearchRepository {
+  _MemoryRecentSearchRepository(List<String> searches) : _searches = searches;
+
+  List<String> _searches;
+  final _controller = StreamController<List<String>>.broadcast();
+
+  void dispose() {
+    _controller.close();
+  }
+
+  @override
+  Future<void> addSearch(String keyword) async {
+    _searches = [keyword.trim(), ..._searches];
+    _controller.add(List.unmodifiable(_searches));
+  }
+
+  @override
+  Future<void> clear() async {
+    _searches = const [];
+    _controller.add(const []);
+  }
+
+  @override
+  Future<List<String>> readRecentSearches() async =>
+      List.unmodifiable(_searches);
+
+  @override
+  Stream<List<String>> watchRecentSearches() async* {
+    yield List.unmodifiable(_searches);
+    yield* _controller.stream;
+  }
+}
+
+class _NoopRecentSearchRepository implements RecentSearchRepository {
+  @override
+  Future<void> addSearch(String keyword) async {}
+
+  @override
+  Future<void> clear() async {}
+
+  @override
+  Future<List<String>> readRecentSearches() async => const [];
+
+  @override
+  Stream<List<String>> watchRecentSearches() => Stream.value(const []);
 }
