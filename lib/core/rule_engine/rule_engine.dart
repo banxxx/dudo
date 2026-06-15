@@ -79,6 +79,7 @@ class RuleEngine {
           ),
       ],
       nextTocUrl: toc.nextTocUrl,
+      totalCount: toc.totalCount,
     );
   }
 
@@ -447,10 +448,12 @@ class TocResult {
   const TocResult({
     required this.chapters,
     this.nextTocUrl,
+    this.totalCount,
   });
 
   final List<TocChapterResult> chapters;
   final String? nextTocUrl;
+  final int? totalCount;
 }
 
 class ContentResult {

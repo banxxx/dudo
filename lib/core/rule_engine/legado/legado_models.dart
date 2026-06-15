@@ -66,10 +66,12 @@ class LegadoTocResult {
   const LegadoTocResult({
     required this.chapters,
     this.nextTocUrl,
+    this.totalCount,
   });
 
   final List<LegadoTocChapter> chapters;
   final String? nextTocUrl;
+  final int? totalCount;
 }
 
 class LegadoContentResult {

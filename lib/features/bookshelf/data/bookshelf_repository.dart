@@ -108,6 +108,14 @@ class BookshelfRepository {
     return query.watchSingle().map((row) => row.read(count) ?? 0);
   }
 
+  Future<int> fetchChapterCount(String bookId) {
+    final count = database.chapters.id.count();
+    final query = database.selectOnly(database.chapters)
+      ..addColumns([count])
+      ..where(database.chapters.bookId.equals(bookId));
+    return query.getSingle().then((row) => row.read(count) ?? 0);
+  }
+
   Stream<Chapter?> watchChapterMetaForBookAtIndex({
     required String bookId,
     required int chapterIndex,
@@ -309,6 +317,36 @@ class BookshelfRepository {
       if (chapters.isNotEmpty) {
         await database.batch((batch) {
           batch.insertAll(database.chapters, chapters);
+        });
+      }
+    });
+  }
+
+  Future<void> appendRemoteBookChapters({
+    required String bookId,
+    required List<ChaptersCompanion> chapters,
+    int? remoteChapterCount,
+    String? remoteNextTocUrl,
+  }) async {
+    await database.transaction(() async {
+      await (database.update(database.books)
+            ..where((book) => book.id.equals(bookId)))
+          .write(
+        BooksCompanion(
+          remoteChapterCount: Value(remoteChapterCount),
+          remoteNextTocUrl: Value(remoteNextTocUrl),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+      if (chapters.isNotEmpty) {
+        await database.batch((batch) {
+          for (final chapter in chapters) {
+            batch.insert(
+              database.chapters,
+              chapter,
+              mode: InsertMode.insertOrReplace,
+            );
+          }
         });
       }
     });

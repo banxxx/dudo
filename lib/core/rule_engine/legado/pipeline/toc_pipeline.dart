@@ -9,6 +9,7 @@ import '../url/analyze_url.dart';
 import '../url/request_executor.dart';
 import 'java_ajax.dart';
 import 'pipeline_trace.dart';
+import 'toc_compatibility_parser.dart';
 
 class TocPipeline {
   const TocPipeline({
@@ -16,12 +17,14 @@ class TocPipeline {
     required this.executor,
     required this.decoder,
     required this.analyzeRule,
+    this.compatibilityParser = const TocCompatibilityParser(),
   });
 
   final AnalyzeUrl analyzeUrl;
   final LegadoRequestExecutor executor;
   final ResponseDecoder decoder;
   final AnalyzeRule analyzeRule;
+  final TocCompatibilityParser compatibilityParser;
 
   Future<LegadoTocResult?> load(
     SourceRule source,
@@ -112,13 +115,25 @@ class TocPipeline {
         _fieldString(decoded.text, rule.nextTocUrl, context, 'nextTocUrl'),
         baseUrl,
       );
+      final totalCount =
+          compatibilityParser.fallbackTotalCount(decoded.text, chapters.length);
+      final resolvedNextTocUrl = nextTocUrl ??
+          compatibilityParser.fallbackNextTocUrl(
+            source: decoded.text,
+            context: context,
+            analyzeRule: analyzeRule,
+            parsedChapterCount: chapters.length,
+            totalCount: totalCount,
+          );
       log.i(
         '[legado-toc] parsed chapters=${chapters.length} '
-        'nextTocUrl=$nextTocUrl samples=${_chapterSamples(chapters)}',
+        'totalCount=$totalCount nextTocUrl=$resolvedNextTocUrl '
+        'samples=${_chapterSamples(chapters)}',
       );
       return LegadoTocResult(
         chapters: chapters,
-        nextTocUrl: nextTocUrl,
+        nextTocUrl: resolvedNextTocUrl,
+        totalCount: totalCount,
       );
     } catch (error, stackTrace) {
       log.e(
@@ -138,15 +153,22 @@ class TocPipeline {
     String fieldName,
   ) {
     try {
-      return analyzeRule.fieldString(source, rawRule, context);
+      final value = analyzeRule.fieldString(source, rawRule, context);
+      if (value != null && value.trim().isNotEmpty) return value;
     } catch (error, stackTrace) {
       log.w(
         '[legado-toc] field $fieldName failed rule=${_preview(rawRule ?? '')}',
         error: error,
         stackTrace: stackTrace,
       );
-      return null;
     }
+    return compatibilityParser.fallbackFieldString(
+      source: source,
+      rawRule: rawRule,
+      analyzeRule: analyzeRule,
+      context: context,
+      fieldName: fieldName,
+    );
   }
 
   List<Object> _elements(
@@ -155,15 +177,28 @@ class TocPipeline {
     RuleContext context,
   ) {
     try {
-      return analyzeRule.elements(source, rawRule, context);
+      final list = analyzeRule.elements(source, rawRule, context);
+      if (list.isNotEmpty) return list;
     } catch (error, stackTrace) {
       log.w(
         '[legado-toc] chapterList failed rule=${_preview(rawRule ?? '')}',
         error: error,
         stackTrace: stackTrace,
       );
-      return const <Object>[];
     }
+    final fallback = compatibilityParser.fallbackChapterList(
+      source: source,
+      rawRule: rawRule,
+      analyzeRule: analyzeRule,
+      context: context,
+    );
+    if (fallback.isNotEmpty) {
+      log.i(
+        '[legado-toc] chapterList compatibility count=${fallback.length} '
+        'rule=${_preview(rawRule ?? '')}',
+      );
+    }
+    return fallback;
   }
 
   String _chapterSamples(List<LegadoTocChapter> chapters) {

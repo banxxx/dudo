@@ -27,6 +27,8 @@ class Books extends Table {
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   BoolColumn get inShelf => boolean().withDefault(const Constant(true))();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  IntColumn get remoteChapterCount => integer().nullable()();
+  TextColumn get remoteNextTocUrl => text().nullable()();
 
   @override
   Set<Column<Object>> get primaryKey => {id};
@@ -161,7 +163,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -188,6 +190,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 5) {
             await m.createTable(importedReaderFonts);
             await m.createTable(appPreferences);
+          }
+          if (from < 6) {
+            await m.addColumn(books, books.remoteChapterCount);
+            await m.addColumn(books, books.remoteNextTocUrl);
           }
         },
       );

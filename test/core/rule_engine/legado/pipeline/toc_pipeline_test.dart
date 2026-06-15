@@ -74,6 +74,63 @@ void main() {
       expect(toc?.chapters.single.name, 'Chapter 1');
       expect(toc?.chapters.single.url, 'https://source.example/c1.html');
     });
+
+    test('falls back to JSON chapterlist when embedded chapterList JS fails',
+        () async {
+      final runtime = LegadoRuntime.create(
+        executor: _FakeExecutor(
+          finalUri: Uri.parse(
+            'https://mock.example/androidapi/chapterList?novelId=3878507',
+          ),
+          contentType: 'application/json; charset=utf-8',
+          html: jsonEncode({
+            'totalCount': 100,
+            'chapterlist': [
+              {
+                'novelid': '3878507',
+                'chapterid': '1',
+                'chaptername': '第一章',
+                'isvip': 0,
+                'chapterdate': '2026-06-01 12:00:00',
+              },
+              {
+                'novelid': '3878507',
+                'chapterid': '2',
+                'chaptername': '第二章',
+                'isvip': 1,
+                'chapterdate': '2026-06-02 12:00:00',
+              },
+            ],
+          }),
+        ),
+      );
+
+      final toc = await runtime.loadToc(
+        _jsonCatalogSource(),
+        'https://mock.example/androidapi/chapterList?novelId=3878507',
+      );
+
+      expect(toc, isNotNull);
+      expect(toc!.totalCount, 100);
+      expect(toc.chapters, hasLength(2));
+      expect(
+        toc.nextTocUrl,
+        'https://mock.example/androidapi/chapterList?novelId=3878507&whole=0&more=2&limit=80',
+      );
+      expect(toc.chapters[0].name, '第一章');
+      expect(
+        toc.chapters[0].url,
+        'https://mock.example/androidapi/chapterContent?novelId=3878507&chapterId=1',
+      );
+      expect(toc.chapters[0].isVip, '0');
+      expect(toc.chapters[0].updateTime, '2026-06-01 12:00:00');
+      expect(toc.chapters[1].name, '第二章');
+      expect(
+        toc.chapters[1].url,
+        'https://mock.example/androidapi/chapterContent?novelId=3878507&chapterId=2',
+      );
+      expect(toc.chapters[1].isVip, '1');
+    });
   });
 }
 
@@ -95,14 +152,31 @@ SourceRule _source() {
   );
 }
 
+SourceRule _jsonCatalogSource() {
+  return const SourceRule(
+    id: 'mock-json',
+    name: 'Mock JSON',
+    url: 'https://mock.example/',
+    toc: TocRule(
+      chapterList: r'$.chapterlist <js> missingFunction() </js>',
+      chapterName: r'$.chaptername <js> missingFunction() </js>',
+      chapterUrl: r'$.chapterurl',
+      isVip: r'$.isvip',
+      updateTime: r'$.chapterdate',
+    ),
+  );
+}
+
 class _FakeExecutor implements LegadoRequestExecutor {
   const _FakeExecutor({
     required this.finalUri,
     required this.html,
+    this.contentType = 'text/html; charset=utf-8',
   });
 
   final Uri finalUri;
   final String html;
+  final String contentType;
 
   @override
   Future<LegadoHttpResponse> execute(LegadoRequest request) async {
@@ -110,7 +184,7 @@ class _FakeExecutor implements LegadoRequestExecutor {
       bytes: utf8.encode(html),
       finalUri: finalUri,
       headers: Headers.fromMap({
-        'content-type': ['text/html; charset=utf-8'],
+        'content-type': [contentType],
       }),
       statusCode: 200,
     );

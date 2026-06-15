@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,8 +35,10 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   bool _showMoreMenu = false;
   bool _isAddingToShelf = false;
   bool _isLoadingCatalogPage = false;
+  bool _isRefreshingRemoteCatalog = false;
   bool _hasMoreCatalogPages = true;
   bool _backfillStarted = false;
+  String? _remoteCatalogError;
   Timer? _backfillTimer;
 
   @override
@@ -67,10 +70,15 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
       body: bookValue.when(
         data: (book) {
           if (book == null) return _BookMissingState(onBack: _goBack);
-          final chapterCount =
+          final isRemoteBook = _isRemoteBook(book);
+          final loadedChapterCount =
               chapterCountValue.valueOrNull ?? _catalogChapters.length;
+          final displayChapterCount =
+              _displayChapterCount(book, loadedChapterCount);
           final chaptersLoading = _catalogChapters.isEmpty &&
-              (_isLoadingCatalogPage || chapterCountValue.isLoading);
+              (_isLoadingCatalogPage ||
+                  chapterCountValue.isLoading ||
+                  (isRemoteBook && _isRefreshingRemoteCatalog));
           final currentChapterValue = ref.watch(
             currentBookChapterMetaProvider(
               CurrentBookChapterKey(
@@ -80,7 +88,7 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
             ),
           );
           final currentChapter = currentChapterValue.valueOrNull;
-          if (chapterCount > 0) _scheduleLengthBackfill();
+          if (loadedChapterCount > 0) _scheduleLengthBackfill();
 
           return Stack(
             children: [
@@ -88,16 +96,23 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
                 controller: _scrollController,
                 book: book,
                 chapters: _catalogChapters,
-                chapterCount: chapterCount,
+                chapterCount: displayChapterCount,
                 currentChapter: currentChapter,
                 chaptersLoading: chaptersLoading,
                 loadingMoreChapters: _isLoadingCatalogPage,
                 hasMoreChapters: _hasMoreCatalogPages,
+                isRemoteBook: isRemoteBook,
+                remoteCatalogRefreshing: _isRefreshingRemoteCatalog,
+                remoteCatalogError: _remoteCatalogError,
                 isAddingToShelf: _isAddingToShelf,
-                onRead: () => _openReader(book, chapterCount),
+                onRead: () => _openReader(book, loadedChapterCount),
                 onAddToShelf: () => _addToShelf(book),
-                onChapterTap: (chapterIndex) =>
-                    _openReader(book, chapterCount, chapterIndex: chapterIndex),
+                onRefreshRemoteCatalog: () => _refreshRemoteCatalog(book),
+                onChapterTap: (chapterIndex) => _openReader(
+                  book,
+                  loadedChapterCount,
+                  chapterIndex: chapterIndex,
+                ),
               ),
               _PinnedBookDetailTopBar(
                 onBack: _goBack,
@@ -169,16 +184,28 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
     if (_isLoadingCatalogPage || !_hasMoreCatalogPages) return;
     setState(() => _isLoadingCatalogPage = true);
     try {
-      final page =
+      var page =
           await ref.read(bookshelfRepositoryProvider).fetchChapterMetasPage(
                 bookId: widget.bookId,
                 offset: _catalogChapters.length,
                 limit: _chapterCatalogPageSize,
               );
+      if (page.isEmpty && await _loadNextRemoteCatalogPageIfNeeded()) {
+        page =
+            await ref.read(bookshelfRepositoryProvider).fetchChapterMetasPage(
+                  bookId: widget.bookId,
+                  offset: _catalogChapters.length,
+                  limit: _chapterCatalogPageSize,
+                );
+      }
+      final book = await ref
+          .read(bookshelfRepositoryProvider)
+          .findBookById(widget.bookId);
       if (!mounted) return;
       setState(() {
         _catalogChapters.addAll(page);
-        _hasMoreCatalogPages = page.length == _chapterCatalogPageSize;
+        _hasMoreCatalogPages =
+            page.length == _chapterCatalogPageSize || _remoteHasMore(book);
         _isLoadingCatalogPage = false;
       });
       _maybePrefetchCatalogPage();
@@ -192,6 +219,98 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
     _hasMoreCatalogPages = true;
     _isLoadingCatalogPage = false;
     unawaited(_loadNextCatalogPage());
+  }
+
+  Future<bool> _loadNextRemoteCatalogPageIfNeeded() async {
+    final book =
+        await ref.read(bookshelfRepositoryProvider).findBookById(widget.bookId);
+    if (!_remoteHasMore(book)) return false;
+    _remoteCatalogError = null;
+    try {
+      final loaded = await ref
+          .read(remoteBookImportServiceProvider)
+          .loadNextRemoteCatalogPage(widget.bookId);
+      if (loaded && mounted) {
+        ref
+          ..invalidate(bookByIdProvider(widget.bookId))
+          ..invalidate(bookChapterCountProvider(widget.bookId))
+          ..invalidate(bookChapterMetasProvider(widget.bookId))
+          ..invalidate(initialBookChapterMetasProvider(widget.bookId));
+      }
+      return loaded;
+    } catch (_) {
+      if (mounted) {
+        setState(() => _remoteCatalogError = '在线目录加载失败');
+      }
+      return false;
+    }
+  }
+
+  bool _isRemoteBook(Book book) {
+    return book.localPath == null &&
+        (book.sourceId?.trim().isNotEmpty ?? false) &&
+        (book.sourceBookUrl?.trim().isNotEmpty ?? false);
+  }
+
+  int _displayChapterCount(Book book, int loadedChapterCount) {
+    if (!_isRemoteBook(book)) return loadedChapterCount;
+    return math.max(book.remoteChapterCount ?? 0, loadedChapterCount);
+  }
+
+  bool _remoteHasMore(Book? book) {
+    return book != null &&
+        _isRemoteBook(book) &&
+        (book.remoteNextTocUrl?.trim().isNotEmpty ?? false);
+  }
+
+  /// Online source books do not use the local TXT chapter analyzer. They keep a
+  /// cached catalog in the same chapters table, but refreshing that catalog must
+  /// go through the remote source rule pipeline so local import behavior stays
+  /// isolated and predictable.
+  Future<void> _refreshRemoteCatalog(Book book) async {
+    final sourceId = book.sourceId?.trim();
+    final bookUrl = book.sourceBookUrl?.trim();
+    if (sourceId == null ||
+        sourceId.isEmpty ||
+        bookUrl == null ||
+        bookUrl.isEmpty ||
+        _isRefreshingRemoteCatalog) {
+      return;
+    }
+
+    setState(() {
+      _isRefreshingRemoteCatalog = true;
+      _remoteCatalogError = null;
+      _catalogChapters.clear();
+      _hasMoreCatalogPages = true;
+      _isLoadingCatalogPage = false;
+    });
+
+    try {
+      await ref.read(remoteBookImportServiceProvider).importRemoteBook(
+            sourceId: sourceId,
+            bookUrl: bookUrl,
+            fallbackName: book.title,
+            fallbackAuthor: book.author,
+            fallbackCoverUrl: book.coverUrl,
+            fallbackIntro: book.intro,
+            addToShelf: book.inShelf,
+          );
+      if (!mounted) return;
+      ref
+        ..invalidate(bookByIdProvider(widget.bookId))
+        ..invalidate(bookChapterCountProvider(widget.bookId))
+        ..invalidate(bookChapterMetasProvider(widget.bookId))
+        ..invalidate(initialBookChapterMetasProvider(widget.bookId));
+      await _loadNextCatalogPage();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _remoteCatalogError = '在线目录获取失败');
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshingRemoteCatalog = false);
+      }
+    }
   }
 
   void _openReader(
@@ -252,6 +371,10 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
           );
       return;
     }
+    if (title == '更新目录' && _isRemoteBook(book)) {
+      unawaited(_refreshRemoteCatalog(book));
+      return;
+    }
     ref.read(appMessageServiceProvider).info(
           '这个功能还在完善中',
           title: title,
@@ -271,9 +394,13 @@ class _BookDetailScrollView extends StatelessWidget {
     required this.chaptersLoading,
     required this.loadingMoreChapters,
     required this.hasMoreChapters,
+    required this.isRemoteBook,
+    required this.remoteCatalogRefreshing,
+    required this.remoteCatalogError,
     required this.isAddingToShelf,
     required this.onRead,
     required this.onAddToShelf,
+    required this.onRefreshRemoteCatalog,
     required this.onChapterTap,
   });
 
@@ -285,9 +412,13 @@ class _BookDetailScrollView extends StatelessWidget {
   final bool chaptersLoading;
   final bool loadingMoreChapters;
   final bool hasMoreChapters;
+  final bool isRemoteBook;
+  final bool remoteCatalogRefreshing;
+  final String? remoteCatalogError;
   final bool isAddingToShelf;
   final VoidCallback onRead;
   final VoidCallback onAddToShelf;
+  final VoidCallback onRefreshRemoteCatalog;
   final ValueChanged<int> onChapterTap;
 
   @override
@@ -332,15 +463,23 @@ class _BookDetailScrollView extends StatelessWidget {
               if (chaptersLoading && chapters.isEmpty)
                 SliverPadding(
                   padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                  sliver: const SliverToBoxAdapter(
-                    child: _ChapterListMessageTile(message: '正在加载目录...'),
+                  sliver: SliverToBoxAdapter(
+                    child: _ChapterListMessageTile(
+                      message: isRemoteBook ? '正在获取在线目录...' : '正在加载目录...',
+                    ),
                   ),
                 )
               else if (chapters.isEmpty)
                 SliverPadding(
                   padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                  sliver: const SliverToBoxAdapter(
-                    child: _ChapterListMessageTile(message: '章节计算中'),
+                  sliver: SliverToBoxAdapter(
+                    child: isRemoteBook
+                        ? _ChapterListMessageTile(
+                            message: remoteCatalogError ?? '暂无在线目录',
+                            actionLabel: '重试',
+                            onAction: onRefreshRemoteCatalog,
+                          )
+                        : const _ChapterListMessageTile(message: '章节计算中'),
                   ),
                 )
               else
@@ -1178,9 +1317,15 @@ class _ChapterListHeader extends StatelessWidget {
 }
 
 class _ChapterListMessageTile extends StatelessWidget {
-  const _ChapterListMessageTile({required this.message});
+  const _ChapterListMessageTile({
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
 
   final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -1204,11 +1349,24 @@ class _ChapterListMessageTile extends StatelessWidget {
               ),
             ),
           ),
-          const Icon(
-            LucideIcons.chevronRight,
-            color: DudoColors.secondary,
-            size: 18,
-          ),
+          if (actionLabel != null && onAction != null) ...[
+            TextButton(
+              onPressed: onAction,
+              style: TextButton.styleFrom(
+                foregroundColor: DudoColors.primary,
+                textStyle: DudoTextStyles.sans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              child: Text(actionLabel!),
+            ),
+          ] else
+            const Icon(
+              LucideIcons.chevronRight,
+              color: DudoColors.secondary,
+              size: 18,
+            ),
           const SizedBox(width: 14),
         ],
       ),

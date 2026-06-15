@@ -1,6 +1,7 @@
 import 'package:dudo/core/database/app_database.dart';
 import 'package:dudo/features/bookshelf/application/bookshelf_providers.dart';
 import 'package:dudo/features/bookshelf/data/bookshelf_repository.dart';
+import 'package:dudo/features/bookshelf/data/remote_book_import_service.dart';
 import 'package:dudo/features/bookshelf/presentation/book_detail_page.dart';
 import 'package:dudo/shared/messages/app_message_service.dart';
 import 'package:flutter/material.dart';
@@ -46,7 +47,7 @@ void main() {
         fetchedAt: now,
       ),
     ];
-    final repository = _FakeBookshelfRepository(chapters);
+    final repository = _FakeBookshelfRepository(chapters, book: book);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -109,7 +110,7 @@ void main() {
         fetchedAt: now,
       ),
     ];
-    final repository = _FakeBookshelfRepository(chapters);
+    final repository = _FakeBookshelfRepository(chapters, book: book);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -173,7 +174,7 @@ void main() {
         isCached: false,
       ),
     ];
-    final repository = _FakeBookshelfRepository(chapters);
+    final repository = _FakeBookshelfRepository(chapters, book: book);
 
     await tester.pumpWidget(
       ProviderScope(
@@ -228,12 +229,80 @@ void main() {
     expect(expandedIntroText.maxLines, isNull);
     expect(find.text('收起'), findsOneWidget);
   });
+
+  testWidgets('shows remote catalog empty state and retries refresh',
+      (tester) async {
+    final now = DateTime(2026, 6, 3);
+    final book = Book(
+      id: 'remote-empty',
+      title: '远程空目录',
+      author: '作者',
+      intro: '在线书源详情',
+      sourceId: 'mock-source',
+      sourceBookUrl: 'https://mock.example/book/empty',
+      lastChapterIndex: 0,
+      lastReadPosition: 0,
+      createdAt: now,
+      updatedAt: now,
+      inShelf: false,
+      sortOrder: 0,
+    );
+    final repository = _FakeBookshelfRepository(const [], book: book);
+    final remoteImportService = _FakeRemoteBookImportService('remote-empty');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          bookshelfRepositoryProvider.overrideWithValue(repository),
+          remoteBookImportServiceProvider.overrideWithValue(
+            remoteImportService,
+          ),
+          bookByIdProvider('remote-empty')
+              .overrideWith((ref) => Stream.value(book)),
+          bookChapterCountProvider('remote-empty')
+              .overrideWith((ref) => Stream.value(0)),
+          currentBookChapterMetaProvider(
+            const CurrentBookChapterKey(
+              bookId: 'remote-empty',
+              chapterIndex: 0,
+            ),
+          ).overrideWith((ref) => Stream.value(null)),
+          initialBookChapterMetasProvider('remote-empty')
+              .overrideWith((ref) => Stream.value(const [])),
+          bookChapterMetasProvider('remote-empty')
+              .overrideWith((ref) => Stream.value(const [])),
+        ],
+        child: const MaterialApp(
+          home: BookDetailPage(bookId: 'remote-empty'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('暂无在线目录'),
+      300,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.ensureVisible(find.text('暂无在线目录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('暂无在线目录'), findsOneWidget);
+    expect(find.text('章节计算中'), findsNothing);
+    expect(find.text('重试'), findsOneWidget);
+
+    await tester.tap(find.text('重试'));
+    await tester.pumpAndSettle();
+
+    expect(remoteImportService.importCount, 1);
+  });
 }
 
 class _FakeBookshelfRepository implements BookshelfRepository {
-  _FakeBookshelfRepository(this.chapters);
+  _FakeBookshelfRepository(this.chapters, {this.book});
 
   final List<Chapter> chapters;
+  final Book? book;
   final List<String> addedBookIds = [];
 
   @override
@@ -254,10 +323,43 @@ class _FakeBookshelfRepository implements BookshelfRepository {
   }
 
   @override
+  Future<Book?> findBookById(String bookId) async {
+    return book?.id == bookId ? book : null;
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _FakeAppMessageService implements AppMessageService {
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+class _FakeRemoteBookImportService implements RemoteBookImportService {
+  _FakeRemoteBookImportService(this.bookId);
+
+  final String bookId;
+  int importCount = 0;
+
+  @override
+  Future<String> importRemoteBook({
+    required String sourceId,
+    required String bookUrl,
+    String? fallbackName,
+    String? fallbackAuthor,
+    String? fallbackCoverUrl,
+    String? fallbackIntro,
+    String? fallbackKind,
+    String? fallbackLastChapter,
+    String? fallbackWordCount,
+    bool addToShelf = false,
+    List<Map<String, Object?>> origins = const [],
+  }) async {
+    importCount += 1;
+    return bookId;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

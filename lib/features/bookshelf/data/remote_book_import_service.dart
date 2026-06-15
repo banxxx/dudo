@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../../core/rule_engine/legado/pipeline/toc_pagination.dart';
 import '../../../core/utils/logger.dart';
 import '../../../core/rule_engine/models/source_rule.dart';
 import '../../../core/rule_engine/rule_engine.dart';
@@ -87,7 +88,9 @@ class RemoteBookImportService {
         invalidEmptyQueryKeys: const ['novelId'],
       );
       final parsedCoverUrl = _cleanParsedUrl(info?.coverUrl);
-      final tocUrl = _firstNonEmptyOrNull([parsedTocUrl, bookUrl]) ?? bookUrl;
+      final tocUrl = TocPagination.firstPageUrl(
+        _firstNonEmptyOrNull([parsedTocUrl, bookUrl]) ?? bookUrl,
+      );
       bookContext
         ..['name'] = _firstNonEmptyOrNull([info?.name, fallbackName])
         ..['author'] = _firstNonEmptyOrNull([info?.author, fallbackAuthor])
@@ -107,9 +110,25 @@ class RemoteBookImportService {
 
       final toc = await ruleEngine.loadToc(rule, tocUrl, book: bookContext);
       final chapters = toc?.chapters ?? const <TocChapterResult>[];
+      final savedChapters = _chapterCompanions(
+        bookId: _remoteBookId(sourceId, bookUrl),
+        chapters: chapters,
+        offset: 0,
+      );
+      final remoteChapterCount = _remoteChapterCount(
+        parsedTotal: toc?.totalCount,
+        savedCount: savedChapters.length,
+      );
+      final remoteNextTocUrl = _nextRemoteTocUrl(
+        currentTocUrl: tocUrl,
+        parsedNextTocUrl: toc?.nextTocUrl,
+        loadedCount: savedChapters.length,
+        totalCount: remoteChapterCount,
+      );
       log.i(
         '[remote-import] toc chapters=${chapters.length} '
-        'nextTocUrl=${toc?.nextTocUrl} samples=${_chapterSamples(chapters)}',
+        'totalCount=${toc?.totalCount} nextTocUrl=${toc?.nextTocUrl} '
+        'samples=${_chapterSamples(chapters)}',
       );
 
       final now = DateTime.now();
@@ -130,6 +149,8 @@ class RemoteBookImportService {
           sourceBookUrl: Value(bookUrl),
           localPath: const Value(null),
           inShelf: Value(shouldBeInShelf),
+          remoteChapterCount: Value(remoteChapterCount),
+          remoteNextTocUrl: Value(remoteNextTocUrl),
           createdAt: Value(existingBook?.createdAt ?? now),
           updatedAt: Value(now),
           sortOrder: Value(
@@ -138,23 +159,12 @@ class RemoteBookImportService {
                 : 0,
           ),
         ),
-        chapters: [
-          for (final entry in chapters.indexed)
-            if (_hasChapterUrl(entry.$2))
-              ChaptersCompanion.insert(
-                id: '$bookId:${entry.$1}',
-                bookId: bookId,
-                chapterIndex: entry.$1,
-                title: entry.$2.name,
-                url: Value(entry.$2.url),
-                normalizedContentLength: const Value(0),
-                isCached: const Value(false),
-              ),
-        ],
+        chapters: savedChapters,
       );
       log.i(
         '[remote-import] saved bookId=$bookId title=$title '
-        'chapters=${chapters.where(_hasChapterUrl).length}',
+        'chapters=${savedChapters.length} total=$remoteChapterCount '
+        'nextTocUrl=$remoteNextTocUrl',
       );
       return bookId;
     } catch (error, stackTrace) {
@@ -165,6 +175,56 @@ class RemoteBookImportService {
       );
       rethrow;
     }
+  }
+
+  Future<bool> loadNextRemoteCatalogPage(String bookId) async {
+    final book = await bookshelfRepository.findBookById(bookId);
+    if (book == null || !_canLoadMoreRemoteCatalog(book)) return false;
+
+    final source = await sourceRepository.findSourceById(book.sourceId!.trim());
+    if (source == null) return false;
+    final rule = _parseSourceRule(source.rulesJson);
+    if (rule == null) return false;
+
+    final loadedCount = await bookshelfRepository.fetchChapterCount(bookId);
+    final tocUrl = book.remoteNextTocUrl!.trim();
+    final bookContext = _bookContextFromBook(book, rule, tocUrl);
+    log.i(
+      '[remote-import] loadNextToc bookId=$bookId offset=$loadedCount '
+      'tocUrl=$tocUrl',
+    );
+
+    final toc = await ruleEngine.loadToc(rule, tocUrl, book: bookContext);
+    final chapters = toc?.chapters ?? const <TocChapterResult>[];
+    final savedChapters = _chapterCompanions(
+      bookId: bookId,
+      chapters: chapters,
+      offset: loadedCount,
+    );
+    final nextLoadedCount = loadedCount + savedChapters.length;
+    final remoteChapterCount = _remoteChapterCount(
+      parsedTotal: toc?.totalCount ?? book.remoteChapterCount,
+      savedCount: nextLoadedCount,
+    );
+    final remoteNextTocUrl = _nextRemoteTocUrl(
+      currentTocUrl: tocUrl,
+      parsedNextTocUrl: toc?.nextTocUrl,
+      loadedCount: nextLoadedCount,
+      totalCount: remoteChapterCount,
+    );
+
+    await bookshelfRepository.appendRemoteBookChapters(
+      bookId: bookId,
+      chapters: savedChapters,
+      remoteChapterCount: remoteChapterCount,
+      remoteNextTocUrl: remoteNextTocUrl,
+    );
+    log.i(
+      '[remote-import] appended bookId=$bookId chapters=${savedChapters.length} '
+      'loaded=$nextLoadedCount total=$remoteChapterCount '
+      'nextTocUrl=$remoteNextTocUrl',
+    );
+    return savedChapters.isNotEmpty;
   }
 
   SourceRule? _parseSourceRule(String rulesJson) {
@@ -180,6 +240,74 @@ class RemoteBookImportService {
   bool _hasChapterUrl(TocChapterResult chapter) {
     return chapter.name.trim().isNotEmpty &&
         (chapter.url?.trim().isNotEmpty ?? false);
+  }
+
+  bool _canLoadMoreRemoteCatalog(Book book) {
+    return book.localPath == null &&
+        (book.sourceId?.trim().isNotEmpty ?? false) &&
+        (book.sourceBookUrl?.trim().isNotEmpty ?? false) &&
+        (book.remoteNextTocUrl?.trim().isNotEmpty ?? false);
+  }
+
+  Map<String, Object?> _bookContextFromBook(
+    Book book,
+    SourceRule rule,
+    String tocUrl,
+  ) {
+    return {
+      'name': book.title,
+      'author': book.author,
+      'bookUrl': book.sourceBookUrl,
+      'origin': rule.id,
+      'originName': rule.name,
+      'coverUrl': book.coverUrl,
+      'intro': book.intro,
+      'tocUrl': tocUrl,
+      'remoteChapterCount': book.remoteChapterCount,
+    }..removeWhere((_, value) => value == null);
+  }
+
+  List<ChaptersCompanion> _chapterCompanions({
+    required String bookId,
+    required List<TocChapterResult> chapters,
+    required int offset,
+  }) {
+    return [
+      for (final entry in chapters.indexed)
+        if (_hasChapterUrl(entry.$2))
+          ChaptersCompanion.insert(
+            id: '$bookId:${offset + entry.$1}',
+            bookId: bookId,
+            chapterIndex: offset + entry.$1,
+            title: entry.$2.name,
+            url: Value(entry.$2.url),
+            normalizedContentLength: const Value(0),
+            isCached: const Value(false),
+          ),
+    ];
+  }
+
+  int _remoteChapterCount({
+    required int? parsedTotal,
+    required int savedCount,
+  }) {
+    final total = parsedTotal ?? savedCount;
+    return total < savedCount ? savedCount : total;
+  }
+
+  String? _nextRemoteTocUrl({
+    required String currentTocUrl,
+    required String? parsedNextTocUrl,
+    required int loadedCount,
+    required int? totalCount,
+  }) {
+    if (totalCount != null && loadedCount >= totalCount) return null;
+    return TocPagination.nextPageUrl(
+          currentTocUrl,
+          loadedCount: loadedCount,
+          totalCount: totalCount,
+        ) ??
+        parsedNextTocUrl;
   }
 
   String _remoteBookId(String sourceId, String bookUrl) {
