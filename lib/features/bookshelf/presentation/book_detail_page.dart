@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,9 +15,7 @@ import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../../../shared/widgets/error_state_view.dart';
 import '../application/bookshelf_providers.dart';
-
-const _chapterCatalogPageSize = 80;
-const _chapterCatalogPrefetchExtent = 900.0;
+import 'catalog/book_detail_catalog_controller.dart';
 
 class BookDetailPage extends ConsumerStatefulWidget {
   const BookDetailPage({super.key, required this.bookId});
@@ -31,23 +28,26 @@ class BookDetailPage extends ConsumerStatefulWidget {
 
 class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   final ScrollController _scrollController = ScrollController();
-  final List<Chapter> _catalogChapters = [];
+  late final BookDetailCatalogController _catalogController;
   bool _showMoreMenu = false;
   bool _isAddingToShelf = false;
-  bool _isLoadingCatalogPage = false;
-  bool _isRefreshingRemoteCatalog = false;
-  bool _hasMoreCatalogPages = true;
   bool _backfillStarted = false;
-  String? _remoteCatalogError;
   Timer? _backfillTimer;
 
   @override
   void initState() {
     super.initState();
+    _catalogController = BookDetailCatalogController(
+      bookId: widget.bookId,
+      ref: ref,
+      setState: setState,
+      isMounted: () => mounted,
+      onPageChanged: _maybePrefetchCatalogPage,
+    );
     _scrollController.addListener(_maybePrefetchCatalogPage);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(_loadNextCatalogPage());
+      unawaited(_catalogController.loadNextPage());
     });
   }
 
@@ -70,15 +70,16 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
       body: bookValue.when(
         data: (book) {
           if (book == null) return _BookMissingState(onBack: _goBack);
-          final isRemoteBook = _isRemoteBook(book);
-          final loadedChapterCount =
-              chapterCountValue.valueOrNull ?? _catalogChapters.length;
+          final isRemoteBook = _catalogController.remote.isRemoteBook(book);
+          final loadedChapterCount = _catalogController.loadedChapterCount(
+            chapterCountValue,
+          );
           final displayChapterCount =
-              _displayChapterCount(book, loadedChapterCount);
-          final chaptersLoading = _catalogChapters.isEmpty &&
-              (_isLoadingCatalogPage ||
-                  chapterCountValue.isLoading ||
-                  (isRemoteBook && _isRefreshingRemoteCatalog));
+              _catalogController.displayChapterCount(book, loadedChapterCount);
+          final chaptersLoading = _catalogController.chaptersLoading(
+            book: book,
+            chapterCountValue: chapterCountValue,
+          );
           final currentChapterValue = ref.watch(
             currentBookChapterMetaProvider(
               CurrentBookChapterKey(
@@ -95,19 +96,21 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
               _BookDetailScrollView(
                 controller: _scrollController,
                 book: book,
-                chapters: _catalogChapters,
+                chapters: _catalogController.chapters,
                 chapterCount: displayChapterCount,
                 currentChapter: currentChapter,
                 chaptersLoading: chaptersLoading,
-                loadingMoreChapters: _isLoadingCatalogPage,
-                hasMoreChapters: _hasMoreCatalogPages,
+                loadingMoreChapters: _catalogController.isLoadingPage,
+                hasMoreChapters: _catalogController.hasMorePages,
                 isRemoteBook: isRemoteBook,
-                remoteCatalogRefreshing: _isRefreshingRemoteCatalog,
-                remoteCatalogError: _remoteCatalogError,
+                remoteCatalogRefreshing: _catalogController.isRefreshingRemote,
+                remoteCatalogError: _catalogController.remoteError,
                 isAddingToShelf: _isAddingToShelf,
                 onRead: () => _openReader(book, loadedChapterCount),
                 onAddToShelf: () => _addToShelf(book),
-                onRefreshRemoteCatalog: () => _refreshRemoteCatalog(book),
+                onRefreshRemoteCatalog: () {
+                  unawaited(_catalogController.refreshRemote(book));
+                },
                 onChapterTap: (chapterIndex) => _openReader(
                   book,
                   loadedChapterCount,
@@ -130,7 +133,7 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
         loading: () => const _BookDetailLoadingState(),
         error: (_, __) => _BookDetailErrorState(
           onRetry: () {
-            _resetCatalogPaging();
+            _catalogController.resetAndLoad();
             ref.invalidate(bookByIdProvider(widget.bookId));
             ref.invalidate(bookChapterCountProvider(widget.bookId));
             ref.invalidate(bookChapterMetasProvider(widget.bookId));
@@ -176,141 +179,8 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   void _maybePrefetchCatalogPage() {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
-    if (position.extentAfter > _chapterCatalogPrefetchExtent) return;
-    unawaited(_loadNextCatalogPage());
-  }
-
-  Future<void> _loadNextCatalogPage() async {
-    if (_isLoadingCatalogPage || !_hasMoreCatalogPages) return;
-    setState(() => _isLoadingCatalogPage = true);
-    try {
-      var page =
-          await ref.read(bookshelfRepositoryProvider).fetchChapterMetasPage(
-                bookId: widget.bookId,
-                offset: _catalogChapters.length,
-                limit: _chapterCatalogPageSize,
-              );
-      if (page.isEmpty && await _loadNextRemoteCatalogPageIfNeeded()) {
-        page =
-            await ref.read(bookshelfRepositoryProvider).fetchChapterMetasPage(
-                  bookId: widget.bookId,
-                  offset: _catalogChapters.length,
-                  limit: _chapterCatalogPageSize,
-                );
-      }
-      final book = await ref
-          .read(bookshelfRepositoryProvider)
-          .findBookById(widget.bookId);
-      if (!mounted) return;
-      setState(() {
-        _catalogChapters.addAll(page);
-        _hasMoreCatalogPages =
-            page.length == _chapterCatalogPageSize || _remoteHasMore(book);
-        _isLoadingCatalogPage = false;
-      });
-      _maybePrefetchCatalogPage();
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingCatalogPage = false);
-    }
-  }
-
-  void _resetCatalogPaging() {
-    _catalogChapters.clear();
-    _hasMoreCatalogPages = true;
-    _isLoadingCatalogPage = false;
-    unawaited(_loadNextCatalogPage());
-  }
-
-  Future<bool> _loadNextRemoteCatalogPageIfNeeded() async {
-    final book =
-        await ref.read(bookshelfRepositoryProvider).findBookById(widget.bookId);
-    if (!_remoteHasMore(book)) return false;
-    _remoteCatalogError = null;
-    try {
-      final loaded = await ref
-          .read(remoteBookImportServiceProvider)
-          .loadNextRemoteCatalogPage(widget.bookId);
-      if (loaded && mounted) {
-        ref
-          ..invalidate(bookByIdProvider(widget.bookId))
-          ..invalidate(bookChapterCountProvider(widget.bookId))
-          ..invalidate(bookChapterMetasProvider(widget.bookId))
-          ..invalidate(initialBookChapterMetasProvider(widget.bookId));
-      }
-      return loaded;
-    } catch (_) {
-      if (mounted) {
-        setState(() => _remoteCatalogError = '在线目录加载失败');
-      }
-      return false;
-    }
-  }
-
-  bool _isRemoteBook(Book book) {
-    return book.localPath == null &&
-        (book.sourceId?.trim().isNotEmpty ?? false) &&
-        (book.sourceBookUrl?.trim().isNotEmpty ?? false);
-  }
-
-  int _displayChapterCount(Book book, int loadedChapterCount) {
-    if (!_isRemoteBook(book)) return loadedChapterCount;
-    return math.max(book.remoteChapterCount ?? 0, loadedChapterCount);
-  }
-
-  bool _remoteHasMore(Book? book) {
-    return book != null &&
-        _isRemoteBook(book) &&
-        (book.remoteNextTocUrl?.trim().isNotEmpty ?? false);
-  }
-
-  /// Online source books do not use the local TXT chapter analyzer. They keep a
-  /// cached catalog in the same chapters table, but refreshing that catalog must
-  /// go through the remote source rule pipeline so local import behavior stays
-  /// isolated and predictable.
-  Future<void> _refreshRemoteCatalog(Book book) async {
-    final sourceId = book.sourceId?.trim();
-    final bookUrl = book.sourceBookUrl?.trim();
-    if (sourceId == null ||
-        sourceId.isEmpty ||
-        bookUrl == null ||
-        bookUrl.isEmpty ||
-        _isRefreshingRemoteCatalog) {
-      return;
-    }
-
-    setState(() {
-      _isRefreshingRemoteCatalog = true;
-      _remoteCatalogError = null;
-      _catalogChapters.clear();
-      _hasMoreCatalogPages = true;
-      _isLoadingCatalogPage = false;
-    });
-
-    try {
-      await ref.read(remoteBookImportServiceProvider).importRemoteBook(
-            sourceId: sourceId,
-            bookUrl: bookUrl,
-            fallbackName: book.title,
-            fallbackAuthor: book.author,
-            fallbackCoverUrl: book.coverUrl,
-            fallbackIntro: book.intro,
-            addToShelf: book.inShelf,
-          );
-      if (!mounted) return;
-      ref
-        ..invalidate(bookByIdProvider(widget.bookId))
-        ..invalidate(bookChapterCountProvider(widget.bookId))
-        ..invalidate(bookChapterMetasProvider(widget.bookId))
-        ..invalidate(initialBookChapterMetasProvider(widget.bookId));
-      await _loadNextCatalogPage();
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _remoteCatalogError = '在线目录获取失败');
-    } finally {
-      if (mounted) {
-        setState(() => _isRefreshingRemoteCatalog = false);
-      }
-    }
+    if (position.extentAfter > chapterCatalogPrefetchExtent) return;
+    unawaited(_catalogController.loadNextPage());
   }
 
   void _openReader(
@@ -358,21 +228,12 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
 
   void _handleMoreAction(String title, Book book) {
     setState(() => _showMoreMenu = false);
-    if (title == '更新目录' && book.localPath != null) {
-      ref.read(localBookChapterAnalysisServiceProvider).analyzeInBackground(
-            bookId: book.id,
-            localPath: book.localPath!,
-          );
-      ref.read(appMessageServiceProvider).info(
-            '正在重新分析本地目录',
-            title: title,
-            position: AppMessagePosition.top,
-            dedupeKey: 'book-detail-more-$title',
-          );
+    if (title == '更新目录' && _catalogController.local.canRefresh(book)) {
+      _catalogController.local.refresh(book, title: title);
       return;
     }
-    if (title == '更新目录' && _isRemoteBook(book)) {
-      unawaited(_refreshRemoteCatalog(book));
+    if (title == '更新目录' && _catalogController.remote.isRemoteBook(book)) {
+      unawaited(_catalogController.refreshRemote(book));
       return;
     }
     ref.read(appMessageServiceProvider).info(
