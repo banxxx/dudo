@@ -729,6 +729,7 @@ class _SearchResultsSection extends StatelessWidget {
         icon: LucideIcons.loaderCircle,
         title: '正在搜索在线书源',
         message: '正在读取启用书源并执行规则，请稍候。',
+        animateIcon: true,
       ),
       error: (error, _) => _SearchStatusCard(
         icon: LucideIcons.triangleAlert,
@@ -839,11 +840,13 @@ class _SearchStatusCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.message,
+    this.animateIcon = false,
   });
 
   final IconData icon;
   final String title;
   final String message;
+  final bool animateIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -862,7 +865,7 @@ class _SearchStatusCard extends StatelessWidget {
               color: DudoColors.surface,
               borderRadius: BorderRadius.circular(24),
             ),
-            child: Icon(icon, color: DudoColors.primary, size: 24),
+            child: _StatusIcon(icon: icon, animate: animateIcon),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -892,6 +895,66 @@ class _SearchStatusCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _StatusIcon extends StatefulWidget {
+  const _StatusIcon({
+    required this.icon,
+    required this.animate,
+  });
+
+  final IconData icon;
+  final bool animate;
+
+  @override
+  State<_StatusIcon> createState() => _StatusIconState();
+}
+
+class _StatusIconState extends State<_StatusIcon>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    if (widget.animate) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _StatusIcon oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.animate == oldWidget.animate) return;
+    if (widget.animate) {
+      _controller.repeat();
+    } else {
+      _controller
+        ..stop()
+        ..value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = Icon(widget.icon, color: DudoColors.primary, size: 24);
+    if (!widget.animate) return icon;
+
+    return RotationTransition(
+      turns: _controller,
+      child: icon,
     );
   }
 }
