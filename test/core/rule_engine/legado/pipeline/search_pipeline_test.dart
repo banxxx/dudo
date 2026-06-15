@@ -344,6 +344,7 @@ void main() {
       );
       expect(results.single.kind, isNotEmpty);
       expect(results.single.lastChapter, isNotEmpty);
+      expect(results.single.coverUrl, 'http://www.jjwxc.net/cover.jpg');
     });
 
     test('keeps jjwxc bookbase anchor when detail compatibility fails',

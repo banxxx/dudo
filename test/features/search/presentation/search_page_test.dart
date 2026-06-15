@@ -136,6 +136,63 @@ void main() {
     expect(find.text(recentKeyword), findsNothing);
   });
 
+  testWidgets('submits search from recent chip without focusing input',
+      (tester) async {
+    const recentKeyword = '三体';
+    final recentSearchRepository = _MemoryRecentSearchRepository(
+      const [recentKeyword],
+    );
+    addTearDown(recentSearchRepository.dispose);
+    const response = OnlineSearchResponse(
+      searchedSourceCount: 1,
+      availableSourceCount: 1,
+      failures: [],
+      results: [
+        OnlineSearchBookResult(
+          sourceId: 'https://source.example',
+          sourceName: '测试书源',
+          name: '三体',
+          author: '刘慈欣',
+          bookUrl: 'https://source.example/book/1',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          enabledSourceCountProvider
+              .overrideWith((ref) => const AsyncValue.data(1)),
+          recentSearchRepositoryProvider
+              .overrideWithValue(recentSearchRepository),
+          recentSearchesProvider.overrideWith(
+            (ref) => recentSearchRepository.watchRecentSearches(),
+          ),
+          onlineSearchProvider(recentKeyword)
+              .overrideWith((ref) => Stream.value(response)),
+        ],
+        child: const MaterialApp(
+          home: SearchPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.text(recentKeyword));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('搜索结果'), findsOneWidget);
+    expect(find.text('刘慈欣 · 测试书源'), findsOneWidget);
+    expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText))
+            .focusNode
+            .hasFocus,
+        isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
+  });
+
   testWidgets('shows loading state while online search is pending',
       (tester) async {
     final completer = Completer<OnlineSearchResponse>();
@@ -179,6 +236,7 @@ void main() {
           name: '三体',
           author: '刘慈欣',
           intro: '文明在宇宙尺度中的回响，从一次偶然监听开始。',
+          coverUrl: 'https://source.example/cover.jpg',
           bookUrl: 'https://source.example/book/1',
         ),
         OnlineSearchBookResult(
@@ -220,6 +278,16 @@ void main() {
     expect(find.text('作者未知 · 测试书源'), findsOneWidget);
     expect(find.text('文明在宇宙尺度中的回响，从一次偶然监听开始。'), findsOneWidget);
     expect(find.text('https://source.example/book/2'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is NetworkImage &&
+            (widget.image as NetworkImage).url ==
+                'https://source.example/cover.jpg',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('输入关键词开始找书'), findsNothing);
 
     final searchField = tester.widget<Container>(

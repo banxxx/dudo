@@ -63,7 +63,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     _controller
       ..text = keyword
       ..selection = TextSelection.collapsed(offset: keyword.length);
-    _focusNode.requestFocus();
+    _focusNode.unfocus();
+    _handleSubmitSearch(keyword);
   }
 
   void _handleSubmitSearch(String value) {
@@ -1020,18 +1021,7 @@ class _SearchResultCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 68,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(9),
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [DudoColors.primary, DudoColors.primaryContainer],
-                ),
-              ),
-            ),
+            _SearchResultCover(coverUrl: result.coverUrl),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1075,6 +1065,72 @@ class _SearchResultCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchResultCover extends StatelessWidget {
+  const _SearchResultCover({required this.coverUrl});
+
+  final String? coverUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = coverUrl?.trim();
+    final imageUri = url == null || url.isEmpty ? null : Uri.tryParse(url);
+    final hasImage = imageUri != null && imageUri.hasScheme;
+    if (!hasImage) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(9),
+        child: const SizedBox(
+          width: 48,
+          height: 68,
+          child: _SearchResultCoverPlaceholder(),
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(9),
+      child: SizedBox(
+        width: 48,
+        height: 68,
+        child: Image.network(
+          url!,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return const _SearchResultCoverPlaceholder();
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return const _SearchResultCoverPlaceholder();
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchResultCoverPlaceholder extends StatelessWidget {
+  const _SearchResultCoverPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [DudoColors.primary, DudoColors.primaryContainer],
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          LucideIcons.bookOpen,
+          color: DudoColors.surface,
+          size: 20,
         ),
       ),
     );

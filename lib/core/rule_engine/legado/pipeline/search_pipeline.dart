@@ -381,6 +381,7 @@ class SearchPipeline {
       'des': '',
       'new': '',
       'cover': '',
+      'coverUrl': '',
     };
     if (detail != null) {
       for (final entry in detail.entries) {
@@ -448,6 +449,8 @@ class SearchPipeline {
     if (RegExp(r'(?:postimg|bmp|alicdn)\.', caseSensitive: false)
         .hasMatch(cover)) {
       cover = 'https://i9-static.jjwxc.net/novelimage.php?novelid=$novelId';
+    } else {
+      cover = _absoluteUrl(cover, decoded.finalUri.toString());
     }
     final status = _selectText(document, 'span[itemprop="updataStatus"]');
     final tags = _jjwxcTags(document);
@@ -474,7 +477,17 @@ class SearchPipeline {
       'des': intro,
       'new': _jjwxcLatestChapter(document),
       'cover': cover,
+      'coverUrl': cover,
     };
+  }
+
+  String _absoluteUrl(String rawUrl, String baseUrl) {
+    final text = rawUrl.trim();
+    if (text.isEmpty) return '';
+    final uri = Uri.tryParse(text);
+    if (uri == null) return text;
+    if (uri.hasScheme) return uri.toString();
+    return Uri.parse(baseUrl).resolveUri(uri).toString();
   }
 
   String _selectText(dom.Document document, String selector) {
