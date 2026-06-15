@@ -27,7 +27,9 @@ class AnalyzeRule {
     if (rawRule == null || rawRule.trim().isEmpty) return null;
     context.trace?.add('rule.stage:string');
     final preparedRule = _replaceDynamicRule(rawRule, context, source: source);
-    if (preparedRule != rawRule && _looksLikeLiteral(preparedRule)) {
+    if (preparedRule != rawRule &&
+        _looksLikeLiteral(preparedRule) &&
+        !_hasEmbeddedJs(preparedRule)) {
       return preparedRule;
     }
     final embedded = _evaluateEmbeddedJsRule(
@@ -128,7 +130,7 @@ class AnalyzeRule {
     final direct = switch (key) {
       'key' => context.keyword,
       'page' => context.page,
-      'baseUrl' || 'baseUri' => context.baseUri.toString(),
+      'baseUrl' || 'baseUri' => context.currentUrl,
       'redirectUrl' || 'redirectUri' => context.redirectUri.toString(),
       'result' => source ?? context.input.rawText,
       _ => context.getVariable(key),
@@ -154,10 +156,11 @@ class AnalyzeRule {
         context: LegadoJsContext(
           key: context.keyword ?? '',
           page: context.page,
-          baseUrl: context.baseUri.toString(),
+          baseUrl: context.currentUrl,
           src: source,
           result: source ?? context.input.rawText,
           source: context.source,
+          book: context.book,
           variables: context.variables,
         ),
       );
@@ -309,6 +312,11 @@ class AnalyzeRule {
     if (variableValue != null) return variableValue;
 
     final mode = normalizedSteps.first.mode;
+    if (mode == LegadoRuleMode.js) {
+      final value = _evaluateJsSteps(normalizedSteps, context, source);
+      return _valueFromObject(value, wantsElements: wantsElements);
+    }
+
     final parserType = _parserTypeFor(mode, source);
     context.trace?.add('rule.parserMode:${mode.name}');
     final parser = registry.forType(parserType);
@@ -317,9 +325,7 @@ class AnalyzeRule {
       return const RuleListValue([]);
     }
 
-    final rule = normalizedSteps.first.mode == LegadoRuleMode.js
-        ? _jsRuleChain(normalizedSteps)
-        : RuleChain.parse(_rawRuleForParser(normalizedSteps));
+    final rule = RuleChain.parse(_rawRuleForParser(normalizedSteps));
     if (wantsElements) {
       return RuleNodeSetValue(parser.parseElements(source, rule));
     }
@@ -338,7 +344,7 @@ class AnalyzeRule {
     required bool wantsElements,
   }) {
     final parts = _splitEmbeddedJs(rawRule);
-    if (parts == null || parts.length < 2) return null;
+    if (parts == null) return null;
 
     Object? current = source;
     var sawJs = false;
@@ -348,14 +354,15 @@ class AnalyzeRule {
       if (part.isJs) {
         sawJs = true;
         current = jsEngine.eval(
-          part.text,
+          _stripJsWrapper(part.text),
           context: LegadoJsContext(
             key: context.keyword ?? '',
             page: context.page,
-            baseUrl: context.baseUri.toString(),
+            baseUrl: context.currentUrl,
             src: source,
             result: current,
             source: context.source,
+            book: context.book,
             variables: context.variables,
           ),
         );
@@ -363,9 +370,14 @@ class AnalyzeRule {
       }
 
       final isLast = i == parts.length - 1;
+      final preparedPart =
+          _replaceDynamicRule(part.text, context, source: current).trim();
+      if (_looksLikeLiteral(preparedPart)) {
+        current = preparedPart;
+        continue;
+      }
       final value = evaluate(
-        astParser
-            .parse(_replaceDynamicRule(part.text, context, source: current)),
+        astParser.parse(preparedPart),
         context,
         current ?? '',
         wantsElements: wantsElements && isLast,
@@ -444,6 +456,11 @@ class AnalyzeRule {
         .hasMatch(text);
   }
 
+  bool _hasEmbeddedJs(String rule) {
+    return RegExp(r'<js>[\s\S]*?</js>|@js:', caseSensitive: false)
+        .hasMatch(rule);
+  }
+
   RuleValue? _evaluateVariableCommand(
     List<LegadoRuleStep> steps,
     RuleContext context,
@@ -495,13 +512,38 @@ class AnalyzeRule {
     };
   }
 
-  RuleChain _jsRuleChain(List<LegadoRuleStep> steps) {
-    return RuleChain([
-      RuleSegment(
-        RuleType.js,
-        [RuleStep(steps.map((step) => step.raw).join('@'))],
-      ),
-    ]);
+  Object? _evaluateJsSteps(
+    List<LegadoRuleStep> steps,
+    RuleContext context,
+    Object source,
+  ) {
+    Object? current = source;
+    for (final step in steps) {
+      current = jsEngine.eval(
+        _stripJsWrapper(step.raw),
+        context: LegadoJsContext(
+          key: context.keyword ?? '',
+          page: context.page,
+          baseUrl: context.currentUrl,
+          src: source,
+          result: current,
+          source: context.source,
+          book: context.book,
+          variables: context.variables,
+        ),
+      );
+    }
+    return current;
+  }
+
+  String _stripJsWrapper(String raw) {
+    final text = raw.trim();
+    final match = RegExp(
+      r'^<js>([\s\S]*)</js>$',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (match != null) return match.group(1)?.trim() ?? '';
+    return text;
   }
 
   bool _isPut(String raw) =>

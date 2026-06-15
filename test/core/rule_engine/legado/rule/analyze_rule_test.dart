@@ -1,4 +1,5 @@
 import 'package:dudo/core/rule_engine/legado/rule/analyze_rule.dart';
+import 'package:dudo/core/rule_engine/legado/js/legado_js_engine.dart';
 import 'package:dudo/core/rule_engine/legado/rule/rule_ast.dart';
 import 'package:dudo/core/rule_engine/legado/rule/rule_context.dart';
 import 'package:dudo/core/rule_engine/legado/rule/rule_value.dart';
@@ -137,6 +138,73 @@ void main() {
       expect(analyzeRule.string('ignored', '@get:{count}', context), '2');
     });
 
+    test('evaluates standalone js tag rules without passing wrapper tags', () {
+      final context = RuleContext(
+        source: _source(),
+        input: RuleInput(
+          rawText: 'Alpha',
+          baseUri: Uri.parse('https://source.example'),
+        ),
+      );
+      final analyzeRule = AnalyzeRule(registry: _registry());
+
+      expect(
+        analyzeRule.string('Alpha', '<js>result + " Beta"</js>', context),
+        'Alpha Beta',
+      );
+    });
+
+    test('uses redirect URL as Legado baseUrl in dynamic JS rules', () {
+      final jsEngine = _BaseUrlJsEngine();
+      final context = RuleContext(
+        source: _source(),
+        input: RuleInput(
+          rawText: '{}',
+          baseUri: Uri.parse('https://source.example/channel/'),
+          redirectUri: Uri.parse(
+            'http://app-cdn.example/androidapi/novelbasicinfo?novelId=3878507',
+          ),
+        ),
+      );
+      final analyzeRule = AnalyzeRule(
+        registry: _registry(),
+        jsEngine: jsEngine,
+      );
+
+      expect(
+        analyzeRule.string(
+          context.input.jsonDocument!,
+          r'https://api.example/chapterList?novelId={{baseUrl.match(/novelId=(\d+)/)[1]}}',
+          context,
+        ),
+        'https://api.example/chapterList?novelId=3878507',
+      );
+      expect(
+        jsEngine.lastBaseUrl,
+        'http://app-cdn.example/androidapi/novelbasicinfo?novelId=3878507',
+      );
+    });
+
+    test('runs embedded js after dynamic literal URL placeholders', () {
+      final context = RuleContext(
+        source: _source(),
+        input: RuleInput(
+          rawText: '{"cover":"https://img.example/cover.jpg"}',
+          baseUri: Uri.parse('https://source.example'),
+        ),
+      );
+      final analyzeRule = AnalyzeRule(registry: _registry());
+
+      expect(
+        analyzeRule.string(
+          context.input.jsonDocument!,
+          r'{{$.cover}} <js>result</js>',
+          context,
+        ),
+        'https://img.example/cover.jpg',
+      );
+    });
+
     test('replaces dynamic rule placeholders', () {
       final context = RuleContext(
         source: _source(),
@@ -198,6 +266,24 @@ void main() {
       );
     });
   });
+}
+
+class _BaseUrlJsEngine implements LegadoJsEngine {
+  String? lastBaseUrl;
+
+  @override
+  Object? eval(String script, {required LegadoJsContext context}) {
+    lastBaseUrl = context.baseUrl;
+    return RegExp(r'novelId=(\d+)').firstMatch(context.baseUrl ?? '')?.group(1);
+  }
+
+  @override
+  Future<Object?> evalAsync(
+    String script, {
+    required LegadoJsContext context,
+  }) async {
+    return eval(script, context: context);
+  }
 }
 
 List<String> _strings(RuleValue value) {

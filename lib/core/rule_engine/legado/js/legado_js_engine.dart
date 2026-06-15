@@ -222,8 +222,45 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
   var result = __ctx.result;
   var source = __ctx.source;
   var book = __ctx.book;
+  function __parseMaybeJson(value) {
+    if (typeof value !== "string") return value;
+    var text = value.trim();
+    if (!text) return value;
+    if (text[0] !== "{" && text[0] !== "[") return value;
+    try { return JSON.parse(text); } catch (e) { return value; }
+  }
+  function __readPath(root, path) {
+    if (root == null || typeof path !== "string") return null;
+    if (path === "\$") return root;
+    if (path.indexOf("\$.") !== 0) return null;
+    var current = __parseMaybeJson(root);
+    var parts = path.substring(2).split(".");
+    for (var i = 0; i < parts.length; i++) {
+      if (current == null) return null;
+      var part = parts[i];
+      var bracket = part.match(/^([^\\[]+)\\[(\\d+)\\]\$/);
+      if (bracket) {
+        current = current[bracket[1]];
+        current = current == null ? null : current[Number(bracket[2])];
+      } else {
+        current = current[part];
+      }
+    }
+    return current == null ? null : current;
+  }
+  function __ruleValue(path) {
+    var fromResult = __readPath(result, path);
+    if (fromResult != null) return fromResult;
+    return __readPath(src, path);
+  }
   var java = {
-    getString: function(value) { return value == null ? "" : String(value); },
+    getString: function(value) {
+      if (typeof value === "string" && value.indexOf("\$") === 0) {
+        var ruleValue = __ruleValue(value);
+        return ruleValue == null ? "" : String(ruleValue);
+      }
+      return value == null ? "" : String(value);
+    },
     put: function(name, value) {
       __ctx.variables[String(name)] = value;
       return value;
@@ -443,6 +480,7 @@ class _SimpleJsExpressionParser {
   }
 
   Object? _resolveIdentifier(String name) {
+    if (name.contains('.')) return _resolveQualifiedIdentifier(name);
     return switch (name) {
       'key' || 'keyword' => context.key,
       'page' => context.page.toDouble(),
@@ -459,6 +497,39 @@ class _SimpleJsExpressionParser {
       _ when context.variables.containsKey(name) => context.variables[name],
       _ => throw LegadoJsException('Unsupported identifier $name'),
     };
+  }
+
+  Object? _resolveQualifiedIdentifier(String name) {
+    final parts = name.split('.');
+    Object? current = _resolveIdentifier(parts.first);
+    for (final part in parts.skip(1)) {
+      current = _readProperty(current, part, name);
+    }
+    return current;
+  }
+
+  Object? _readProperty(Object? target, String property, String fullName) {
+    if (target is Map) return target[property];
+    if (target is List) {
+      final index = int.tryParse(property);
+      if (index != null && index >= 0 && index < target.length) {
+        return target[index];
+      }
+    }
+    if (target is SourceRule) {
+      return switch (property) {
+        'id' => target.id,
+        'name' => target.name,
+        'url' => target.url,
+        'group' => target.group,
+        'comment' => target.comment,
+        'bookUrlPattern' => target.bookUrlPattern,
+        'headers' => target.headers,
+        'loginUrl' => target.loginUrl,
+        _ => throw LegadoJsException('Unsupported identifier $fullName'),
+      };
+    }
+    throw LegadoJsException('Unsupported identifier $fullName');
   }
 
   Object? _javaPut(List<Object?> arguments) {

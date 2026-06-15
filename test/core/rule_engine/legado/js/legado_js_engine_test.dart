@@ -28,6 +28,8 @@ void main() {
       expect(engine.eval('src', context: context), 'Src');
       expect(engine.eval('source', context: context), source);
       expect(engine.eval('book', context: context), {'name': 'Book'});
+      expect(engine.eval('source.name', context: context), 'Source');
+      expect(engine.eval('book.name', context: context), 'Book');
     });
 
     test('supports java and cookie helper bindings', () {

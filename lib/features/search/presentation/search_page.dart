@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../app/router/app_router.dart';
+import '../../../core/utils/logger.dart';
 import '../../../shared/messages/app_message_service.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
@@ -82,6 +83,22 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   Future<void> _handleOpenResult(OnlineSearchBookResult result) async {
     final bookUrl = result.bookUrl?.trim();
     final messages = ref.read(appMessageServiceProvider);
+    log.i(
+      '[search-open] result sourceId=${result.sourceId} '
+      'sourceName=${result.sourceName} name=${result.name} '
+      'author=${result.author} bookUrl=${result.bookUrl} '
+      'coverUrl=${result.coverUrl} kind=${result.kind} '
+      'lastChapter=${result.lastChapter} wordCount=${result.wordCount} '
+      'intro=${_logPreview(result.intro ?? '')} '
+      'origins=${[
+        for (final origin in result.origins)
+          {
+            'sourceId': origin.sourceId,
+            'sourceName': origin.sourceName,
+            'bookUrl': origin.bookUrl,
+          },
+      ]}',
+    );
     if (bookUrl == null || bookUrl.isEmpty) {
       messages.warning('该搜索结果缺少详情地址，无法打开');
       return;
@@ -91,13 +108,24 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     try {
       final bookId =
           await ref.read(remoteBookImportServiceProvider).importRemoteBook(
-                sourceId: result.sourceId,
-                bookUrl: bookUrl,
-                fallbackName: result.name,
-                fallbackAuthor: result.author,
-                fallbackCoverUrl: result.coverUrl,
-                fallbackIntro: result.intro,
-              );
+        sourceId: result.sourceId,
+        bookUrl: bookUrl,
+        fallbackName: result.name,
+        fallbackAuthor: result.author,
+        fallbackCoverUrl: result.coverUrl,
+        fallbackIntro: result.intro,
+        fallbackKind: result.kind,
+        fallbackLastChapter: result.lastChapter,
+        fallbackWordCount: result.wordCount,
+        origins: [
+          for (final origin in result.origins)
+            {
+              'sourceId': origin.sourceId,
+              'sourceName': origin.sourceName,
+              'bookUrl': origin.bookUrl,
+            },
+        ],
+      );
       if (!mounted) return;
       ref
         ..invalidate(shelfBooksProvider)
@@ -1064,6 +1092,12 @@ String _resultIntro(OnlineSearchBookResult result) {
   final bookUrl = result.bookUrl?.trim();
   if (bookUrl != null && bookUrl.isNotEmpty) return bookUrl;
   return '暂无简介，后续详情解析会补充更多信息。';
+}
+
+String _logPreview(String value, {int maxLength = 300}) {
+  final compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+  if (compact.length <= maxLength) return compact;
+  return '${compact.substring(0, maxLength)}...';
 }
 
 void _handleOpenFilters() {

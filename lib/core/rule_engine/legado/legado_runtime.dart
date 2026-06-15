@@ -86,16 +86,18 @@ class LegadoRuntime {
 
   Future<LegadoBookInfo?> loadBookInfo(
     SourceRule source,
-    String bookUrl,
-  ) {
-    return bookInfoPipeline.load(source, bookUrl);
+    String bookUrl, {
+    Object? book,
+  }) {
+    return bookInfoPipeline.load(source, bookUrl, book: book);
   }
 
   Future<LegadoTocResult?> loadToc(
     SourceRule source,
-    String tocUrl,
-  ) {
-    return tocPipeline.load(source, tocUrl);
+    String tocUrl, {
+    Object? book,
+  }) {
+    return tocPipeline.load(source, tocUrl, book: book);
   }
 
   Future<LegadoContentResult?> loadContent(

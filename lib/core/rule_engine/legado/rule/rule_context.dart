@@ -10,6 +10,7 @@ class RuleContext {
     required this.input,
     this.keyword,
     this.page = 1,
+    this.book,
     Map<String, Object?>? variables,
     this.trace,
   }) : variables = variables ?? <String, Object?>{};
@@ -18,11 +19,13 @@ class RuleContext {
   final RuleInput input;
   final String? keyword;
   final int page;
+  final Object? book;
   final Map<String, Object?> variables;
   final LegadoTrace? trace;
 
   Uri get baseUri => input.baseUri;
   Uri get redirectUri => input.redirectUri;
+  String get currentUrl => redirectUri.toString();
 
   Object? getVariable(String key) => variables[key];
 

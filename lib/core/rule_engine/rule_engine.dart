@@ -42,9 +42,10 @@ class RuleEngine {
 
   Future<BookInfoResult?> loadBookInfo(
     SourceRule source,
-    String bookUrl,
-  ) async {
-    final info = await _runtime.loadBookInfo(source, bookUrl);
+    String bookUrl, {
+    Object? book,
+  }) async {
+    final info = await _runtime.loadBookInfo(source, bookUrl, book: book);
     if (info == null) return null;
     return BookInfoResult(
       name: info.name,
@@ -60,9 +61,10 @@ class RuleEngine {
 
   Future<TocResult?> loadToc(
     SourceRule source,
-    String tocUrl,
-  ) async {
-    final toc = await _runtime.loadToc(source, tocUrl);
+    String tocUrl, {
+    Object? book,
+  }) async {
+    final toc = await _runtime.loadToc(source, tocUrl, book: book);
     if (toc == null) return null;
     return TocResult(
       chapters: [

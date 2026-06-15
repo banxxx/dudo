@@ -77,6 +77,7 @@ class AnalyzeUrl {
     int page = 1,
     Map<String, Object?>? variables,
     LegadoJsAjax? ajax,
+    Object? book,
   }) async {
     final mutableVariables = variables ?? <String, Object?>{};
     final analyzedUrl = await _analyzeSearchUrlAsync(
@@ -86,6 +87,7 @@ class AnalyzeUrl {
       source,
       variables: mutableVariables,
       ajax: ajax,
+      book: book,
     );
     final replaced = await placeholder.applyAsync(
       rawUrl: analyzedUrl,
@@ -93,6 +95,7 @@ class AnalyzeUrl {
       page: page,
       baseUrl: source.url,
       source: source,
+      book: book,
       variables: mutableVariables,
       ajax: ajax,
     );
@@ -198,6 +201,7 @@ class AnalyzeUrl {
     SourceRule source, {
     required Map<String, Object?> variables,
     LegadoJsAjax? ajax,
+    Object? book,
   }) async {
     final jsPattern = RegExp(
       r'<js>([\s\S]*?)</js>|@js:([\s\S]*)',
@@ -225,6 +229,7 @@ class AnalyzeUrl {
           baseUrl: source.url,
           result: result,
           source: source,
+          book: book,
           variables: variables,
           ajax: ajax,
         ),
