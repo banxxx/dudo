@@ -2,6 +2,7 @@ import 'package:dudo/core/database/app_database.dart';
 import 'package:dudo/features/bookshelf/application/bookshelf_providers.dart';
 import 'package:dudo/features/bookshelf/data/bookshelf_repository.dart';
 import 'package:dudo/features/bookshelf/presentation/book_detail_page.dart';
+import 'package:dudo/shared/messages/app_message_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -140,12 +141,100 @@ void main() {
     await tester.scrollUntilVisible(find.text('全文'), 300);
     expect(find.text('全文'), findsOneWidget);
   });
+
+  testWidgets('shows add shelf action and collapses long intro',
+      (tester) async {
+    final now = DateTime(2026, 6, 3);
+    final longIntro = List.filled(
+      12,
+      '这是一段很长的作品简介，用来描述人物关系、世界设定、剧情走向和阅读提示。',
+    ).join();
+    final book = Book(
+      id: 'remote-book',
+      title: '远程书',
+      author: '作者',
+      intro: longIntro,
+      sourceId: 'source',
+      sourceBookUrl: 'https://source.example/book/1',
+      lastChapterIndex: 0,
+      lastReadPosition: 0,
+      createdAt: now,
+      updatedAt: now,
+      inShelf: false,
+      sortOrder: 0,
+    );
+    final chapters = [
+      const Chapter(
+        id: 'remote-book:0',
+        bookId: 'remote-book',
+        chapterIndex: 0,
+        title: '第一章',
+        normalizedContentLength: 0,
+        isCached: false,
+      ),
+    ];
+    final repository = _FakeBookshelfRepository(chapters);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          bookshelfRepositoryProvider.overrideWithValue(repository),
+          appMessageServiceProvider.overrideWithValue(_FakeAppMessageService()),
+          bookByIdProvider('remote-book')
+              .overrideWith((ref) => Stream.value(book)),
+          bookChapterCountProvider('remote-book')
+              .overrideWith((ref) => Stream.value(chapters.length)),
+          currentBookChapterMetaProvider(
+            const CurrentBookChapterKey(
+              bookId: 'remote-book',
+              chapterIndex: 0,
+            ),
+          ).overrideWith((ref) => Stream.value(chapters[0])),
+          initialBookChapterMetasProvider('remote-book')
+              .overrideWith((ref) => Stream.value(chapters)),
+          bookChapterMetasProvider('remote-book')
+              .overrideWith((ref) => Stream.value(chapters)),
+        ],
+        child: const MaterialApp(
+          home: BookDetailPage(bookId: 'remote-book'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('书架'), findsOneWidget);
+    expect(find.text('已在书架'), findsNothing);
+
+    await tester.tap(find.text('书架'));
+    await tester.pump();
+
+    expect(repository.addedBookIds, ['remote-book']);
+
+    final introText = tester.widget<Text>(find.text(longIntro));
+    expect(introText.maxLines, 5);
+    expect(find.text('展开'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('展开'),
+      300,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.ensureVisible(find.text('展开'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('展开'));
+    await tester.pump();
+
+    final expandedIntroText = tester.widget<Text>(find.text(longIntro));
+    expect(expandedIntroText.maxLines, isNull);
+    expect(find.text('收起'), findsOneWidget);
+  });
 }
 
 class _FakeBookshelfRepository implements BookshelfRepository {
-  const _FakeBookshelfRepository(this.chapters);
+  _FakeBookshelfRepository(this.chapters);
 
   final List<Chapter> chapters;
+  final List<String> addedBookIds = [];
 
   @override
   Future<List<Chapter>> fetchChapterMetasPage({
@@ -160,5 +249,15 @@ class _FakeBookshelfRepository implements BookshelfRepository {
   Future<void> backfillNormalizedContentLengths(String bookId) async {}
 
   @override
+  Future<void> addBookToShelf(String bookId) async {
+    addedBookIds.add(bookId);
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _FakeAppMessageService implements AppMessageService {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }

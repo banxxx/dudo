@@ -30,6 +30,7 @@ class RemoteBookImportService {
     String? fallbackKind,
     String? fallbackLastChapter,
     String? fallbackWordCount,
+    bool addToShelf = false,
     List<Map<String, Object?>> origins = const [],
   }) async {
     log.i(
@@ -113,6 +114,8 @@ class RemoteBookImportService {
 
       final now = DateTime.now();
       final bookId = _remoteBookId(sourceId, bookUrl);
+      final existingBook = await bookshelfRepository.findBookById(bookId);
+      final shouldBeInShelf = addToShelf || (existingBook?.inShelf ?? false);
       final title = _firstNonEmpty([info?.name, fallbackName, bookUrl]);
 
       await bookshelfRepository.upsertRemoteBook(
@@ -126,10 +129,14 @@ class RemoteBookImportService {
           sourceId: Value(sourceId),
           sourceBookUrl: Value(bookUrl),
           localPath: const Value(null),
-          inShelf: const Value(true),
-          createdAt: Value(now),
+          inShelf: Value(shouldBeInShelf),
+          createdAt: Value(existingBook?.createdAt ?? now),
           updatedAt: Value(now),
-          sortOrder: Value(now.millisecondsSinceEpoch),
+          sortOrder: Value(
+            shouldBeInShelf
+                ? (existingBook?.sortOrder ?? now.millisecondsSinceEpoch)
+                : 0,
+          ),
         ),
         chapters: [
           for (final entry in chapters.indexed)

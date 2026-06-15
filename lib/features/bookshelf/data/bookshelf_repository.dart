@@ -31,6 +31,13 @@ class BookshelfRepository {
     return query.watchSingleOrNull();
   }
 
+  Future<Book?> findBookById(String bookId) {
+    final query = database.select(database.books)
+      ..where((book) => book.id.equals(bookId))
+      ..limit(1);
+    return query.getSingleOrNull();
+  }
+
   Stream<List<Chapter>> watchChaptersForBook(String bookId) {
     final query = database.select(database.chapters)
       ..where((chapter) => chapter.bookId.equals(bookId))
@@ -220,12 +227,14 @@ class BookshelfRepository {
   }
 
   Future<void> addBookToShelf(String bookId) async {
+    final now = DateTime.now();
     await (database.update(database.books)
           ..where((book) => book.id.equals(bookId)))
         .write(
       BooksCompanion(
         inShelf: const Value(true),
-        updatedAt: Value(DateTime.now()),
+        updatedAt: Value(now),
+        sortOrder: Value(now.millisecondsSinceEpoch),
       ),
     );
   }

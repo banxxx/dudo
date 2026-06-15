@@ -1024,14 +1024,26 @@ class _BookStatItem extends StatelessWidget {
   }
 }
 
-class _BookIntroSection extends StatelessWidget {
+class _BookIntroSection extends StatefulWidget {
   const _BookIntroSection({required this.intro});
 
   final String? intro;
 
   @override
+  State<_BookIntroSection> createState() => _BookIntroSectionState();
+}
+
+class _BookIntroSectionState extends State<_BookIntroSection> {
+  static const _collapsedMaxLines = 5;
+  static const _expandThreshold = 140;
+
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    final text = intro?.trim().isEmpty == false ? intro!.trim() : '暂无简介。';
+    final text =
+        widget.intro?.trim().isEmpty == false ? widget.intro!.trim() : '暂无简介。';
+    final canToggle = text.length > _expandThreshold;
 
     return Container(
       width: double.infinity,
@@ -1055,13 +1067,71 @@ class _BookIntroSection extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             text,
+            maxLines: canToggle && !_expanded ? _collapsedMaxLines : null,
+            overflow: canToggle && !_expanded
+                ? TextOverflow.ellipsis
+                : TextOverflow.visible,
             style: DudoTextStyles.sans(
               color: DudoColors.textSecondary,
               fontSize: 14,
               height: 1.55,
             ),
           ),
+          if (canToggle) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _IntroToggleButton(
+                expanded: _expanded,
+                onTap: () => setState(() => _expanded = !_expanded),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _IntroToggleButton extends StatelessWidget {
+  const _IntroToggleButton({
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: AppRadius.full,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.full,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                expanded ? '收起' : '展开',
+                style: DudoTextStyles.sans(
+                  color: DudoColors.primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                color: DudoColors.primary,
+                size: 16,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
