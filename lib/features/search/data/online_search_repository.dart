@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import '../../../core/database/app_database.dart';
@@ -17,7 +18,12 @@ class OnlineSearchRepository {
   const OnlineSearchRepository({
     required this.sourceRepository,
     required this.searchRule,
+    this.searchConcurrency = defaultSearchConcurrency,
+    this.sourceTimeout = defaultSourceTimeout,
   });
+
+  static const defaultSearchConcurrency = 9;
+  static const defaultSourceTimeout = Duration(seconds: 30);
 
   factory OnlineSearchRepository.withRuleEngine({
     required SourceRepository sourceRepository,
@@ -31,6 +37,8 @@ class OnlineSearchRepository {
 
   final SourceRepository sourceRepository;
   final RuleSearch searchRule;
+  final int searchConcurrency;
+  final Duration sourceTimeout;
 
   Future<OnlineSearchResponse> search(String keyword) async {
     final sources = await sourceRepository.listEnabledSources();
@@ -41,25 +49,41 @@ class OnlineSearchRepository {
     String keyword,
     List<Source> sources,
   ) async {
+    OnlineSearchResponse? latest;
+    await for (final response in searchSourcesStream(keyword, sources)) {
+      latest = response;
+    }
+    return latest ??
+        const OnlineSearchResponse(
+          results: [],
+          failures: [],
+          searchedSourceCount: 0,
+          availableSourceCount: 0,
+        );
+  }
+
+  Stream<OnlineSearchResponse> searchSourcesStream(
+    String keyword,
+    List<Source> sources,
+  ) async* {
     final normalizedKeyword = keyword.trim();
     if (normalizedKeyword.isEmpty) {
-      return const OnlineSearchResponse(
+      yield const OnlineSearchResponse(
         results: [],
         failures: [],
         searchedSourceCount: 0,
         availableSourceCount: 0,
       );
+      return;
     }
-
-    final results = <OnlineSearchBookResult>[];
-    final failures = <OnlineSearchFailure>[];
-    var searchedSourceCount = 0;
 
     log.i(
       '[online-search] start keyword="$normalizedKeyword" '
       'enabledSources=${sources.length}',
     );
 
+    final tasks = <_SourceSearchTask>[];
+    final immediateFailures = <_OrderedFailure>[];
     for (var index = 0; index < sources.length; index++) {
       final source = sources[index];
       final rule = _parseSourceRule(source.rulesJson);
@@ -68,11 +92,14 @@ class OnlineSearchRepository {
           '[online-search] source ${index + 1}/${sources.length} '
           'parse failed name="${source.name}" id="${source.id}"',
         );
-        failures.add(
-          OnlineSearchFailure(
-            sourceId: source.id,
-            sourceName: source.name,
-            message: '\u4e66\u6e90\u89c4\u5219\u65e0\u6cd5\u89e3\u6790',
+        immediateFailures.add(
+          _OrderedFailure(
+            index,
+            OnlineSearchFailure(
+              sourceId: source.id,
+              sourceName: source.name,
+              message: '\u4e66\u6e90\u89c4\u5219\u65e0\u6cd5\u89e3\u6790',
+            ),
           ),
         );
         continue;
@@ -87,65 +114,139 @@ class OnlineSearchRepository {
         continue;
       }
 
-      searchedSourceCount += 1;
-      log.i(
-        '[online-search] source ${index + 1}/${sources.length} '
-        'searching name="${source.name}" id="${source.id}" '
-        'base="${rule.url}" rawSearchUrl="${rule.search!.searchUrl}"',
+      tasks.add(
+        _SourceSearchTask(
+          index: index,
+          totalSources: sources.length,
+          source: source,
+          rule: rule,
+        ),
       );
-      try {
-        final sourceResults = await searchRule(rule, normalizedKeyword);
-        log.i(
-          '[online-search] source ${index + 1}/${sources.length} '
-          'finished name="${source.name}" resultCount=${sourceResults.length}',
-        );
-        results.addAll(
-          sourceResults.map(
-            (result) => OnlineSearchBookResult(
-              sourceId: source.id,
-              sourceName: source.name,
-              name: result.name,
-              author: result.author,
-              intro: result.intro,
-              coverUrl: result.coverUrl,
-              bookUrl: result.bookUrl,
-              kind: result.kind,
-              lastChapter: result.lastChapter,
-              wordCount: result.wordCount,
-              origins: [
-                OnlineSearchOrigin(
-                  sourceId: source.id,
-                  sourceName: source.name,
-                  bookUrl: result.bookUrl,
-                ),
-              ],
-            ),
-          ),
-        );
-      } catch (error) {
-        final diagnostics = _diagnosticsFor(error);
-        log.w(
-          '[online-search] source ${index + 1}/${sources.length} '
-          'failed name="${source.name}" id="${source.id}" '
-          'diagnostics=${diagnostics.join(' | ')} error=$error',
-        );
-        failures.add(
-          OnlineSearchFailure(
-            sourceId: source.id,
-            sourceName: source.name,
-            message: error.toString(),
-            diagnostics: diagnostics,
-          ),
-        );
+    }
+
+    final searchableSourceCount = tasks.length;
+    if (tasks.isEmpty) {
+      yield OnlineSearchResponse(
+        results: const [],
+        failures: _orderedFailures(immediateFailures),
+        searchedSourceCount: 0,
+        availableSourceCount: sources.length,
+      );
+      return;
+    }
+
+    final maxConcurrency = searchConcurrency.clamp(1, searchableSourceCount);
+    final active = <int, Future<_SourceSearchOutcome>>{};
+    final completedOutcomes = <int, _SourceSearchOutcome>{};
+    var nextTaskIndex = 0;
+
+    void startNextTasks() {
+      while (active.length < maxConcurrency && nextTaskIndex < tasks.length) {
+        final task = tasks[nextTaskIndex++];
+        active[task.index] = _searchOneSource(task, normalizedKeyword);
       }
     }
 
-    return OnlineSearchResponse(
-      results: _mergeAndRankResults(results, normalizedKeyword),
-      failures: failures,
-      searchedSourceCount: searchedSourceCount,
-      availableSourceCount: sources.length,
+    OnlineSearchResponse currentResponse({required bool isSearching}) {
+      final orderedOutcomes = completedOutcomes.values.toList(growable: false)
+        ..sort((a, b) => a.index.compareTo(b.index));
+      final results = <OnlineSearchBookResult>[];
+      final failures = <_OrderedFailure>[...immediateFailures];
+      for (final outcome in orderedOutcomes) {
+        results.addAll(outcome.results);
+        if (outcome.failure != null) {
+          failures.add(_OrderedFailure(outcome.index, outcome.failure!));
+        }
+      }
+      return OnlineSearchResponse(
+        results: _mergeAndRankResults(results, normalizedKeyword),
+        failures: _orderedFailures(failures),
+        searchedSourceCount: searchableSourceCount,
+        availableSourceCount: sources.length,
+        completedSourceCount: completedOutcomes.length,
+        isSearching: isSearching,
+      );
+    }
+
+    startNextTasks();
+    while (active.isNotEmpty) {
+      final outcome = await Future.any(active.values);
+      active.remove(outcome.index);
+      completedOutcomes[outcome.index] = outcome;
+      startNextTasks();
+      yield currentResponse(isSearching: active.isNotEmpty);
+    }
+  }
+
+  Future<_SourceSearchOutcome> _searchOneSource(
+    _SourceSearchTask task,
+    String normalizedKeyword,
+  ) async {
+    final source = task.source;
+    final rule = task.rule;
+    log.i(
+      '[online-search] source ${task.index + 1}/${task.totalSources} '
+      'searching name="${source.name}" id="${source.id}" '
+      'base="${rule.url}" rawSearchUrl="${rule.search!.searchUrl}"',
     );
+    try {
+      final sourceResults =
+          await searchRule(rule, normalizedKeyword).timeout(sourceTimeout);
+      log.i(
+        '[online-search] source ${task.index + 1}/${task.totalSources} '
+        'finished name="${source.name}" resultCount=${sourceResults.length}',
+      );
+      return _SourceSearchOutcome(
+        index: task.index,
+        results: sourceResults
+            .map(
+              (result) => OnlineSearchBookResult(
+                sourceId: source.id,
+                sourceName: source.name,
+                name: result.name,
+                author: result.author,
+                intro: result.intro,
+                coverUrl: result.coverUrl,
+                bookUrl: result.bookUrl,
+                kind: result.kind,
+                lastChapter: result.lastChapter,
+                wordCount: result.wordCount,
+                origins: [
+                  OnlineSearchOrigin(
+                    sourceId: source.id,
+                    sourceName: source.name,
+                    bookUrl: result.bookUrl,
+                  ),
+                ],
+              ),
+            )
+            .toList(growable: false),
+      );
+    } catch (error) {
+      final diagnostics = _diagnosticsFor(error);
+      log.w(
+        '[online-search] source ${task.index + 1}/${task.totalSources} '
+        'failed name="${source.name}" id="${source.id}" '
+        'diagnostics=${diagnostics.join(' | ')} error=$error',
+      );
+      return _SourceSearchOutcome(
+        index: task.index,
+        failure: OnlineSearchFailure(
+          sourceId: source.id,
+          sourceName: source.name,
+          message: error is TimeoutException
+              ? '\u4e66\u6e90\u641c\u7d22\u8d85\u65f6\uff08${sourceTimeout.inSeconds}s\uff09'
+              : error.toString(),
+          diagnostics: diagnostics,
+        ),
+      );
+    }
+  }
+
+  List<OnlineSearchFailure> _orderedFailures(List<_OrderedFailure> failures) {
+    final sorted = failures.toList(growable: false)
+      ..sort((a, b) => a.index.compareTo(b.index));
+    return sorted.map((failure) => failure.failure).toList(growable: false);
   }
 
   List<OnlineSearchBookResult> _mergeAndRankResults(
@@ -214,6 +315,39 @@ class OnlineSearchRepository {
       ...?error.trace?.events,
     ];
   }
+}
+
+class _SourceSearchTask {
+  const _SourceSearchTask({
+    required this.index,
+    required this.totalSources,
+    required this.source,
+    required this.rule,
+  });
+
+  final int index;
+  final int totalSources;
+  final Source source;
+  final SourceRule rule;
+}
+
+class _SourceSearchOutcome {
+  const _SourceSearchOutcome({
+    required this.index,
+    this.results = const [],
+    this.failure,
+  });
+
+  final int index;
+  final List<OnlineSearchBookResult> results;
+  final OnlineSearchFailure? failure;
+}
+
+class _OrderedFailure {
+  const _OrderedFailure(this.index, this.failure);
+
+  final int index;
+  final OnlineSearchFailure failure;
 }
 
 class _MergedSearchResult {

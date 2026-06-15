@@ -58,16 +58,21 @@ class OnlineSearchResponse {
     required this.failures,
     required this.searchedSourceCount,
     required this.availableSourceCount,
+    this.completedSourceCount = 0,
+    this.isSearching = false,
   });
 
   final List<OnlineSearchBookResult> results;
   final List<OnlineSearchFailure> failures;
   final int searchedSourceCount;
   final int availableSourceCount;
+  final int completedSourceCount;
+  final bool isSearching;
 
   bool get hasResults => results.isNotEmpty;
   bool get hasFailures => failures.isNotEmpty;
   bool get allSearchedSourcesFailed =>
+      !isSearching &&
       searchedSourceCount > 0 &&
       results.isEmpty &&
       failures.length >= searchedSourceCount;

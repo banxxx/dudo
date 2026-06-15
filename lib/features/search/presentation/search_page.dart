@@ -751,6 +751,15 @@ class _SearchResultsSection extends StatelessWidget {
             message: '已尝试 ${response.searchedSourceCount} 个书源，但规则或网络请求全部失败。',
           );
         }
+        if (response.isSearching && response.results.isEmpty) {
+          return _SearchStatusCard(
+            icon: LucideIcons.loaderCircle,
+            title: '正在搜索在线书源',
+            message:
+                '已完成 ${response.completedSourceCount}/${response.searchedSourceCount} 个书源，正在等待其余书源返回。',
+            animateIcon: true,
+          );
+        }
         if (response.results.isEmpty) {
           return _SearchStatusCard(
             icon: LucideIcons.searchX,

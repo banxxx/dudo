@@ -145,7 +145,8 @@ void main() {
       overrides: [
         enabledSourceCountProvider
             .overrideWith((ref) => const AsyncValue.data(1)),
-        onlineSearchProvider('三体').overrideWith((ref) => completer.future),
+        onlineSearchProvider('三体')
+            .overrideWith((ref) => Stream.fromFuture(completer.future)),
       ],
     );
 
@@ -201,7 +202,8 @@ void main() {
             const ['长夜余火', '非常非常非常长的搜索关键词会被省略', '刘慈欣'],
           ),
         ),
-        onlineSearchProvider('三体').overrideWith((ref) async => response),
+        onlineSearchProvider('三体')
+            .overrideWith((ref) => Stream.value(response)),
       ],
     );
 
@@ -302,7 +304,8 @@ void main() {
       overrides: [
         enabledSourceCountProvider
             .overrideWith((ref) => const AsyncValue.data(1)),
-        onlineSearchProvider('不存在的书').overrideWith((ref) async => response),
+        onlineSearchProvider('不存在的书')
+            .overrideWith((ref) => Stream.value(response)),
       ],
     );
 
@@ -314,6 +317,34 @@ void main() {
     expect(find.text('搜索结果'), findsNothing);
   });
 
+  testWidgets('keeps searching state for empty partial stream results',
+      (tester) async {
+    const response = OnlineSearchResponse(
+      searchedSourceCount: 2,
+      completedSourceCount: 1,
+      availableSourceCount: 2,
+      isSearching: true,
+      failures: [],
+      results: [],
+    );
+
+    await _pumpSearchPage(
+      tester,
+      overrides: [
+        enabledSourceCountProvider
+            .overrideWith((ref) => const AsyncValue.data(2)),
+        onlineSearchProvider('三体')
+            .overrideWith((ref) => Stream.value(response)),
+      ],
+    );
+
+    await _enterQuery(tester, '三体');
+    await tester.pump();
+
+    expect(find.text('正在搜索在线书源'), findsOneWidget);
+    expect(find.textContaining('已完成 1/2 个书源'), findsOneWidget);
+  });
+
   testWidgets('shows provider error state when search provider throws',
       (tester) async {
     await _pumpSearchPage(
@@ -322,7 +353,7 @@ void main() {
         enabledSourceCountProvider
             .overrideWith((ref) => const AsyncValue.data(1)),
         onlineSearchProvider('三体').overrideWith(
-          (ref) async => throw StateError('network exploded'),
+          (ref) => Stream.error(StateError('network exploded')),
         ),
       ],
     );
@@ -348,7 +379,8 @@ void main() {
       overrides: [
         enabledSourceCountProvider
             .overrideWith((ref) => const AsyncValue.data(0)),
-        onlineSearchProvider('三体').overrideWith((ref) async => response),
+        onlineSearchProvider('三体')
+            .overrideWith((ref) => Stream.value(response)),
       ],
     );
 
@@ -384,7 +416,8 @@ void main() {
       overrides: [
         enabledSourceCountProvider
             .overrideWith((ref) => const AsyncValue.data(2)),
-        onlineSearchProvider('三体').overrideWith((ref) async => response),
+        onlineSearchProvider('三体')
+            .overrideWith((ref) => Stream.value(response)),
       ],
     );
 
@@ -416,7 +449,8 @@ void main() {
       overrides: [
         enabledSourceCountProvider
             .overrideWith((ref) => const AsyncValue.data(2)),
-        onlineSearchProvider('三体').overrideWith((ref) async => response),
+        onlineSearchProvider('三体')
+            .overrideWith((ref) => Stream.value(response)),
       ],
     );
 
@@ -455,7 +489,8 @@ void main() {
       overrides: [
         enabledSourceCountProvider
             .overrideWith((ref) => const AsyncValue.data(2)),
-        onlineSearchProvider('三体').overrideWith((ref) async => response),
+        onlineSearchProvider('三体')
+            .overrideWith((ref) => Stream.value(response)),
       ],
     );
 

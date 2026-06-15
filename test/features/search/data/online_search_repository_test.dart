@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dudo/core/database/app_database.dart';
@@ -303,6 +304,83 @@ void main() {
     expect(response.results.first.origins, hasLength(2));
     expect(response.results.first.sourceName, 'Source A、Source B');
     expect(response.results.last.name, 'Target Story');
+  });
+
+  test('searches sources concurrently with a Legado-like concurrency cap',
+      () async {
+    sourceRepository.sources = [
+      for (var index = 0; index < 4; index++)
+        _source(
+          id: 'source-$index',
+          name: 'Source $index',
+          enabled: true,
+          rulesJson: _rulesJson(url: 'https://source-$index.example'),
+          sortOrder: index,
+        ),
+    ];
+    var active = 0;
+    var maxActive = 0;
+
+    final repository = OnlineSearchRepository(
+      sourceRepository: sourceRepository,
+      searchConcurrency: 2,
+      searchRule: (source, _) async {
+        active += 1;
+        maxActive = active > maxActive ? active : maxActive;
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        active -= 1;
+        return [
+          SearchResult(name: source.id, author: 'Author'),
+        ];
+      },
+    );
+
+    final response = await repository.search('target');
+
+    expect(response.results, hasLength(4));
+    expect(maxActive, 2);
+  });
+
+  test('times out one slow source without blocking successful sources',
+      () async {
+    sourceRepository.sources = [
+      _source(
+        id: 'slow-source',
+        name: 'Slow Source',
+        enabled: true,
+        rulesJson: _rulesJson(url: 'https://slow.example'),
+        sortOrder: 1,
+      ),
+      _source(
+        id: 'fast-source',
+        name: 'Fast Source',
+        enabled: true,
+        rulesJson: _rulesJson(url: 'https://fast.example'),
+        sortOrder: 2,
+      ),
+    ];
+    final never = Completer<List<SearchResult>>();
+
+    final repository = OnlineSearchRepository(
+      sourceRepository: sourceRepository,
+      sourceTimeout: const Duration(milliseconds: 20),
+      searchRule: (source, _) {
+        if (source.id == 'https://slow.example') {
+          return never.future;
+        }
+        return Future.value(
+          const [SearchResult(name: 'Target', author: 'Author')],
+        );
+      },
+    );
+
+    final response = await repository.search('target');
+
+    expect(response.results, hasLength(1));
+    expect(response.results.single.sourceName, 'Fast Source');
+    expect(response.failures, hasLength(1));
+    expect(response.failures.single.sourceName, 'Slow Source');
+    expect(response.failures.single.message, contains('超时'));
   });
 }
 

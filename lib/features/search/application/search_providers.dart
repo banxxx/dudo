@@ -28,13 +28,13 @@ final recentSearchesProvider = StreamProvider<List<String>>((ref) {
   return ref.watch(recentSearchRepositoryProvider).watchRecentSearches();
 });
 
-final onlineSearchProvider =
-    FutureProvider.family<OnlineSearchResponse, String>((ref, keyword) async {
+final onlineSearchProvider = StreamProvider.autoDispose
+    .family<OnlineSearchResponse, String>((ref, keyword) async* {
   final normalizedKeyword = keyword.trim();
   final enabledSources = await _requireData(ref.watch(enabledSourcesProvider));
-  return ref
+  yield* ref
       .watch(onlineSearchRepositoryProvider)
-      .searchSources(normalizedKeyword, enabledSources);
+      .searchSourcesStream(normalizedKeyword, enabledSources);
 });
 
 final enabledSourceCountProvider = Provider<AsyncValue<int>>((ref) {
