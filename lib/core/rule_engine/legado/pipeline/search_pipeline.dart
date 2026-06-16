@@ -3,11 +3,13 @@ import 'dart:convert';
 import '../../models/source_rule.dart';
 import '../decode/response_decoder.dart';
 import '../legado_models.dart';
+import '../runtime/legado_runtime_context.dart';
 import '../rule/analyze_rule.dart';
 import '../rule/rule_context.dart';
 import '../rule/rule_value.dart';
 import '../url/analyze_url.dart';
 import '../url/request_executor.dart';
+import '../webview/legado_webview_executor.dart';
 import '../../../utils/logger.dart';
 import 'java_ajax.dart';
 import 'pipeline_trace.dart';
@@ -22,6 +24,7 @@ class SearchPipeline {
     required this.decoder,
     required this.analyzeRule,
     this.responseTransformer = const LegadoResponseTransformer(),
+    this.webViewExecutor = const UnsupportedLegadoWebViewExecutor(),
   });
 
   final AnalyzeUrl analyzeUrl;
@@ -29,6 +32,7 @@ class SearchPipeline {
   final ResponseDecoder decoder;
   final AnalyzeRule analyzeRule;
   final LegadoResponseTransformer responseTransformer;
+  final LegadoWebViewExecutor webViewExecutor;
 
   Future<List<LegadoSearchItem>> search(
     SourceRule source,
@@ -42,26 +46,29 @@ class SearchPipeline {
 
     final trace = LegadoTrace();
     try {
-      final variables = <String, Object?>{};
+      final baseContext = LegadoRuntimeContext(
+        source: source,
+        baseUrl: source.url,
+        keyword: keyword,
+        trace: trace,
+      );
       final ajax = createLegadoJavaAjax(
         analyzeUrl: analyzeUrl,
         executor: executor,
         decoder: decoder,
-        source: source,
-        trace: trace,
-        keyword: keyword,
-        variables: variables,
+        runtimeContext: baseContext,
         responseTransformer: responseTransformer,
+        webViewExecutor: webViewExecutor,
       );
+      final runtimeContext = baseContext.copyWith(ajax: ajax);
       final request = await analyzeUrl.compileSearchAsync(
         source: source,
         rawUrl: rawUrl,
         keyword: keyword,
-        variables: variables,
+        variables: runtimeContext.variables.asMap(),
         ajax: ajax,
       );
       recordUnsupportedUrlOptionTrace(request, trace, stage: 'search');
-      throwIfUnsupportedWebViewRequest(request, trace, stage: 'search');
       recordLegadoRequestTrace(request, trace, stage: 'search');
       log.i(
         '[legado-search] compiled source="${source.name}" '
@@ -69,7 +76,13 @@ class SearchPipeline {
         'url="${request.url}" headers=${request.headers.length} '
         'bodyLength=${request.body?.toString().length ?? 0}',
       );
-      final response = await executor.execute(request);
+      final response = await executeLegadoRequest(
+        request: request,
+        httpExecutor: executor,
+        webViewExecutor: webViewExecutor,
+        stage: 'search',
+        trace: trace,
+      );
       recordLegadoResponseTrace(response, trace, stage: 'search');
       log.i(
         '[legado-search] response source="${source.name}" '
@@ -83,25 +96,26 @@ class SearchPipeline {
         source: source,
         jsEngine: analyzeUrl.jsEngine,
         trace: trace,
-        keyword: keyword,
-        variables: variables,
+        runtimeContext: runtimeContext,
         ajax: ajax,
         cookieStore: analyzeUrl.cookieStore,
       );
       final baseUrl = decoded.finalUri.toString();
-      final context = RuleContext(
-        source: source,
-        keyword: keyword,
-        trace: trace,
-        variables: variables,
-        cookie: _cookieHeader(request.headers),
-        ajax: ajax,
-        input: RuleInput(
-          rawText: decoded.text,
-          baseUri: Uri.parse(source.url),
-          redirectUri: decoded.finalUri,
-        ),
-      );
+      final ruleContext = runtimeContext
+          .copyWith(
+            src: decoded.text,
+            result: decoded.text,
+            redirectUrl: baseUrl,
+            cookie: _cookieHeader(request.headers),
+          )
+          .toRuleContext(
+            input: RuleInput(
+              rawText: decoded.text,
+              baseUri: Uri.parse(source.url),
+              redirectUri: decoded.finalUri,
+            ),
+            cookie: _cookieHeader(request.headers),
+          );
       final isDetailPage = _matchesBookUrlPattern(
         decoded.finalUri.toString(),
         source.bookUrlPattern ?? search.bookUrlPattern,
@@ -114,7 +128,7 @@ class SearchPipeline {
           : await _bookListOrDetailFallback(
               decoded.text,
               search.bookList,
-              context,
+              ruleContext,
               source,
             );
       var list = listResult.items;
@@ -131,7 +145,7 @@ class SearchPipeline {
         final detailRule = listResult.parseAsDetail ? source.bookInfo : null;
         final fieldSource = detailRule == null
             ? node
-            : _detailRoot(node, detailRule.init, context);
+            : _detailRoot(node, detailRule.init, ruleContext);
         final nameRule = detailRule?.name ?? search.name;
         final authorRule = detailRule?.author ?? search.author;
         final coverUrlRule = detailRule?.coverUrl ?? search.coverUrl;
@@ -139,12 +153,18 @@ class SearchPipeline {
         final kindRule = detailRule?.kind ?? search.kind;
         final lastChapterRule = detailRule?.lastChapter ?? search.lastChapter;
         final rawBookUrl = detailRule == null
-            ? _safeFieldString(fieldSource, search.bookUrl, context, 'bookUrl')
+            ? _safeFieldString(
+                fieldSource,
+                search.bookUrl,
+                ruleContext,
+                'bookUrl',
+              )
             : baseUrl;
         final name =
-            _safeFieldString(fieldSource, nameRule, context, 'name') ?? '';
+            _safeFieldString(fieldSource, nameRule, ruleContext, 'name') ?? '';
         final author =
-            _safeFieldString(fieldSource, authorRule, context, 'author') ?? '';
+            _safeFieldString(fieldSource, authorRule, ruleContext, 'author') ??
+                '';
         _recordEmptyField(trace, 'name', name, nameRule);
         _recordEmptyField(trace, 'author', author, authorRule);
         _recordEmptyField(trace, 'bookUrl', rawBookUrl, search.bookUrl);
@@ -152,23 +172,24 @@ class SearchPipeline {
           name: name,
           author: author,
           coverUrl: analyzeRule.absoluteUrl(
-            _safeFieldString(fieldSource, coverUrlRule, context, 'coverUrl'),
+            _safeFieldString(
+                fieldSource, coverUrlRule, ruleContext, 'coverUrl'),
             baseUrl,
           ),
           bookUrl: analyzeRule.absoluteUrl(
             rawBookUrl ?? (isDetailPage ? baseUrl : null),
             baseUrl,
           ),
-          intro: _safeFieldString(fieldSource, introRule, context, 'intro'),
-          kind: _safeFieldString(fieldSource, kindRule, context, 'kind'),
+          intro: _safeFieldString(fieldSource, introRule, ruleContext, 'intro'),
+          kind: _safeFieldString(fieldSource, kindRule, ruleContext, 'kind'),
           lastChapter: _safeFieldString(
-              fieldSource, lastChapterRule, context, 'lastChapter'),
+              fieldSource, lastChapterRule, ruleContext, 'lastChapter'),
           wordCount: detailRule == null
               ? null
               : _safeFieldString(
                   fieldSource,
                   detailRule.wordCount,
-                  context,
+                  ruleContext,
                   'wordCount',
                 ),
         );

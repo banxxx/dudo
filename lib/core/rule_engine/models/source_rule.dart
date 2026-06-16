@@ -182,12 +182,18 @@ class ContentRule {
   final String? nextContentUrl;
   final String? replaceRegex;
   final String? title;
+  final String? webJs;
+  final String? sourceRegex;
+  final String? bodyJs;
 
   const ContentRule({
     this.content,
     this.nextContentUrl,
     this.replaceRegex,
     this.title,
+    this.webJs,
+    this.sourceRegex,
+    this.bodyJs,
   });
 
   factory ContentRule.fromJson(Map<String, dynamic> j) => ContentRule(
@@ -195,6 +201,9 @@ class ContentRule {
         nextContentUrl: j['nextContentUrl'] as String?,
         replaceRegex: j['replaceRegex'] as String?,
         title: j['title'] as String?,
+        webJs: _stringValue(j['webJs']),
+        sourceRegex: _stringValue(j['sourceRegex']),
+        bodyJs: _stringValue(j['bodyJs']),
       );
 }
 

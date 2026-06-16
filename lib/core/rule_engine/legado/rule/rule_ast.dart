@@ -1,6 +1,6 @@
 import 'rule_analyzer.dart';
 
-enum LegadoRuleMode { defaultHtml, css, jsonPath, xpath, regex, js }
+enum LegadoRuleMode { defaultHtml, css, jsonPath, xpath, regex, js, webJs }
 
 sealed class LegadoRuleAst {
   const LegadoRuleAst();
@@ -120,6 +120,14 @@ class LegadoRuleAstParser {
         text.startsWith('<js>')) {
       return LegadoRuleMode.js;
     }
+    if (text.startsWith('@WebJS:') ||
+        text.startsWith('@WebJs:') ||
+        text.startsWith('@webjs:') ||
+        text.startsWith('WebJS:') ||
+        text.startsWith('WebJs:') ||
+        text.startsWith('webjs:')) {
+      return LegadoRuleMode.webJs;
+    }
     return LegadoRuleMode.defaultHtml;
   }
 
@@ -134,6 +142,7 @@ class LegadoRuleAstParser {
         .replaceFirst(RegExp(r'^@?(?:CSS|css):'), '')
         .replaceFirst(RegExp(r'^@?(?:XPath):'), '')
         .replaceFirst(RegExp(r'^@?(?:JSon|Json|json):'), '')
+        .replaceFirst(RegExp(r'^@?(?:WebJS|WebJs|webjs):'), '')
         .replaceFirst(RegExp(r'^@?(?:JS|js):'), '');
   }
 }

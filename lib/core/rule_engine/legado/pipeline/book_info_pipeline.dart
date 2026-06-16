@@ -2,11 +2,13 @@ import '../../models/source_rule.dart';
 import '../../../utils/logger.dart';
 import '../decode/response_decoder.dart';
 import '../legado_models.dart';
+import '../runtime/legado_runtime_context.dart';
 import '../rule/analyze_rule.dart';
 import '../rule/rule_context.dart';
 import '../rule/rule_value.dart';
 import '../url/analyze_url.dart';
 import '../url/request_executor.dart';
+import '../webview/legado_webview_executor.dart';
 import 'java_ajax.dart';
 import 'pipeline_trace.dart';
 import 'response_transformer.dart';
@@ -18,6 +20,7 @@ class BookInfoPipeline {
     required this.decoder,
     required this.analyzeRule,
     this.responseTransformer = const LegadoResponseTransformer(),
+    this.webViewExecutor = const UnsupportedLegadoWebViewExecutor(),
   });
 
   final AnalyzeUrl analyzeUrl;
@@ -25,6 +28,7 @@ class BookInfoPipeline {
   final ResponseDecoder decoder;
   final AnalyzeRule analyzeRule;
   final LegadoResponseTransformer responseTransformer;
+  final LegadoWebViewExecutor webViewExecutor;
 
   Future<LegadoBookInfo?> load(
     SourceRule source,
@@ -36,16 +40,21 @@ class BookInfoPipeline {
 
     final trace = LegadoTrace();
     try {
-      final variables = <String, Object?>{};
+      final baseContext = LegadoRuntimeContext(
+        source: source,
+        baseUrl: source.url,
+        book: book,
+        trace: trace,
+      );
       final ajax = createLegadoJavaAjax(
         analyzeUrl: analyzeUrl,
         executor: executor,
         decoder: decoder,
-        source: source,
-        trace: trace,
-        variables: variables,
+        runtimeContext: baseContext,
         responseTransformer: responseTransformer,
+        webViewExecutor: webViewExecutor,
       );
+      final runtimeContext = baseContext.copyWith(ajax: ajax);
       log.i(
         '[legado-book-info] start source=${source.name} '
         'sourceId=${source.id} bookUrl=$bookUrl book=${_bookSummary(book)}',
@@ -54,19 +63,24 @@ class BookInfoPipeline {
         source: source,
         rawUrl: bookUrl,
         keyword: '',
-        variables: variables,
+        variables: runtimeContext.variables.asMap(),
         ajax: ajax,
         book: book,
       );
       recordUnsupportedUrlOptionTrace(request, trace, stage: 'bookInfo');
-      throwIfUnsupportedWebViewRequest(request, trace, stage: 'bookInfo');
       recordLegadoRequestTrace(request, trace, stage: 'bookInfo');
       log.i(
         '[legado-book-info] request method=${request.method} '
         'url=${request.url} headers=${request.headers.length} '
         'charset=${request.charset ?? 'auto'}',
       );
-      final response = await executor.execute(request);
+      final response = await executeLegadoRequest(
+        request: request,
+        httpExecutor: executor,
+        webViewExecutor: webViewExecutor,
+        stage: 'bookInfo',
+        trace: trace,
+      );
       recordLegadoResponseTrace(response, trace, stage: 'bookInfo');
       log.i(
         '[legado-book-info] response status=${response.statusCode} '
@@ -79,8 +93,7 @@ class BookInfoPipeline {
         source: source,
         jsEngine: analyzeUrl.jsEngine,
         trace: trace,
-        book: book,
-        variables: variables,
+        runtimeContext: runtimeContext,
         ajax: ajax,
         cookieStore: analyzeUrl.cookieStore,
       );
@@ -89,19 +102,21 @@ class BookInfoPipeline {
         'chars=${decoded.text.length} preview=${_preview(decoded.text)}',
       );
       final baseUrl = decoded.finalUri.toString();
-      final context = RuleContext(
-        source: source,
-        trace: trace,
-        book: book,
-        variables: variables,
-        cookie: _cookieHeader(request.headers),
-        ajax: ajax,
-        input: RuleInput(
-          rawText: decoded.text,
-          baseUri: Uri.parse(source.url),
-          redirectUri: decoded.finalUri,
-        ),
-      );
+      final context = runtimeContext
+          .copyWith(
+            src: decoded.text,
+            result: decoded.text,
+            redirectUrl: baseUrl,
+            cookie: _cookieHeader(request.headers),
+          )
+          .toRuleContext(
+            input: RuleInput(
+              rawText: decoded.text,
+              baseUri: Uri.parse(source.url),
+              redirectUri: decoded.finalUri,
+            ),
+            cookie: _cookieHeader(request.headers),
+          );
       final root = _initRoot(decoded.text, rule.init, context);
 
       final name = _fieldString(root, rule.name, context, 'name') ?? '';

@@ -144,6 +144,12 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
       rethrow;
     } catch (error) {
       if (_isRuntimeUnavailable(error)) {
+        if (!canUseSimpleLegadoJsFallback(script)) {
+          throw LegadoJsException(
+            'Full JS runtime is required for complex Legado JS, '
+            'but QuickJS runtime is unavailable: $error',
+          );
+        }
         return const SimpleLegadoJsEngine().eval(script, context: context);
       }
       throw LegadoJsException('JS execution failed: $error');
@@ -195,6 +201,12 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
       rethrow;
     } catch (error) {
       if (_isRuntimeUnavailable(error)) {
+        if (!canUseSimpleLegadoJsFallback(script)) {
+          throw LegadoJsException(
+            'Full JS runtime is required for complex Legado JS, '
+            'but QuickJS runtime is unavailable: $error',
+          );
+        }
         return const SimpleLegadoJsEngine().evalAsync(
           script,
           context: context,
@@ -325,6 +337,79 @@ $globals
   }
 }
 
+bool canUseSimpleLegadoJsFallback(String script) {
+  final text = _stripJsComments(script).trim();
+  if (text.isEmpty) return true;
+
+  // 简化解释器只兜底 Legado 常见的单表达式/简单赋值；控制流、局部变量、
+  // 函数和对象构造等复杂脚本必须交给完整 JS runtime，避免误执行出错。
+  final complexPattern = RegExp(
+    r'\b(if|else|for|while|switch|try|catch|finally|function|return|var|let|const|new|class|with|importPackage)\b|=>',
+  );
+  return !complexPattern.hasMatch(text);
+}
+
+String _stripJsComments(String script) {
+  final buffer = StringBuffer();
+  var quote = '';
+  var escaped = false;
+  var lineComment = false;
+  var blockComment = false;
+
+  for (var i = 0; i < script.length; i++) {
+    final char = script[i];
+    final next = i + 1 < script.length ? script[i + 1] : '';
+
+    if (lineComment) {
+      if (char == '\n' || char == '\r') {
+        lineComment = false;
+        buffer.write(char);
+      }
+      continue;
+    }
+    if (blockComment) {
+      if (char == '*' && next == '/') {
+        blockComment = false;
+        i += 1;
+      }
+      continue;
+    }
+    if (escaped) {
+      escaped = false;
+      buffer.write(char);
+      continue;
+    }
+    if (char == r'\') {
+      escaped = true;
+      buffer.write(char);
+      continue;
+    }
+    if (quote.isNotEmpty) {
+      if (char == quote) quote = '';
+      buffer.write(char);
+      continue;
+    }
+    if (char == '"' || char == "'" || char == '`') {
+      quote = char;
+      buffer.write(char);
+      continue;
+    }
+    if (char == '/' && next == '/') {
+      lineComment = true;
+      i += 1;
+      continue;
+    }
+    if (char == '/' && next == '*') {
+      blockComment = true;
+      i += 1;
+      continue;
+    }
+    buffer.write(char);
+  }
+
+  return buffer.toString();
+}
+
 class LegadoJsException implements Exception {
   const LegadoJsException(this.message);
 
@@ -382,19 +467,29 @@ class _SimpleJsExpressionParser {
   }
 
   Object? _parsePrimary() {
-    if (_matchType(_TokenType.number)) return _previous().literal;
-    if (_matchType(_TokenType.string)) return _previous().literal;
-    if (_match('(')) {
-      final value = _parseAdditive();
+    Object? value;
+    if (_matchType(_TokenType.number)) {
+      value = _previous().literal;
+    } else if (_matchType(_TokenType.string)) {
+      value = _previous().literal;
+    } else if (_match('(')) {
+      value = _parseAdditive();
       _consume(')', 'Expected closing parenthesis');
-      return value;
-    }
-    if (_matchType(_TokenType.identifier)) {
+    } else if (_matchType(_TokenType.identifier)) {
       final name = _qualifiedIdentifier(_previous().lexeme);
-      if (_match('(')) return _callFunction(name);
-      return _resolveIdentifier(name);
+      value = _match('(') ? _callFunction(name) : _resolveIdentifier(name);
+    } else {
+      throw LegadoJsException('Unexpected token ${_peek().lexeme}');
     }
-    throw LegadoJsException('Unexpected token ${_peek().lexeme}');
+
+    while (_match('.')) {
+      if (!_matchType(_TokenType.identifier)) {
+        throw const LegadoJsException('Expected identifier after dot');
+      }
+      final property = _previous().lexeme;
+      value = _readProperty(value, property, property);
+    }
+    return value;
   }
 
   Object? _callFunction(String name) {
@@ -416,6 +511,7 @@ class _SimpleJsExpressionParser {
       'String' => _stringify(_expectArgument(name, arguments, 0)),
       'Number' => _toNumber(_expectArgument(name, arguments, 0)),
       'parseInt' => _parseInt(_expectArgument(name, arguments, 0)),
+      'JSON.parse' => _jsonParse(arguments),
       'java.getString' => _javaGetString(arguments),
       'java.ajax' => _javaAjax(arguments),
       'java.put' => _javaPut(arguments),
@@ -523,7 +619,19 @@ class _SimpleJsExpressionParser {
     if (ajax == null) {
       throw const LegadoJsException('java.ajax is not configured');
     }
+    // 第二个 timeout 参数是 Legado 常见写法；简化引擎先接收参数，
+    // 实际超时仍由统一请求执行层控制，避免在 JS 兜底里分叉网络行为。
     return ajax(_stringify(_expectArgument('java.ajax', arguments, 0)));
+  }
+
+  Object? _jsonParse(List<Object?> arguments) {
+    final raw = _stringify(_expectArgument('JSON.parse', arguments, 0)).trim();
+    if (raw.isEmpty) return null;
+    try {
+      return jsonDecode(raw);
+    } catch (error) {
+      throw LegadoJsException('JSON.parse failed: $error');
+    }
   }
 
   Object? _javaGet(List<Object?> arguments) {

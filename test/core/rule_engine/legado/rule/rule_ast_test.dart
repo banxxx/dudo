@@ -22,7 +22,7 @@ void main() {
 
     test('detects parser modes for pipeline steps', () {
       final ast = parser.parse(
-        r'@JSon:$.items[*]@CSS:.name@XPath://a@js:result + 1',
+        r'@JSon:$.items[*]@CSS:.name@XPath://a@js:result + 1@webjs:document.body.innerText',
       ) as LegadoPipelineRule;
 
       expect(ast.steps.map((step) => step.mode), [
@@ -30,12 +30,14 @@ void main() {
         LegadoRuleMode.css,
         LegadoRuleMode.xpath,
         LegadoRuleMode.js,
+        LegadoRuleMode.webJs,
       ]);
       expect(ast.steps.map((step) => step.raw), [
         r'$.items[*]',
         '.name',
         '//a',
         'result + 1',
+        'document.body.innerText',
       ]);
     });
   });

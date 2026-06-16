@@ -2,11 +2,13 @@ import '../../models/source_rule.dart';
 import '../../../utils/logger.dart';
 import '../decode/response_decoder.dart';
 import '../legado_models.dart';
+import '../runtime/legado_runtime_context.dart';
 import '../rule/analyze_rule.dart';
 import '../rule/rule_context.dart';
 import '../rule/rule_value.dart';
 import '../url/analyze_url.dart';
 import '../url/request_executor.dart';
+import '../webview/legado_webview_executor.dart';
 import 'java_ajax.dart';
 import 'pipeline_trace.dart';
 import 'response_transformer.dart';
@@ -20,6 +22,7 @@ class TocPipeline {
     required this.analyzeRule,
     this.compatibilityParser = const TocCompatibilityParser(),
     this.responseTransformer = const LegadoResponseTransformer(),
+    this.webViewExecutor = const UnsupportedLegadoWebViewExecutor(),
   });
 
   final AnalyzeUrl analyzeUrl;
@@ -28,6 +31,7 @@ class TocPipeline {
   final AnalyzeRule analyzeRule;
   final TocCompatibilityParser compatibilityParser;
   final LegadoResponseTransformer responseTransformer;
+  final LegadoWebViewExecutor webViewExecutor;
 
   Future<LegadoTocResult?> load(
     SourceRule source,
@@ -39,16 +43,21 @@ class TocPipeline {
 
     final trace = LegadoTrace();
     try {
-      final variables = <String, Object?>{};
+      final baseContext = LegadoRuntimeContext(
+        source: source,
+        baseUrl: source.url,
+        book: book,
+        trace: trace,
+      );
       final ajax = createLegadoJavaAjax(
         analyzeUrl: analyzeUrl,
         executor: executor,
         decoder: decoder,
-        source: source,
-        trace: trace,
-        variables: variables,
+        runtimeContext: baseContext,
         responseTransformer: responseTransformer,
+        webViewExecutor: webViewExecutor,
       );
+      final runtimeContext = baseContext.copyWith(ajax: ajax);
       log.i(
         '[legado-toc] start source=${source.name} sourceId=${source.id} '
         'tocUrl=$tocUrl book=${_bookSummary(book)}',
@@ -57,18 +66,23 @@ class TocPipeline {
         source: source,
         rawUrl: tocUrl,
         keyword: '',
-        variables: variables,
+        variables: runtimeContext.variables.asMap(),
         ajax: ajax,
         book: book,
       );
       recordUnsupportedUrlOptionTrace(request, trace, stage: 'toc');
-      throwIfUnsupportedWebViewRequest(request, trace, stage: 'toc');
       recordLegadoRequestTrace(request, trace, stage: 'toc');
       log.i(
         '[legado-toc] request method=${request.method} url=${request.url} '
         'headers=${request.headers.length} charset=${request.charset ?? 'auto'}',
       );
-      final response = await executor.execute(request);
+      final response = await executeLegadoRequest(
+        request: request,
+        httpExecutor: executor,
+        webViewExecutor: webViewExecutor,
+        stage: 'toc',
+        trace: trace,
+      );
       recordLegadoResponseTrace(response, trace, stage: 'toc');
       log.i(
         '[legado-toc] response status=${response.statusCode} '
@@ -81,8 +95,7 @@ class TocPipeline {
         source: source,
         jsEngine: analyzeUrl.jsEngine,
         trace: trace,
-        book: book,
-        variables: variables,
+        runtimeContext: runtimeContext,
         ajax: ajax,
         cookieStore: analyzeUrl.cookieStore,
       );
@@ -91,19 +104,21 @@ class TocPipeline {
         'chars=${decoded.text.length} preview=${_preview(decoded.text)}',
       );
       final baseUrl = decoded.finalUri.toString();
-      final context = RuleContext(
-        source: source,
-        trace: trace,
-        book: book,
-        variables: variables,
-        cookie: _cookieHeader(request.headers),
-        ajax: ajax,
-        input: RuleInput(
-          rawText: decoded.text,
-          baseUri: Uri.parse(source.url),
-          redirectUri: decoded.finalUri,
-        ),
-      );
+      final context = runtimeContext
+          .copyWith(
+            src: decoded.text,
+            result: decoded.text,
+            redirectUrl: baseUrl,
+            cookie: _cookieHeader(request.headers),
+          )
+          .toRuleContext(
+            input: RuleInput(
+              rawText: decoded.text,
+              baseUri: Uri.parse(source.url),
+              redirectUri: decoded.finalUri,
+            ),
+            cookie: _cookieHeader(request.headers),
+          );
       final list = _elements(decoded.text, rule.chapterList, context);
       log.i(
         '[legado-toc] chapterList count=${list.length} '

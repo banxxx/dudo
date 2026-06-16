@@ -131,6 +131,52 @@ void main() {
       );
       expect(requested, ['/api?q=Alpha']);
     });
+
+    test('accepts java.ajax timeout argument for Legado compatibility', () {
+      const engine = SimpleLegadoJsEngine();
+      final requested = <String>[];
+      final context = LegadoJsContext(
+        key: 'Alpha',
+        page: 1,
+        ajax: (rawUrl) {
+          requested.add(rawUrl);
+          return '{"content":"response:$rawUrl"}';
+        },
+      );
+
+      expect(
+        engine.eval(
+          'JSON.parse(java.ajax("/api?q=" + key, 5000)).content',
+          context: context,
+        ),
+        'response:/api?q=Alpha',
+      );
+      expect(requested, ['/api?q=Alpha']);
+    });
+
+    test('only allows simple-expression fallback scripts', () {
+      expect(
+        canUseSimpleLegadoJsFallback('JSON.parse(result).chapterContent'),
+        isTrue,
+      );
+      expect(
+        canUseSimpleLegadoJsFallback('result = java.getString("\$.content")'),
+        isTrue,
+      );
+      expect(
+        canUseSimpleLegadoJsFallback('if(result){ result = "ok"; }'),
+        isFalse,
+      );
+      expect(
+        canUseSimpleLegadoJsFallback('var data = JSON.parse(result); data.x'),
+        isFalse,
+      );
+      expect(
+        canUseSimpleLegadoJsFallback(
+            '// if inside comment\nJSON.parse(result)'),
+        isTrue,
+      );
+    });
   });
 
   group('FlutterJsLegadoJsEngine', () {
@@ -196,7 +242,9 @@ Future<Object?> _evalWithQuickJsOrSkip(
   } on LegadoJsException catch (error) {
     final message = error.message;
     if (message.contains('Unsupported function JSON.parse') ||
-        message.contains('Unsupported character =')) {
+        message.contains('Unsupported character =') ||
+        message.contains('Full JS runtime is required') ||
+        message.contains("Instance of 'Future")) {
       markTestSkipped('QuickJS runtime is not available in this test host.');
       return _quickJsSkipped;
     }

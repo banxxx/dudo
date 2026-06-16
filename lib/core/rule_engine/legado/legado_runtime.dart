@@ -18,6 +18,7 @@ import 'url/analyze_url.dart';
 import 'url/cookie_merge.dart';
 import 'url/request_executor.dart';
 import 'url/url_placeholder.dart';
+import 'webview/legado_webview_executor.dart';
 
 class LegadoRuntime {
   LegadoRuntime({
@@ -34,7 +35,10 @@ class LegadoRuntime {
   final TocPipeline tocPipeline;
   final ContentPipeline contentPipeline;
 
-  factory LegadoRuntime.create({LegadoRequestExecutor? executor}) {
+  factory LegadoRuntime.create({
+    LegadoRequestExecutor? executor,
+    LegadoWebViewExecutor? webViewExecutor,
+  }) {
     final jsEngine = FlutterJsLegadoJsEngine();
     final registry = ParserRegistry()
       ..register(const DefaultHtmlRuleParser())
@@ -45,6 +49,8 @@ class LegadoRuntime {
       ..register(JsRuleParser(jsEngine: jsEngine));
     final analyzeRule = AnalyzeRule(registry: registry, jsEngine: jsEngine);
     final requestExecutor = executor ?? const DioLegadoRequestExecutor();
+    final webExecutor =
+        webViewExecutor ?? const UnsupportedLegadoWebViewExecutor();
     // 在线书源运行时共享同一个内存 CookieStore，避免详情、目录、正文各自丢失会话。
     final cookieStore = InMemoryLegadoCookieStore();
     final analyzeUrl = AnalyzeUrl(
@@ -59,24 +65,28 @@ class LegadoRuntime {
         executor: requestExecutor,
         decoder: const ResponseDecoder(),
         analyzeRule: analyzeRule,
+        webViewExecutor: webExecutor,
       ),
       bookInfoPipeline: BookInfoPipeline(
         analyzeUrl: analyzeUrl,
         executor: requestExecutor,
         decoder: const ResponseDecoder(),
         analyzeRule: analyzeRule,
+        webViewExecutor: webExecutor,
       ),
       tocPipeline: TocPipeline(
         analyzeUrl: analyzeUrl,
         executor: requestExecutor,
         decoder: const ResponseDecoder(),
         analyzeRule: analyzeRule,
+        webViewExecutor: webExecutor,
       ),
       contentPipeline: ContentPipeline(
         analyzeUrl: analyzeUrl,
         executor: requestExecutor,
         decoder: const ResponseDecoder(),
         analyzeRule: analyzeRule,
+        webViewExecutor: webExecutor,
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../../models/source_rule.dart';
 import '../decode/response_decoder.dart';
 import '../js/legado_js_engine.dart';
+import '../runtime/legado_runtime_context.dart';
 import '../rule/rule_context.dart';
 import '../url/cookie_merge.dart';
 import '../url/request_executor.dart';
@@ -17,10 +18,11 @@ class LegadoResponseTransformer {
     required SourceRule source,
     required LegadoJsEngine jsEngine,
     required LegadoTrace trace,
+    LegadoRuntimeContext? runtimeContext,
     String keyword = '',
     int page = 1,
     Object? book,
-    required Map<String, Object?> variables,
+    Map<String, Object?>? variables,
     LegadoJsAjax? ajax,
     LegadoCookieStore? cookieStore,
   }) async {
@@ -34,31 +36,38 @@ class LegadoResponseTransformer {
       headers: response.headers,
       statusCode: response.statusCode,
       explicitCharset: request.charset,
-      trace: trace,
+      trace: runtimeContext?.trace ?? trace,
     );
-    decoded = _applySourceRegex(decoded, request, trace);
+    final effectiveTrace = runtimeContext?.trace ?? trace;
+    final effectiveSource = runtimeContext?.source ?? source;
+    final effectiveKeyword = runtimeContext?.keyword ?? keyword;
+    final effectivePage = runtimeContext?.page ?? page;
+    final effectiveBook = runtimeContext?.book ?? book;
+    final effectiveVariables =
+        variables ?? runtimeContext?.variables.asMap() ?? <String, Object?>{};
+    decoded = _applySourceRegex(decoded, request, effectiveTrace);
     final bodyJs = request.bodyJs?.trim();
     if (bodyJs == null || bodyJs.isEmpty) return decoded;
 
-    trace.add('response.bodyJs:start');
+    effectiveTrace.add('response.bodyJs:start');
     final value = await jsEngine.evalAsync(
       bodyJs,
       context: LegadoJsContext(
-        key: keyword,
-        page: page,
+        key: effectiveKeyword,
+        page: effectivePage,
         baseUrl: decoded.finalUri.toString(),
         src: decoded.text,
         result: decoded.text,
-        source: source,
-        book: book,
-        variables: variables,
+        source: effectiveSource,
+        book: effectiveBook,
+        variables: effectiveVariables,
         cookie: _cookieHeader(request.headers),
         ajax: ajax,
-        trace: trace,
+        trace: effectiveTrace,
       ),
     );
     final transformed = _stringifyBodyJsValue(value);
-    trace
+    effectiveTrace
       ..add('response.bodyJs:done')
       ..add('response.bodyJs.length:${transformed.length}');
     return DecodedLegadoResponse(

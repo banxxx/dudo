@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:dudo/core/rule_engine/legado/common/legado_trace.dart';
 import 'package:dudo/core/rule_engine/legado/legado_runtime.dart';
 import 'package:dudo/core/rule_engine/legado/url/request_executor.dart';
+import 'package:dudo/core/rule_engine/legado/webview/legado_webview_executor.dart';
 import 'package:dudo/core/rule_engine/models/source_rule.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -63,6 +64,59 @@ void main() {
       expect(content.content, contains('Line 1\nLine 2'));
     });
 
+    test('parses JSON content through embedded JSON.parse JS rule', () async {
+      final runtime = LegadoRuntime.create(
+        executor: _FakeExecutor(
+          finalUri: Uri.parse(
+            'https://source.example/api/chapterContent?chapterId=1',
+          ),
+          contentType: 'application/json; charset=utf-8',
+          body: jsonEncode({
+            'chapterId': '1',
+            'chapterName': 'Chapter 1',
+            'chapterContent': 'Line 1\nLine 2',
+          }),
+        ),
+      );
+
+      final content = await runtime.loadContent(
+        _jsonParseContentSource(),
+        'https://source.example/api/chapterContent?chapterId=1',
+      );
+
+      expect(content, isNotNull);
+      expect(content!.title, 'Chapter 1');
+      expect(content.content, 'Line 1\nLine 2');
+    });
+
+    test(
+        'keeps JJWXC chapterContent readable when complex JS needs full runtime',
+        () async {
+      final runtime = LegadoRuntime.create(
+        executor: _FakeExecutor(
+          finalUri: Uri.parse(
+            'https://app-cdn.jjwxc.net/androidapi/chapterContent?novelId=3878507&chapterId=1',
+          ),
+          contentType: 'application/json; charset=utf-8',
+          body: jsonEncode({
+            'chapterid': '1',
+            'chaptername': '第一章',
+            'content': '第一段<br/>第二段',
+            'sayBody': '作者有话说',
+          }),
+        ),
+      );
+
+      final content = await runtime.loadContent(
+        _jjwxcComplexContentSource(),
+        'https://app-cdn.jjwxc.net/androidapi/chapterContent?novelId=3878507&chapterId=1',
+      );
+
+      expect(content, isNotNull);
+      expect(content!.content, contains('第一段\n第二段'));
+      expect(content.content, contains('作者有话说'));
+    });
+
     test('applies bodyJs before parsing content rule', () async {
       final runtime = LegadoRuntime.create(
         executor: _FakeExecutor(
@@ -98,6 +152,53 @@ void main() {
 
       expect(content, isNotNull);
       expect(content!.content, 'Extracted body');
+    });
+
+    test('passes ruleContent request-stage options into content request',
+        () async {
+      final executor = _RecordingExecutor(
+        finalUri: Uri.parse('https://source.example/chapter'),
+        body:
+            '<html><script>window.__DATA__={"content":"Rule body"}</script></html>',
+      );
+      final runtime = LegadoRuntime.create(executor: executor);
+
+      final content = await runtime.loadContent(
+        _requestStageContentSource(),
+        'https://source.example/chapter',
+      );
+
+      expect(content, isNotNull);
+      expect(content!.content, 'Rule body!');
+      expect(
+        executor.requests.single.sourceRegex,
+        r'window\.__DATA__=({[\s\S]*?})</script>',
+      );
+      expect(
+        executor.requests.single.bodyJs,
+        '\'{"content":"\' + JSON.parse(result).content + \'!"}\'',
+      );
+      expect(executor.requests.single.webJs, 'document.body.innerText');
+    });
+
+    test('URL options override ruleContent request-stage options', () async {
+      final runtime = LegadoRuntime.create(
+        executor: _FakeExecutor(
+          finalUri: Uri.parse('https://source.example/chapter'),
+          body:
+              '<html><script>window.__DATA__={"content":"Rule body"}</script><script>window.__URL__={"content":"URL body"}</script></html>',
+        ),
+      );
+
+      final content = await runtime.loadContent(
+        _requestStageContentSource(),
+        'https://source.example/chapter,'
+        '{"sourceRegex":"window\\\\.__URL__=({[\\\\s\\\\S]*?})</script>",'
+        '"bodyJs":"result"}',
+      );
+
+      expect(content, isNotNull);
+      expect(content!.content, 'URL body');
     });
 
     test('writes response Set-Cookie back into next content request', () async {
@@ -221,6 +322,34 @@ void main() {
       );
       expect(executor.called, isFalse);
     });
+
+    test('routes WebView request mode to injected WebView executor', () async {
+      final executor = _ThrowingExecutor();
+      final webViewExecutor = _FakeWebViewExecutor(
+        finalUri: Uri.parse('https://source.example/webview'),
+        body: '''
+          <html><body>
+            <h1 class="title">Web Chapter</h1>
+            <article id="content"><p>WebView body</p></article>
+          </body></html>
+        ''',
+      );
+      final runtime = LegadoRuntime.create(
+        executor: executor,
+        webViewExecutor: webViewExecutor,
+      );
+
+      final content = await runtime.loadContent(
+        _htmlContentSource(),
+        'https://source.example/webview,{"webView":true}',
+      );
+
+      expect(content, isNotNull);
+      expect(content!.title, 'Web Chapter');
+      expect(content.content, 'WebView body');
+      expect(executor.called, isFalse);
+      expect(webViewExecutor.requests.single.useWebView, isTrue);
+    });
   });
 }
 
@@ -247,6 +376,42 @@ SourceRule _jsonContentSource() {
   );
 }
 
+SourceRule _jsonParseContentSource() {
+  return const SourceRule(
+    id: 'source',
+    name: 'Source',
+    url: 'https://source.example/',
+    content: ContentRule(
+      title: '<js> JSON.parse(result).chapterName </js>',
+      content: '<js> JSON.parse(result).chapterContent </js>',
+    ),
+  );
+}
+
+SourceRule _jjwxcComplexContentSource() {
+  return const SourceRule(
+    id: 'jjwxc',
+    name: 'JJWXC',
+    url: 'https://app-cdn.jjwxc.net/',
+    content: ContentRule(
+      content: r'''
+<js>
+if(baseUrl.match(/jjwxc/)){
+  intro = java.get("intro1");
+  content = java.getString("$.content");
+  saybody = java.getString("$.sayBody");
+  say = saybody != "" ? "\n作者有话说：\n" + saybody : "";
+  result = content + say;
+}else{
+  result = "&lrm;";
+}
+result
+</js>
+''',
+    ),
+  );
+}
+
 SourceRule _bodyJsContentSource() {
   return const SourceRule(
     id: 'source',
@@ -265,6 +430,20 @@ SourceRule _sourceRegexContentSource() {
     url: 'https://source.example/',
     content: ContentRule(
       content: r'$.content',
+    ),
+  );
+}
+
+SourceRule _requestStageContentSource() {
+  return const SourceRule(
+    id: 'source',
+    name: 'Source',
+    url: 'https://source.example/',
+    content: ContentRule(
+      content: r'$.content',
+      sourceRegex: r'window\.__DATA__=({[\s\S]*?})</script>',
+      bodyJs: r''' '{"content":"' + JSON.parse(result).content + '!"}' ''',
+      webJs: 'document.body.innerText',
     ),
   );
 }
@@ -324,6 +503,30 @@ class _SequenceExecutor implements LegadoRequestExecutor {
   }
 }
 
+class _RecordingExecutor implements LegadoRequestExecutor {
+  _RecordingExecutor({
+    required this.finalUri,
+    required this.body,
+  });
+
+  final Uri finalUri;
+  final String body;
+  final List<LegadoRequest> requests = [];
+
+  @override
+  Future<LegadoHttpResponse> execute(LegadoRequest request) async {
+    requests.add(request);
+    return LegadoHttpResponse(
+      bytes: utf8.encode(body),
+      finalUri: finalUri,
+      headers: Headers.fromMap({
+        'content-type': ['text/html; charset=utf-8'],
+      }),
+      statusCode: 200,
+    );
+  }
+}
+
 class _FakeResponse {
   const _FakeResponse({
     required this.finalUri,
@@ -343,5 +546,34 @@ class _ThrowingExecutor implements LegadoRequestExecutor {
   Future<LegadoHttpResponse> execute(LegadoRequest request) {
     called = true;
     throw StateError('executor should not be called');
+  }
+}
+
+class _FakeWebViewExecutor implements LegadoWebViewExecutor {
+  _FakeWebViewExecutor({
+    required this.finalUri,
+    required this.body,
+  });
+
+  final Uri finalUri;
+  final String body;
+  final List<LegadoRequest> requests = [];
+
+  @override
+  Future<LegadoHttpResponse> execute(
+    LegadoRequest request, {
+    required String stage,
+    required LegadoTrace trace,
+  }) async {
+    requests.add(request);
+    trace.add('$stage.url.webView:executed');
+    return LegadoHttpResponse(
+      bytes: utf8.encode(body),
+      finalUri: finalUri,
+      headers: Headers.fromMap({
+        'content-type': ['text/html; charset=utf-8'],
+      }),
+      statusCode: 200,
+    );
   }
 }

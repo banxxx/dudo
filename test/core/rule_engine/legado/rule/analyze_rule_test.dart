@@ -142,6 +142,15 @@ void main() {
 
     test('shares variables through runtime variable container', () {
       final variables = LegadoRuntimeVariables();
+      expect(
+        LegadoRuntimeVariables.supportedScope,
+        LegadoRuntimeVariableScope.request,
+      );
+      expect(LegadoRuntimeVariables.persistentScopes, [
+        LegadoRuntimeVariableScope.chapter,
+        LegadoRuntimeVariableScope.book,
+        LegadoRuntimeVariableScope.source,
+      ]);
       final context = RuleContext(
         source: _source(),
         input: RuleInput(

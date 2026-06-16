@@ -2,11 +2,13 @@ import '../../models/source_rule.dart';
 import '../../../utils/logger.dart';
 import '../decode/response_decoder.dart';
 import '../legado_models.dart';
+import '../runtime/legado_runtime_context.dart';
 import '../rule/analyze_rule.dart';
 import '../rule/rule_context.dart';
 import '../rule/rule_value.dart';
 import '../url/analyze_url.dart';
 import '../url/request_executor.dart';
+import '../webview/legado_webview_executor.dart';
 import 'content_compatibility_parser.dart';
 import 'content_post_processor.dart';
 import 'java_ajax.dart';
@@ -22,6 +24,7 @@ class ContentPipeline {
     this.compatibilityParser = const ContentCompatibilityParser(),
     this.postProcessor = const ContentPostProcessor(),
     this.responseTransformer = const LegadoResponseTransformer(),
+    this.webViewExecutor = const UnsupportedLegadoWebViewExecutor(),
     this.maxPages = 8,
   });
 
@@ -32,6 +35,7 @@ class ContentPipeline {
   final ContentCompatibilityParser compatibilityParser;
   final ContentPostProcessor postProcessor;
   final LegadoResponseTransformer responseTransformer;
+  final LegadoWebViewExecutor webViewExecutor;
   final int maxPages;
 
   Future<LegadoContentResult?> load(
@@ -43,7 +47,10 @@ class ContentPipeline {
 
     final visited = <String>{};
     final pages = <String>[];
-    final variables = <String, Object?>{};
+    final runtimeContext = LegadoRuntimeContext(
+      source: source,
+      baseUrl: source.url,
+    );
     String? title;
     String? nextUrl = contentUrl;
     String? remainingNextUrl;
@@ -70,7 +77,8 @@ class ContentPipeline {
         log.i(
           '[legado-content] page ${page + 1}/$maxPages url=$currentUrl',
         );
-        final parsed = await _loadPage(source, rule, currentUrl, variables);
+        final parsed =
+            await _loadPage(source, rule, currentUrl, runtimeContext);
         title ??= parsed.title;
         if (parsed.content.isNotEmpty) pages.add(parsed.content);
         nextUrl = parsed.nextContentUrl;
@@ -124,46 +132,55 @@ class ContentPipeline {
     SourceRule source,
     ContentRule rule,
     String contentUrl,
-    Map<String, Object?> variables,
+    LegadoRuntimeContext runtimeContext,
   ) async {
-    final trace = LegadoTrace();
     final ajax = createLegadoJavaAjax(
       analyzeUrl: analyzeUrl,
       executor: executor,
       decoder: decoder,
-      source: source,
-      trace: trace,
-      variables: variables,
+      runtimeContext: runtimeContext,
       responseTransformer: responseTransformer,
+      webViewExecutor: webViewExecutor,
     );
+    final pageContext = runtimeContext.copyWith(ajax: ajax);
     final request = await analyzeUrl.compileSearchAsync(
       source: source,
       rawUrl: contentUrl,
       keyword: '',
-      variables: variables,
+      variables: pageContext.variables.asMap(),
       ajax: ajax,
+      book: pageContext.book,
     );
-    recordUnsupportedUrlOptionTrace(request, trace, stage: 'content');
-    throwIfUnsupportedWebViewRequest(request, trace, stage: 'content');
-    recordLegadoRequestTrace(request, trace, stage: 'content');
+    final effectiveRequest = _mergeContentRuleRequestOptions(request, rule);
+    recordUnsupportedUrlOptionTrace(effectiveRequest, pageContext.trace,
+        stage: 'content');
+    recordLegadoRequestTrace(effectiveRequest, pageContext.trace,
+        stage: 'content');
     log.i(
-      '[legado-content] request method=${request.method} url=${request.url} '
-      'headers=${request.headers.length} charset=${request.charset ?? 'auto'}',
+      '[legado-content] request method=${effectiveRequest.method} '
+      'url=${effectiveRequest.url} headers=${effectiveRequest.headers.length} '
+      'charset=${effectiveRequest.charset ?? 'auto'}',
     );
-    final response = await executor.execute(request);
-    recordLegadoResponseTrace(response, trace, stage: 'content');
+    final response = await executeLegadoRequest(
+      request: effectiveRequest,
+      httpExecutor: executor,
+      webViewExecutor: webViewExecutor,
+      stage: 'content',
+      trace: pageContext.trace,
+    );
+    recordLegadoResponseTrace(response, pageContext.trace, stage: 'content');
     log.i(
       '[legado-content] response status=${response.statusCode} '
       'finalUrl=${response.finalUri} bytes=${response.bytes.length}',
     );
     final decoded = await responseTransformer.decodeAndTransform(
       decoder: decoder,
-      request: request,
+      request: effectiveRequest,
       response: response,
       source: source,
       jsEngine: analyzeUrl.jsEngine,
-      trace: trace,
-      variables: variables,
+      trace: pageContext.trace,
+      runtimeContext: pageContext,
       ajax: ajax,
       cookieStore: analyzeUrl.cookieStore,
     );
@@ -174,18 +191,21 @@ class ContentPipeline {
       'preview=${_preview(decoded.text)}',
     );
     final baseUrl = decoded.finalUri.toString();
-    final context = RuleContext(
-      source: source,
-      trace: trace,
-      input: RuleInput(
-        rawText: decoded.text,
-        baseUri: Uri.parse(source.url),
-        redirectUri: decoded.finalUri,
-      ),
-      variables: variables,
-      cookie: _cookieHeader(request.headers),
-      ajax: ajax,
-    );
+    final context = pageContext
+        .copyWith(
+          src: decoded.text,
+          result: decoded.text,
+          redirectUrl: baseUrl,
+          cookie: _cookieHeader(effectiveRequest.headers),
+        )
+        .toRuleContext(
+          input: RuleInput(
+            rawText: decoded.text,
+            baseUri: Uri.parse(source.url),
+            redirectUri: decoded.finalUri,
+          ),
+          cookie: _cookieHeader(effectiveRequest.headers),
+        );
     final content = postProcessor.apply(
       content: _contentText(decoded.text, rule.content, context),
       replaceRegex: rule.replaceRegex,
@@ -200,6 +220,39 @@ class ContentPipeline {
         baseUrl,
       ),
     );
+  }
+
+  LegadoRequest _mergeContentRuleRequestOptions(
+    LegadoRequest request,
+    ContentRule rule,
+  ) {
+    final sourceRegex = request.sourceRegex ?? _blankToNull(rule.sourceRegex);
+    final bodyJs = request.bodyJs ?? _blankToNull(rule.bodyJs);
+    final webJs = request.webJs ?? _blankToNull(rule.webJs);
+    if (sourceRegex == request.sourceRegex &&
+        bodyJs == request.bodyJs &&
+        webJs == request.webJs) {
+      return request;
+    }
+
+    return LegadoRequest(
+      url: request.url,
+      method: request.method,
+      headers: request.headers,
+      body: request.body,
+      charset: request.charset,
+      sourceRegex: sourceRegex,
+      bodyJs: bodyJs,
+      webJs: webJs,
+      useWebView: request.useWebView,
+      webViewDelayTime: request.webViewDelayTime,
+    );
+  }
+
+  String? _blankToNull(String? value) {
+    final text = value?.trim();
+    if (text == null || text.isEmpty) return null;
+    return text;
   }
 
   String _contentText(

@@ -274,6 +274,13 @@ class RuleEngine {
           break;
         case LegadoRuleMode.js:
           break;
+        case LegadoRuleMode.webJs:
+          add(
+            SourceCompatibilitySeverity.warning,
+            'rule-web-js-unsupported',
+            path,
+            'webJs rule step is parsed for diagnostics but WebView execution is not implemented yet',
+          );
         case LegadoRuleMode.regex:
           add(
             SourceCompatibilitySeverity.warning,

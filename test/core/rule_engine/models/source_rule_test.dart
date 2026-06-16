@@ -73,11 +73,15 @@ void main() {
       final rule = SourceRule.fromJson({
         'bookSourceName': '测试源',
         'bookSourceUrl': 'https://example.com',
-        'ruleContent': r'{"content":"$.content","title":"$.title"}',
+        'ruleContent':
+            r'{"content":"$.content","title":"$.title","webJs":"document.body.innerText","sourceRegex":"window.__DATA__=(.*)","bodyJs":"result"}',
       });
 
       expect(rule.content?.content, r'$.content');
       expect(rule.content?.title, r'$.title');
+      expect(rule.content?.webJs, 'document.body.innerText');
+      expect(rule.content?.sourceRegex, 'window.__DATA__=(.*)');
+      expect(rule.content?.bodyJs, 'result');
     });
 
     test('accepts stringified JSON ruleExplore', () {

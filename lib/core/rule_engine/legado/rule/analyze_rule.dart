@@ -319,6 +319,10 @@ class AnalyzeRule {
       final value = _evaluateJsSteps(normalizedSteps, context, source);
       return _valueFromObject(value, wantsElements: wantsElements);
     }
+    if (mode == LegadoRuleMode.webJs) {
+      context.trace?.add('rule.webJs:unsupported');
+      return const RuleListValue([]);
+    }
 
     final parserType = _parserTypeFor(mode, source);
     context.trace?.add('rule.parserMode:${mode.name}');
@@ -553,6 +557,7 @@ class AnalyzeRule {
       LegadoRuleMode.xpath => RuleType.xpath,
       LegadoRuleMode.regex => RuleType.regex,
       LegadoRuleMode.js => RuleType.js,
+      LegadoRuleMode.webJs => RuleType.js,
       LegadoRuleMode.defaultHtml =>
         source is Map || source is List ? RuleType.jsonPath : RuleType.css,
     };
@@ -566,6 +571,7 @@ class AnalyzeRule {
       LegadoRuleMode.xpath => '@XPath:$raw',
       LegadoRuleMode.regex => raw,
       LegadoRuleMode.js => raw,
+      LegadoRuleMode.webJs => raw,
       LegadoRuleMode.defaultHtml => raw,
     };
   }
