@@ -224,14 +224,6 @@ class RuleEngine {
     ) add,
   ) {
     final lower = rawUrl.toLowerCase();
-    if (lower.contains('bodyjs')) {
-      add(
-        SourceCompatibilitySeverity.warning,
-        'url-body-js-unsupported',
-        path,
-        'bodyJs is parsed for diagnostics but WebView execution is not implemented',
-      );
-    }
     if (lower.contains('webjs')) {
       add(
         SourceCompatibilitySeverity.warning,
@@ -262,15 +254,6 @@ class RuleEngine {
   ) {
     final text = rawRule.trim();
     if (text.isEmpty) return;
-
-    if (RegExp(r'\{\{[\s\S]+?\}\}').hasMatch(text)) {
-      add(
-        SourceCompatibilitySeverity.warning,
-        'rule-dynamic-placeholder-unsupported',
-        path,
-        'dynamic rule placeholders are not implemented yet',
-      );
-    }
 
     final ast = const LegadoRuleAstParser().parse(text);
     final steps = _steps(ast).toList(growable: false);

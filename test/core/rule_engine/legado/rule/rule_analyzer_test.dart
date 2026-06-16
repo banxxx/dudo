@@ -26,6 +26,16 @@ void main() {
       );
     });
 
+    test('does not end JS blocks on closing tags inside strings', () {
+      expect(
+        analyzer.split(
+          '<js>result = "</js>@text";</js>@text',
+          LegadoRuleDelimiter.pipeline,
+        ),
+        ['<js>result = "</js>@text";</js>', 'text'],
+      );
+    });
+
     test('does not split inside backtick strings', () {
       expect(
         analyzer.split(

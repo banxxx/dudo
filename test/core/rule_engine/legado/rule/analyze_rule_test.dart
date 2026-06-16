@@ -1,5 +1,6 @@
 import 'package:dudo/core/rule_engine/legado/rule/analyze_rule.dart';
 import 'package:dudo/core/rule_engine/legado/js/legado_js_engine.dart';
+import 'package:dudo/core/rule_engine/legado/runtime/legado_runtime_variables.dart';
 import 'package:dudo/core/rule_engine/legado/rule/rule_ast.dart';
 import 'package:dudo/core/rule_engine/legado/rule/rule_context.dart';
 import 'package:dudo/core/rule_engine/legado/rule/rule_value.dart';
@@ -44,7 +45,8 @@ void main() {
       context.putVariable('id', 1);
 
       expect(context.getVariable('id'), 1);
-      expect(trace.events, ['put:id']);
+      expect(trace.events, contains('put:id'));
+      expect(trace.events, contains('runtime.variables.request.put:id'));
     });
   });
 
@@ -138,6 +140,29 @@ void main() {
       expect(analyzeRule.string('ignored', '@get:{count}', context), '2');
     });
 
+    test('shares variables through runtime variable container', () {
+      final variables = LegadoRuntimeVariables();
+      final context = RuleContext(
+        source: _source(),
+        input: RuleInput(
+          rawText: 'Alpha',
+          baseUri: Uri.parse('https://source.example'),
+        ),
+        runtimeVariables: variables,
+      );
+      final analyzeRule = AnalyzeRule(registry: _registry());
+
+      expect(
+        analyzeRule.string(
+            'ignored', '<js>java.put("name", "Beta")</js>', context),
+        'Beta',
+      );
+      expect(variables.get('name'), 'Beta');
+      expect(
+          analyzeRule.string('ignored', '<js>java.get("name")</js>', context),
+          'Beta');
+    });
+
     test('evaluates standalone js tag rules without passing wrapper tags', () {
       final context = RuleContext(
         source: _source(),
@@ -151,6 +176,27 @@ void main() {
       expect(
         analyzeRule.string('Alpha', '<js>result + " Beta"</js>', context),
         'Alpha Beta',
+      );
+    });
+
+    test('keeps closing js tag text inside JS strings while parsing rule tail',
+        () {
+      final context = RuleContext(
+        source: _source(),
+        input: RuleInput(
+          rawText: 'Alpha',
+          baseUri: Uri.parse('https://source.example'),
+        ),
+      );
+      final analyzeRule = AnalyzeRule(registry: _registry());
+
+      expect(
+        analyzeRule.string(
+          'Alpha',
+          '<js>"<p>Alpha</p></js>"</js>tag.p@text',
+          context,
+        ),
+        'Alpha',
       );
     });
 

@@ -6,6 +6,7 @@ class LegadoUrlOptions {
     required this.headers,
     this.body,
     this.charset,
+    this.sourceRegex,
     this.bodyJs,
     this.webJs,
     this.useWebView = false,
@@ -16,6 +17,7 @@ class LegadoUrlOptions {
   final Map<String, String> headers;
   final Object? body;
   final String? charset;
+  final String? sourceRegex;
   final String? bodyJs;
   final String? webJs;
   final bool useWebView;
@@ -40,6 +42,7 @@ class LegadoUrlOptions {
         headers: _headersFrom(decoded['headers'] ?? decoded['header']),
         body: decoded['body'],
         charset: decoded['charset']?.toString(),
+        sourceRegex: _blankToNull(decoded['sourceRegex']),
         bodyJs: _blankToNull(decoded['bodyJs']),
         webJs: _blankToNull(decoded['webJs']),
         useWebView: _useWebView(decoded['webView']),

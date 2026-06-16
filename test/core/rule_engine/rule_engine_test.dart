@@ -37,7 +37,7 @@ void main() {
           url: 'source.example.com',
           search: SearchRule(
             searchUrl:
-                'https://source.example/search?q={{key}},{"webView":true,"bodyJs":"x"}',
+                'https://source.example/search?q={{key}},{"webView":true,"bodyJs":"x","sourceRegex":"window.__DATA__=(.*)"}',
             bookList: '@XPath://div[@class="book"]',
             name: '<js>result</js>',
           ),
@@ -50,7 +50,6 @@ void main() {
         report.diagnostics.map((diagnostic) => diagnostic.code),
         containsAll([
           'source-url-not-absolute',
-          'url-body-js-unsupported',
           'url-web-view-unsupported',
           'search-book-url-missing',
           'book-info-missing',
@@ -61,6 +60,14 @@ void main() {
       expect(
         report.diagnostics.map((diagnostic) => diagnostic.code),
         isNot(contains('rule-xpath-unsupported')),
+      );
+      expect(
+        report.diagnostics.map((diagnostic) => diagnostic.code),
+        isNot(contains('url-body-js-unsupported')),
+      );
+      expect(
+        report.diagnostics.map((diagnostic) => diagnostic.code),
+        isNot(contains('rule-dynamic-placeholder-unsupported')),
       );
     });
   });

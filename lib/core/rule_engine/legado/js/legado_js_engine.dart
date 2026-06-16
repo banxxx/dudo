@@ -1,37 +1,14 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_js/flutter_js.dart' as flutter_js;
 
 import '../../models/source_rule.dart';
+import 'legado_js_bindings.dart';
+import 'legado_js_context.dart';
 
-class LegadoJsContext {
-  const LegadoJsContext({
-    required this.key,
-    required this.page,
-    this.baseUrl,
-    this.src,
-    this.result,
-    this.source,
-    this.book,
-    this.variables = const {},
-    this.cookie,
-    this.ajax,
-  });
+export 'legado_js_context.dart';
 
-  final String key;
-  final int page;
-  final String? baseUrl;
-  final Object? src;
-  final Object? result;
-  final Object? source;
-  final Object? book;
-  final Map<String, Object?> variables;
-  final String? cookie;
-  final LegadoJsAjax? ajax;
-
-  String get encodedKey => Uri.encodeQueryComponent(key);
-}
+const _cacheVariableKey = '__cache';
 
 abstract interface class LegadoJsEngine {
   Object? eval(String script, {required LegadoJsContext context});
@@ -150,9 +127,14 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
   flutter_js.JavascriptRuntime? _runtime;
   final Duration timeout;
   final int maxOutputLength;
+  final LegadoJsBindings _bindings = const LegadoJsBindings();
+  final Map<String, LegadoJsAjax> _ajaxHandlers = {};
+  String? _ajaxBridgeRuntimeId;
+  int _ajaxContextSequence = 0;
 
   @override
   Object? eval(String script, {required LegadoJsContext context}) {
+    _traceCookieGetKeyWithoutCookie(script, context);
     try {
       final result = _runtimeForEval().evaluate(_wrapScript(script, context));
       if (result.isError) throw LegadoJsException(result.stringResult);
@@ -169,8 +151,15 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
   }
 
   flutter_js.JavascriptRuntime _runtimeForEval() {
-    return _runtime ??=
-        flutter_js.QuickJsRuntime2(timeout: timeout.inMilliseconds);
+    return _runtime ??= _createRuntime();
+  }
+
+  flutter_js.JavascriptRuntime _createRuntime() {
+    final runtime = flutter_js.QuickJsRuntime2(
+      timeout: timeout.inMilliseconds,
+    );
+    flutter_js.HandlePromises(runtime).enableHandlePromises();
+    return runtime;
   }
 
   @override
@@ -178,120 +167,117 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
     String script, {
     required LegadoJsContext context,
   }) async {
+    _traceCookieGetKeyWithoutCookie(script, context);
+    final ajaxContextId = 'ajax_${_ajaxContextSequence++}';
     try {
-      return await Future<Object?>(
-        () => eval(script, context: context),
-      ).timeout(
-        timeout,
-        onTimeout: () {
-          throw LegadoJsException(
-            'JS execution timed out after ${timeout.inMilliseconds}ms',
-          );
-        },
+      final runtime = _runtimeForEval();
+      if (context.ajax != null) {
+        _ajaxHandlers[ajaxContextId] = context.ajax!;
+        _ensureAjaxBridge(runtime);
+      }
+      final result = runtime.evaluate(
+        _wrapScript(
+          script,
+          context,
+          allowAsync: true,
+          ajaxContextId: ajaxContextId,
+        ),
       );
+      if (result.isError) throw LegadoJsException(result.stringResult);
+      final awaited = await flutter_js.HandlePromises(runtime).handlePromise(
+        result,
+        timeout: timeout,
+      );
+      if (awaited.isError) throw LegadoJsException(awaited.stringResult);
+      _checkOutputSize(awaited.rawResult);
+      return _decodeResult(awaited.rawResult, context);
     } on LegadoJsException {
       rethrow;
     } catch (error) {
+      if (_isRuntimeUnavailable(error)) {
+        return const SimpleLegadoJsEngine().evalAsync(
+          script,
+          context: context,
+        );
+      }
       throw LegadoJsException('JS execution failed: $error');
+    } finally {
+      _ajaxHandlers.remove(ajaxContextId);
     }
   }
 
-  String _wrapScript(String script, LegadoJsContext context) {
-    final bindings = <String, Object?>{
-      'key': context.key,
-      'keyword': context.key,
-      'page': context.page,
-      'baseUrl': context.baseUrl,
-      'src': context.src,
-      'result': context.result,
-      'source': _sourceToJson(context.source),
-      'book': context.book,
-      'variables': context.variables,
-      'cookie': context.cookie,
-    };
-    final encodedBindings = jsonEncode(bindings);
-    final escapedScript = jsonEncode(_normalizeScript(script));
+  void _ensureAjaxBridge(flutter_js.JavascriptRuntime runtime) {
+    final runtimeId = runtime.getEngineInstanceId();
+    if (_ajaxBridgeRuntimeId == runtimeId) return;
+    runtime.onMessage('LegadoJavaAjax', (dynamic message) {
+      final decoded = message is Map
+          ? message
+          : jsonDecode(message?.toString() ?? '{}') as Map;
+      final id = decoded['id']?.toString() ?? '';
+      final rawUrl = decoded['url']?.toString() ?? '';
+      final ajax = _ajaxHandlers[id];
+      if (ajax == null) {
+        throw StateError('java.ajax context $id is not available');
+      }
+      return Future.sync(() => ajax(rawUrl)).then((value) {
+        if (value == null) return '';
+        if (value is String) return value;
+        if (value is Map || value is List) return jsonEncode(value);
+        return value.toString();
+      });
+    });
+    _ajaxBridgeRuntimeId = runtimeId;
+  }
+
+  String _wrapScript(
+    String script,
+    LegadoJsContext context, {
+    bool allowAsync = false,
+    String? ajaxContextId,
+  }) {
+    final encodedBindings = _bindings.contextJson(context);
+    final effectiveScript =
+        allowAsync ? _asyncCompatibleScript(script) : script;
+    final escapedScript = jsonEncode(effectiveScript.trim());
+    final functionStart = allowAsync ? '(async function(){' : '(function(){';
+    final evalStatement = allowAsync
+        ? 'var __value = await eval($escapedScript);'
+        : 'var __value = eval($escapedScript);';
+    final globals = _bindings.globals(
+      allowAsync: allowAsync,
+      hasAjax: context.ajax != null,
+      ajaxContextId: ajaxContextId,
+    );
     return '''
-(function(){
+$functionStart
   var __ctx = $encodedBindings;
-  var key = __ctx.key;
-  var keyword = __ctx.keyword;
-  var page = __ctx.page;
-  var baseUrl = __ctx.baseUrl;
-  var src = __ctx.src;
-  var result = __ctx.result;
-  var source = __ctx.source;
-  var book = __ctx.book;
-  function __parseMaybeJson(value) {
-    if (typeof value !== "string") return value;
-    var text = value.trim();
-    if (!text) return value;
-    if (text[0] !== "{" && text[0] !== "[") return value;
-    try { return JSON.parse(text); } catch (e) { return value; }
-  }
-  function __readPath(root, path) {
-    if (root == null || typeof path !== "string") return null;
-    if (path === "\$") return root;
-    if (path.indexOf("\$.") !== 0) return null;
-    var current = __parseMaybeJson(root);
-    var parts = path.substring(2).split(".");
-    for (var i = 0; i < parts.length; i++) {
-      if (current == null) return null;
-      var part = parts[i];
-      var bracket = part.match(/^([^\\[]+)\\[(\\d+)\\]\$/);
-      if (bracket) {
-        current = current[bracket[1]];
-        current = current == null ? null : current[Number(bracket[2])];
-      } else {
-        current = current[part];
-      }
-    }
-    return current == null ? null : current;
-  }
-  function __ruleValue(path) {
-    var fromResult = __readPath(result, path);
-    if (fromResult != null) return fromResult;
-    return __readPath(src, path);
-  }
-  var java = {
-    getString: function(value) {
-      if (typeof value === "string" && value.indexOf("\$") === 0) {
-        var ruleValue = __ruleValue(value);
-        return ruleValue == null ? "" : String(ruleValue);
-      }
-      return value == null ? "" : String(value);
-    },
-    put: function(name, value) {
-      __ctx.variables[String(name)] = value;
-      return value;
-    },
-    get: function(name) { return __ctx.variables[String(name)]; },
-    ajax: function() {
-      throw new Error("java.ajax is only available through SimpleLegadoJsEngine");
-    }
-  };
-  var cookie = {
-    getKey: function(name) {
-      if (!__ctx.cookie) return null;
-      var parts = String(__ctx.cookie).split(';');
-      for (var i = 0; i < parts.length; i++) {
-        var part = parts[i].trim();
-        var index = part.indexOf('=');
-        if (index <= 0) continue;
-        if (part.substring(0, index).trim() === String(name)) {
-          return part.substring(index + 1).trim();
-        }
-      }
-      return null;
-    }
-  };
-  var __value = eval($escapedScript);
+$globals
+  $evalStatement
   if (typeof __value === "undefined") {
     __value = result;
   }
   return JSON.stringify({ value: __value, variables: __ctx.variables });
 })()
 ''';
+  }
+
+  String _asyncCompatibleScript(String script) {
+    final pattern = RegExp(r'java\.ajax\s*\(');
+    final buffer = StringBuffer();
+    var start = 0;
+    for (final match in pattern.allMatches(script)) {
+      buffer.write(script.substring(start, match.start));
+      final before = script.substring(0, match.start).trimRight();
+      if (before.endsWith('await')) {
+        buffer.write(match.group(0));
+      } else {
+        // Legado 书源通常把 java.ajax 当同步函数写；异步运行时统一补 await。
+        buffer.write('await java.ajax(');
+      }
+      start = match.end;
+    }
+    buffer.write(script.substring(start));
+    return buffer.toString();
   }
 
   Object? _decodeResult(Object? rawResult, LegadoJsContext context) {
@@ -329,35 +315,13 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
         message.contains('quickjs_c_bridge');
   }
 
-  Object? _sourceToJson(Object? source) {
-    if (source == null) return null;
-    if (source is String || source is num || source is bool || source is Map) {
-      return source;
-    }
-    if (source is Iterable) return source.toList(growable: false);
-    if (source is SourceRule) {
-      return {
-        'id': source.id,
-        'name': source.name,
-        'url': source.url,
-        'headers': source.headers,
-      };
-    }
-    return source.toString();
-  }
-
-  String _normalizeScript(String script) {
-    var expression = script.trim();
-    while (expression.endsWith(';')) {
-      expression = expression.substring(0, expression.length - 1).trimRight();
-    }
-
-    final assignment = RegExp(
-      r'^(?:(?:var|let|const)\s+)?result\s*=\s*([\s\S]+)$',
-    ).firstMatch(expression);
-    if (assignment != null) return assignment.group(1)!.trim();
-
-    return expression;
+  void _traceCookieGetKeyWithoutCookie(
+    String script,
+    LegadoJsContext context,
+  ) {
+    if (!script.contains('cookie.getKey')) return;
+    if (context.cookie != null && context.cookie!.trim().isNotEmpty) return;
+    context.trace?.add('cookie.getKey.empty');
   }
 }
 
@@ -452,11 +416,15 @@ class _SimpleJsExpressionParser {
       'String' => _stringify(_expectArgument(name, arguments, 0)),
       'Number' => _toNumber(_expectArgument(name, arguments, 0)),
       'parseInt' => _parseInt(_expectArgument(name, arguments, 0)),
-      'java.getString' => _stringify(_expectArgument(name, arguments, 0)),
+      'java.getString' => _javaGetString(arguments),
       'java.ajax' => _javaAjax(arguments),
       'java.put' => _javaPut(arguments),
       'java.get' => _javaGet(arguments),
+      'java.setContent' => _javaSetContent(arguments),
+      'java.log' => arguments.isEmpty ? null : arguments.last,
       'cookie.getKey' => _cookieGetKey(arguments),
+      'cache.get' => _cacheGet(arguments),
+      'cache.put' => _cachePut(arguments),
       _ => throw LegadoJsException('Unsupported function $name'),
     };
   }
@@ -491,6 +459,7 @@ class _SimpleJsExpressionParser {
       'book' => context.book,
       'java' => context.variables['java'],
       'cookie' => context.cookie,
+      'cache' => context.variables[_cacheVariableKey],
       'null' => null,
       'true' => true,
       'false' => false,
@@ -539,6 +508,16 @@ class _SimpleJsExpressionParser {
     return value;
   }
 
+  String _javaGetString(List<Object?> arguments) {
+    final value = _expectArgument('java.getString', arguments, 0);
+    if (value is String && value.trim().startsWith(r'$')) {
+      final resolved = _readRulePath(context.result, value) ??
+          _readRulePath(context.src, value);
+      return _stringify(resolved);
+    }
+    return _stringify(value);
+  }
+
   Object? _javaAjax(List<Object?> arguments) {
     final ajax = context.ajax;
     if (ajax == null) {
@@ -552,10 +531,127 @@ class _SimpleJsExpressionParser {
     return context.variables[key];
   }
 
+  Object? _cacheGet(List<Object?> arguments) {
+    final key = _stringify(_expectArgument('cache.get', arguments, 0));
+    return _cacheMap()[key];
+  }
+
+  Object? _cachePut(List<Object?> arguments) {
+    final key = _stringify(_expectArgument('cache.put', arguments, 0));
+    final value = arguments.length > 1 ? arguments[1] : null;
+    _cacheMap()[key] = value;
+    return value;
+  }
+
+  Map<String, Object?> _cacheMap() {
+    final existing = context.variables[_cacheVariableKey];
+    if (existing is Map<String, Object?>) return existing;
+    if (existing is Map) {
+      final normalized = existing.map(
+        (key, value) => MapEntry(key.toString(), value),
+      );
+      context.variables[_cacheVariableKey] = normalized;
+      return normalized;
+    }
+    final cache = <String, Object?>{};
+    context.variables[_cacheVariableKey] = cache;
+    return cache;
+  }
+
+  Object? _readRulePath(Object? root, String rawPath) {
+    if (root == null) return null;
+    final path = rawPath.trim();
+    if (path == r'$') return _parseMaybeJson(root);
+    if (!path.startsWith(r'$.')) return null;
+
+    Object? current = _parseMaybeJson(root);
+    for (final segment in _splitPathSegments(path.substring(2))) {
+      if (current == null) return null;
+      final match = RegExp(r'^([^\[]+)(?:\[(\d+)\])?$').firstMatch(segment);
+      if (match == null) return null;
+      current = _readPropertyValue(current, match.group(1)!);
+      final indexText = match.group(2);
+      if (indexText != null) {
+        final index = int.parse(indexText);
+        if (current is! List || index < 0 || index >= current.length) {
+          return null;
+        }
+        current = current[index];
+      }
+    }
+    return current;
+  }
+
+  Object? _parseMaybeJson(Object? value) {
+    if (value is! String) return value;
+    final text = value.trim();
+    if (text.isEmpty || (!text.startsWith('{') && !text.startsWith('['))) {
+      return value;
+    }
+    try {
+      return jsonDecode(text);
+    } catch (_) {
+      return value;
+    }
+  }
+
+  List<String> _splitPathSegments(String path) {
+    final segments = <String>[];
+    final buffer = StringBuffer();
+    var bracketDepth = 0;
+    for (var i = 0; i < path.length; i++) {
+      final char = path[i];
+      if (char == '[') bracketDepth += 1;
+      if (char == ']' && bracketDepth > 0) bracketDepth -= 1;
+      if (char == '.' && bracketDepth == 0) {
+        final segment = buffer.toString();
+        if (segment.isNotEmpty) segments.add(segment);
+        buffer.clear();
+        continue;
+      }
+      buffer.write(char);
+    }
+    final tail = buffer.toString();
+    if (tail.isNotEmpty) segments.add(tail);
+    return segments;
+  }
+
+  Object? _readPropertyValue(Object? target, String property) {
+    if (target is Map) return target[property];
+    if (target is SourceRule) {
+      return switch (property) {
+        'id' => target.id,
+        'name' => target.name,
+        'url' => target.url,
+        'group' => target.group,
+        'comment' => target.comment,
+        'bookUrlPattern' => target.bookUrlPattern,
+        'headers' => target.headers,
+        'loginUrl' => target.loginUrl,
+        _ => null,
+      };
+    }
+    return null;
+  }
+
+  Object? _javaSetContent(List<Object?> arguments) {
+    final value = _expectArgument('java.setContent', arguments, 0);
+    // Legado 中 setContent 会把后续规则的正文源切换为新内容；
+    // 简化 JS 引擎没有可变 src/result，只把值返回给调用链继续使用。
+    return value;
+  }
+
   String? _cookieGetKey(List<Object?> arguments) {
-    final key = _stringify(_expectArgument('cookie.getKey', arguments, 0));
+    final key = _stringify(
+      arguments.length > 1
+          ? arguments[1]
+          : _expectArgument('cookie.getKey', arguments, 0),
+    );
     final cookie = context.cookie;
-    if (cookie == null || cookie.trim().isEmpty) return null;
+    if (cookie == null || cookie.trim().isEmpty) {
+      context.trace?.add('cookie.getKey.empty:$key');
+      return null;
+    }
     for (final part in cookie.split(';')) {
       final trimmed = part.trim();
       final equals = trimmed.indexOf('=');
@@ -564,6 +660,7 @@ class _SimpleJsExpressionParser {
         return trimmed.substring(equals + 1).trim();
       }
     }
+    context.trace?.add('cookie.getKey.miss:$key');
     return null;
   }
 
@@ -621,8 +718,6 @@ class _SimpleJsExpressionParser {
 
   bool get _isAtEnd => _peek().type == _TokenType.eof;
 }
-
-typedef LegadoJsAjax = FutureOr<Object?> Function(String rawUrl);
 
 enum _TokenType { identifier, number, string, symbol, eof }
 

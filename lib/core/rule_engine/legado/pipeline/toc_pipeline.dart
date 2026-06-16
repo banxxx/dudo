@@ -9,6 +9,7 @@ import '../url/analyze_url.dart';
 import '../url/request_executor.dart';
 import 'java_ajax.dart';
 import 'pipeline_trace.dart';
+import 'response_transformer.dart';
 import 'toc_compatibility_parser.dart';
 
 class TocPipeline {
@@ -18,6 +19,7 @@ class TocPipeline {
     required this.decoder,
     required this.analyzeRule,
     this.compatibilityParser = const TocCompatibilityParser(),
+    this.responseTransformer = const LegadoResponseTransformer(),
   });
 
   final AnalyzeUrl analyzeUrl;
@@ -25,6 +27,7 @@ class TocPipeline {
   final ResponseDecoder decoder;
   final AnalyzeRule analyzeRule;
   final TocCompatibilityParser compatibilityParser;
+  final LegadoResponseTransformer responseTransformer;
 
   Future<LegadoTocResult?> load(
     SourceRule source,
@@ -36,6 +39,16 @@ class TocPipeline {
 
     final trace = LegadoTrace();
     try {
+      final variables = <String, Object?>{};
+      final ajax = createLegadoJavaAjax(
+        analyzeUrl: analyzeUrl,
+        executor: executor,
+        decoder: decoder,
+        source: source,
+        trace: trace,
+        variables: variables,
+        responseTransformer: responseTransformer,
+      );
       log.i(
         '[legado-toc] start source=${source.name} sourceId=${source.id} '
         'tocUrl=$tocUrl book=${_bookSummary(book)}',
@@ -44,16 +57,12 @@ class TocPipeline {
         source: source,
         rawUrl: tocUrl,
         keyword: '',
-        ajax: createLegadoJavaAjax(
-          analyzeUrl: analyzeUrl,
-          executor: executor,
-          decoder: decoder,
-          source: source,
-          trace: trace,
-        ),
+        variables: variables,
+        ajax: ajax,
         book: book,
       );
       recordUnsupportedUrlOptionTrace(request, trace, stage: 'toc');
+      throwIfUnsupportedWebViewRequest(request, trace, stage: 'toc');
       recordLegadoRequestTrace(request, trace, stage: 'toc');
       log.i(
         '[legado-toc] request method=${request.method} url=${request.url} '
@@ -65,13 +74,17 @@ class TocPipeline {
         '[legado-toc] response status=${response.statusCode} '
         'finalUrl=${response.finalUri} bytes=${response.bytes.length}',
       );
-      final decoded = await decoder.decode(
-        bytes: response.bytes,
-        finalUri: response.finalUri,
-        headers: response.headers,
-        statusCode: response.statusCode,
-        explicitCharset: request.charset,
+      final decoded = await responseTransformer.decodeAndTransform(
+        decoder: decoder,
+        request: request,
+        response: response,
+        source: source,
+        jsEngine: analyzeUrl.jsEngine,
         trace: trace,
+        book: book,
+        variables: variables,
+        ajax: ajax,
+        cookieStore: analyzeUrl.cookieStore,
       );
       log.i(
         '[legado-toc] decoded finalUrl=${decoded.finalUri} '
@@ -82,6 +95,9 @@ class TocPipeline {
         source: source,
         trace: trace,
         book: book,
+        variables: variables,
+        cookie: _cookieHeader(request.headers),
+        ajax: ajax,
         input: RuleInput(
           rawText: decoded.text,
           baseUri: Uri.parse(source.url),
@@ -234,5 +250,12 @@ class TocPipeline {
     final compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (compact.length <= maxLength) return compact;
     return '${compact.substring(0, maxLength)}...';
+  }
+
+  String? _cookieHeader(Map<String, String> headers) {
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == 'cookie') return entry.value;
+    }
+    return null;
   }
 }

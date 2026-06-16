@@ -9,6 +9,7 @@ import '../url/analyze_url.dart';
 import '../url/request_executor.dart';
 import 'java_ajax.dart';
 import 'pipeline_trace.dart';
+import 'response_transformer.dart';
 
 class BookInfoPipeline {
   const BookInfoPipeline({
@@ -16,12 +17,14 @@ class BookInfoPipeline {
     required this.executor,
     required this.decoder,
     required this.analyzeRule,
+    this.responseTransformer = const LegadoResponseTransformer(),
   });
 
   final AnalyzeUrl analyzeUrl;
   final LegadoRequestExecutor executor;
   final ResponseDecoder decoder;
   final AnalyzeRule analyzeRule;
+  final LegadoResponseTransformer responseTransformer;
 
   Future<LegadoBookInfo?> load(
     SourceRule source,
@@ -33,6 +36,16 @@ class BookInfoPipeline {
 
     final trace = LegadoTrace();
     try {
+      final variables = <String, Object?>{};
+      final ajax = createLegadoJavaAjax(
+        analyzeUrl: analyzeUrl,
+        executor: executor,
+        decoder: decoder,
+        source: source,
+        trace: trace,
+        variables: variables,
+        responseTransformer: responseTransformer,
+      );
       log.i(
         '[legado-book-info] start source=${source.name} '
         'sourceId=${source.id} bookUrl=$bookUrl book=${_bookSummary(book)}',
@@ -41,16 +54,12 @@ class BookInfoPipeline {
         source: source,
         rawUrl: bookUrl,
         keyword: '',
-        ajax: createLegadoJavaAjax(
-          analyzeUrl: analyzeUrl,
-          executor: executor,
-          decoder: decoder,
-          source: source,
-          trace: trace,
-        ),
+        variables: variables,
+        ajax: ajax,
         book: book,
       );
       recordUnsupportedUrlOptionTrace(request, trace, stage: 'bookInfo');
+      throwIfUnsupportedWebViewRequest(request, trace, stage: 'bookInfo');
       recordLegadoRequestTrace(request, trace, stage: 'bookInfo');
       log.i(
         '[legado-book-info] request method=${request.method} '
@@ -63,13 +72,17 @@ class BookInfoPipeline {
         '[legado-book-info] response status=${response.statusCode} '
         'finalUrl=${response.finalUri} bytes=${response.bytes.length}',
       );
-      final decoded = await decoder.decode(
-        bytes: response.bytes,
-        finalUri: response.finalUri,
-        headers: response.headers,
-        statusCode: response.statusCode,
-        explicitCharset: request.charset,
+      final decoded = await responseTransformer.decodeAndTransform(
+        decoder: decoder,
+        request: request,
+        response: response,
+        source: source,
+        jsEngine: analyzeUrl.jsEngine,
         trace: trace,
+        book: book,
+        variables: variables,
+        ajax: ajax,
+        cookieStore: analyzeUrl.cookieStore,
       );
       log.i(
         '[legado-book-info] decoded finalUrl=${decoded.finalUri} '
@@ -80,6 +93,9 @@ class BookInfoPipeline {
         source: source,
         trace: trace,
         book: book,
+        variables: variables,
+        cookie: _cookieHeader(request.headers),
+        ajax: ajax,
         input: RuleInput(
           rawText: decoded.text,
           baseUri: Uri.parse(source.url),
@@ -180,5 +196,12 @@ class BookInfoPipeline {
     final compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (compact.length <= maxLength) return compact;
     return '${compact.substring(0, maxLength)}...';
+  }
+
+  String? _cookieHeader(Map<String, String> headers) {
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == 'cookie') return entry.value;
+    }
+    return null;
   }
 }

@@ -1,4 +1,5 @@
 import 'package:dudo/core/rule_engine/legado/js/legado_js_engine.dart';
+import 'package:dudo/core/rule_engine/legado/rule/rule_context.dart';
 import 'package:dudo/core/rule_engine/models/source_rule.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -46,8 +47,70 @@ void main() {
       expect(engine.eval('java.get("cached")', context: context), 'old');
       expect(engine.eval('java.put("cached", "new")', context: context), 'new');
       expect(variables['cached'], 'new');
+      expect(engine.eval('java.log("debug")', context: context), 'debug');
       expect(engine.eval('cookie.getKey("sid")', context: context), 'abc');
+      expect(
+        engine.eval('cookie.getKey("https://source.example", "sid")',
+            context: context),
+        'abc',
+      );
       expect(engine.eval('cookie.getKey("missing")', context: context), isNull);
+    });
+
+    test('traces missing cookies when cookie.getKey cannot resolve a value',
+        () {
+      const engine = SimpleLegadoJsEngine();
+      final trace = LegadoTrace();
+      final context = LegadoJsContext(
+        key: 'Alpha',
+        page: 1,
+        trace: trace,
+      );
+
+      expect(engine.eval('cookie.getKey("sid")', context: context), isNull);
+      expect(trace.events, contains('cookie.getKey.empty:sid'));
+    });
+
+    test('supports memory cache helper bindings', () {
+      const engine = SimpleLegadoJsEngine();
+      final variables = <String, Object?>{};
+      final context = LegadoJsContext(
+        key: 'Alpha',
+        page: 1,
+        variables: variables,
+      );
+
+      expect(
+          engine.eval('cache.put("chapter", "one")', context: context), 'one');
+      expect(engine.eval('cache.get("chapter")', context: context), 'one');
+      expect(engine.eval('cache.get("missing")', context: context), isNull);
+      expect(variables['__cache'], {'chapter': 'one'});
+    });
+
+    test('resolves JSONPath values through java.getString', () {
+      const engine = SimpleLegadoJsEngine();
+      const context = LegadoJsContext(
+        key: 'Alpha',
+        page: 1,
+        result:
+            '{"novelName":"Book","chapterlist":[{"chaptername":"Chapter 1"}]}',
+      );
+
+      expect(
+        engine.eval('java.getString("\$.novelName")', context: context),
+        'Book',
+      );
+      expect(
+        engine.eval(
+          'java.getString("\$.chapterlist[0].chaptername")',
+          context: context,
+        ),
+        'Chapter 1',
+      );
+      expect(
+        engine.eval('java.getString("\$.missing")', context: context),
+        '',
+      );
     });
 
     test('exposes java.ajax as a controlled binding point', () {
@@ -69,4 +132,74 @@ void main() {
       expect(requested, ['/api?q=Alpha']);
     });
   });
+
+  group('FlutterJsLegadoJsEngine', () {
+    test('awaits java.ajax in async JS expressions', () async {
+      final engine = FlutterJsLegadoJsEngine(
+        timeout: const Duration(seconds: 5),
+      );
+      final requested = <String>[];
+      final context = LegadoJsContext(
+        key: 'Alpha',
+        page: 1,
+        ajax: (rawUrl) async {
+          requested.add(rawUrl);
+          return '{"value":"response:$rawUrl"}';
+        },
+      );
+
+      final value = await _evalWithQuickJsOrSkip(
+        engine,
+        'JSON.parse(java.ajax("/api?q=" + key)).value',
+        context,
+      );
+      if (identical(value, _quickJsSkipped)) return;
+
+      expect(value, 'response:/api?q=Alpha');
+      expect(requested, ['/api?q=Alpha']);
+    });
+
+    test('keeps result assignment after awaited java.ajax', () async {
+      final engine = FlutterJsLegadoJsEngine(
+        timeout: const Duration(seconds: 5),
+      );
+      final context = LegadoJsContext(
+        key: 'Alpha',
+        page: 1,
+        ajax: (rawUrl) async => {'value': 'body:$rawUrl'},
+      );
+
+      final value = await _evalWithQuickJsOrSkip(
+        engine,
+        '''
+        var data = JSON.parse(java.ajax("/chapter/" + key));
+        result = data.value;
+        ''',
+        context,
+      );
+      if (identical(value, _quickJsSkipped)) return;
+
+      expect(value, 'body:/chapter/Alpha');
+    });
+  });
+}
+
+final Object _quickJsSkipped = Object();
+
+Future<Object?> _evalWithQuickJsOrSkip(
+  FlutterJsLegadoJsEngine engine,
+  String script,
+  LegadoJsContext context,
+) async {
+  try {
+    return await engine.evalAsync(script, context: context);
+  } on LegadoJsException catch (error) {
+    final message = error.message;
+    if (message.contains('Unsupported function JSON.parse') ||
+        message.contains('Unsupported character =')) {
+      markTestSkipped('QuickJS runtime is not available in this test host.');
+      return _quickJsSkipped;
+    }
+    rethrow;
+  }
 }

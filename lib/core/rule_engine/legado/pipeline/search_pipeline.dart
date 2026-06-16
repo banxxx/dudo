@@ -11,6 +11,7 @@ import '../url/request_executor.dart';
 import '../../../utils/logger.dart';
 import 'java_ajax.dart';
 import 'pipeline_trace.dart';
+import 'response_transformer.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 
@@ -20,12 +21,14 @@ class SearchPipeline {
     required this.executor,
     required this.decoder,
     required this.analyzeRule,
+    this.responseTransformer = const LegadoResponseTransformer(),
   });
 
   final AnalyzeUrl analyzeUrl;
   final LegadoRequestExecutor executor;
   final ResponseDecoder decoder;
   final AnalyzeRule analyzeRule;
+  final LegadoResponseTransformer responseTransformer;
 
   Future<List<LegadoSearchItem>> search(
     SourceRule source,
@@ -40,21 +43,25 @@ class SearchPipeline {
     final trace = LegadoTrace();
     try {
       final variables = <String, Object?>{};
+      final ajax = createLegadoJavaAjax(
+        analyzeUrl: analyzeUrl,
+        executor: executor,
+        decoder: decoder,
+        source: source,
+        trace: trace,
+        keyword: keyword,
+        variables: variables,
+        responseTransformer: responseTransformer,
+      );
       final request = await analyzeUrl.compileSearchAsync(
         source: source,
         rawUrl: rawUrl,
         keyword: keyword,
         variables: variables,
-        ajax: createLegadoJavaAjax(
-          analyzeUrl: analyzeUrl,
-          executor: executor,
-          decoder: decoder,
-          source: source,
-          trace: trace,
-          keyword: keyword,
-        ),
+        ajax: ajax,
       );
       recordUnsupportedUrlOptionTrace(request, trace, stage: 'search');
+      throwIfUnsupportedWebViewRequest(request, trace, stage: 'search');
       recordLegadoRequestTrace(request, trace, stage: 'search');
       log.i(
         '[legado-search] compiled source="${source.name}" '
@@ -69,13 +76,17 @@ class SearchPipeline {
         'status=${response.statusCode ?? 'unknown'} '
         'finalUrl="${response.finalUri}" bytes=${response.bytes.length}',
       );
-      final decoded = await decoder.decode(
-        bytes: response.bytes,
-        finalUri: response.finalUri,
-        headers: response.headers,
-        statusCode: response.statusCode,
-        explicitCharset: request.charset,
+      final decoded = await responseTransformer.decodeAndTransform(
+        decoder: decoder,
+        request: request,
+        response: response,
+        source: source,
+        jsEngine: analyzeUrl.jsEngine,
         trace: trace,
+        keyword: keyword,
+        variables: variables,
+        ajax: ajax,
+        cookieStore: analyzeUrl.cookieStore,
       );
       final baseUrl = decoded.finalUri.toString();
       final context = RuleContext(
@@ -83,6 +94,8 @@ class SearchPipeline {
         keyword: keyword,
         trace: trace,
         variables: variables,
+        cookie: _cookieHeader(request.headers),
+        ajax: ajax,
         input: RuleInput(
           rawText: decoded.text,
           baseUri: Uri.parse(source.url),
@@ -538,6 +551,13 @@ class SearchPipeline {
     } catch (_) {
       return url.contains(text);
     }
+  }
+
+  String? _cookieHeader(Map<String, String> headers) {
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == 'cookie') return entry.value;
+    }
+    return null;
   }
 }
 

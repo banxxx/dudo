@@ -1,6 +1,5 @@
 import '../../models/source_rule.dart';
 import '../../../utils/logger.dart';
-import '../../parsers/regex_parser.dart';
 import '../decode/response_decoder.dart';
 import '../legado_models.dart';
 import '../rule/analyze_rule.dart';
@@ -8,8 +7,11 @@ import '../rule/rule_context.dart';
 import '../rule/rule_value.dart';
 import '../url/analyze_url.dart';
 import '../url/request_executor.dart';
+import 'content_compatibility_parser.dart';
+import 'content_post_processor.dart';
 import 'java_ajax.dart';
 import 'pipeline_trace.dart';
+import 'response_transformer.dart';
 
 class ContentPipeline {
   const ContentPipeline({
@@ -17,6 +19,9 @@ class ContentPipeline {
     required this.executor,
     required this.decoder,
     required this.analyzeRule,
+    this.compatibilityParser = const ContentCompatibilityParser(),
+    this.postProcessor = const ContentPostProcessor(),
+    this.responseTransformer = const LegadoResponseTransformer(),
     this.maxPages = 8,
   });
 
@@ -24,6 +29,9 @@ class ContentPipeline {
   final LegadoRequestExecutor executor;
   final ResponseDecoder decoder;
   final AnalyzeRule analyzeRule;
+  final ContentCompatibilityParser compatibilityParser;
+  final ContentPostProcessor postProcessor;
+  final LegadoResponseTransformer responseTransformer;
   final int maxPages;
 
   Future<LegadoContentResult?> load(
@@ -35,6 +43,7 @@ class ContentPipeline {
 
     final visited = <String>{};
     final pages = <String>[];
+    final variables = <String, Object?>{};
     String? title;
     String? nextUrl = contentUrl;
     String? remainingNextUrl;
@@ -61,12 +70,12 @@ class ContentPipeline {
         log.i(
           '[legado-content] page ${page + 1}/$maxPages url=$currentUrl',
         );
-        final parsed = await _loadPage(source, rule, currentUrl);
+        final parsed = await _loadPage(source, rule, currentUrl, variables);
         title ??= parsed.title;
         if (parsed.content.isNotEmpty) pages.add(parsed.content);
         nextUrl = parsed.nextContentUrl;
         remainingNextUrl = nextUrl;
-        log.i(
+        log.d(
           '[legado-content] page parsed title=${_preview(parsed.title ?? '')} '
           'contentChars=${parsed.content.length} '
           'nextContentUrl=${parsed.nextContentUrl} '
@@ -79,6 +88,18 @@ class ContentPipeline {
       }
 
       final joined = pages.join('\n\n');
+      if (joined.trim().isEmpty) {
+        throw LegadoRuntimeException(
+          'content is empty',
+          stage: 'content',
+          trace: LegadoTrace([
+            'source:${source.id}',
+            'contentUrl:$contentUrl',
+            'maxPages:$maxPages',
+            'visited:${visited.length}',
+          ]),
+        );
+      }
       log.i(
         '[legado-content] done pages=${pages.length} '
         'contentChars=${joined.length} nextContentUrl=$remainingNextUrl',
@@ -103,21 +124,27 @@ class ContentPipeline {
     SourceRule source,
     ContentRule rule,
     String contentUrl,
+    Map<String, Object?> variables,
   ) async {
     final trace = LegadoTrace();
+    final ajax = createLegadoJavaAjax(
+      analyzeUrl: analyzeUrl,
+      executor: executor,
+      decoder: decoder,
+      source: source,
+      trace: trace,
+      variables: variables,
+      responseTransformer: responseTransformer,
+    );
     final request = await analyzeUrl.compileSearchAsync(
       source: source,
       rawUrl: contentUrl,
       keyword: '',
-      ajax: createLegadoJavaAjax(
-        analyzeUrl: analyzeUrl,
-        executor: executor,
-        decoder: decoder,
-        source: source,
-        trace: trace,
-      ),
+      variables: variables,
+      ajax: ajax,
     );
     recordUnsupportedUrlOptionTrace(request, trace, stage: 'content');
+    throwIfUnsupportedWebViewRequest(request, trace, stage: 'content');
     recordLegadoRequestTrace(request, trace, stage: 'content');
     log.i(
       '[legado-content] request method=${request.method} url=${request.url} '
@@ -129,15 +156,18 @@ class ContentPipeline {
       '[legado-content] response status=${response.statusCode} '
       'finalUrl=${response.finalUri} bytes=${response.bytes.length}',
     );
-    final decoded = await decoder.decode(
-      bytes: response.bytes,
-      finalUri: response.finalUri,
-      headers: response.headers,
-      statusCode: response.statusCode,
-      explicitCharset: request.charset,
+    final decoded = await responseTransformer.decodeAndTransform(
+      decoder: decoder,
+      request: request,
+      response: response,
+      source: source,
+      jsEngine: analyzeUrl.jsEngine,
       trace: trace,
+      variables: variables,
+      ajax: ajax,
+      cookieStore: analyzeUrl.cookieStore,
     );
-    log.i(
+    log.d(
       '[legado-content] decoded finalUrl=${decoded.finalUri} '
       'chars=${decoded.text.length} '
       'firstChar=${decoded.text.isEmpty ? '' : decoded.text[0]} '
@@ -152,10 +182,13 @@ class ContentPipeline {
         baseUri: Uri.parse(source.url),
         redirectUri: decoded.finalUri,
       ),
+      variables: variables,
+      cookie: _cookieHeader(request.headers),
+      ajax: ajax,
     );
-    final content = _applyReplaceRegex(
-      _contentText(decoded.text, rule.content, context),
-      rule.replaceRegex,
+    final content = postProcessor.apply(
+      content: _contentText(decoded.text, rule.content, context),
+      replaceRegex: rule.replaceRegex,
     );
 
     return _ParsedContentPage(
@@ -176,7 +209,7 @@ class ContentPipeline {
   ) {
     try {
       final parts = analyzeRule.fieldStrings(decodedText, contentRule, context);
-      log.i(
+      log.d(
         '[legado-content] field content parts=${parts.length} '
         'rule=${_preview(contentRule ?? '')} '
         'preview=${_preview(parts.join('\\n'))}',
@@ -189,7 +222,16 @@ class ContentPipeline {
         error: error,
         stackTrace: stackTrace,
       );
-      rethrow;
+      final compatible = compatibilityParser.parse(decodedText);
+      if (compatible != null && compatible.isNotEmpty) {
+        context.trace?.add('content.compatibility.json');
+        log.w(
+          '[legado-content] content compatibility fallback '
+          'chars=${compatible.length}',
+        );
+        return compatible;
+      }
+      Error.throwWithStackTrace(error, stackTrace);
     }
   }
 
@@ -223,17 +265,11 @@ class ContentPipeline {
     return '${compact.substring(0, maxLength)}...';
   }
 
-  String _applyReplaceRegex(String content, String? replaceRegex) {
-    final raw = replaceRegex?.trim();
-    if (raw == null || raw.isEmpty || content.isEmpty) return content;
-
-    var next = content;
-    for (final rule in raw.split(RegExp(r'\r?\n'))) {
-      final text = rule.trim();
-      if (text.isEmpty) continue;
-      next = RegexParser.applyReplacement(next, text);
+  String? _cookieHeader(Map<String, String> headers) {
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == 'cookie') return entry.value;
     }
-    return next;
+    return null;
   }
 }
 

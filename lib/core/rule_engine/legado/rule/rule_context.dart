@@ -1,5 +1,7 @@
 import '../../models/source_rule.dart';
 import '../common/legado_trace.dart';
+import '../js/legado_js_engine.dart';
+import '../runtime/legado_runtime_variables.dart';
 import 'rule_value.dart';
 
 export '../common/legado_trace.dart';
@@ -12,16 +14,24 @@ class RuleContext {
     this.page = 1,
     this.book,
     Map<String, Object?>? variables,
+    LegadoRuntimeVariables? runtimeVariables,
+    this.cookie,
+    this.ajax,
     this.trace,
-  }) : variables = variables ?? <String, Object?>{};
+  }) : runtimeVariables = runtimeVariables ??
+            LegadoRuntimeVariables(request: variables, trace: trace);
 
   final SourceRule source;
   final RuleInput input;
   final String? keyword;
   final int page;
   final Object? book;
-  final Map<String, Object?> variables;
+  final LegadoRuntimeVariables runtimeVariables;
+  final String? cookie;
+  final LegadoJsAjax? ajax;
   final LegadoTrace? trace;
+
+  Map<String, Object?> get variables => runtimeVariables.asMap();
 
   Uri get baseUri => input.baseUri;
   Uri get redirectUri => input.redirectUri;
@@ -30,7 +40,7 @@ class RuleContext {
   Object? getVariable(String key) => variables[key];
 
   void putVariable(String key, Object? value) {
-    variables[key] = value;
+    runtimeVariables.put(key, value);
     trace?.add('put:$key');
   }
 }

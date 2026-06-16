@@ -24,6 +24,12 @@ class AnalyzeUrl {
   final LegadoCookieProvider cookieProvider;
   final LegadoCookieMerge cookieMerge;
 
+  /// 在线书源运行时会复用同一个 AnalyzeUrl。
+  /// 当 cookieProvider 同时支持写入时，响应阶段可把 Set-Cookie 回写到这里。
+  LegadoCookieStore? get cookieStore => cookieProvider is LegadoCookieStore
+      ? cookieProvider as LegadoCookieStore
+      : null;
+
   LegadoRequest compileSearch({
     required SourceRule source,
     required String rawUrl,
@@ -63,6 +69,7 @@ class AnalyzeUrl {
       headers: request.headers,
       body: request.body,
       charset: options.charset,
+      sourceRegex: options.sourceRegex,
       bodyJs: options.bodyJs,
       webJs: options.webJs,
       useWebView: options.useWebView,
@@ -127,6 +134,7 @@ class AnalyzeUrl {
       headers: request.headers,
       body: request.body,
       charset: options.charset,
+      sourceRegex: options.sourceRegex,
       bodyJs: options.bodyJs,
       webJs: options.webJs,
       useWebView: options.useWebView,

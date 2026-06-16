@@ -28,7 +28,24 @@ void recordUnsupportedUrlOptionTrace(
   LegadoTrace trace, {
   required String stage,
 }) {
-  if (request.bodyJs != null) trace.add('$stage.url.bodyJs:unsupported');
+  if (request.sourceRegex != null) {
+    trace.add('$stage.url.sourceRegex:supported');
+  }
+  if (request.bodyJs != null) trace.add('$stage.url.bodyJs:supported');
   if (request.webJs != null) trace.add('$stage.url.webJs:unsupported');
   if (request.useWebView) trace.add('$stage.url.webView:unsupported');
+}
+
+void throwIfUnsupportedWebViewRequest(
+  LegadoRequest request,
+  LegadoTrace trace, {
+  required String stage,
+}) {
+  if (!request.useWebView) return;
+  trace.add('$stage.url.webView:blocked');
+  throw LegadoRuntimeException(
+    'WebView request mode is not supported yet',
+    stage: stage,
+    trace: trace,
+  );
 }

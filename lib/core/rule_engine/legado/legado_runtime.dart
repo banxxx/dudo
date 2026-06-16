@@ -15,6 +15,7 @@ import 'pipeline/search_pipeline.dart';
 import 'pipeline/toc_pipeline.dart';
 import 'rule/analyze_rule.dart';
 import 'url/analyze_url.dart';
+import 'url/cookie_merge.dart';
 import 'url/request_executor.dart';
 import 'url/url_placeholder.dart';
 
@@ -44,9 +45,12 @@ class LegadoRuntime {
       ..register(JsRuleParser(jsEngine: jsEngine));
     final analyzeRule = AnalyzeRule(registry: registry, jsEngine: jsEngine);
     final requestExecutor = executor ?? const DioLegadoRequestExecutor();
+    // 在线书源运行时共享同一个内存 CookieStore，避免详情、目录、正文各自丢失会话。
+    final cookieStore = InMemoryLegadoCookieStore();
     final analyzeUrl = AnalyzeUrl(
       jsEngine: jsEngine,
       placeholder: LegadoUrlPlaceholder(jsEngine: jsEngine),
+      cookieProvider: cookieStore,
     );
     return LegadoRuntime(
       registry: registry,

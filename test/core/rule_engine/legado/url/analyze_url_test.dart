@@ -89,27 +89,29 @@ void main() {
       expect(request.headers.containsKey('Cookie'), isFalse);
     });
 
-    test('carries bodyJs and webJs URL option metadata', () {
+    test('carries sourceRegex, bodyJs and webJs URL option metadata', () {
       const analyzeUrl = AnalyzeUrl();
       final request = analyzeUrl.compileSearch(
         source: _source(),
         rawUrl:
-            '/search,{"bodyJs":"result.replace(\'a\',\'b\')","webJs":"document.body.innerText"}',
+            '/search,{"sourceRegex":"window.__DATA__=(.*)","bodyJs":"result.replace(\'a\',\'b\')","webJs":"document.body.innerText"}',
         keyword: '三体',
       );
 
+      expect(request.sourceRegex, 'window.__DATA__=(.*)');
       expect(request.bodyJs, "result.replace('a','b')");
       expect(request.webJs, 'document.body.innerText');
     });
 
-    test('normalizes blank bodyJs and webJs to null', () {
+    test('normalizes blank sourceRegex, bodyJs and webJs to null', () {
       const analyzeUrl = AnalyzeUrl();
       final request = analyzeUrl.compileSearch(
         source: _source(),
-        rawUrl: '/search,{"bodyJs":"","webJs":"   "}',
+        rawUrl: '/search,{"sourceRegex":" ","bodyJs":"","webJs":"   "}',
         keyword: '三体',
       );
 
+      expect(request.sourceRegex, isNull);
       expect(request.bodyJs, isNull);
       expect(request.webJs, isNull);
     });

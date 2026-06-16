@@ -162,6 +162,9 @@ class AnalyzeRule {
           source: context.source,
           book: context.book,
           variables: context.variables,
+          cookie: context.cookie,
+          ajax: context.ajax,
+          trace: context.trace,
         ),
       );
     } on Exception {
@@ -364,6 +367,9 @@ class AnalyzeRule {
             source: context.source,
             book: context.book,
             variables: context.variables,
+            cookie: context.cookie,
+            ajax: context.ajax,
+            trace: context.trace,
           ),
         );
         continue;
@@ -392,28 +398,80 @@ class AnalyzeRule {
   }
 
   List<_EmbeddedRulePart>? _splitEmbeddedJs(String rawRule) {
-    final pattern = RegExp(
-      r'<js>([\s\S]*?)</js>|@js:([\s\S]*)',
-      caseSensitive: false,
-    );
-    final matches = pattern.allMatches(rawRule).toList();
-    if (matches.isEmpty) return null;
-
     final parts = <_EmbeddedRulePart>[];
-    var start = 0;
-    for (final match in matches) {
-      if (match.start > start) {
-        parts.add(
-            _EmbeddedRulePart(rawRule.substring(start, match.start), false));
+    final textBuffer = StringBuffer();
+    var foundJs = false;
+    var index = 0;
+
+    while (index < rawRule.length) {
+      if (_startsWithIgnoreCase(rawRule, index, '<js>')) {
+        _flushEmbeddedText(parts, textBuffer);
+        final end = _findJsBlockEnd(rawRule, index + 4);
+        if (end == -1) {
+          textBuffer.write(rawRule.substring(index));
+          break;
+        }
+        parts.add(_EmbeddedRulePart(rawRule.substring(index + 4, end), true));
+        foundJs = true;
+        index = end + 5;
+        continue;
       }
-      parts
-          .add(_EmbeddedRulePart(match.group(1) ?? match.group(2) ?? '', true));
-      start = match.end;
+
+      if (_startsWithIgnoreCase(rawRule, index, '@js:')) {
+        _flushEmbeddedText(parts, textBuffer);
+        parts.add(_EmbeddedRulePart(rawRule.substring(index + 4), true));
+        foundJs = true;
+        index = rawRule.length;
+        continue;
+      }
+
+      textBuffer.write(rawRule[index]);
+      index += 1;
     }
-    if (rawRule.length > start) {
-      parts.add(_EmbeddedRulePart(rawRule.substring(start), false));
+
+    _flushEmbeddedText(parts, textBuffer);
+    return foundJs ? parts : null;
+  }
+
+  void _flushEmbeddedText(
+    List<_EmbeddedRulePart> parts,
+    StringBuffer buffer,
+  ) {
+    if (buffer.isEmpty) return;
+    parts.add(_EmbeddedRulePart(buffer.toString(), false));
+    buffer.clear();
+  }
+
+  int _findJsBlockEnd(String rawRule, int start) {
+    var quote = '';
+    var escaped = false;
+    for (var index = start; index < rawRule.length; index++) {
+      final char = rawRule[index];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char == r'\') {
+        escaped = true;
+        continue;
+      }
+      if (quote.isNotEmpty) {
+        if (char == quote) quote = '';
+        continue;
+      }
+      if (char == '"' || char == "'" || char == '`') {
+        quote = char;
+        continue;
+      }
+      if (_startsWithIgnoreCase(rawRule, index, '</js>')) return index;
     }
-    return parts;
+    return -1;
+  }
+
+  bool _startsWithIgnoreCase(String input, int index, String pattern) {
+    if (index + pattern.length > input.length) return false;
+    return input.substring(index, index + pattern.length).toLowerCase() ==
+        pattern.toLowerCase();
   }
 
   List<LegadoRuleStep> _applyPutSteps(
@@ -530,6 +588,9 @@ class AnalyzeRule {
           source: context.source,
           book: context.book,
           variables: context.variables,
+          cookie: context.cookie,
+          ajax: context.ajax,
+          trace: context.trace,
         ),
       );
     }

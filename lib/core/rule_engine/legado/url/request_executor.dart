@@ -9,6 +9,7 @@ class LegadoRequest {
     required this.headers,
     this.body,
     this.charset,
+    this.sourceRegex,
     this.bodyJs,
     this.webJs,
     this.useWebView = false,
@@ -20,6 +21,7 @@ class LegadoRequest {
   final Map<String, String> headers;
   final Object? body;
   final String? charset;
+  final String? sourceRegex;
   final String? bodyJs;
   final String? webJs;
   final bool useWebView;
