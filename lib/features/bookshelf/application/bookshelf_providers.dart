@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
 import '../../../core/rule_engine/rule_engine.dart';
+import '../../search/application/search_providers.dart';
 import '../../sources/application/source_providers.dart';
 import '../data/bookshelf_repository.dart';
 import '../data/local_book_chapter_analysis_service.dart';
@@ -107,9 +108,10 @@ final localBookChapterAnalysisServiceProvider =
 
 final remoteBookImportServiceProvider =
     Provider<RemoteBookImportService>((ref) {
+  final cookieStore = ref.watch(legadoCookieStoreProvider).valueOrNull;
   return RemoteBookImportService(
     bookshelfRepository: ref.watch(bookshelfRepositoryProvider),
     sourceRepository: ref.watch(sourceRepositoryProvider),
-    ruleEngine: RuleEngine.create(),
+    ruleEngine: RuleEngine.create(cookieStore: cookieStore),
   );
 });

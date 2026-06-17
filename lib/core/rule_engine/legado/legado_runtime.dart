@@ -38,6 +38,7 @@ class LegadoRuntime {
   factory LegadoRuntime.create({
     LegadoRequestExecutor? executor,
     LegadoWebViewExecutor? webViewExecutor,
+    LegadoCookieStore? cookieStore,
   }) {
     final jsEngine = FlutterJsLegadoJsEngine();
     final registry = ParserRegistry()
@@ -51,12 +52,12 @@ class LegadoRuntime {
     final requestExecutor = executor ?? const DioLegadoRequestExecutor();
     final webExecutor =
         webViewExecutor ?? const UnsupportedLegadoWebViewExecutor();
-    // 在线书源运行时共享同一个内存 CookieStore，避免详情、目录、正文各自丢失会话。
-    final cookieStore = InMemoryLegadoCookieStore();
+    // 在线书源运行时共享同一个 CookieStore，避免详情、目录、正文各自丢失会话。
+    final effectiveCookieStore = cookieStore ?? InMemoryLegadoCookieStore();
     final analyzeUrl = AnalyzeUrl(
       jsEngine: jsEngine,
       placeholder: LegadoUrlPlaceholder(jsEngine: jsEngine),
-      cookieProvider: cookieStore,
+      cookieProvider: effectiveCookieStore,
     );
     return LegadoRuntime(
       registry: registry,

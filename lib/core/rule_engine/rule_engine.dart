@@ -2,6 +2,7 @@ import 'models/source_rule.dart';
 import 'parsers/parser.dart';
 import 'legado/legado_runtime.dart';
 import 'legado/rule/rule_ast.dart';
+import 'legado/url/cookie_merge.dart';
 import 'legado/url/request_executor.dart';
 
 /// Façade for the rule engine. Plug parsers in at construction time and call
@@ -15,8 +16,14 @@ class RuleEngine {
   final ParserRegistry registry;
   final LegadoRuntime _runtime;
 
-  static RuleEngine create({LegadoRequestExecutor? executor}) {
-    final runtime = LegadoRuntime.create(executor: executor);
+  static RuleEngine create({
+    LegadoRequestExecutor? executor,
+    LegadoCookieStore? cookieStore,
+  }) {
+    final runtime = LegadoRuntime.create(
+      executor: executor,
+      cookieStore: cookieStore,
+    );
     return RuleEngine._(runtime.registry, runtime);
   }
 

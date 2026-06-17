@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../bookshelf/application/bookshelf_providers.dart';
 import '../../../core/database/database_provider.dart';
 import '../../../core/rule_engine/rule_engine.dart';
+import '../../search/application/search_providers.dart';
 import '../../sources/application/source_providers.dart';
 import '../data/bookshelf_reader_annotation_repository.dart';
 import '../data/bookshelf_reader_progress_repository.dart';
@@ -16,12 +17,13 @@ import '../data/text_reader_document_source.dart';
 final readerDocumentSourceProvider = Provider<ReaderDocumentSource>((ref) {
   final repository = ref.watch(bookshelfRepositoryProvider);
   final textRepository = BookshelfTextReaderBookRepository(repository);
+  final cookieStore = ref.watch(legadoCookieStoreProvider).valueOrNull;
   return TextReaderDocumentSource(
     textRepository,
     remoteContentLoader: RemoteReaderContentLoader.fromRepositories(
       repository: textRepository,
       sourceRepository: ref.watch(sourceRepositoryProvider),
-      ruleEngine: RuleEngine.create(),
+      ruleEngine: RuleEngine.create(cookieStore: cookieStore),
     ),
   );
 });
