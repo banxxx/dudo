@@ -207,15 +207,15 @@ class ContentPipeline {
           cookie: _cookieHeader(effectiveRequest.headers),
         );
     final content = postProcessor.apply(
-      content: _contentText(decoded.text, rule.content, context),
+      content: await _contentText(decoded.text, rule.content, context),
       replaceRegex: rule.replaceRegex,
     );
 
     return _ParsedContentPage(
-      title: _fieldString(decoded.text, rule.title, context, 'title'),
+      title: await _fieldString(decoded.text, rule.title, context, 'title'),
       content: content,
       nextContentUrl: analyzeRule.absoluteUrl(
-        _fieldString(
+        await _fieldString(
             decoded.text, rule.nextContentUrl, context, 'nextContentUrl'),
         baseUrl,
       ),
@@ -255,13 +255,14 @@ class ContentPipeline {
     return text;
   }
 
-  String _contentText(
+  Future<String> _contentText(
     String decodedText,
     String? contentRule,
     RuleContext context,
-  ) {
+  ) async {
     try {
-      final parts = analyzeRule.fieldStrings(decodedText, contentRule, context);
+      final parts = await analyzeRule.fieldStringsAsync(
+          decodedText, contentRule, context);
       log.d(
         '[legado-content] field content parts=${parts.length} '
         'rule=${_preview(contentRule ?? '')} '
@@ -288,14 +289,15 @@ class ContentPipeline {
     }
   }
 
-  String? _fieldString(
+  Future<String?> _fieldString(
     Object source,
     String? rawRule,
     RuleContext context,
     String fieldName,
-  ) {
+  ) async {
     try {
-      final value = analyzeRule.fieldString(source, rawRule, context);
+      final value =
+          await analyzeRule.fieldStringAsync(source, rawRule, context);
       log.i(
         '[legado-content] field $fieldName '
         'rule=${_preview(rawRule ?? '')} value=${_preview(value ?? '')}',

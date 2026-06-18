@@ -47,6 +47,34 @@ class AnalyzeRule {
     return _firstString(value);
   }
 
+  Future<String?> stringAsync(
+    Object source,
+    String? rawRule,
+    RuleContext context,
+  ) async {
+    if (rawRule == null || rawRule.trim().isEmpty) return null;
+    context.trace?.add('rule.stage:string');
+    final preparedRule = _replaceDynamicRule(rawRule, context, source: source);
+    if (preparedRule != rawRule &&
+        _looksLikeLiteral(preparedRule) &&
+        !_hasEmbeddedJs(preparedRule)) {
+      return preparedRule;
+    }
+    final embedded = await _evaluateEmbeddedJsRuleAsync(
+      source,
+      preparedRule,
+      context,
+      wantsElements: false,
+    );
+    if (embedded != null) return _firstString(embedded);
+    final value = await evaluateAsync(
+      astParser.parse(preparedRule),
+      context,
+      source,
+    );
+    return _firstString(value);
+  }
+
   List<Object> elements(Object source, String? rawRule, RuleContext context) {
     if (rawRule == null || rawRule.trim().isEmpty) return const <Object>[];
     context.trace?.add('rule.stage:elements');
@@ -79,6 +107,14 @@ class AnalyzeRule {
     return normalizeField(string(source, rawRule, context));
   }
 
+  Future<String?> fieldStringAsync(
+    Object source,
+    String? rawRule,
+    RuleContext context,
+  ) async {
+    return normalizeField(await stringAsync(source, rawRule, context));
+  }
+
   List<String> fieldStrings(
     Object source,
     String? rawRule,
@@ -86,8 +122,22 @@ class AnalyzeRule {
   ) {
     if (rawRule == null || rawRule.trim().isEmpty) return const [];
     context.trace?.add('rule.stage:fieldStrings');
+    final preparedRule = _replaceDynamicRule(rawRule, context, source: source);
+    final embedded = _evaluateEmbeddedJsRule(
+      source,
+      preparedRule,
+      context,
+      wantsElements: false,
+    );
+    if (embedded != null) {
+      return _strings(embedded)
+          .map(normalizeField)
+          .whereType<String>()
+          .where((value) => value.isNotEmpty)
+          .toList(growable: false);
+    }
     final value = evaluate(
-      astParser.parse(_replaceDynamicRule(rawRule, context, source: source)),
+      astParser.parse(preparedRule),
       context,
       source,
     );
@@ -96,6 +146,29 @@ class AnalyzeRule {
         .whereType<String>()
         .where((value) => value.isNotEmpty)
         .toList(growable: false);
+  }
+
+  Future<List<String>> fieldStringsAsync(
+    Object source,
+    String? rawRule,
+    RuleContext context,
+  ) async {
+    if (rawRule == null || rawRule.trim().isEmpty) return const [];
+    context.trace?.add('rule.stage:fieldStrings');
+    final preparedRule = _replaceDynamicRule(rawRule, context, source: source);
+    final embedded = await _evaluateEmbeddedJsRuleAsync(
+      source,
+      preparedRule,
+      context,
+      wantsElements: false,
+    );
+    if (embedded != null) return _normalizedStrings(embedded);
+    final value = await evaluateAsync(
+      astParser.parse(preparedRule),
+      context,
+      source,
+    );
+    return _normalizedStrings(value);
   }
 
   String? normalizeField(String? value) {
@@ -226,6 +299,41 @@ class AnalyzeRule {
     };
   }
 
+  Future<RuleValue> evaluateAsync(
+    LegadoRuleAst ast,
+    RuleContext context,
+    Object source, {
+    bool wantsElements = false,
+  }) async {
+    context.trace?.add('evaluate:${ast.runtimeType}');
+    return switch (ast) {
+      LegadoFallbackRule(:final alternatives) => _evaluateFallbackAsync(
+          alternatives,
+          context,
+          source,
+          wantsElements: wantsElements,
+        ),
+      LegadoAppendRule(:final parts) => _evaluateAppendAsync(
+          parts,
+          context,
+          source,
+          wantsElements: wantsElements,
+        ),
+      LegadoInterleaveRule(:final parts) => _evaluateInterleaveAsync(
+          parts,
+          context,
+          source,
+          wantsElements: wantsElements,
+        ),
+      LegadoPipelineRule(:final steps) => _evaluatePipelineAsync(
+          steps,
+          context,
+          source,
+          wantsElements: wantsElements,
+        ),
+    };
+  }
+
   RuleValue _evaluateFallback(
     List<LegadoRuleAst> alternatives,
     RuleContext context,
@@ -234,6 +342,24 @@ class AnalyzeRule {
   }) {
     for (final alternative in alternatives) {
       final value = evaluate(
+        alternative,
+        context,
+        source,
+        wantsElements: wantsElements,
+      );
+      if (!value.isEmpty) return value;
+    }
+    return const RuleListValue([]);
+  }
+
+  Future<RuleValue> _evaluateFallbackAsync(
+    List<LegadoRuleAst> alternatives,
+    RuleContext context,
+    Object source, {
+    required bool wantsElements,
+  }) async {
+    for (final alternative in alternatives) {
+      final value = await evaluateAsync(
         alternative,
         context,
         source,
@@ -264,6 +390,25 @@ class AnalyzeRule {
           )
           .toList(growable: false),
     );
+  }
+
+  Future<RuleValue> _evaluateAppendAsync(
+    List<LegadoRuleAst> parts,
+    RuleContext context,
+    Object source, {
+    required bool wantsElements,
+  }) async {
+    final values = <RuleValue>[];
+    for (final part in parts) {
+      final value = await evaluateAsync(
+        part,
+        context,
+        source,
+        wantsElements: wantsElements,
+      );
+      values.addAll(_flatValues(value));
+    }
+    return RuleListValue(values);
   }
 
   RuleValue _evaluateInterleave(
@@ -297,6 +442,35 @@ class AnalyzeRule {
     return RuleListValue(interleaved);
   }
 
+  Future<RuleValue> _evaluateInterleaveAsync(
+    List<LegadoRuleAst> parts,
+    RuleContext context,
+    Object source, {
+    required bool wantsElements,
+  }) async {
+    final values = <List<RuleValue>>[];
+    for (final part in parts) {
+      final value = await evaluateAsync(
+        part,
+        context,
+        source,
+        wantsElements: wantsElements,
+      );
+      values.add(_flatValues(value).toList(growable: false));
+    }
+    final maxLength = values.fold<int>(
+      0,
+      (max, list) => list.length > max ? list.length : max,
+    );
+    final interleaved = <RuleValue>[];
+    for (var i = 0; i < maxLength; i++) {
+      for (final list in values) {
+        if (i < list.length) interleaved.add(list[i]);
+      }
+    }
+    return RuleListValue(interleaved);
+  }
+
   RuleValue _evaluatePipeline(
     List<LegadoRuleStep> steps,
     RuleContext context,
@@ -317,6 +491,54 @@ class AnalyzeRule {
     final mode = normalizedSteps.first.mode;
     if (mode == LegadoRuleMode.js) {
       final value = _evaluateJsSteps(normalizedSteps, context, source);
+      return _valueFromObject(value, wantsElements: wantsElements);
+    }
+    if (mode == LegadoRuleMode.webJs) {
+      context.trace?.add('rule.webJs:unsupported');
+      return const RuleListValue([]);
+    }
+
+    final parserType = _parserTypeFor(mode, source);
+    context.trace?.add('rule.parserMode:${mode.name}');
+    final parser = registry.forType(parserType);
+    if (parser == null) {
+      context.trace?.add('rule.parser.unsupported:${parserType.name}');
+      return const RuleListValue([]);
+    }
+
+    final rule = RuleChain.parse(_rawRuleForParser(normalizedSteps));
+    if (wantsElements) {
+      return RuleNodeSetValue(parser.parseElements(source, rule));
+    }
+    return RuleListValue(
+      parser
+          .parseList(source, rule)
+          .map(RuleStringValue.new)
+          .toList(growable: false),
+    );
+  }
+
+  Future<RuleValue> _evaluatePipelineAsync(
+    List<LegadoRuleStep> steps,
+    RuleContext context,
+    Object source, {
+    required bool wantsElements,
+  }) async {
+    if (steps.isEmpty) return const RuleListValue([]);
+    final normalizedSteps = _applyPutSteps(steps, context, source);
+    if (normalizedSteps.isEmpty) return const RuleListValue([]);
+    final variableValue = _evaluateVariableCommand(
+      normalizedSteps,
+      context,
+      source,
+      wantsElements: wantsElements,
+    );
+    if (variableValue != null) return variableValue;
+
+    final mode = normalizedSteps.first.mode;
+    if (mode == LegadoRuleMode.js) {
+      final value =
+          await _evaluateJsStepsAsync(normalizedSteps, context, source);
       return _valueFromObject(value, wantsElements: wantsElements);
     }
     if (mode == LegadoRuleMode.webJs) {
@@ -401,6 +623,63 @@ class AnalyzeRule {
         : null;
   }
 
+  Future<RuleValue?> _evaluateEmbeddedJsRuleAsync(
+    Object source,
+    String rawRule,
+    RuleContext context, {
+    required bool wantsElements,
+  }) async {
+    final parts = _splitEmbeddedJs(rawRule);
+    if (parts == null) return null;
+
+    Object? current = source;
+    var sawJs = false;
+    for (var i = 0; i < parts.length; i++) {
+      final part = parts[i];
+      if (part.text.trim().isEmpty) continue;
+      if (part.isJs) {
+        sawJs = true;
+        current = await jsEngine.evalAsync(
+          _stripJsWrapper(part.text),
+          context: LegadoJsContext(
+            key: context.keyword ?? '',
+            page: context.page,
+            baseUrl: context.currentUrl,
+            src: source,
+            result: current,
+            source: context.source,
+            book: context.book,
+            variables: context.variables,
+            cookie: context.cookie,
+            ajax: context.ajax,
+            trace: context.trace,
+          ),
+        );
+        continue;
+      }
+
+      final isLast = i == parts.length - 1;
+      final preparedPart =
+          _replaceDynamicRule(part.text, context, source: current).trim();
+      if (_looksLikeLiteral(preparedPart)) {
+        current = preparedPart;
+        continue;
+      }
+      final value = await evaluateAsync(
+        astParser.parse(preparedPart),
+        context,
+        current ?? '',
+        wantsElements: wantsElements && isLast,
+      );
+      if (wantsElements && isLast) return value;
+      current = _objectFromValue(value);
+    }
+
+    return sawJs
+        ? _valueFromObject(current, wantsElements: wantsElements)
+        : null;
+  }
+
   List<_EmbeddedRulePart>? _splitEmbeddedJs(String rawRule) {
     final parts = <_EmbeddedRulePart>[];
     final textBuffer = StringBuffer();
@@ -412,6 +691,14 @@ class AnalyzeRule {
         _flushEmbeddedText(parts, textBuffer);
         final end = _findJsBlockEnd(rawRule, index + 4);
         if (end == -1) {
+          if (parts.isEmpty) {
+            // 部分历史书源会只写起始 <js>，Legado 在多个入口也按整段脚本处理。
+            // 这里将剩余内容视为 JS，避免把 '<js>' 交给 JS 引擎造成语法错误。
+            parts.add(_EmbeddedRulePart(rawRule.substring(index + 4), true));
+            foundJs = true;
+            index = rawRule.length;
+            continue;
+          }
           textBuffer.write(rawRule.substring(index));
           break;
         }
@@ -603,6 +890,33 @@ class AnalyzeRule {
     return current;
   }
 
+  Future<Object?> _evaluateJsStepsAsync(
+    List<LegadoRuleStep> steps,
+    RuleContext context,
+    Object source,
+  ) async {
+    Object? current = source;
+    for (final step in steps) {
+      current = await jsEngine.evalAsync(
+        _stripJsWrapper(step.raw),
+        context: LegadoJsContext(
+          key: context.keyword ?? '',
+          page: context.page,
+          baseUrl: context.currentUrl,
+          src: source,
+          result: current,
+          source: context.source,
+          book: context.book,
+          variables: context.variables,
+          cookie: context.cookie,
+          ajax: context.ajax,
+          trace: context.trace,
+        ),
+      );
+    }
+    return current;
+  }
+
   String _stripJsWrapper(String raw) {
     final text = raw.trim();
     final match = RegExp(
@@ -610,6 +924,14 @@ class AnalyzeRule {
       caseSensitive: false,
     ).firstMatch(text);
     if (match != null) return match.group(1)?.trim() ?? '';
+    if (_startsWithIgnoreCase(text, 0, '<js>')) {
+      final body = text.substring(4).trim();
+      if (body.toLowerCase().endsWith('</js>')) {
+        return body.substring(0, body.length - 5).trim();
+      }
+      // 容错处理缺少闭合标签的整段 JS 规则，保持兼容层集中在规则引擎内。
+      return body;
+    }
     return text;
   }
 
@@ -750,6 +1072,14 @@ class AnalyzeRule {
       RuleJsValue(:final value) =>
         value == null ? const [] : [value.toString()],
     };
+  }
+
+  List<String> _normalizedStrings(RuleValue value) {
+    return _strings(value)
+        .map(normalizeField)
+        .whereType<String>()
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
   }
 
   List<Object> _objects(RuleValue value) {

@@ -1,6 +1,7 @@
 import 'models/source_rule.dart';
 import 'parsers/parser.dart';
 import 'legado/legado_runtime.dart';
+import 'legado/js/legado_js_engine.dart';
 import 'legado/rule/rule_ast.dart';
 import 'legado/url/cookie_merge.dart';
 import 'legado/url/request_executor.dart';
@@ -19,10 +20,12 @@ class RuleEngine {
   static RuleEngine create({
     LegadoRequestExecutor? executor,
     LegadoCookieStore? cookieStore,
+    LegadoJsEngine? jsEngine,
   }) {
     final runtime = LegadoRuntime.create(
       executor: executor,
       cookieStore: cookieStore,
+      jsEngine: jsEngine,
     );
     return RuleEngine._(runtime.registry, runtime);
   }

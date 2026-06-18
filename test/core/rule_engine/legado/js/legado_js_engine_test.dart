@@ -227,6 +227,32 @@ void main() {
 
       expect(value, 'body:/chapter/Alpha');
     });
+
+    test('keeps automatic semicolon insertion around awaited ajax',
+        () async {
+      final engine = FlutterJsLegadoJsEngine(
+        timeout: const Duration(seconds: 5),
+      );
+      final context = LegadoJsContext(
+        key: 'Alpha',
+        page: 1,
+        ajax: (rawUrl) async => 'ajax:$rawUrl',
+      );
+
+      final value = await _evalWithQuickJsOrSkip(
+        engine,
+        '''
+        url = "/chapter/" + key
+        html = java.ajax(url)
+        java.setContent(html)
+        result = html
+        ''',
+        context,
+      );
+      if (identical(value, _quickJsSkipped)) return;
+
+      expect(value, 'ajax:/chapter/Alpha');
+    });
   });
 }
 

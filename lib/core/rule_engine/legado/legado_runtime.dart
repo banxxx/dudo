@@ -39,24 +39,26 @@ class LegadoRuntime {
     LegadoRequestExecutor? executor,
     LegadoWebViewExecutor? webViewExecutor,
     LegadoCookieStore? cookieStore,
+    LegadoJsEngine? jsEngine,
   }) {
-    final jsEngine = FlutterJsLegadoJsEngine();
+    final effectiveJsEngine = jsEngine ?? FlutterJsLegadoJsEngine();
     final registry = ParserRegistry()
       ..register(const DefaultHtmlRuleParser())
       ..register(const ExplicitCssRuleParser())
       ..register(const XPathParser())
       ..register(const JsonPathRuleParser())
       ..register(const RegexParser())
-      ..register(JsRuleParser(jsEngine: jsEngine));
-    final analyzeRule = AnalyzeRule(registry: registry, jsEngine: jsEngine);
+      ..register(JsRuleParser(jsEngine: effectiveJsEngine));
+    final analyzeRule =
+        AnalyzeRule(registry: registry, jsEngine: effectiveJsEngine);
     final requestExecutor = executor ?? const DioLegadoRequestExecutor();
     final webExecutor =
         webViewExecutor ?? const UnsupportedLegadoWebViewExecutor();
     // 在线书源运行时共享同一个 CookieStore，避免详情、目录、正文各自丢失会话。
     final effectiveCookieStore = cookieStore ?? InMemoryLegadoCookieStore();
     final analyzeUrl = AnalyzeUrl(
-      jsEngine: jsEngine,
-      placeholder: LegadoUrlPlaceholder(jsEngine: jsEngine),
+      jsEngine: effectiveJsEngine,
+      placeholder: LegadoUrlPlaceholder(jsEngine: effectiveJsEngine),
       cookieProvider: effectiveCookieStore,
     );
     return LegadoRuntime(

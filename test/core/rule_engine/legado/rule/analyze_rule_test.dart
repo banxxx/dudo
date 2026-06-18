@@ -188,6 +188,74 @@ void main() {
       );
     });
 
+    test('fieldStrings evaluates standalone js tag rules consistently', () {
+      final context = RuleContext(
+        source: _source(),
+        input: RuleInput(
+          rawText: 'Alpha',
+          baseUri: Uri.parse('https://source.example'),
+        ),
+      );
+      final analyzeRule = AnalyzeRule(registry: _registry());
+
+      expect(
+        analyzeRule.fieldStrings(
+          'Alpha',
+          '<js>result + " Beta"</js>',
+          context,
+        ),
+        ['Alpha Beta'],
+      );
+    });
+
+    test('fieldStrings tolerates js start tag without closing tag', () {
+      final context = RuleContext(
+        source: _source(),
+        input: RuleInput(
+          rawText: 'Alpha',
+          baseUri: Uri.parse('https://source.example'),
+        ),
+      );
+      final analyzeRule = AnalyzeRule(registry: _registry());
+
+      expect(
+        analyzeRule.fieldStrings(
+          'Alpha',
+          '<js>result + " Beta"',
+          context,
+        ),
+        ['Alpha Beta'],
+      );
+    });
+
+    test('fieldStringsAsync uses async js bridge for ajax rules', () async {
+      final requested = <String>[];
+      final context = RuleContext(
+        source: _source(),
+        input: RuleInput(
+          rawText: 'Alpha',
+          baseUri: Uri.parse('https://source.example'),
+        ),
+        ajax: (rawUrl) async {
+          requested.add(rawUrl);
+          return 'Body:$rawUrl';
+        },
+      );
+      final analyzeRule = AnalyzeRule(
+        registry: _registry(),
+        jsEngine: const _AsyncOnlyJsEngine(),
+      );
+
+      final values = await analyzeRule.fieldStringsAsync(
+        'Alpha',
+        '<js>java.ajax("/chapter")</js>',
+        context,
+      );
+
+      expect(values, ['Body:/chapter']);
+      expect(requested, ['/chapter']);
+    });
+
     test('keeps closing js tag text inside JS strings while parsing rule tail',
         () {
       final context = RuleContext(
@@ -338,6 +406,26 @@ class _BaseUrlJsEngine implements LegadoJsEngine {
     required LegadoJsContext context,
   }) async {
     return eval(script, context: context);
+  }
+}
+
+class _AsyncOnlyJsEngine implements LegadoJsEngine {
+  const _AsyncOnlyJsEngine();
+
+  @override
+  Object? eval(String script, {required LegadoJsContext context}) {
+    throw const LegadoJsException('sync eval should not be used');
+  }
+
+  @override
+  Future<Object?> evalAsync(
+    String script, {
+    required LegadoJsContext context,
+  }) async {
+    if (script.contains('java.ajax')) {
+      return context.ajax?.call('/chapter');
+    }
+    return null;
   }
 }
 

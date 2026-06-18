@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:dudo/core/rule_engine/legado/common/legado_trace.dart';
+import 'package:dudo/core/rule_engine/legado/js/legado_js_engine.dart';
 import 'package:dudo/core/rule_engine/legado/legado_runtime.dart';
 import 'package:dudo/core/rule_engine/legado/url/request_executor.dart';
 import 'package:dudo/core/rule_engine/legado/webview/legado_webview_executor.dart';
@@ -115,6 +116,66 @@ void main() {
       expect(content, isNotNull);
       expect(content!.content, contains('第一段\n第二段'));
       expect(content.content, contains('作者有话说'));
+    });
+
+    test('evaluates full js content rules through fieldStrings path', () async {
+      final runtime = LegadoRuntime.create(
+        executor: _FakeExecutor(
+          finalUri: Uri.parse(
+            'https://app.jjwxc.net/androidapi/chapterContent?novelId=3878507&chapterId=1',
+          ),
+          contentType: 'application/json; charset=utf-8',
+          body: jsonEncode({
+            'content': 'Line 1<br/>Line 2',
+            'sayBody': 'Author note',
+          }),
+        ),
+      );
+
+      final content = await runtime.loadContent(
+        _fullJsContentSource(),
+        'https://app.jjwxc.net/androidapi/chapterContent?novelId=3878507&chapterId=1',
+      );
+
+      expect(content, isNotNull);
+      expect(content!.content, contains('Line 1\nLine 2'));
+      expect(content.content, contains('Author note'));
+    });
+
+    test('tolerates content js rules without closing js tag', () async {
+      final runtime = LegadoRuntime.create(
+        executor: _FakeExecutor(
+          finalUri: Uri.parse('https://source.example/chapter'),
+          contentType: 'application/json; charset=utf-8',
+          body: jsonEncode({'content': 'Line 1'}),
+        ),
+      );
+
+      final content = await runtime.loadContent(
+        _openJsContentSource(),
+        'https://source.example/chapter',
+      );
+
+      expect(content, isNotNull);
+      expect(content!.content, 'Line 1');
+    });
+
+    test('evaluates content js rules with java.ajax through async bridge',
+        () async {
+      final executor = _AjaxFixtureExecutor();
+      final runtime = LegadoRuntime.create(
+        executor: executor,
+        jsEngine: const _ContentAsyncOnlyJsEngine(),
+      );
+
+      final content = await runtime.loadContent(
+        _ajaxJsContentSource(),
+        'https://source.example/chapter',
+      );
+
+      expect(content, isNotNull);
+      expect(content!.content, 'Ajax body');
+      expect(executor.requestedUrls, contains('https://source.example/ajax'));
     });
 
     test('applies bodyJs before parsing content rule', () async {
@@ -412,6 +473,56 @@ result
   );
 }
 
+SourceRule _fullJsContentSource() {
+  return const SourceRule(
+    id: 'source',
+    name: 'Source',
+    url: 'https://app.jjwxc.net/',
+    content: ContentRule(
+      content: r'''
+<js>
+if(baseUrl.match(/jjwxc/)){
+  content = java.getString("$.content");
+  saybody = java.getString("$.sayBody");
+  say = saybody != "" ? "\nAuthor says:\n" + saybody : "";
+  result = content + say;
+}else{
+  result = "";
+}
+result
+</js>
+''',
+    ),
+  );
+}
+
+SourceRule _ajaxJsContentSource() {
+  return const SourceRule(
+    id: 'source',
+    name: 'Source',
+    url: 'https://source.example/',
+    content: ContentRule(
+      content: r'''
+<js>
+var data = JSON.parse(java.ajax("https://source.example/ajax"));
+result = data.content;
+</js>
+''',
+    ),
+  );
+}
+
+SourceRule _openJsContentSource() {
+  return const SourceRule(
+    id: 'source',
+    name: 'Source',
+    url: 'https://source.example/',
+    content: ContentRule(
+      content: r'<js>java.getString("$.content")',
+    ),
+  );
+}
+
 SourceRule _bodyJsContentSource() {
   return const SourceRule(
     id: 'source',
@@ -524,6 +635,45 @@ class _RecordingExecutor implements LegadoRequestExecutor {
       }),
       statusCode: 200,
     );
+  }
+}
+
+class _AjaxFixtureExecutor implements LegadoRequestExecutor {
+  final requestedUrls = <String>[];
+
+  @override
+  Future<LegadoHttpResponse> execute(LegadoRequest request) async {
+    requestedUrls.add(request.url.toString());
+    final body = request.url.toString().endsWith('/ajax')
+        ? jsonEncode({'content': 'Ajax body'})
+        : jsonEncode({'content': 'Initial body'});
+    return LegadoHttpResponse(
+      bytes: utf8.encode(body),
+      finalUri: Uri.parse(request.url),
+      headers: Headers.fromMap({
+        'content-type': ['application/json; charset=utf-8'],
+      }),
+      statusCode: 200,
+    );
+  }
+}
+
+class _ContentAsyncOnlyJsEngine implements LegadoJsEngine {
+  const _ContentAsyncOnlyJsEngine();
+
+  @override
+  Object? eval(String script, {required LegadoJsContext context}) {
+    throw const LegadoJsException('sync eval should not be used');
+  }
+
+  @override
+  Future<Object?> evalAsync(
+    String script, {
+    required LegadoJsContext context,
+  }) async {
+    final response = await context.ajax?.call('https://source.example/ajax');
+    final decoded = jsonDecode(response.toString()) as Map<String, dynamic>;
+    return decoded['content'];
   }
 }
 

@@ -250,11 +250,10 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
     final encodedBindings = _bindings.contextJson(context);
     final effectiveScript =
         allowAsync ? _asyncCompatibleScript(script) : script;
-    final escapedScript = jsonEncode(effectiveScript.trim());
     final functionStart = allowAsync ? '(async function(){' : '(function(){';
-    final evalStatement = allowAsync
-        ? 'var __value = await eval($escapedScript);'
-        : 'var __value = eval($escapedScript);';
+    final executionStatement = allowAsync
+        ? _asyncExecutionStatement(effectiveScript)
+        : _syncExecutionStatement(effectiveScript);
     final globals = _bindings.globals(
       allowAsync: allowAsync,
       hasAjax: context.ajax != null,
@@ -264,13 +263,36 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
 $functionStart
   var __ctx = $encodedBindings;
 $globals
-  $evalStatement
+  $executionStatement
   if (typeof __value === "undefined") {
     __value = result;
   }
   return JSON.stringify({ value: __value, variables: __ctx.variables });
 })()
 ''';
+  }
+
+  String _syncExecutionStatement(String script) {
+    return 'var __value = eval(${jsonEncode(script.trim())});';
+  }
+
+  String _asyncExecutionStatement(String script) {
+    final body = script.trim();
+    if (_shouldRunAsyncScriptAsBody(body)) {
+      return '''
+  var __value = await (async function(){
+$body
+  })();
+''';
+    }
+    return 'var __value = await ($body);';
+  }
+
+  bool _shouldRunAsyncScriptAsBody(String script) {
+    if (script.contains('\n') || script.contains('\r')) return true;
+    return RegExp(
+      r'\b(if|else|for|while|switch|try|catch|finally|function|return|var|let|const|class|with|importPackage)\b',
+    ).hasMatch(_stripJsComments(script));
   }
 
   String _asyncCompatibleScript(String script) {
