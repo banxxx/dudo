@@ -180,6 +180,54 @@ void main() {
   });
 
   group('FlutterJsLegadoJsEngine', () {
+    test('rewrites only executable java.ajax calls for async mode', () {
+      final engine = FlutterJsLegadoJsEngine(
+        timeout: const Duration(seconds: 5),
+      );
+
+      final transformed = engine.asyncCompatibleScriptForTesting(r'''
+        var marker = "java.ajax(";
+        var pattern = /java\.ajax\(/;
+        // java.ajax("/comment")
+        var html = java.ajax("/chapter");
+        var already = await java.ajax("/cached");
+        ''');
+
+      expect(transformed, contains('var marker = "java.ajax(";'));
+      expect(transformed, contains(r'var pattern = /java\.ajax\(/;'));
+      expect(transformed, contains('// java.ajax("/comment")'));
+      expect(transformed, contains('var html = await java.ajax("/chapter");'));
+      expect(
+        transformed,
+        contains('var already = await java.ajax("/cached");'),
+      );
+      expect(transformed, isNot(contains('await await java.ajax')));
+    });
+
+    test('preserves jjwxc regex literals while rewriting ajax calls', () {
+      final engine = FlutterJsLegadoJsEngine(
+        timeout: const Duration(seconds: 5),
+      );
+
+      final transformed = engine.asyncCompatibleScriptForTesting(r'''
+        if(baseUrl.match(/jjwxc/)){
+          intro=String(java.get("intro1")).replace(/\s/g,'');
+          if(/token/.test(baseUrl) && !/message/.test(result)){
+            body = "versionCode=287&novelId="+baseUrl.match(/novelId=(\d+)/)[1]
+              +"&chapterIds="+baseUrl.match(/chapterId=(\d+)/)[1];
+            html = java.ajax(url);
+          }
+        }
+        ''');
+
+      expect(transformed, contains(r'baseUrl.match(/jjwxc/)'));
+      expect(transformed, contains(r"replace(/\s/g,'')"));
+      expect(transformed, contains(r'!/message/.test(result)'));
+      expect(transformed, contains(r'baseUrl.match(/novelId=(\d+)/)[1]'));
+      expect(transformed, contains(r'baseUrl.match(/chapterId=(\d+)/)[1]'));
+      expect(transformed, contains('html = await java.ajax(url);'));
+    });
+
     test('awaits java.ajax in async JS expressions', () async {
       final engine = FlutterJsLegadoJsEngine(
         timeout: const Duration(seconds: 5),
@@ -228,8 +276,7 @@ void main() {
       expect(value, 'body:/chapter/Alpha');
     });
 
-    test('keeps automatic semicolon insertion around awaited ajax',
-        () async {
+    test('keeps automatic semicolon insertion around awaited ajax', () async {
       final engine = FlutterJsLegadoJsEngine(
         timeout: const Duration(seconds: 5),
       );
@@ -252,6 +299,64 @@ void main() {
       if (identical(value, _quickJsSkipped)) return;
 
       expect(value, 'ajax:/chapter/Alpha');
+    });
+
+    test('does not rewrite java.ajax text inside string literals', () async {
+      final engine = FlutterJsLegadoJsEngine(
+        timeout: const Duration(seconds: 5),
+      );
+      final context = LegadoJsContext(
+        key: '',
+        page: 1,
+        ajax: (rawUrl) async => 'ajax:$rawUrl',
+      );
+
+      final value = await _evalWithQuickJsOrSkip(
+        engine,
+        '''
+        var marker = "java.ajax(";
+        var html = java.ajax("/chapter");
+        result = marker + html;
+        ''',
+        context,
+      );
+      if (identical(value, _quickJsSkipped)) return;
+
+      expect(value, 'java.ajax(ajax:/chapter');
+    });
+
+    test('keeps jjwxc-style regex literals while awaiting ajax', () async {
+      final engine = FlutterJsLegadoJsEngine(
+        timeout: const Duration(seconds: 5),
+      );
+      final context = LegadoJsContext(
+        key: '',
+        page: 1,
+        baseUrl:
+            'https://app.jjwxc.net/androidapi/chapterContent?novelId=3878507&chapterId=1',
+        variables: {'intro1': ' A B '},
+        ajax: (rawUrl) async => '{"content":"Ajax body"}',
+      );
+
+      final value = await _evalWithQuickJsOrSkip(
+        engine,
+        r'''
+        if(baseUrl.match(/jjwxc/)){
+          intro = String(java.get("intro1")).replace(/\s/g,'');
+          body = "novelId="+baseUrl.match(/novelId=(\d+)/)[1]
+            +"&chapterIds="+baseUrl.match(/chapterId=(\d+)/)[1];
+          html = java.ajax("https://source.example/ajax," + body);
+          result = intro + ":" + JSON.parse(html).content;
+        } else {
+          result = "";
+        }
+        result
+        ''',
+        context,
+      );
+      if (identical(value, _quickJsSkipped)) return;
+
+      expect(value, 'AB:Ajax body');
     });
   });
 }

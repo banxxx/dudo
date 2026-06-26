@@ -52,12 +52,13 @@ class RemoteReaderContentLoader {
     ReaderChapterRecord chapter,
   ) async {
     final chapterUrl = chapter.url?.trim();
+    final urlChapterId = _queryValue(chapterUrl, 'chapterId');
     log.i(
       '[reader-remote-content] check bookId=${book.id} title=${book.title} '
       'sourceId=${book.sourceId} chapterIndex=${chapter.chapterIndex} '
       'chapterTitle=${chapter.title} cached=${chapter.isCached} '
       'hasContent=${chapter.content?.trim().isNotEmpty ?? false} '
-      'url=$chapterUrl',
+      'urlChapterId=${urlChapterId ?? ''} url=$chapterUrl',
     );
     if (chapter.isCached && (chapter.content?.trim().isNotEmpty ?? false)) {
       log.i(
@@ -157,6 +158,12 @@ class RemoteReaderContentLoader {
     final compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (compact.length <= maxLength) return compact;
     return '${compact.substring(0, maxLength)}...';
+  }
+
+  String? _queryValue(String? url, String key) {
+    if (url == null || url.isEmpty) return null;
+    final uri = Uri.tryParse(url);
+    return uri?.queryParameters[key];
   }
 }
 

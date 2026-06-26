@@ -1,5 +1,6 @@
 import 'package:dudo/features/reader_engine/data/text_reader_book_repository.dart';
 import 'package:dudo/features/reader_engine/data/text_reader_document_source.dart';
+import 'package:dudo/features/reader_engine/data/remote_reader_content_loader.dart';
 import 'package:dudo/features/reader_engine/domain/reader_content_block.dart';
 import 'package:dudo/features/reader_engine/domain/reader_source_type.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -100,6 +101,50 @@ void main() {
           .map((block) => block.text),
       ['Body'],
     );
+  });
+
+  test('does not use remote loader for local books', () async {
+    repository.books['book-1'] = const ReaderBookRecord(
+      id: 'book-1',
+      title: 'Local Book',
+      sourceId: 'accidental-source-id',
+      localPath: 'E:/books/local.txt',
+    );
+    repository.chapters['book-1'] = const [
+      ReaderChapterRecord(
+        id: 'chapter-1',
+        bookId: 'book-1',
+        chapterIndex: 0,
+        title: 'Chapter 1',
+        url: 'https://source.example/chapter/1',
+        content: 'Local body',
+        isCached: true,
+        normalizedContentLength: 10,
+      ),
+    ];
+    var remoteLoaderCalled = false;
+    source = TextReaderDocumentSource(
+      repository,
+      remoteContentLoader: RemoteReaderContentLoader(
+        repository: repository,
+        sourceResolver: (_) async {
+          remoteLoaderCalled = true;
+          return null;
+        },
+        contentFetcher: (_, __) async {
+          remoteLoaderCalled = true;
+          return null;
+        },
+      ),
+    );
+
+    final chapter = await source.loadChapter(
+      bookId: 'book-1',
+      chapterIndex: 0,
+    );
+
+    expect(chapter.normalizedText, 'Local body');
+    expect(remoteLoaderCalled, isFalse);
   });
 }
 

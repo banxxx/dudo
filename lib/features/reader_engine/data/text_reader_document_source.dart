@@ -62,7 +62,7 @@ class TextReaderDocumentSource implements ReaderDocumentSource {
     required int chapterIndex,
   }) async {
     log.i(
-      '[reader-remote-content] loadChapter start '
+      '[reader-content] loadChapter start '
       'bookId=$bookId chapterIndex=$chapterIndex',
     );
     var chapter = await repository.fetchChapterAtIndex(
@@ -73,10 +73,12 @@ class TextReaderDocumentSource implements ReaderDocumentSource {
       throw ReaderChapterNotFoundException(bookId, chapterIndex);
     }
     final book = await repository.fetchBookById(bookId);
-    final remoteContentLoader = this.remoteContentLoader;
-    if (book != null && remoteContentLoader != null) {
-      chapter =
-          await remoteContentLoader.loadIfNeeded(book, chapter) ?? chapter;
+    if (book != null && _isRemoteBook(book)) {
+      final remoteContentLoader = this.remoteContentLoader;
+      if (remoteContentLoader != null) {
+        chapter =
+            await remoteContentLoader.loadIfNeeded(book, chapter) ?? chapter;
+      }
     }
     return _chapterFromRecord(chapter);
   }
@@ -85,6 +87,11 @@ class TextReaderDocumentSource implements ReaderDocumentSource {
     if (book.localPath != null) return ReaderSourceType.localTxt;
     if (book.sourceId != null) return ReaderSourceType.remoteNovel;
     return ReaderSourceType.plainText;
+  }
+
+  bool _isRemoteBook(ReaderBookRecord book) {
+    return book.localPath == null &&
+        (book.sourceId?.trim().isNotEmpty ?? false);
   }
 
   ReaderChapterMeta _chapterMetaFromRecord(ReaderChapterRecord chapter) {

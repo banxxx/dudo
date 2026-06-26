@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:dio/dio.dart' show Headers;
+
 import '../../models/source_rule.dart';
 import '../../../utils/logger.dart';
 import '../decode/response_decoder.dart';
@@ -173,6 +177,10 @@ class ContentPipeline {
       '[legado-content] response status=${response.statusCode} '
       'finalUrl=${response.finalUri} bytes=${response.bytes.length}',
     );
+    log.i(
+      '[legado-content] response headers=${_headersPreview(response.headers)} '
+      'rawPreview=${_bytesPreview(response.bytes)}',
+    );
     final decoded = await responseTransformer.decodeAndTransform(
       decoder: decoder,
       request: effectiveRequest,
@@ -189,6 +197,11 @@ class ContentPipeline {
       'chars=${decoded.text.length} '
       'firstChar=${decoded.text.isEmpty ? '' : decoded.text[0]} '
       'preview=${_preview(decoded.text)}',
+    );
+    log.i(
+      '[legado-content] decoded finalUrl=${decoded.finalUri} '
+      'chars=${decoded.text.length} '
+      'preview=${_previewVisible(decoded.text, maxLength: 1200)}',
     );
     final baseUrl = decoded.finalUri.toString();
     final context = pageContext
@@ -318,6 +331,32 @@ class ContentPipeline {
     final compact = value.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (compact.length <= maxLength) return compact;
     return '${compact.substring(0, maxLength)}...';
+  }
+
+  String _previewVisible(String value, {int maxLength = 500}) {
+    final escaped = value
+        .replaceAll('\r', r'\r')
+        .replaceAll('\n', r'\n')
+        .replaceAll('\t', r'\t');
+    if (escaped.length <= maxLength) return escaped;
+    return '${escaped.substring(0, maxLength)}...';
+  }
+
+  String _bytesPreview(List<int> bytes, {int maxLength = 1200}) {
+    if (bytes.isEmpty) return '';
+    return _previewVisible(
+      utf8.decode(bytes, allowMalformed: true),
+      maxLength: maxLength,
+    );
+  }
+
+  String _headersPreview(Headers headers) {
+    final entries = <String>[];
+    for (final entry in headers.map.entries) {
+      entries.add('${entry.key}=${entry.value.join('|')}');
+    }
+    entries.sort();
+    return entries.join('; ');
   }
 
   String? _cookieHeader(Map<String, String> headers) {

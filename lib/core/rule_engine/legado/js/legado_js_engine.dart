@@ -1,7 +1,9 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_js/flutter_js.dart' as flutter_js;
 
+import '../../../utils/logger.dart';
 import '../../models/source_rule.dart';
 import 'legado_js_bindings.dart';
 import 'legado_js_context.dart';
@@ -9,6 +11,44 @@ import 'legado_js_context.dart';
 export 'legado_js_context.dart';
 
 const _cacheVariableKey = '__cache';
+const _regexPrefixTokens = {
+  '(',
+  '[',
+  '{',
+  ',',
+  ';',
+  ':',
+  '=',
+  '!',
+  '!=',
+  '!==',
+  '==',
+  '===',
+  '&&',
+  '||',
+  '?',
+  '+',
+  '-',
+  '*',
+  '%',
+  '&',
+  '|',
+  '^',
+  '~',
+};
+const _regexPrefixKeywords = {
+  'return',
+  'case',
+  'throw',
+  'else',
+  'do',
+  'typeof',
+  'void',
+  'delete',
+  'in',
+  'instanceof',
+  'new',
+};
 
 abstract interface class LegadoJsEngine {
   Object? eval(String script, {required LegadoJsContext context});
@@ -181,20 +221,35 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
         _ajaxHandlers[ajaxContextId] = context.ajax!;
         _ensureAjaxBridge(runtime);
       }
-      final result = runtime.evaluate(
-        _wrapScript(
-          script,
-          context,
-          allowAsync: true,
-          ajaxContextId: ajaxContextId,
-        ),
+      final wrappedScript = _wrapScript(
+        script,
+        context,
+        allowAsync: true,
+        ajaxContextId: ajaxContextId,
       );
-      if (result.isError) throw LegadoJsException(result.stringResult);
+      final result = runtime.evaluate(
+        wrappedScript,
+      );
+      if (result.isError) {
+        _logJsFailure(
+          message: result.stringResult,
+          originalScript: script,
+          wrappedScript: wrappedScript,
+        );
+        throw LegadoJsException(result.stringResult);
+      }
       final awaited = await flutter_js.HandlePromises(runtime).handlePromise(
         result,
         timeout: timeout,
       );
-      if (awaited.isError) throw LegadoJsException(awaited.stringResult);
+      if (awaited.isError) {
+        _logJsFailure(
+          message: awaited.stringResult,
+          originalScript: script,
+          wrappedScript: wrappedScript,
+        );
+        throw LegadoJsException(awaited.stringResult);
+      }
       _checkOutputSize(awaited.rawResult);
       return _decodeResult(awaited.rawResult, context);
     } on LegadoJsException {
@@ -216,6 +271,62 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
     } finally {
       _ajaxHandlers.remove(ajaxContextId);
     }
+  }
+
+  void _logJsFailure({
+    required String message,
+    required String originalScript,
+    required String wrappedScript,
+  }) {
+    final line = _lineNumberFromJsError(message);
+    log.w(
+      '[legado-js] eval failed message=${_previewForLog(message)} '
+      'errorLine=${line ?? 'unknown'} originalChars=${originalScript.length} '
+      'wrappedChars=${wrappedScript.length} '
+      'originalPreview=${_previewForLog(originalScript, maxLength: 1200)}',
+    );
+    if (line != null) {
+      log.w(
+        '[legado-js] wrapped excerpt around line $line\n'
+        '${_scriptExcerptForLine(wrappedScript, line)}',
+      );
+    }
+  }
+
+  int? _lineNumberFromJsError(String message) {
+    final match = RegExp(r'<eval>:(\d+)').firstMatch(message);
+    if (match == null) return null;
+    return int.tryParse(match.group(1)!);
+  }
+
+  String _scriptExcerptForLine(
+    String script,
+    int line, {
+    int radius = 6,
+    int maxLineLength = 300,
+  }) {
+    final lines = const LineSplitter().convert(script);
+    if (lines.isEmpty) return '<empty script>';
+    final start = (line - radius - 1).clamp(0, lines.length - 1);
+    final end = (line + radius - 1).clamp(0, lines.length - 1);
+    final buffer = StringBuffer();
+    for (var i = start; i <= end; i++) {
+      var text = lines[i];
+      if (text.length > maxLineLength) {
+        text = '${text.substring(0, maxLineLength)}...';
+      }
+      buffer.writeln('${(i + 1).toString().padLeft(4)}| $text');
+    }
+    return buffer.toString().trimRight();
+  }
+
+  String _previewForLog(String value, {int maxLength = 500}) {
+    final escaped = value
+        .replaceAll('\r', r'\r')
+        .replaceAll('\n', r'\n')
+        .replaceAll('\t', r'\t');
+    if (escaped.length <= maxLength) return escaped;
+    return '${escaped.substring(0, maxLength)}...';
   }
 
   void _ensureAjaxBridge(flutter_js.JavascriptRuntime runtime) {
@@ -295,23 +406,190 @@ $body
     ).hasMatch(_stripJsComments(script));
   }
 
+  @visibleForTesting
+  String asyncCompatibleScriptForTesting(String script) {
+    return _asyncCompatibleScript(script);
+  }
+
   String _asyncCompatibleScript(String script) {
-    final pattern = RegExp(r'java\.ajax\s*\(');
     final buffer = StringBuffer();
-    var start = 0;
-    for (final match in pattern.allMatches(script)) {
-      buffer.write(script.substring(start, match.start));
-      final before = script.substring(0, match.start).trimRight();
-      if (before.endsWith('await')) {
-        buffer.write(match.group(0));
-      } else {
-        // Legado 书源通常把 java.ajax 当同步函数写；异步运行时统一补 await。
-        buffer.write('await java.ajax(');
+    var i = 0;
+    var lineComment = false;
+    var blockComment = false;
+    var quote = '';
+    var regexLiteral = false;
+    var regexCharClass = false;
+    var escaped = false;
+    String? previousToken;
+
+    while (i < script.length) {
+      final char = script[i];
+      final next = i + 1 < script.length ? script[i + 1] : '';
+
+      if (lineComment) {
+        buffer.write(char);
+        if (char == '\n' || char == '\r') lineComment = false;
+        i += 1;
+        continue;
       }
-      start = match.end;
+
+      if (blockComment) {
+        buffer.write(char);
+        if (char == '*' && next == '/') {
+          buffer.write(next);
+          blockComment = false;
+          i += 2;
+          continue;
+        }
+        i += 1;
+        continue;
+      }
+
+      if (quote.isNotEmpty) {
+        buffer.write(char);
+        if (escaped) {
+          escaped = false;
+        } else if (char == r'\') {
+          escaped = true;
+        } else if (char == quote) {
+          quote = '';
+        }
+        i += 1;
+        continue;
+      }
+
+      if (regexLiteral) {
+        buffer.write(char);
+        if (escaped) {
+          escaped = false;
+        } else if (char == r'\') {
+          escaped = true;
+        } else if (char == '[') {
+          regexCharClass = true;
+        } else if (char == ']' && regexCharClass) {
+          regexCharClass = false;
+        } else if (char == '/' && !regexCharClass) {
+          regexLiteral = false;
+          previousToken = '/regex/';
+        }
+        i += 1;
+        continue;
+      }
+
+      if (char == '/' && next == '/') {
+        buffer
+          ..write(char)
+          ..write(next);
+        lineComment = true;
+        i += 2;
+        continue;
+      }
+
+      if (char == '/' && next == '*') {
+        buffer
+          ..write(char)
+          ..write(next);
+        blockComment = true;
+        i += 2;
+        continue;
+      }
+
+      if (char == '"' || char == "'" || char == '`') {
+        buffer.write(char);
+        quote = char;
+        escaped = false;
+        i += 1;
+        continue;
+      }
+
+      if (char == '/' && _canStartRegex(previousToken)) {
+        buffer.write(char);
+        regexLiteral = true;
+        regexCharClass = false;
+        escaped = false;
+        i += 1;
+        continue;
+      }
+
+      if (_startsWithJavaAjaxCall(script, i) && !_hasAwaitBefore(script, i)) {
+        buffer.write('await ');
+      }
+
+      buffer.write(char);
+      previousToken = _nextToken(previousToken, script, i);
+      i += 1;
     }
-    buffer.write(script.substring(start));
     return buffer.toString();
+  }
+
+  bool _startsWithJavaAjaxCall(String script, int index) {
+    const name = 'java.ajax';
+    if (index > 0 && _isIdentifierPartForRewrite(script[index - 1])) {
+      return false;
+    }
+    if (!script.startsWith(name, index)) return false;
+    final afterName = index + name.length;
+    if (afterName < script.length &&
+        _isIdentifierPartForRewrite(script[afterName])) {
+      return false;
+    }
+    var i = afterName;
+    while (i < script.length && script[i].trim().isEmpty) {
+      i += 1;
+    }
+    return i < script.length && script[i] == '(';
+  }
+
+  bool _hasAwaitBefore(String script, int index) {
+    var end = index;
+    while (end > 0 && script[end - 1].trim().isEmpty) {
+      end -= 1;
+    }
+    const word = 'await';
+    final start = end - word.length;
+    if (start < 0) return false;
+    if (script.substring(start, end) != word) return false;
+    if (start > 0 && _isIdentifierPartForRewrite(script[start - 1])) {
+      return false;
+    }
+    return true;
+  }
+
+  bool _canStartRegex(String? previousToken) {
+    if (previousToken == null) return true;
+    return _regexPrefixTokens.contains(previousToken) ||
+        _regexPrefixKeywords.contains(previousToken);
+  }
+
+  String? _nextToken(String? previousToken, String script, int index) {
+    final char = script[index];
+    if (char.trim().isEmpty) return previousToken;
+    if (_isIdentifierStartForRewrite(char)) {
+      final before = index > 0 ? script[index - 1] : '';
+      if (before.isNotEmpty && _isIdentifierPartForRewrite(before)) {
+        return previousToken;
+      }
+      var end = index + 1;
+      while (end < script.length && _isIdentifierPartForRewrite(script[end])) {
+        end += 1;
+      }
+      return script.substring(index, end);
+    }
+    return char;
+  }
+
+  bool _isIdentifierStartForRewrite(String char) {
+    final code = char.codeUnitAt(0);
+    return (code >= 65 && code <= 90) ||
+        (code >= 97 && code <= 122) ||
+        char == '_' ||
+        char == r'$';
+  }
+
+  bool _isIdentifierPartForRewrite(String char) {
+    if (char.isEmpty) return false;
+    final code = char.codeUnitAt(0);
+    return _isIdentifierStartForRewrite(char) || (code >= 48 && code <= 57);
   }
 
   Object? _decodeResult(Object? rawResult, LegadoJsContext context) {
