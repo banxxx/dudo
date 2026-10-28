@@ -1,6 +1,9 @@
+import '../../../../core/rule_engine/legado/js/legado_js_engine.dart';
 import '../../../../core/rule_engine/models/source_rule.dart';
+import '../../../../core/rule_engine/rule_engine.dart';
 import '../../domain/source_import_format.dart';
 import '../../domain/source_import_models.dart';
+import '../source_url_normalizer.dart';
 import 'source_importer.dart';
 
 class LegadoSourceImporter extends SourceImporter {
@@ -25,6 +28,10 @@ class LegadoSourceImporter extends SourceImporter {
       _ => const <Object?>[],
     };
 
+    // Validation only parses rule strings; the simple JS engine avoids
+    // touching the QuickJS plugin during import.
+    final validator = RuleEngine.create(jsEngine: const SimpleLegadoJsEngine());
+
     final byUrl = <String, SourceImportCandidate>{};
     final invalidItems = <SourceImportInvalidItem>[];
     var duplicateInFileCount = 0;
@@ -39,31 +46,7 @@ class LegadoSourceImporter extends SourceImporter {
       }
 
       final rawJson = entry.cast<String, dynamic>();
-      final url = _stringValue(rawJson['bookSourceUrl'] ?? rawJson['url']);
-      final name = _stringValue(rawJson['bookSourceName'] ?? rawJson['name']);
-
-      if (url == null || url.isEmpty) {
-        invalidItems.add(
-          SourceImportInvalidItem(
-            index: i,
-            reason: '缺少 bookSourceUrl',
-            name: name,
-          ),
-        );
-        continue;
-      }
-      if (name == null || name.isEmpty) {
-        invalidItems.add(
-          SourceImportInvalidItem(
-            index: i,
-            reason: '缺少 bookSourceName',
-            url: url,
-          ),
-        );
-        continue;
-      }
-
-      final SourceRule rule;
+      SourceRule rule;
       try {
         rule = SourceRule.fromJson(rawJson);
       } catch (_) {
@@ -71,35 +54,98 @@ class LegadoSourceImporter extends SourceImporter {
           SourceImportInvalidItem(
             index: i,
             reason: '书源规则字段类型不兼容',
-            url: url,
-            name: name,
+            url: _stringValue(rawJson['bookSourceUrl'] ?? rawJson['url']),
+            name: _stringValue(rawJson['bookSourceName'] ?? rawJson['name']),
           ),
         );
         continue;
       }
-      if (rule.url.trim().isEmpty || rule.name.trim().isEmpty) {
+
+      final name = rule.name.trim();
+      final rawUrl = rule.url.trim();
+      if (name.isEmpty) {
         invalidItems.add(
           SourceImportInvalidItem(
             index: i,
-            reason: '书源基础字段无法解析',
-            url: url,
+            reason: '缺少 bookSourceName',
+            url: rawUrl.isEmpty ? null : rawUrl,
+          ),
+        );
+        continue;
+      }
+
+      final normalizedUrl = normalizeSourceUrl(rawUrl);
+      if (normalizedUrl == null) {
+        invalidItems.add(
+          SourceImportInvalidItem(
+            index: i,
+            reason: '书源地址无效',
+            url: rawUrl.isEmpty ? null : rawUrl,
             name: name,
           ),
         );
         continue;
       }
 
-      if (byUrl.containsKey(url)) {
+      // Persist the normalized identity fields so the runtime never sees
+      // whitespace / scheme-less URLs that only the DB row was cleaning up.
+      rawJson['bookSourceUrl'] = normalizedUrl;
+      rawJson['bookSourceName'] = name;
+      final group = rule.group;
+      if (group != null) rawJson['bookSourceGroup'] = group;
+      final comment = rule.comment;
+      if (comment != null) rawJson['bookSourceComment'] = comment;
+
+      try {
+        rule = SourceRule.fromJson(rawJson);
+      } catch (_) {
+        invalidItems.add(
+          SourceImportInvalidItem(
+            index: i,
+            reason: '书源规则字段类型不兼容',
+            url: normalizedUrl,
+            name: name,
+          ),
+        );
+        continue;
+      }
+
+      final report = validator.validate(rule);
+      final fatal = report.diagnostics.where(
+        (diagnostic) =>
+            diagnostic.severity.isError &&
+            // A source without searchUrl may still be used for detail-page
+            // URL import; keep it and report it as searchless instead.
+            diagnostic.code != 'search-url-missing',
+      );
+      if (fatal.isNotEmpty) {
+        invalidItems.add(
+          SourceImportInvalidItem(
+            index: i,
+            reason: fatal.first.message,
+            url: normalizedUrl,
+            name: name,
+          ),
+        );
+        continue;
+      }
+
+      if (byUrl.containsKey(normalizedUrl)) {
         duplicateInFileCount += 1;
       }
 
-      byUrl[url] = SourceImportCandidate(
-        id: url,
+      byUrl[normalizedUrl] = SourceImportCandidate(
+        id: normalizedUrl,
         name: name,
-        url: url,
-        groupName: _stringValue(rawJson['bookSourceGroup']),
-        comment: _stringValue(rawJson['bookSourceComment']),
+        url: normalizedUrl,
+        groupName: rule.group,
+        comment: rule.comment,
         sortOrder: _intValue(rawJson['customOrder']),
+        enabled: rule.enabled,
+        sourceType: rule.sourceType,
+        remoteUpdatedAt: rule.lastUpdateTime,
+        hasSearch: rule.hasSearchUrl,
+        hasExplore: rule.explore?.exploreUrl?.trim().isNotEmpty ?? false,
         rawJson: rawJson,
       );
     }

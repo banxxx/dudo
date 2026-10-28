@@ -3,13 +3,8 @@ name: Dudo Mobile Build
 on:
   workflow_dispatch:
   push:
-    branches:
-      - master
     tags:
       - 'v*.*.*'
-  pull_request:
-    branches:
-      - master
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -87,6 +82,9 @@ jobs:
       - name: Flutter dependencies
         run: flutter pub get
 
+      - name: Generate Dart code
+        run: dart run build_runner build --delete-conflicting-outputs
+
       - name: Analyze
         run: flutter analyze
 
@@ -147,6 +145,9 @@ jobs:
 
       - name: Flutter dependencies
         run: flutter pub get
+
+      - name: Generate Dart code
+        run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Update CocoaPods repositories
         run: pod repo update

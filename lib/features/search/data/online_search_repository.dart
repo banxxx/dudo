@@ -41,7 +41,9 @@ class OnlineSearchRepository {
   final Duration sourceTimeout;
 
   Future<OnlineSearchResponse> search(String keyword) async {
-    final sources = await sourceRepository.listEnabledSources();
+    final sources = (await sourceRepository.listEnabledSources())
+        .where((source) => source.sourceType == 0)
+        .toList(growable: false);
     return searchSources(keyword, sources);
   }
 

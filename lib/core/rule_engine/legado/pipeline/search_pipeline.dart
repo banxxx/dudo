@@ -311,7 +311,7 @@ class SearchPipeline {
           LegadoRequest(
             url: authorUrl,
             method: 'GET',
-            headers: source.headers,
+            headers: analyzeUrl.sourceHeaders(source),
           ),
         );
         final decoded = await decoder.decode(
@@ -463,7 +463,7 @@ class SearchPipeline {
     final request = LegadoRequest(
       url: url,
       method: 'GET',
-      headers: source.headers,
+      headers: analyzeUrl.sourceHeaders(source),
     );
     trace.add('search.bookList.jsCompat.request:$url');
     final response = await executor.execute(request);

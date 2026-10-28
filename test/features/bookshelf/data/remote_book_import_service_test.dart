@@ -22,6 +22,7 @@ void main() {
         name: 'Mock Source',
         url: 'https://mock.example',
         enabled: true,
+        sourceType: 0,
         rulesJson: jsonEncode({
           'bookSourceUrl': 'mock-source',
           'bookSourceName': 'Mock Source',

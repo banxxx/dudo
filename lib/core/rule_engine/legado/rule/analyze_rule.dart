@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../models/rule_chain.dart';
 import '../../parsers/parser.dart';
+import '../common/js_block_scanner.dart';
 import '../js/legado_js_engine.dart';
 import 'rule_ast.dart';
 import 'rule_context.dart';
@@ -734,29 +735,7 @@ class AnalyzeRule {
   }
 
   int _findJsBlockEnd(String rawRule, int start) {
-    var quote = '';
-    var escaped = false;
-    for (var index = start; index < rawRule.length; index++) {
-      final char = rawRule[index];
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-      if (char == r'\') {
-        escaped = true;
-        continue;
-      }
-      if (quote.isNotEmpty) {
-        if (char == quote) quote = '';
-        continue;
-      }
-      if (char == '"' || char == "'" || char == '`') {
-        quote = char;
-        continue;
-      }
-      if (_startsWithIgnoreCase(rawRule, index, '</js>')) return index;
-    }
-    return -1;
+    return const JsBlockScanner().findBlockEnd(rawRule, start);
   }
 
   bool _startsWithIgnoreCase(String input, int index, String pattern) {

@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:dudo/core/rule_engine/legado/js/legado_js_engine.dart';
 import 'package:dudo/core/rule_engine/legado/rule/rule_context.dart';
 import 'package:dudo/core/rule_engine/models/source_rule.dart';
+import 'package:flutter_js/flutter_js.dart' as flutter_js;
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -45,6 +48,7 @@ void main() {
 
       expect(engine.eval('java.getString(123)', context: context), '123');
       expect(engine.eval('java.get("cached")', context: context), 'old');
+      expect(engine.eval('java.get("missing")', context: context), '');
       expect(engine.eval('java.put("cached", "new")', context: context), 'new');
       expect(variables['cached'], 'new');
       expect(engine.eval('java.log("debug")', context: context), 'debug');
@@ -113,6 +117,24 @@ void main() {
       );
     });
 
+    test('resolves recursive JSONPath values through java.getString', () {
+      const engine = SimpleLegadoJsEngine();
+      const context = LegadoJsContext(
+        key: 'Alpha',
+        page: 1,
+        result: '{"data":{"content":"Chapter body"},"sayBody":"Notes"}',
+      );
+
+      expect(
+        engine.eval('java.getString("\$..content")', context: context),
+        'Chapter body',
+      );
+      expect(
+        engine.eval('java.getString("\$..sayBody")', context: context),
+        'Notes',
+      );
+    });
+
     test('exposes java.ajax as a controlled binding point', () {
       const engine = SimpleLegadoJsEngine();
       final requested = <String>[];
@@ -176,6 +198,55 @@ void main() {
             '// if inside comment\nJSON.parse(result)'),
         isTrue,
       );
+    });
+  });
+
+  group('FlutterJsLegadoJsEngine result decoding', () {
+    final engine = FlutterJsLegadoJsEngine();
+
+    test('awaits the future carried by a promise eval result', () async {
+      const wrapped = '{"value":"Chapter body","variables":{}}';
+      final resolved = await engine.resolvePromiseResultForTesting(
+        flutter_js.JsEvalResult(wrapped, Future<Object?>.value(wrapped)),
+      );
+
+      expect(resolved, wrapped);
+    });
+
+    test('unwraps the engine result wrapper and syncs variables', () {
+      final variables = <String, Object?>{'intro1': 'old'};
+      final context = LegadoJsContext(
+        key: '',
+        page: 1,
+        variables: variables,
+      );
+
+      final decoded = engine.decodeResultForTesting(
+        '{"value":"Chapter body","variables":{"intro1":"new"}}',
+        context,
+      );
+
+      expect(decoded, 'Chapter body');
+      expect(context.variables['intro1'], 'new');
+    });
+
+    test('unwraps promise results delivered as a JSON string', () {
+      const context = LegadoJsContext(key: '', page: 1);
+
+      final decoded = engine.decodeResultForTesting(
+        jsonEncode('{"value":"Chapter body","variables":{}}'),
+        context,
+      );
+
+      expect(decoded, 'Chapter body');
+    });
+
+    test('keeps non-wrapper results intact', () {
+      const context = LegadoJsContext(key: '', page: 1);
+
+      expect(engine.decodeResultForTesting('plain text', context), 'plain text');
+      expect(engine.decodeResultForTesting('{"a":1}', context), '{"a":1}');
+      expect(engine.decodeResultForTesting('null', context), isNull);
     });
   });
 

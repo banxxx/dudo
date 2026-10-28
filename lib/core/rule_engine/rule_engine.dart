@@ -136,14 +136,56 @@ class RuleEngine {
       );
     } else {
       final parsed = Uri.tryParse(sourceUrl);
-      if (parsed == null || !parsed.hasScheme) {
+      if (parsed == null) {
         add(
-          SourceCompatibilitySeverity.warning,
-          'source-url-not-absolute',
+          SourceCompatibilitySeverity.error,
+          'source-url-invalid',
           'bookSourceUrl',
-          'source url should be absolute for relative URL resolution',
+          'source url is not a valid URL',
         );
+      } else if (!parsed.hasScheme) {
+        if (_looksLikeBareHost(sourceUrl)) {
+          add(
+            SourceCompatibilitySeverity.warning,
+            'source-url-not-absolute',
+            'bookSourceUrl',
+            'source url should be absolute for relative URL resolution',
+          );
+        } else {
+          add(
+            SourceCompatibilitySeverity.error,
+            'source-url-invalid',
+            'bookSourceUrl',
+            'source url is not a valid http(s) URL',
+          );
+        }
+      } else {
+        final scheme = parsed.scheme.toLowerCase();
+        if (scheme != 'http' && scheme != 'https') {
+          add(
+            SourceCompatibilitySeverity.error,
+            'source-url-invalid-scheme',
+            'bookSourceUrl',
+            'source url must use http or https',
+          );
+        } else if (parsed.host.isEmpty) {
+          add(
+            SourceCompatibilitySeverity.error,
+            'source-url-invalid',
+            'bookSourceUrl',
+            'source url has no host',
+          );
+        }
       }
+    }
+
+    if (rule.sourceType != 0) {
+      add(
+        SourceCompatibilitySeverity.info,
+        'source-type-not-text',
+        'bookSourceType',
+        'book source type ${rule.sourceType} is not text; search skips it',
+      );
     }
 
     final search = rule.search;
@@ -222,6 +264,13 @@ class RuleEngine {
   }
 
   bool _blank(String? value) => value == null || value.trim().isEmpty;
+
+  bool _looksLikeBareHost(String value) {
+    return RegExp(
+      r'^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}'
+      r'(?::\d+)?(?:[/?#].*)?$',
+    ).hasMatch(value);
+  }
 
   void _diagnoseUrlOptions(
     String rawUrl,

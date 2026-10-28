@@ -118,6 +118,48 @@ void main() {
       expect(content.content, contains('作者有话说'));
     });
 
+    test('normalizes legacy jjwxc chapter host before requesting', () async {
+      final executor = _RecordingExecutor(
+        finalUri: Uri.parse(
+          'https://app-cdn.jjwxc.net/androidapi/chapterContent?novelId=1&chapterId=2',
+        ),
+        body: jsonEncode({'content': 'Chapter body'}),
+      );
+      final runtime = LegadoRuntime.create(executor: executor);
+
+      final content = await runtime.loadContent(
+        _jjwxcComplexContentSource(),
+        'https://app.jjwxc.net/androidapi/chapterContent?novelId=1&chapterId=2',
+      );
+
+      expect(content, isNotNull);
+      expect(content!.content, contains('Chapter body'));
+      expect(
+        Uri.parse(executor.requests.single.url).host,
+        'app-cdn.jjwxc.net',
+      );
+    });
+
+    test('retries jjwxc chapter with a browser UA when Dalvik is rejected',
+        () async {
+      final executor = _JjwxcUserAgentRetryExecutor();
+      final runtime = LegadoRuntime.create(executor: executor);
+
+      final content = await runtime.loadContent(
+        _jjwxcDalvikHeaderSource(),
+        'https://app.jjwxc.net/androidapi/chapterContent?novelId=1&chapterId=2',
+      );
+
+      expect(content, isNotNull);
+      expect(content!.content, contains('Chapter body'));
+      expect(executor.requests, hasLength(2));
+      expect(executor.requests.first.headers['User-Agent'], 'Dalvik/2.1.0');
+      expect(
+        executor.requests.last.headers['User-Agent'],
+        contains('Mozilla/5.0'),
+      );
+    });
+
     test('evaluates full js content rules through fieldStrings path', () async {
       final runtime = LegadoRuntime.create(
         executor: _FakeExecutor(
@@ -473,6 +515,30 @@ result
   );
 }
 
+SourceRule _jjwxcDalvikHeaderSource() {
+  return const SourceRule(
+    id: 'jjwxc',
+    name: 'JJWXC',
+    url: 'https://app-cdn.jjwxc.net/',
+    headers: {'User-Agent': 'Dalvik/2.1.0'},
+    content: ContentRule(
+      content: r'''
+<js>
+if(baseUrl.match(/jjwxc/)){
+  content = java.getString("$.content");
+  saybody = java.getString("$.sayBody");
+  say = saybody != "" ? "\n作者有话说：\n" + saybody : "";
+  result = content + say;
+}else{
+  result = "&lrm;";
+}
+result
+</js>
+''',
+    ),
+  );
+}
+
 SourceRule _fullJsContentSource() {
   return const SourceRule(
     id: 'source',
@@ -632,6 +698,35 @@ class _RecordingExecutor implements LegadoRequestExecutor {
       finalUri: finalUri,
       headers: Headers.fromMap({
         'content-type': ['text/html; charset=utf-8'],
+      }),
+      statusCode: 200,
+    );
+  }
+}
+
+class _JjwxcUserAgentRetryExecutor implements LegadoRequestExecutor {
+  final List<LegadoRequest> requests = [];
+
+  @override
+  Future<LegadoHttpResponse> execute(LegadoRequest request) async {
+    requests.add(request);
+    final userAgent = request.headers['User-Agent'] ?? '';
+    final rejected = userAgent.startsWith('Dalvik');
+    final body = rejected
+        ? jsonEncode({
+            'code': '2016',
+            'message': '2016:浏览器标识异常，无法展示内容',
+            'data': <String, Object?>{},
+          })
+        : jsonEncode({
+            'content': 'Chapter body',
+            'sayBody': 'Author note',
+          });
+    return LegadoHttpResponse(
+      bytes: utf8.encode(body),
+      finalUri: Uri.parse(request.url),
+      headers: Headers.fromMap({
+        'content-type': ['application/json; charset=utf-8'],
       }),
       statusCode: 200,
     );

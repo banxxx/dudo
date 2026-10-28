@@ -36,6 +36,16 @@ void main() {
       );
     });
 
+    test('keeps quoted regex literals inside JS blocks intact', () {
+      expect(
+        analyzer.split(
+          '<js>result.match(/body":"(.*?)"/)</js>@text',
+          LegadoRuleDelimiter.pipeline,
+        ),
+        ['<js>result.match(/body":"(.*?)"/)</js>', 'text'],
+      );
+    });
+
     test('does not split inside backtick strings', () {
       expect(
         analyzer.split(

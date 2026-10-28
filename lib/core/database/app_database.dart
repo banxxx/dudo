@@ -94,6 +94,13 @@ class Sources extends Table {
   TextColumn get groupName => text().nullable()();
   TextColumn get comment => text().nullable()();
   BoolColumn get enabled => boolean().withDefault(const Constant(true))();
+
+  /// Legado `bookSourceType`: 0 text, 1 audio, 2 image, 3 file, 4 video.
+  IntColumn get sourceType => integer().withDefault(const Constant(0))();
+
+  /// Legado `lastUpdateTime` (milliseconds since epoch), used to avoid
+  /// replacing newer local rules with an older imported pack.
+  IntColumn get remoteUpdatedAt => integer().nullable()();
   TextColumn get rulesJson => text()(); // serialized rule blob
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
@@ -163,7 +170,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -194,6 +201,21 @@ class AppDatabase extends _$AppDatabase {
           if (from < 6) {
             await m.addColumn(books, books.remoteChapterCount);
             await m.addColumn(books, books.remoteNextTocUrl);
+          }
+          if (from < 7) {
+            await m.addColumn(sources, sources.sourceType);
+            await m.addColumn(sources, sources.remoteUpdatedAt);
+          }
+          if (from < 8) {
+            // Chapter content used to be stored with the JS engine's
+            // `{"value":...,"variables":...}` wrapper instead of the rule
+            // result. Drop those rows so they are fetched again.
+            await customStatement(
+              'UPDATE chapters SET content = NULL, is_cached = 0, '
+              'fetched_at = NULL, normalized_content_length = 0 '
+              "WHERE content LIKE '{\"value\":%' "
+              "AND content LIKE '%\"variables\":%'",
+            );
           }
         },
       );

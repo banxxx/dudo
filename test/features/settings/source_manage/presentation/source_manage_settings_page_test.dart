@@ -65,6 +65,18 @@ void main() {
     expect(find.text('已启用'), findsNWidgets(2));
   });
 
+  testWidgets('opens rule diagnostics from quick actions', (tester) async {
+    final harness = await _pumpSourceManageSettings(tester);
+    addTearDown(harness.dispose);
+
+    await tester.tap(find.text('修复失效'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('规则诊断'), findsOneWidget);
+    expect(find.text('删除 2 个失效书源'), findsOneWidget);
+    expect(find.text('关闭'), findsNothing);
+  });
+
   testWidgets('single delete requires confirmation', (tester) async {
     final harness = await _pumpSourceManageSettings(tester);
     addTearDown(harness.dispose);
@@ -212,6 +224,7 @@ List<Source> _seedSources() {
       groupName: '网络文学',
       comment: '待启用',
       enabled: false,
+      sourceType: 0,
       rulesJson: '{}',
       sortOrder: 2,
       createdAt: now,
@@ -224,6 +237,7 @@ List<Source> _seedSources() {
       groupName: '正版源',
       comment: null,
       enabled: true,
+      sourceType: 0,
       rulesJson: '{}',
       sortOrder: 1,
       createdAt: now,

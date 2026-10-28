@@ -35,9 +35,41 @@ class LegadoJsBindings {
   var baseUrl = __ctx.baseUrl;
   var src = __ctx.src;
   var result = __ctx.result;
-  var source = __ctx.source;
-  var book = __ctx.book;
+  var source = __ctx.source || {};
+  var book = __ctx.book || {};
   var chapter = __ctx.chapter;
+  if (typeof source.getVariable !== "function") {
+    source.getVariable = function() {
+      return __ctx.variables["__source_variable"] || "";
+    };
+    source.putVariable = function(value) {
+      __ctx.variables["__source_variable"] = value;
+      return value;
+    };
+  }
+  if (typeof source.getKey !== "function") {
+    source.getKey = function() { return source.id || source.url || ""; };
+    source.getName = function() { return source.name || ""; };
+    source.getUrl = function() { return source.url || ""; };
+  }
+  if (typeof book.getVariable !== "function") {
+    book.getVariable = function(name) {
+      var variables = __bookVariables(book);
+      var value = variables[String(name)];
+      return value == null ? "" : String(value);
+    };
+    book.putVariable = function(name, value) {
+      var variables = __bookVariables(book);
+      variables[String(name)] = value;
+      book.variable = JSON.stringify(variables);
+      return value;
+    };
+    book.getName = function() { return book.name || ""; };
+    book.getAuthor = function() { return book.author || ""; };
+    book.getUrl = function() { return book.bookUrl || book.url || ""; };
+    book.getOrigin = function() { return book.origin || ""; };
+    book.getOriginName = function() { return book.originName || ""; };
+  }
   var nextChapterUrl = __ctx.nextChapterUrl;
 ${_jsonPathHelpers()}
 ${_javaBinding(allowAsync: allowAsync, hasAjax: hasAjax, ajaxContextId: ajaxContextId)}
@@ -58,8 +90,17 @@ ${_cacheBinding()}
   function __readPath(root, path) {
     if (root == null || typeof path !== "string") return null;
     if (path === "$") return root;
-    if (path.indexOf("$.") !== 0) return null;
     var current = __parseMaybeJson(root);
+    if (path.indexOf("$..") === 0) {
+      var recursiveParts = path.substring(3).split(".");
+      var found = __findKey(current, recursiveParts[0]);
+      for (var r = 1; r < recursiveParts.length; r++) {
+        if (found == null) return null;
+        found = __readPath(found, "$." + recursiveParts[r]);
+      }
+      return found == null ? null : found;
+    }
+    if (path.indexOf("$.") !== 0) return null;
     var parts = path.substring(2).split(".");
     for (var i = 0; i < parts.length; i++) {
       if (current == null) return null;
@@ -73,6 +114,33 @@ ${_cacheBinding()}
       }
     }
     return current == null ? null : current;
+  }
+  function __findKey(value, key) {
+    if (value == null) return null;
+    if (Array.isArray(value)) {
+      for (var i = 0; i < value.length; i++) {
+        var found = __findKey(value[i], key);
+        if (found != null) return found;
+      }
+      return null;
+    }
+    if (typeof value === "object") {
+      if (Object.prototype.hasOwnProperty.call(value, key)) return value[key];
+      for (var name in value) {
+        if (!Object.prototype.hasOwnProperty.call(value, name)) continue;
+        var nested = __findKey(value[name], key);
+        if (nested != null) return nested;
+      }
+    }
+    return null;
+  }
+  function __bookVariables(book) {
+    var variables = book.variable;
+    if (typeof variables === "string") {
+      try { variables = JSON.parse(variables); } catch (e) { variables = {}; }
+    }
+    if (variables == null || typeof variables !== "object") variables = {};
+    return variables;
   }
   function __ruleValue(path) {
     var fromResult = __readPath(result, path);
@@ -114,7 +182,10 @@ ${_cacheBinding()}
       __ctx.variables[String(name)] = value;
       return value;
     },
-    get: function(name) { return __ctx.variables[String(name)]; },
+    get: function(name) {
+      var value = __ctx.variables[String(name)];
+      return value == null ? "" : value;
+    },
     setContent: function(value) {
       src = value;
       result = value;

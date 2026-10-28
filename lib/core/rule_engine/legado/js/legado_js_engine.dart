@@ -250,8 +250,9 @@ class FlutterJsLegadoJsEngine implements LegadoJsEngine {
         );
         throw LegadoJsException(awaited.stringResult);
       }
-      _checkOutputSize(awaited.rawResult);
-      return _decodeResult(awaited.rawResult, context);
+      final rawResult = await _resolvePromiseResult(awaited);
+      _checkOutputSize(rawResult);
+      return _decodeResult(rawResult, context);
     } on LegadoJsException {
       rethrow;
     } catch (error) {
@@ -592,24 +593,75 @@ $body
     return _isIdentifierStartForRewrite(char) || (code >= 48 && code <= 57);
   }
 
+  /// `flutter_js` reports a promise through `JsEvalResult(value, future)`, so
+  /// `rawResult` can still be the future that carries the resolved value.
+  /// Awaiting it here keeps the wrapper (`{value, variables}`) out of the rule
+  /// result.
+  Future<Object?> _resolvePromiseResult(flutter_js.JsEvalResult awaited) async {
+    final rawResult = awaited.rawResult;
+    if (rawResult is! Future) return rawResult;
+    final resolved = await rawResult;
+    if (resolved == null ||
+        resolved is String ||
+        resolved is Map ||
+        resolved is List ||
+        resolved is num ||
+        resolved is bool) {
+      return resolved;
+    }
+    return awaited.stringResult;
+  }
+
+  @visibleForTesting
+  Future<Object?> resolvePromiseResultForTesting(
+    flutter_js.JsEvalResult awaited,
+  ) =>
+      _resolvePromiseResult(awaited);
+
+  @visibleForTesting
+  Object? decodeResultForTesting(Object? rawResult, LegadoJsContext context) =>
+      _decodeResult(rawResult, context);
+
   Object? _decodeResult(Object? rawResult, LegadoJsContext context) {
     final text = rawResult?.toString();
     if (text == null || text == 'null') return null;
+    final Object? decoded;
     try {
-      final decoded = jsonDecode(text);
-      if (decoded is Map && decoded.containsKey('value')) {
-        final variables = decoded['variables'];
-        if (variables is Map) {
-          for (final entry in variables.entries) {
-            context.variables[entry.key.toString()] = entry.value;
-          }
-        }
-        return decoded['value'];
-      }
+      decoded = jsonDecode(text);
     } catch (_) {
       return rawResult;
     }
+    if (decoded is String) {
+      // Promise-based runtimes stringify the resolved value before handing it
+      // back, so a string result arrives wrapped in another JSON string.
+      final nested = _tryDecodeJson(decoded);
+      if (nested is Map && nested.containsKey('value')) {
+        return _unwrapResult(nested, context);
+      }
+      return decoded;
+    }
+    if (decoded is Map && decoded.containsKey('value')) {
+      return _unwrapResult(decoded, context);
+    }
     return rawResult;
+  }
+
+  Object? _unwrapResult(Map decoded, LegadoJsContext context) {
+    final variables = decoded['variables'];
+    if (variables is Map) {
+      for (final entry in variables.entries) {
+        context.variables[entry.key.toString()] = entry.value;
+      }
+    }
+    return decoded['value'];
+  }
+
+  Object? _tryDecodeJson(String raw) {
+    try {
+      return jsonDecode(raw);
+    } catch (_) {
+      return null;
+    }
   }
 
   void _checkOutputSize(Object? rawResult) {
@@ -936,7 +988,7 @@ class _SimpleJsExpressionParser {
 
   Object? _javaGet(List<Object?> arguments) {
     final key = _stringify(_expectArgument('java.get', arguments, 0));
-    return context.variables[key];
+    return context.variables[key] ?? '';
   }
 
   Object? _cacheGet(List<Object?> arguments) {
@@ -970,24 +1022,50 @@ class _SimpleJsExpressionParser {
     if (root == null) return null;
     final path = rawPath.trim();
     if (path == r'$') return _parseMaybeJson(root);
-    if (!path.startsWith(r'$.')) return null;
+    if (!path.startsWith(r'$.') && !path.startsWith(r'$..')) return null;
 
     Object? current = _parseMaybeJson(root);
-    for (final segment in _splitPathSegments(path.substring(2))) {
+    final segments = _splitPathSegments(
+      path.substring(path.startsWith(r'$..') ? 3 : 2),
+    );
+    for (var index = 0; index < segments.length; index++) {
       if (current == null) return null;
-      final match = RegExp(r'^([^\[]+)(?:\[(\d+)\])?$').firstMatch(segment);
+      final match =
+          RegExp(r'^([^\[]+)(?:\[(\d+)\])?$').firstMatch(segments[index]);
       if (match == null) return null;
-      current = _readPropertyValue(current, match.group(1)!);
+      final key = match.group(1)!;
+      current = index == 0 && path.startsWith(r'$..')
+          ? _findPropertyRecursively(current, key)
+          : _readPropertyValue(current, key);
       final indexText = match.group(2);
       if (indexText != null) {
-        final index = int.parse(indexText);
-        if (current is! List || index < 0 || index >= current.length) {
+        final position = int.parse(indexText);
+        if (current is! List || position < 0 || position >= current.length) {
           return null;
         }
-        current = current[index];
+        current = current[position];
       }
     }
     return current;
+  }
+
+  Object? _findPropertyRecursively(Object? value, String key) {
+    if (value == null) return null;
+    if (value is Map) {
+      if (value.containsKey(key)) return value[key];
+      for (final entry in value.values) {
+        final found = _findPropertyRecursively(entry, key);
+        if (found != null) return found;
+      }
+      return null;
+    }
+    if (value is List) {
+      for (final item in value) {
+        final found = _findPropertyRecursively(item, key);
+        if (found != null) return found;
+      }
+    }
+    return null;
   }
 
   Object? _parseMaybeJson(Object? value) {

@@ -45,7 +45,8 @@ final onlineSearchProvider = StreamProvider.autoDispose
     .family<OnlineSearchResponse, String>((ref, keyword) async* {
   final normalizedKeyword = keyword.trim();
   final enabledSources = await _requireData(ref.watch(enabledSourcesProvider));
-  await _requireData(ref.watch(legadoCookieStoreProvider));
+  // Do not block the first search on cookie-store initialization. The engine is
+  // rebuilt with the store once it is ready, which restarts this provider.
   yield* ref
       .watch(onlineSearchRepositoryProvider)
       .searchSourcesStream(normalizedKeyword, enabledSources);

@@ -12,6 +12,7 @@ import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
 import '../../../../shared/widgets/empty_state_view.dart';
 import '../../shared/widgets/settings_detail_scaffold.dart';
+import 'source_diagnostics_sheet.dart';
 
 const _sourceManageMessageKey = 'source-manage-actions';
 const _sourcePageSize = 100;
@@ -489,7 +490,7 @@ class _SourceQuickActions extends StatelessWidget {
             child: _QuickAction(
               icon: LucideIcons.wrench,
               label: '修复失效',
-              onTap: () => _showComingSoon(ref, '规则诊断'),
+              onTap: () => showSourceDiagnosticsSheet(context),
             ),
           ),
         ],

@@ -63,6 +63,11 @@ class RegexParser implements RuleParser {
 
   static String _replaceAll(String input, _RegexReplacement rule) {
     final regex = RegExp(rule.pattern, multiLine: true);
+    if (rule.replaceFirst) {
+      final match = regex.firstMatch(input);
+      if (match == null) return '';
+      return _interpolate(rule.replacement, match);
+    }
     return input.replaceAllMapped(
       regex,
       (match) => _interpolate(rule.replacement, match),
@@ -88,14 +93,19 @@ class RegexParser implements RuleParser {
 
   static _RegexReplacement? _parseReplacement(String raw) {
     if (!raw.startsWith('##')) return null;
-    final delimiter = _indexOfUnescaped(raw, '##', 2);
-    if (delimiter < 0) return null;
+    // Legado splits on every `##`:
+    //   ##pattern                 -> remove all matches
+    //   ##pattern##replacement    -> replace all matches
+    //   ##pattern##replacement### -> keep only the first match
+    final parts = raw.split('##');
+    if (parts.length < 2) return null;
 
-    final pattern = raw.substring(2, delimiter);
+    final pattern = parts[1];
     if (pattern.isEmpty) return null;
     return _RegexReplacement(
       pattern: pattern,
-      replacement: raw.substring(delimiter + 2),
+      replacement: parts.length > 2 ? parts[2] : '',
+      replaceFirst: parts.length > 3,
     );
   }
 
@@ -109,13 +119,6 @@ class RegexParser implements RuleParser {
 
   static int _lastUnescaped(String input, String token) {
     for (var i = input.length - token.length; i > 0; i--) {
-      if (input.startsWith(token, i) && !_isEscaped(input, i)) return i;
-    }
-    return -1;
-  }
-
-  static int _indexOfUnescaped(String input, String token, int start) {
-    for (var i = start; i <= input.length - token.length; i++) {
       if (input.startsWith(token, i) && !_isEscaped(input, i)) return i;
     }
     return -1;
@@ -146,8 +149,12 @@ class _RegexReplacement {
   const _RegexReplacement({
     required this.pattern,
     required this.replacement,
+    this.replaceFirst = false,
   });
 
   final String pattern;
   final String replacement;
+
+  /// Legado's `###` suffix keeps only the first match.
+  final bool replaceFirst;
 }

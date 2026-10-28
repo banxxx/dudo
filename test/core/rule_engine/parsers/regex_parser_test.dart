@@ -51,6 +51,34 @@ void main() {
       );
     });
 
+    test('supports single-delimiter removal rules', () {
+      const parser = RegexParser();
+
+      expect(
+        parser.parseString('Alpha Beta', RuleChain.parse(r'##\s+')),
+        'AlphaBeta',
+      );
+    });
+
+    test('supports the trailing ### first-match form', () {
+      const parser = RegexParser();
+
+      expect(
+        parser.parseString(
+          'Alpha Beta Gamma',
+          RuleChain.parse(r'##(\w+)\s+##$1###'),
+        ),
+        'Alpha',
+      );
+      expect(
+        parser.parseString(
+          'nothing',
+          RuleChain.parse(r'##(\w+)\s+##$1###'),
+        ),
+        '',
+      );
+    });
+
     test('is routed by AnalyzeRule for explicit regex forms', () {
       final context = RuleContext(
         source: const SourceRule(

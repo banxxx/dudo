@@ -647,6 +647,7 @@ Source _source({
     name: name,
     url: id,
     enabled: enabled,
+    sourceType: 0,
     rulesJson: _rulesJson(url: id, name: name),
     sortOrder: 0,
     createdAt: now,

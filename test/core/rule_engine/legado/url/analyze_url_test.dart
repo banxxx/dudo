@@ -1,3 +1,4 @@
+import 'package:dudo/core/rule_engine/legado/js/legado_js_engine.dart';
 import 'package:dudo/core/rule_engine/legado/url/analyze_url.dart';
 import 'package:dudo/core/rule_engine/legado/url/cookie_merge.dart';
 import 'package:dudo/core/rule_engine/legado/url/request_executor.dart';
@@ -453,16 +454,145 @@ void main() {
       expect(split.url, 'https://source.example/search?q=fn({"a":"b,c"})');
       expect(split.optionJson, isNull);
     });
+
+    test('evaluates @js source headers before URL option headers', () {
+      final engine = _FakeJsEngine(
+        '{"User-Agent":"Dynamic UA","Referer":"https://dynamic.example"}',
+      );
+      final analyzeUrl = AnalyzeUrl(jsEngine: engine);
+      final request = analyzeUrl.compileSearch(
+        source: _source(
+          headers: const {},
+          headerRaw: '@js: JSON.stringify({User-Agent: "Dynamic UA"})',
+        ),
+        rawUrl: '/search,{"headers":{"Referer":"https://option.example"}}',
+        keyword: '三体',
+      );
+
+      expect(
+        engine.lastScript,
+        ' JSON.stringify({User-Agent: "Dynamic UA"})',
+      );
+      expect(request.headers['User-Agent'], 'Dynamic UA');
+      expect(request.headers['Referer'], 'https://option.example');
+    });
+
+    test('evaluates <js> source headers', () {
+      final engine = _FakeJsEngine('{"X-Test":"1"}');
+      final analyzeUrl = AnalyzeUrl(jsEngine: engine);
+      final request = analyzeUrl.compileSearch(
+        source: _source(
+          headers: const {},
+          headerRaw: '<js>JSON.stringify({"X-Test":"1"})</js>',
+        ),
+        rawUrl: '/search',
+        keyword: '三体',
+      );
+
+      expect(engine.lastScript, 'JSON.stringify({"X-Test":"1"})');
+      expect(request.headers['X-Test'], '1');
+    });
+
+    test('accepts a map returned directly by the header script', () {
+      final engine = _FakeJsEngine({'X-Test': 1, 'Skip': null});
+      final analyzeUrl = AnalyzeUrl(jsEngine: engine);
+      final request = analyzeUrl.compileSearch(
+        source: _source(
+          headers: const {},
+          headerRaw: '@js: buildHeaders()',
+        ),
+        rawUrl: '/search',
+        keyword: '三体',
+      );
+
+      expect(request.headers['X-Test'], '1');
+      expect(request.headers.containsKey('Skip'), isFalse);
+    });
+
+    test('ignores a broken dynamic header script', () {
+      final engine = _FakeJsEngine.error();
+      final analyzeUrl = AnalyzeUrl(jsEngine: engine);
+      final request = analyzeUrl.compileSearch(
+        source: _source(
+          headers: const {},
+          headerRaw: '@js: throw new Error("boom")',
+        ),
+        rawUrl: '/search,{"headers":{"Referer":"https://option.example"}}',
+        keyword: '三体',
+      );
+
+      expect(request.headers.containsKey('User-Agent'), isFalse);
+      expect(request.headers['Referer'], 'https://option.example');
+    });
+
+    test('evaluates dynamic source headers for async compilation', () async {
+      final engine = _FakeJsEngine('{"X-Test":"async"}');
+      final analyzeUrl = AnalyzeUrl(jsEngine: engine);
+      final request = await analyzeUrl.compileSearchAsync(
+        source: _source(
+          headers: const {},
+          headerRaw: '@js: buildHeaders()',
+        ),
+        rawUrl: '/search',
+        keyword: '三体',
+      );
+
+      expect(request.headers['X-Test'], 'async');
+    });
+
+    test('keeps static source headers when header is not dynamic', () {
+      final engine = _FakeJsEngine('{"X-Test":"1"}');
+      final analyzeUrl = AnalyzeUrl(jsEngine: engine);
+      final request = analyzeUrl.compileSearch(
+        source: _source(
+          headers: const {'User-Agent': 'Static UA'},
+          headerRaw: '{"User-Agent":"Static UA"}',
+        ),
+        rawUrl: '/search',
+        keyword: '三体',
+      );
+
+      expect(engine.lastScript, isNull);
+      expect(request.headers['User-Agent'], 'Static UA');
+    });
   });
 }
 
-SourceRule _source({Map<String, String>? headers}) {
+SourceRule _source({Map<String, String>? headers, String? headerRaw}) {
   return SourceRule(
     id: 'https://source.example/base/',
     name: '测试源',
     url: 'https://source.example/base/',
     headers: headers ?? const {'User-Agent': 'Test UA'},
+    headerRaw: headerRaw,
   );
+}
+
+class _FakeJsEngine implements LegadoJsEngine {
+  _FakeJsEngine(this.result) : shouldThrow = false;
+
+  _FakeJsEngine.error()
+      : result = null,
+        shouldThrow = true;
+
+  final Object? result;
+  final bool shouldThrow;
+  String? lastScript;
+
+  @override
+  Object? eval(String script, {required LegadoJsContext context}) {
+    lastScript = script;
+    if (shouldThrow) throw StateError('boom');
+    return result;
+  }
+
+  @override
+  Future<Object?> evalAsync(
+    String script, {
+    required LegadoJsContext context,
+  }) async {
+    return eval(script, context: context);
+  }
 }
 
 class _FakeCookieProvider implements LegadoCookieProvider {

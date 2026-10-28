@@ -56,7 +56,7 @@ class ContentPipeline {
       baseUrl: source.url,
     );
     String? title;
-    String? nextUrl = contentUrl;
+    String? nextUrl = _normalizeJjwxcContentUrl(source, contentUrl);
     String? remainingNextUrl;
 
     try {
@@ -85,7 +85,7 @@ class ContentPipeline {
             await _loadPage(source, rule, currentUrl, runtimeContext);
         title ??= parsed.title;
         if (parsed.content.isNotEmpty) pages.add(parsed.content);
-        nextUrl = parsed.nextContentUrl;
+        nextUrl = _normalizeJjwxcContentUrl(source, parsed.nextContentUrl);
         remainingNextUrl = nextUrl;
         log.d(
           '[legado-content] page parsed title=${_preview(parsed.title ?? '')} '
@@ -165,8 +165,9 @@ class ContentPipeline {
       'url=${effectiveRequest.url} headers=${effectiveRequest.headers.length} '
       'charset=${effectiveRequest.charset ?? 'auto'}',
     );
-    final response = await executeLegadoRequest(
-      request: effectiveRequest,
+    var requestForContent = effectiveRequest;
+    var response = await executeLegadoRequest(
+      request: requestForContent,
       httpExecutor: executor,
       webViewExecutor: webViewExecutor,
       stage: 'content',
@@ -181,9 +182,9 @@ class ContentPipeline {
       '[legado-content] response headers=${_headersPreview(response.headers)} '
       'rawPreview=${_bytesPreview(response.bytes)}',
     );
-    final decoded = await responseTransformer.decodeAndTransform(
+    var decoded = await responseTransformer.decodeAndTransform(
       decoder: decoder,
-      request: effectiveRequest,
+      request: requestForContent,
       response: response,
       source: source,
       jsEngine: analyzeUrl.jsEngine,
@@ -192,6 +193,38 @@ class ContentPipeline {
       ajax: ajax,
       cookieStore: analyzeUrl.cookieStore,
     );
+    if (_isJjwxcUserAgentBlocked(source, decoded.text)) {
+      log.w(
+        '[legado-content] jjwxc rejected source User-Agent, '
+        'retry with browser UA url=${requestForContent.url}',
+      );
+      requestForContent = _withBrowserUserAgent(requestForContent);
+      response = await executeLegadoRequest(
+        request: requestForContent,
+        httpExecutor: executor,
+        webViewExecutor: webViewExecutor,
+        stage: 'content.retry',
+        trace: pageContext.trace,
+      );
+      recordLegadoResponseTrace(response, pageContext.trace,
+          stage: 'content.retry');
+      decoded = await responseTransformer.decodeAndTransform(
+        decoder: decoder,
+        request: requestForContent,
+        response: response,
+        source: source,
+        jsEngine: analyzeUrl.jsEngine,
+        trace: pageContext.trace,
+        runtimeContext: pageContext,
+        ajax: ajax,
+        cookieStore: analyzeUrl.cookieStore,
+      );
+      log.i(
+        '[legado-content] retry status=${response.statusCode} '
+        'chars=${decoded.text.length} '
+        'preview=${_preview(decoded.text)}',
+      );
+    }
     log.d(
       '[legado-content] decoded finalUrl=${decoded.finalUri} '
       'chars=${decoded.text.length} '
@@ -209,7 +242,7 @@ class ContentPipeline {
           src: decoded.text,
           result: decoded.text,
           redirectUrl: baseUrl,
-          cookie: _cookieHeader(effectiveRequest.headers),
+          cookie: _cookieHeader(requestForContent.headers),
         )
         .toRuleContext(
           input: RuleInput(
@@ -217,7 +250,7 @@ class ContentPipeline {
             baseUri: Uri.parse(source.url),
             redirectUri: decoded.finalUri,
           ),
-          cookie: _cookieHeader(effectiveRequest.headers),
+          cookie: _cookieHeader(requestForContent.headers),
         );
     final content = postProcessor.apply(
       content: await _contentText(decoded.text, rule.content, context),
@@ -325,6 +358,62 @@ class ContentPipeline {
       );
       return null;
     }
+  }
+
+  /// Older JJWXC source packs build non-VIP chapter URLs with
+  /// `app.jjwxc.net`, which answers `2016:浏览器标识异常` when the source's
+  /// `Dalvik` User-Agent is used. The CDN host serves the same chapter JSON
+  /// and accepts that header, so normalize the host for existing chapters
+  /// without changing the source rule or the stored chapter URLs.
+  String? _normalizeJjwxcContentUrl(SourceRule source, String? rawUrl) {
+    final url = rawUrl?.trim();
+    if (url == null || url.isEmpty) return rawUrl;
+    if (!_isJjwxcSource(source)) return rawUrl;
+
+    final uri = Uri.tryParse(url);
+    if (uri == null) return rawUrl;
+    if (uri.host.toLowerCase() != 'app.jjwxc.net') return rawUrl;
+    if (!uri.path.toLowerCase().contains('chaptercontent')) return rawUrl;
+    return uri.replace(scheme: 'https', host: 'app-cdn.jjwxc.net').toString();
+  }
+
+  bool _isJjwxcSource(SourceRule source) {
+    return source.url.contains('jjwxc.net') ||
+        source.id.contains('jjwxc.net') ||
+        source.url.contains('jjwxc.com') ||
+        source.id.contains('jjwxc.com');
+  }
+
+  /// The JJWXC API validates the caller's User-Agent when a chapter is not yet
+  /// cached on the CDN and answers `2016:浏览器标识异常` for the `Dalvik` agent
+  /// that old source packs ship with. A browser agent is accepted, so retry
+  /// once instead of surfacing an empty chapter.
+  bool _isJjwxcUserAgentBlocked(SourceRule source, String text) {
+    if (!_isJjwxcSource(source)) return false;
+    if (text.length > 500) return false;
+    return text.contains('"code":"2016"') && text.contains('浏览器标识异常');
+  }
+
+  LegadoRequest _withBrowserUserAgent(LegadoRequest request) {
+    final headers = <String, String>{
+      for (final entry in request.headers.entries)
+        if (entry.key.toLowerCase() != 'user-agent') entry.key: entry.value,
+    };
+    headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+        'AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/120.0.0.0 Safari/537.36';
+    return LegadoRequest(
+      url: request.url,
+      method: request.method,
+      headers: headers,
+      body: request.body,
+      charset: request.charset,
+      sourceRegex: request.sourceRegex,
+      bodyJs: request.bodyJs,
+      webJs: request.webJs,
+      useWebView: request.useWebView,
+      webViewDelayTime: request.webViewDelayTime,
+    );
   }
 
   String _preview(String value, {int maxLength = 500}) {

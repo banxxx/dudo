@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:charset_converter/charset_converter.dart';
 
+import '../../../utils/logger.dart';
 import '../../models/source_rule.dart';
 import '../common/balanced_text_scanner.dart';
 import '../js/legado_js_engine.dart';
@@ -45,7 +46,7 @@ class AnalyzeUrl {
     final split = splitOptions(replaced);
     final options = LegadoUrlOptions.parse(split.optionJson);
     final headers = <String, String>{
-      ...source.headers,
+      ...sourceHeaders(source),
       ...options.headers,
     };
     final resolvedUri = Uri.parse(source.url).resolve(split.url.trim());
@@ -109,7 +110,7 @@ class AnalyzeUrl {
     final split = splitOptions(replaced);
     final options = LegadoUrlOptions.parse(split.optionJson);
     final headers = <String, String>{
-      ...source.headers,
+      ...sourceHeaders(source),
       ...options.headers,
     };
     final resolvedUri = Uri.parse(source.url).resolve(split.url.trim());
@@ -154,6 +155,53 @@ class AnalyzeUrl {
       rawUrl.substring(0, index),
       rawUrl.substring(index + 1).trimLeft(),
     );
+  }
+
+  /// Resolves the source-level request headers.
+  ///
+  /// Legado allows `header` to be a JS expression (`@js:` or `<js>...</js>`)
+  /// that returns a JSON object. A broken script must not abort the request:
+  /// Legado logs the failure and continues without custom headers, so we do
+  /// the same.
+  Map<String, String> sourceHeaders(SourceRule source) {
+    if (!source.hasDynamicHeader) return source.headers;
+    final raw = source.headerRaw;
+    if (raw == null) return const {};
+
+    final script = _headerScript(raw);
+    if (script.trim().isEmpty) return const {};
+    try {
+      final result = jsEngine.eval(
+        script,
+        context: LegadoJsContext(
+          key: '',
+          page: 1,
+          baseUrl: source.url,
+          source: source,
+        ),
+      );
+      final decoded = result is String ? jsonDecode(result) : result;
+      if (decoded is! Map) return const {};
+      return {
+        for (final entry in decoded.entries)
+          if (entry.value != null) entry.key.toString(): entry.value.toString(),
+      };
+    } catch (error) {
+      log.w('source header js failed: $error');
+      return const {};
+    }
+  }
+
+  String _headerScript(String raw) {
+    final text = raw.trim();
+    final lower = text.toLowerCase();
+    if (lower.startsWith('@js:')) return text.substring(4);
+    if (lower.startsWith('<js>')) {
+      final end = lower.lastIndexOf('</js>');
+      if (end > 4) return text.substring(4, end);
+      return text.substring(4);
+    }
+    return text;
   }
 
   String _analyzeSearchUrl(

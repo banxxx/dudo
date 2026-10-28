@@ -1,3 +1,5 @@
+import 'js_block_scanner.dart';
+
 class BalancedTextScanner {
   const BalancedTextScanner();
 
@@ -60,50 +62,16 @@ class BalancedTextScanner {
     var braceDepth = 0;
     var quote = '';
     var escaped = false;
-    var inJsBlock = false;
-    var jsQuote = '';
-    var jsEscaped = false;
 
     for (var i = 0; i < input.length; i++) {
-      if (protectJsBlocks &&
-          !inJsBlock &&
-          _startsWithIgnoreCase(input, i, '<js>')) {
-        inJsBlock = true;
-        jsQuote = '';
-        jsEscaped = false;
-        onText(input.substring(i, i + 4));
-        i += 3;
-        continue;
-      }
-      if (inJsBlock) {
-        final char = input[i];
-        if (jsEscaped) {
-          jsEscaped = false;
-          onText(char);
-          continue;
+      if (protectJsBlocks && _startsWithIgnoreCase(input, i, '<js>')) {
+        final end = const JsBlockScanner().findBlockEnd(input, i + 4);
+        if (end < 0) {
+          onText(input.substring(i));
+          return;
         }
-        if (char == r'\') {
-          jsEscaped = true;
-          onText(char);
-          continue;
-        }
-        if (jsQuote.isNotEmpty) {
-          if (char == jsQuote) jsQuote = '';
-          onText(char);
-          continue;
-        }
-        if (char == '"' || char == "'" || char == '`') {
-          jsQuote = char;
-          onText(char);
-          continue;
-        }
-        if (_startsWithIgnoreCase(input, i, '</js>')) {
-          inJsBlock = false;
-          onText(input.substring(i, i + 5));
-          i += 4;
-          continue;
-        }
-        onText(char);
+        onText(input.substring(i, end + 5));
+        i = end + 4;
         continue;
       }
 

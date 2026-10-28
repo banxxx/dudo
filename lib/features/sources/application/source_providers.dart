@@ -4,6 +4,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/database/database_provider.dart';
 import '../data/importers/legado_source_importer.dart';
 import '../data/importers/source_importer.dart';
+import '../data/source_diagnostics_service.dart';
 import '../data/source_import_service.dart';
 import '../data/source_repository.dart';
 
@@ -23,6 +24,10 @@ final sourceImportersProvider = Provider<List<SourceImporter>>((ref) {
   ];
 });
 
+final sourceDiagnosticsServiceProvider = Provider<SourceDiagnosticsService>(
+  (ref) => SourceDiagnosticsService(),
+);
+
 final sourceImportServiceProvider = Provider<SourceImportService>((ref) {
   return SourceImportService(
     repository: ref.watch(sourceRepositoryProvider),
@@ -36,11 +41,15 @@ final sourcesProvider = StreamProvider<List<Source>>((ref) {
 
 final enabledSourcesProvider = Provider<AsyncValue<List<Source>>>((ref) {
   return ref.watch(sourcesProvider).whenData(
-        (sources) => sources.where((source) => source.enabled).toList()
-          ..sort((a, b) {
-            final sortOrder = a.sortOrder.compareTo(b.sortOrder);
-            if (sortOrder != 0) return sortOrder;
-            return b.updatedAt.compareTo(a.updatedAt);
-          }),
-      );
+    (sources) {
+      return sources
+          .where((source) => source.enabled && source.sourceType == 0)
+          .toList()
+        ..sort((a, b) {
+          final sortOrder = a.sortOrder.compareTo(b.sortOrder);
+          if (sortOrder != 0) return sortOrder;
+          return b.updatedAt.compareTo(a.updatedAt);
+        });
+    },
+  );
 });

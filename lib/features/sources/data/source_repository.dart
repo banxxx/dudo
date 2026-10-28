@@ -17,7 +17,7 @@ class SourceRepository {
       ..orderBy([
         (source) => OrderingTerm(
               expression: source.sortOrder,
-              mode: OrderingMode.desc,
+              mode: OrderingMode.asc,
             ),
         (source) => OrderingTerm(
               expression: source.updatedAt,
@@ -32,7 +32,7 @@ class SourceRepository {
       ..orderBy([
         (source) => OrderingTerm(
               expression: source.sortOrder,
-              mode: OrderingMode.desc,
+              mode: OrderingMode.asc,
             ),
         (source) => OrderingTerm(
               expression: source.updatedAt,
@@ -67,7 +67,8 @@ class SourceRepository {
 
   Future<SourceImportPersistResult> upsertImportedSources(
     SourceImportParseResult parseResult, {
-    ExistingSourceStrategy existingStrategy = ExistingSourceStrategy.update,
+    ExistingSourceStrategy existingStrategy =
+        ExistingSourceStrategy.updateIfNewer,
   }) async {
     final candidates = parseResult.candidates;
     if (candidates.isEmpty) {
@@ -79,6 +80,8 @@ class SourceRepository {
         skippedExistingCount: 0,
         duplicateInFileCount: parseResult.duplicateInFileCount,
         invalidCount: parseResult.invalidCount,
+        nonTextCount: parseResult.nonTextCount,
+        searchlessCount: parseResult.searchlessCount,
       );
     }
 
@@ -94,22 +97,31 @@ class SourceRepository {
       var updatedCount = 0;
       var skippedExistingCount = 0;
       final now = DateTime.now();
+      var nextSortOrder = (await _maxSortOrder()) + 1;
 
       await database.batch((batch) {
-        for (var i = 0; i < candidates.length; i++) {
-          final candidate = candidates[i];
+        for (final candidate in candidates) {
           final existing =
               existingById[candidate.id] ?? existingById[candidate.url];
-          final sortOrder =
-              candidate.sortOrder ?? now.millisecondsSinceEpoch + i;
           final rulesJson = jsonEncode(candidate.rawJson);
+          final remoteUpdatedAt = candidate.remoteUpdatedAt ?? 0;
 
           if (existing != null) {
-            if (existingStrategy == ExistingSourceStrategy.skip) {
+            final shouldUpdate = switch (existingStrategy) {
+              ExistingSourceStrategy.update => true,
+              ExistingSourceStrategy.updateIfNewer => _isNewer(
+                  incoming: remoteUpdatedAt,
+                  existing: existing.remoteUpdatedAt,
+                ),
+              ExistingSourceStrategy.skip => false,
+            };
+            if (!shouldUpdate) {
               skippedExistingCount += 1;
               continue;
             }
             updatedCount += 1;
+            // Preserve the user's local order and enable state; only the
+            // imported rule payload and identity fields are replaced.
             batch.update(
               database.sources,
               SourcesCompanion(
@@ -117,14 +129,16 @@ class SourceRepository {
                 url: Value(candidate.url),
                 groupName: Value(candidate.groupName),
                 comment: Value(candidate.comment),
+                sourceType: Value(candidate.sourceType),
+                remoteUpdatedAt: Value(remoteUpdatedAt),
                 rulesJson: Value(rulesJson),
-                sortOrder: Value(sortOrder),
                 updatedAt: Value(now),
               ),
               where: (source) => source.id.equals(existing.id),
             );
           } else {
             insertedCount += 1;
+            final sortOrder = candidate.sortOrder ?? nextSortOrder++;
             batch.insert(
               database.sources,
               SourcesCompanion.insert(
@@ -133,7 +147,9 @@ class SourceRepository {
                 url: candidate.url,
                 groupName: Value(candidate.groupName),
                 comment: Value(candidate.comment),
-                enabled: const Value(true),
+                enabled: Value(candidate.enabled),
+                sourceType: Value(candidate.sourceType),
+                remoteUpdatedAt: Value(remoteUpdatedAt),
                 rulesJson: rulesJson,
                 sortOrder: Value(sortOrder),
                 createdAt: Value(now),
@@ -152,8 +168,23 @@ class SourceRepository {
         skippedExistingCount: skippedExistingCount,
         duplicateInFileCount: parseResult.duplicateInFileCount,
         invalidCount: parseResult.invalidCount,
+        nonTextCount: parseResult.nonTextCount,
+        searchlessCount: parseResult.searchlessCount,
       );
     });
+  }
+
+  Future<int> _maxSortOrder() async {
+    final maxExpression = database.sources.sortOrder.max();
+    final row = await (database.selectOnly(database.sources)
+          ..addColumns([maxExpression]))
+        .getSingle();
+    return row.read(maxExpression) ?? -1;
+  }
+
+  bool _isNewer({required int incoming, required int? existing}) {
+    if (existing == null) return true;
+    return incoming > existing;
   }
 
   Future<List<Source>> _loadExistingSourcesByIds(List<String> ids) async {

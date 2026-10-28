@@ -19,6 +19,7 @@ import '../../shared/widgets/settings_detail_scaffold.dart';
 const _localBookImportMessageKey = 'source-add-local-book-import';
 const _sourceRuleImportLoadingMessageKey = 'source-add-rule-import-loading';
 const _sourceRuleImportResultMessageKey = 'source-add-rule-import-result';
+const _sourceUrlImportMessageKey = 'source-add-rule-url-import';
 
 class SourceAddSettingsPage extends ConsumerStatefulWidget {
   const SourceAddSettingsPage({super.key});
@@ -31,7 +32,9 @@ class SourceAddSettingsPage extends ConsumerStatefulWidget {
 class _SourceAddSettingsPageState extends ConsumerState<SourceAddSettingsPage> {
   late AppMessageService _messageService;
   late GoRouter _router;
+  final TextEditingController _sourceUrlController = TextEditingController();
   bool _isImportingRuleFile = false;
+  bool _isImportingRuleUrl = false;
 
   @override
   void didChangeDependencies() {
@@ -42,9 +45,11 @@ class _SourceAddSettingsPageState extends ConsumerState<SourceAddSettingsPage> {
 
   @override
   void dispose() {
+    _sourceUrlController.dispose();
     _messageService.dismiss(_localBookImportMessageKey);
     _messageService.dismiss(_sourceRuleImportLoadingMessageKey);
     _messageService.dismiss(_sourceRuleImportResultMessageKey);
+    _messageService.dismiss(_sourceUrlImportMessageKey);
     super.dispose();
   }
 
@@ -62,7 +67,11 @@ class _SourceAddSettingsPageState extends ConsumerState<SourceAddSettingsPage> {
         const SizedBox(height: 14),
         const SettingsSectionTitle('在线书源'),
         const SizedBox(height: 10),
-        const _SourceAddressInput(),
+        _SourceAddressInput(
+          controller: _sourceUrlController,
+          importing: _isImportingRuleUrl,
+          onSubmit: _importRuleUrl,
+        ),
         const SizedBox(height: 10),
         _RuleFileImportRow(
           importing: _isImportingRuleFile,
@@ -209,16 +218,84 @@ class _SourceAddSettingsPageState extends ConsumerState<SourceAddSettingsPage> {
     }
   }
 
+  Future<void> _importRuleUrl() async {
+    if (_isImportingRuleUrl) return;
+    final input = _sourceUrlController.text.trim();
+    if (input.isEmpty) {
+      ref.read(appMessageServiceProvider).info(
+            '请输入书源订阅链接或 JSON 内容',
+            title: '还没有输入',
+            dedupeKey: _sourceUrlImportMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+      return;
+    }
+
+    setState(() => _isImportingRuleUrl = true);
+    ref.read(appMessageServiceProvider).loading(
+          title: '正在导入书源',
+          description: '正在下载并解析书源，请稍候',
+          dedupeKey: _sourceRuleImportLoadingMessageKey,
+          visualStyle: AppMessageVisualStyle.paper,
+        );
+
+    final importService = ref.read(sourceImportServiceProvider);
+    try {
+      final result = await importService.importRuleUrl(input);
+      if (!mounted) return;
+      _sourceUrlController.clear();
+      ref.invalidate(sourcesProvider);
+      ref.read(appMessageServiceProvider).success(
+            _formatRuleImportSummary(result),
+            title: '书源导入成功',
+            dedupeKey: _sourceUrlImportMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+            actionLabel: '查看',
+            onAction: () {
+              _messageService.dismiss(_sourceUrlImportMessageKey);
+              if (context.canPop()) {
+                context.pop(true);
+                return;
+              }
+              _router.go(AppRoutes.sourceSettings);
+            },
+          );
+    } on SourceImportException catch (error) {
+      if (!mounted) return;
+      ref.read(appMessageServiceProvider).error(
+            error.message,
+            title: '导入失败',
+            dedupeKey: _sourceUrlImportMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    } catch (_) {
+      if (!mounted) return;
+      ref.read(appMessageServiceProvider).error(
+            '请确认链接可访问，且返回 Legado JSON 书源',
+            title: '导入失败',
+            dedupeKey: _sourceUrlImportMessageKey,
+            visualStyle: AppMessageVisualStyle.paper,
+          );
+    } finally {
+      _messageService.dismiss(_sourceRuleImportLoadingMessageKey);
+      if (mounted) {
+        setState(() => _isImportingRuleUrl = false);
+      }
+    }
+  }
+
   String _formatRuleImportSummary(SourceImportPersistResult result) {
     final parts = <String>[
       '读取 ${result.totalInputCount} 条',
       if (result.insertedCount > 0) '新增 ${result.insertedCount} 个',
       if (result.updatedCount > 0) '更新 ${result.updatedCount} 个',
       if (result.skippedExistingCount > 0)
-        '跳过 ${result.skippedExistingCount} 个',
+        '已有跳过 ${result.skippedExistingCount} 个',
       if (result.duplicateInFileCount > 0)
         '合并重复 ${result.duplicateInFileCount} 条',
       if (result.invalidCount > 0) '无效 ${result.invalidCount} 条',
+      if (result.nonTextCount > 0) '非文本 ${result.nonTextCount} 个',
+      if (result.searchlessCount > 0) '无搜索 ${result.searchlessCount} 个',
     ];
     return parts.join('，');
   }
@@ -458,7 +535,15 @@ class _DarkCardButton extends StatelessWidget {
 }
 
 class _SourceAddressInput extends StatelessWidget {
-  const _SourceAddressInput();
+  const _SourceAddressInput({
+    required this.controller,
+    required this.importing,
+    required this.onSubmit,
+  });
+
+  final TextEditingController controller;
+  final bool importing;
+  final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
@@ -475,30 +560,54 @@ class _SourceAddressInput extends StatelessWidget {
           const _SourceIconWrap(icon: LucideIcons.link),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              '粘贴书源订阅地址',
-              overflow: TextOverflow.ellipsis,
+            child: TextField(
+              controller: controller,
+              enabled: !importing,
+              keyboardType: TextInputType.url,
+              textInputAction: TextInputAction.go,
+              onSubmitted: (_) => onSubmit(),
               style: DudoTextStyles.sans(
-                color: DudoColors.secondary,
+                color: DudoColors.textPrimary,
                 fontSize: 13,
+              ),
+              decoration: InputDecoration.collapsed(
+                hintText: '粘贴书源订阅地址或 JSON',
+                hintStyle: DudoTextStyles.sans(
+                  color: DudoColors.secondary,
+                  fontSize: 13,
+                ),
               ),
             ),
           ),
           const SizedBox(width: 10),
-          Container(
-            height: 34,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: const BoxDecoration(
-              color: DudoColors.primaryContainer,
+          Material(
+            color: Colors.transparent,
+            borderRadius: AppRadius.full,
+            child: InkWell(
+              onTap: importing ? null : onSubmit,
               borderRadius: AppRadius.full,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              '添加',
-              style: DudoTextStyles.sans(
-                color: DudoColors.primary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+              child: Container(
+                height: 34,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: const BoxDecoration(
+                  color: DudoColors.primaryContainer,
+                  borderRadius: AppRadius.full,
+                ),
+                alignment: Alignment.center,
+                child: importing
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(
+                        '添加',
+                        style: DudoTextStyles.sans(
+                          color: DudoColors.primary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ),
           ),
@@ -552,7 +661,7 @@ class _RuleFileImportRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '支持 Legado JSON，后续会支持 dudo 书源',
+                      '支持 Legado JSON / TXT 规则文件',
                       style: DudoTextStyles.sans(
                         color: DudoColors.secondary,
                         fontSize: 11,
@@ -618,12 +727,12 @@ class _ImportNoticeCard extends StatelessWidget {
           SizedBox(height: 7),
           _NoticeLine(
             dotColor: DudoColors.primary,
-            text: '本地书会直接进入书架，在线书源会先进入校验。',
+            text: '本地书会直接进入书架；在线书源导入时会校验地址，无效条目会被跳过。',
           ),
           SizedBox(height: 7),
           _NoticeLine(
             dotColor: DudoColors.primary,
-            text: '校验通过后即可用于搜索、更新章节和加入书架。',
+            text: '只有文本类型且启用的书源会参与搜索，非文本源会保留但不参与搜索。',
           ),
           SizedBox(height: 7),
           _NoticeLine(

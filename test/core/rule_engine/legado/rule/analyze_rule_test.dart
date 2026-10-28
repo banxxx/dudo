@@ -277,6 +277,36 @@ void main() {
       );
     });
 
+    test('keeps quoted regex inside js block and applies trailing ## rule',
+        () async {
+      final engine = _RecordingJsEngine('Alpha BETA Alpha');
+      final context = RuleContext(
+        source: _source(),
+        input: RuleInput(
+          rawText: 'ignored',
+          baseUri: Uri.parse('https://source.example'),
+        ),
+      );
+      final analyzeRule = AnalyzeRule(
+        registry: _registry(),
+        jsEngine: engine,
+      );
+
+      final values = await analyzeRule.fieldStringsAsync(
+        'ignored',
+        '<js>\n'
+            'result.match(/body":"(.*?)"/)\n'
+            '</js>\n'
+            '##Alpha',
+        context,
+      );
+
+      expect(engine.scripts, hasLength(1));
+      expect(engine.scripts.single, isNot(contains('</js>')));
+      expect(engine.scripts.single, isNot(contains('##')));
+      expect(values, ['BETA']);
+    });
+
     test('uses redirect URL as Legado baseUrl in dynamic JS rules', () {
       final jsEngine = _BaseUrlJsEngine();
       final context = RuleContext(
@@ -398,6 +428,27 @@ class _BaseUrlJsEngine implements LegadoJsEngine {
   Object? eval(String script, {required LegadoJsContext context}) {
     lastBaseUrl = context.baseUrl;
     return RegExp(r'novelId=(\d+)').firstMatch(context.baseUrl ?? '')?.group(1);
+  }
+
+  @override
+  Future<Object?> evalAsync(
+    String script, {
+    required LegadoJsContext context,
+  }) async {
+    return eval(script, context: context);
+  }
+}
+
+class _RecordingJsEngine implements LegadoJsEngine {
+  _RecordingJsEngine(this.result);
+
+  final Object? result;
+  final List<String> scripts = [];
+
+  @override
+  Object? eval(String script, {required LegadoJsContext context}) {
+    scripts.add(script);
+    return result;
   }
 
   @override
