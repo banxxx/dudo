@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/logger.dart';
+import '../../reading_stats/application/reading_stats_provider.dart';
+import '../../reading_stats/data/reading_session_recorder.dart';
 import '../../settings/typography_settings/application/reader_font_providers.dart';
 import '../domain/reader_theme.dart';
 import '../application/reader_background_providers.dart';
@@ -12,13 +15,17 @@ import '../application/reader_engine_providers.dart';
 import '../application/reader_engine_state.dart';
 import '../controller/reader_session_controller.dart';
 import '../controller/reader_viewport_controller.dart';
+import '../domain/reader_annotation.dart';
 import '../domain/reader_background.dart';
 import '../domain/reader_catalog_item.dart';
+import '../domain/reader_chapter.dart';
 import '../domain/reader_insets.dart';
 import '../domain/reader_location.dart';
+import '../domain/reader_range.dart';
 import '../domain/reader_overlay_mode.dart';
 import '../domain/reader_reading_time.dart';
 import '../domain/reader_settings.dart';
+import '../domain/reader_session_tracker.dart';
 import '../domain/reader_turn_mode.dart';
 import '../domain/reader_viewport_state.dart';
 import '../layout/reader_layout_cache.dart';
@@ -38,10 +45,15 @@ class ReaderScreen extends ConsumerStatefulWidget {
     super.key,
     required this.bookId,
     this.initialChapterIndex = 0,
+    this.initialOffset = 0,
   });
 
   final String bookId;
   final int initialChapterIndex;
+
+  /// Character offset inside [initialChapterIndex] to open at, used when
+  /// jumping to a bookmark.
+  final int initialOffset;
 
   @override
   ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
@@ -84,6 +96,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   int _volumePageTurnDirection = 0;
   List<ReaderCatalogItem> _catalogItems = const [];
   bool _catalogLoading = false;
+  DateTime? _readingSessionStartedAt;
+  ReadingSessionRecorder? _readingSessionRecorder;
+  final ReadingSessionTracker _sessionTracker = ReadingSessionTracker();
 
   @override
   void initState() {
@@ -95,6 +110,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   @override
   void dispose() {
+    unawaited(_flushReadingSession());
     WidgetsBinding.instance.removeObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -114,6 +130,52 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     super.didChangePlatformBrightness();
     if (!_followSystemBrightness || !mounted) return;
     setState(() => _brightness = _brightnessForSystemMode());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (_controller?.state.loadStatus == ReaderLoadStatus.ready) {
+        _startReadingSession();
+      }
+      return;
+    }
+    unawaited(_flushReadingSession());
+  }
+
+  /// Starts counting reading time for the stats screens. Time spent in the
+  /// background is not counted because the session is flushed on pause.
+  void _startReadingSession() {
+    if (_readingSessionStartedAt != null) return;
+    _readingSessionRecorder ??= ref.read(readingSessionRecorderProvider);
+    _readingSessionStartedAt = DateTime.now();
+  }
+
+  Future<void> _flushReadingSession() async {
+    final startedAt = _readingSessionStartedAt;
+    final recorder = _readingSessionRecorder;
+    _readingSessionStartedAt = null;
+    if (startedAt == null || recorder == null) return;
+
+    final endedAt = DateTime.now();
+    if (endedAt.difference(startedAt).inSeconds <= 0) return;
+
+    final delta = _sessionTracker.takeDelta();
+    try {
+      await recorder.record(
+        bookId: widget.bookId,
+        startedAt: startedAt,
+        endedAt: endedAt,
+        wordsRead: delta.characters,
+        chaptersRead: delta.chapters,
+      );
+    } catch (error, stackTrace) {
+      log.w(
+        '[reader] failed to record reading session',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   @override
@@ -269,6 +331,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           onPreviousBoundary: () => _previousChapter(controller),
           onNextBoundary: () => _nextChapter(controller),
           onLocationChanged: (location) async {
+            _sessionTracker.onLocationChanged(location, chapter.textLength);
             if (state.settings.turnMode == ReaderTurnMode.scroll) {
               await controller.reportUserLocation(location);
             } else if (location.chapterIndex != viewport.center.chapter.index) {
@@ -428,6 +491,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         onVolumePageTurnChanged: (value) {
           setState(() => _volumePageTurnEnabled = value);
         },
+        onAddBookmark: () => unawaited(
+          _addBookmark(
+            bookId: widget.bookId,
+            chapter: chapter,
+            location: location,
+          ),
+        ),
         onListeningChanged: (value) {
           setState(() => _isListening = value);
         },
@@ -754,9 +824,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     );
     _controller = controller;
     _initialization = controller.initialize().then((_) async {
-      if (widget.initialChapterIndex > 0) {
-        await controller.jumpToChapter(widget.initialChapterIndex);
+      if (controller.state.loadStatus == ReaderLoadStatus.ready) {
+        _startReadingSession();
       }
+      if (widget.initialChapterIndex <= 0 && widget.initialOffset <= 0) return;
+      await controller.scrollToLocation(
+        ReaderLocation(
+          bookId: widget.bookId,
+          chapterIndex: widget.initialChapterIndex,
+          offset: widget.initialOffset,
+        ),
+      );
     });
   }
 
@@ -787,6 +865,62 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (_systemStatusBarHidden == value) return;
     setState(() => _systemStatusBarHidden = value);
     _syncSystemUiMode();
+  }
+
+  Future<void> _addBookmark({
+    required String bookId,
+    required ReaderChapter chapter,
+    required ReaderLocation location,
+  }) async {
+    final now = DateTime.now();
+    final position = ReaderLocation(
+      bookId: bookId,
+      chapterIndex: location.chapterIndex,
+      offset: location.offset,
+    );
+    final annotation = ReaderAnnotation(
+      id: 'bookmark-${now.microsecondsSinceEpoch}',
+      bookId: bookId,
+      range: ReaderRange(start: position, end: position),
+      type: ReaderAnnotationType.bookmark,
+      preview: _bookmarkPreview(chapter.normalizedText, location.offset),
+      createdAt: now,
+    );
+
+    try {
+      await ref
+          .read(readerAnnotationRepositoryProvider)
+          .saveAnnotation(annotation);
+    } catch (error) {
+      if (!mounted) return;
+      _showReaderMessage('加入书签失败：$error');
+      return;
+    }
+    if (!mounted) return;
+    _setOverlayMode(ReaderOverlayMode.hidden);
+    _showReaderMessage('已加入书签');
+  }
+
+  String _bookmarkPreview(String text, int offset) {
+    if (text.isEmpty) return '';
+    final start = offset.clamp(0, text.length);
+    final end = (start + 80).clamp(start, text.length);
+    final snippet =
+        text.substring(start, end).replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (snippet.isNotEmpty) return snippet;
+
+    final head = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return head.length <= 80 ? head : head.substring(0, 80);
+  }
+
+  void _showReaderMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _importCustomBackground() async {

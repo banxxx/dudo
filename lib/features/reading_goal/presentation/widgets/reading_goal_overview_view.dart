@@ -6,11 +6,17 @@ import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
 import '../../../../shared/widgets/dudo_fixed_page_frame.dart';
 import '../../../../shared/widgets/dudo_page_header.dart';
+import '../../application/reading_goal_overview.dart';
 import '../../reading_goal_page_data.dart';
 
 class ReadingGoalOverviewView extends StatelessWidget {
-  const ReadingGoalOverviewView({super.key, required this.onEdit});
+  const ReadingGoalOverviewView({
+    super.key,
+    required this.overview,
+    required this.onEdit,
+  });
 
+  final ReadingGoalOverview overview;
   final VoidCallback onEdit;
 
   @override
@@ -18,32 +24,33 @@ class ReadingGoalOverviewView extends StatelessWidget {
     return DudoFixedPageFrame(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
       constrainWidth: false,
-      header: _GoalHeader(onEdit: onEdit),
-      children: const [
-        SizedBox(height: 10),
-        _GoalHeroCard(),
-        SizedBox(height: 10),
-        _QuickMetrics(),
-        SizedBox(height: 10),
-        _WeeklyPaceCard(),
-        SizedBox(height: 10),
-        _GoalSettingsCard(),
-        SizedBox(height: 10),
-        _SuggestionCard(),
+      header: _GoalHeader(title: overview.title, onEdit: onEdit),
+      children: [
+        const SizedBox(height: 10),
+        _GoalHeroCard(overview: overview),
+        const SizedBox(height: 10),
+        _QuickMetrics(metrics: overview.metrics),
+        const SizedBox(height: 10),
+        _WeeklyPaceCard(overview: overview),
+        const SizedBox(height: 10),
+        _GoalSettingsCard(settings: overview.settings),
+        const SizedBox(height: 10),
+        _SuggestionCard(overview: overview),
       ],
     );
   }
 }
 
 class _GoalHeader extends StatelessWidget {
-  const _GoalHeader({required this.onEdit});
+  const _GoalHeader({required this.title, required this.onEdit});
 
+  final String title;
   final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
     return DudoPageHeader(
-      title: ReadingGoalPageData.title,
+      title: title,
       leading: DudoCircleIconButton(
         icon: LucideIcons.chevronLeft,
         onTap: () => context.pop(),
@@ -54,7 +61,9 @@ class _GoalHeader extends StatelessWidget {
 }
 
 class _GoalHeroCard extends StatelessWidget {
-  const _GoalHeroCard();
+  const _GoalHeroCard({required this.overview});
+
+  final ReadingGoalOverview overview;
 
   @override
   Widget build(BuildContext context) {
@@ -92,7 +101,7 @@ class _GoalHeroCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      ReadingGoalPageData.currentProgress,
+                      overview.currentProgress,
                       style: DudoTextStyles.numeric(
                         color: DudoColors.surfaceHigh,
                         fontSize: 34,
@@ -102,7 +111,7 @@ class _GoalHeroCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      ReadingGoalPageData.progressSummary,
+                      overview.progressSummary,
                       style: DudoTextStyles.sans(
                         color: DudoColors.outline,
                         fontSize: 12,
@@ -113,9 +122,9 @@ class _GoalHeroCard extends StatelessWidget {
                 ),
                 Row(
                   children: [
-                    for (final badge in ReadingGoalPageData.heroBadges) ...[
+                    for (final badge in overview.heroBadges) ...[
                       _HeroBadge(badge),
-                      if (badge != ReadingGoalPageData.heroBadges.last)
+                      if (badge != overview.heroBadges.last)
                         const SizedBox(width: 8),
                     ],
                   ],
@@ -124,7 +133,10 @@ class _GoalHeroCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          const _ProgressDonut(),
+          _ProgressDonut(
+            percent: overview.progressPercent,
+            percentText: overview.progressPercentText,
+          ),
         ],
       ),
     );
@@ -162,7 +174,10 @@ class _HeroBadge extends StatelessWidget {
 }
 
 class _ProgressDonut extends StatelessWidget {
-  const _ProgressDonut();
+  const _ProgressDonut({required this.percent, required this.percentText});
+
+  final double percent;
+  final String percentText;
 
   @override
   Widget build(BuildContext context) {
@@ -182,11 +197,11 @@ class _ProgressDonut extends StatelessWidget {
               color: DudoColors.surfaceHigh.withValues(alpha: 0.13),
             ),
           ),
-          const SizedBox(
+          SizedBox(
             width: 110,
             height: 110,
             child: CircularProgressIndicator(
-              value: ReadingGoalPageData.progressPercent,
+              value: percent,
               strokeWidth: 15,
               strokeCap: StrokeCap.round,
               color: DudoColors.primaryContainer,
@@ -203,7 +218,7 @@ class _ProgressDonut extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  ReadingGoalPageData.progressPercentText,
+                  percentText,
                   style: DudoTextStyles.numeric(
                     color: DudoColors.surfaceHigh,
                     fontSize: 19,
@@ -230,7 +245,9 @@ class _ProgressDonut extends StatelessWidget {
 }
 
 class _QuickMetrics extends StatelessWidget {
-  const _QuickMetrics();
+  const _QuickMetrics({required this.metrics});
+
+  final List<ReadingGoalMetricData> metrics;
 
   @override
   Widget build(BuildContext context) {
@@ -238,10 +255,9 @@ class _QuickMetrics extends StatelessWidget {
       height: 72,
       child: Row(
         children: [
-          for (final metric in ReadingGoalPageData.metrics) ...[
+          for (final metric in metrics) ...[
             Expanded(child: _MetricCard(metric)),
-            if (metric != ReadingGoalPageData.metrics.last)
-              const SizedBox(width: 10),
+            if (metric != metrics.last) const SizedBox(width: 10),
           ],
         ],
       ),
@@ -292,7 +308,9 @@ class _MetricCard extends StatelessWidget {
 }
 
 class _WeeklyPaceCard extends StatelessWidget {
-  const _WeeklyPaceCard();
+  const _WeeklyPaceCard({required this.overview});
+
+  final ReadingGoalOverview overview;
 
   @override
   Widget build(BuildContext context) {
@@ -318,7 +336,7 @@ class _WeeklyPaceCard extends StatelessWidget {
                 ),
               ),
               Text(
-                ReadingGoalPageData.weeklyAverage,
+                overview.weeklyAverage,
                 style: DudoTextStyles.sans(
                   color: DudoColors.primary,
                   fontSize: 12,
@@ -332,10 +350,9 @@ class _WeeklyPaceCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                for (final bar in ReadingGoalPageData.weeklyBars) ...[
+                for (final bar in overview.weeklyBars) ...[
                   Expanded(child: _WeekBarColumn(bar)),
-                  if (bar != ReadingGoalPageData.weeklyBars.last)
-                    const SizedBox(width: 6),
+                  if (bar != overview.weeklyBars.last) const SizedBox(width: 6),
                 ],
               ],
             ),
@@ -379,32 +396,35 @@ class _WeekBarColumn extends StatelessWidget {
 }
 
 class _GoalSettingsCard extends StatelessWidget {
-  const _GoalSettingsCard();
+  const _GoalSettingsCard({required this.settings});
+
+  final List<ReadingGoalSettingLineData> settings;
 
   @override
   Widget build(BuildContext context) {
-    return const _PlainCard(
+    return _PlainCard(
       height: 170,
       children: [
-        _CardTitle(ReadingGoalPageData.settingsTitle),
-        SizedBox(height: 6),
-        _SettingsLines(),
+        const _CardTitle(ReadingGoalPageData.settingsTitle),
+        const SizedBox(height: 6),
+        _SettingsLines(settings: settings),
       ],
     );
   }
 }
 
 class _SettingsLines extends StatelessWidget {
-  const _SettingsLines();
+  const _SettingsLines({required this.settings});
+
+  final List<ReadingGoalSettingLineData> settings;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        for (final setting in ReadingGoalPageData.settings) ...[
+        for (final setting in settings) ...[
           _SettingLine(setting),
-          if (setting != ReadingGoalPageData.settings.last)
-            const SizedBox(height: 6),
+          if (setting != settings.last) const SizedBox(height: 6),
         ],
       ],
     );
@@ -496,7 +516,9 @@ class _SettingLine extends StatelessWidget {
 }
 
 class _SuggestionCard extends StatelessWidget {
-  const _SuggestionCard();
+  const _SuggestionCard({required this.overview});
+
+  final ReadingGoalOverview overview;
 
   @override
   Widget build(BuildContext context) {
@@ -526,7 +548,7 @@ class _SuggestionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  ReadingGoalPageData.suggestionTitle,
+                  overview.suggestionTitle,
                   style: DudoTextStyles.sans(
                     color: DudoColors.textPrimary,
                     fontSize: 14,
@@ -535,7 +557,7 @@ class _SuggestionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  ReadingGoalPageData.suggestionDescription,
+                  overview.suggestionDescription,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: DudoTextStyles.sans(

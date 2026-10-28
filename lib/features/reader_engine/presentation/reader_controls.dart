@@ -109,6 +109,7 @@ class ReaderControls extends StatelessWidget {
     required this.onPageTurnModeChanged,
     required this.onVolumePageTurnChanged,
     required this.onListeningChanged,
+    this.onAddBookmark,
   });
 
   final ReaderOverlayMode mode;
@@ -174,6 +175,9 @@ class ReaderControls extends StatelessWidget {
   final ValueChanged<ReaderTurnMode> onPageTurnModeChanged;
   final ValueChanged<bool> onVolumePageTurnChanged;
   final ValueChanged<bool> onListeningChanged;
+
+  /// Saves a bookmark at the reader's current location.
+  final VoidCallback? onAddBookmark;
 
   bool get _showsBars => mode != ReaderOverlayMode.hidden;
 
@@ -333,6 +337,7 @@ class ReaderControls extends StatelessWidget {
                   _MoreMenuPopover(
                     metrics: metrics,
                     palette: palette,
+                    onAddBookmark: onAddBookmark,
                     onPageTurn: () => onModeChanged(ReaderOverlayMode.pageTurn),
                   ),
                 );

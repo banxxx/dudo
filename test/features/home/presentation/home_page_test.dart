@@ -1,4 +1,6 @@
+import 'package:dudo/features/home/application/home_providers.dart';
 import 'package:dudo/features/home/presentation/home_page.dart';
+import 'package:dudo/features/reading_stats/domain/reading_stats_models.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
 import 'package:dudo/shared/utils/time_greeting.dart';
 import 'package:flutter/material.dart';
@@ -17,12 +19,19 @@ void main() {
   testWidgets('home page renders the starter header without reading data',
       (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          home: HomePage(),
-        ),
+      _homeApp(
+        rhythm: [
+          _rhythmDay('一', 0),
+          _rhythmDay('二', 0),
+          _rhythmDay('三', 0),
+          _rhythmDay('四', 0),
+          _rhythmDay('五', 0),
+          _rhythmDay('六', 0),
+          _rhythmDay('日', 0),
+        ],
       ),
     );
+    await tester.pumpAndSettle();
 
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(scaffold.backgroundColor, DudoColors.paperBackground);
@@ -57,23 +66,70 @@ void main() {
       scrollable: find.byType(Scrollable),
     );
     expect(find.text('本周节奏'), findsOneWidget);
+    expect(find.text('本周还没有阅读记录'), findsOneWidget);
   });
 
   testWidgets('home page keeps the reading header when reading data exists',
       (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
-          home: HomePage(hasReadingData: true),
+      _homeApp(
+        snapshot: const HomeReadingSnapshot(
+          bookId: 'book-1',
+          bookTitle: '三体',
+          author: '刘慈欣',
+          chapterIndex: 23,
+          chapterCount: 40,
+          subtitle: '旧世界的回声',
+          progressPercent: 62,
+          remainingMinutes: 8,
         ),
+        rhythm: [
+          _rhythmDay('一', 30),
+          _rhythmDay('二', 60),
+        ],
       ),
     );
+    await tester.pumpAndSettle();
 
     expect(find.text('今日阅读'), findsOneWidget);
     expect(find.text('${timeGreeting()}，继续沉入书页'), findsOneWidget);
-    expect(find.text('继续阅读'), findsOneWidget);
-    expect(find.text('三体 · 第 24 章'), findsOneWidget);
+    expect(find.text('继续阅读 · 第 24 章'), findsOneWidget);
+    // Once on the hero cover, once as the hero title.
+    expect(find.text('三体'), findsNWidgets(2));
+    expect(find.text('旧世界的回声'), findsOneWidget);
+    expect(find.text('剩余 8 分钟'), findsOneWidget);
+    expect(find.text('62%'), findsOneWidget);
     expect(find.text('今天想读点什么？'), findsNothing);
     expect(find.text('开始新的阅读'), findsNothing);
+
+    await tester.scrollUntilVisible(
+      find.text('本周节奏'),
+      120,
+      scrollable: find.byType(Scrollable),
+    );
+    expect(find.text('共 1 小时 30 分钟'), findsOneWidget);
   });
+}
+
+Widget _homeApp({
+  HomeReadingSnapshot? snapshot,
+  List<ReadingRhythmStat> rhythm = const [],
+}) {
+  return ProviderScope(
+    overrides: [
+      homeReadingSnapshotProvider.overrideWithValue(snapshot),
+      homeWeeklyRhythmProvider.overrideWith((ref) async => rhythm),
+    ],
+    child: const MaterialApp(home: HomePage()),
+  );
+}
+
+ReadingRhythmStat _rhythmDay(String label, int minutes) {
+  final date = DateTime(2026, 1, 1);
+  return ReadingRhythmStat(
+    label: label,
+    minutes: minutes,
+    start: date,
+    end: date,
+  );
 }

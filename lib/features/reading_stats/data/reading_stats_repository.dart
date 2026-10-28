@@ -55,6 +55,60 @@ class ReadingStatsRepository {
     );
   }
 
+  /// Aggregates the sessions of [anchor]'s calendar month. The reading goal
+  /// needs chapter and character totals that the range summaries ignore.
+  Future<ReadingMonthStats> getMonthStats(DateTime anchor) async {
+    final monthStart = DateTime(anchor.year, anchor.month);
+    final monthEnd = DateTime(anchor.year, anchor.month + 1);
+    final rows = await (database.select(database.readingSessions)
+          ..where((s) => s.startedAt.isBiggerOrEqualValue(monthStart))
+          ..where((s) => s.startedAt.isSmallerThanValue(monthEnd))
+          ..where((s) => s.durationSeconds.isBiggerThanValue(0)))
+        .get();
+
+    var totalSeconds = 0;
+    var chaptersRead = 0;
+    var charactersRead = 0;
+    final readingDays = <DateTime>{};
+
+    for (final row in rows) {
+      totalSeconds += row.durationSeconds;
+      chaptersRead += row.chaptersRead;
+      charactersRead += row.wordsRead;
+      readingDays.add(DateUtils.dateOnly(row.startedAt));
+    }
+
+    return ReadingMonthStats(
+      month: monthStart,
+      totalSeconds: totalSeconds,
+      chaptersRead: chaptersRead,
+      charactersRead: charactersRead,
+      recordedDays: readingDays.length,
+      daysInMonth: DateUtils.getDaysInMonth(anchor.year, anchor.month),
+      streakDays: await _streakDaysEndingAt(DateUtils.dateOnly(anchor)),
+    );
+  }
+
+  Future<int> _streakDaysEndingAt(DateTime today) async {
+    const lookbackDays = 120;
+    final since = today.subtract(const Duration(days: lookbackDays));
+    final rows = await (database.select(database.readingSessions)
+          ..where((s) => s.startedAt.isBiggerOrEqualValue(since))
+          ..where((s) => s.durationSeconds.isBiggerThanValue(0)))
+        .get();
+    final days = rows.map((row) => DateUtils.dateOnly(row.startedAt)).toSet();
+    if (days.isEmpty) return 0;
+
+    var cursor =
+        days.contains(today) ? today : today.subtract(const Duration(days: 1));
+    var streak = 0;
+    while (days.contains(cursor)) {
+      streak++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    return streak;
+  }
+
   Future<List<_ReadingSessionBookRow>> _readSessionRows(
     DateTime start,
     DateTime exclusiveEnd,

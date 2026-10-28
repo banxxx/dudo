@@ -1,4 +1,9 @@
+import 'package:dudo/features/profile/application/profile_providers.dart';
 import 'package:dudo/features/profile/presentation/profile_page.dart';
+import 'package:dudo/features/reading_goal/application/reading_goal_overview.dart';
+import 'package:dudo/features/reading_goal/application/reading_goal_providers.dart';
+import 'package:dudo/features/reading_goal/domain/reading_goal.dart';
+import 'package:dudo/features/reading_stats/domain/reading_stats_models.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,12 +12,25 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('renders the Pencil F1 profile design', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
+      ProviderScope(
+        overrides: [
+          profileSummaryProvider.overrideWith(
+            (_) async => const ProfileSummary(
+              monthReadingLabel: '12h',
+              monthReadingProse: '12 小时',
+              hasReadThisMonth: true,
+              shelfCount: 38,
+              bookmarkCount: 7,
+            ),
+          ),
+          readingGoalOverviewProvider.overrideWith((_) async => _overview()),
+        ],
+        child: const MaterialApp(
           home: ProfilePage(),
         ),
       ),
     );
+    await tester.pump();
 
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(scaffold.backgroundColor, DudoColors.paperBackground);
@@ -150,4 +168,31 @@ void main() {
     expect(toolDescription.style?.color, DudoColors.secondary);
     expect(toolDescription.style?.fontSize, 11);
   });
+}
+
+ReadingGoalOverview _overview() {
+  final now = DateTime(2026, 5, 20);
+  const minutes = [34, 44, 26, 52, 40, 48, 22];
+  return ReadingGoalOverview.build(
+    goal: ReadingGoal.defaults(),
+    stats: ReadingMonthStats(
+      month: DateTime(2026, 5),
+      totalSeconds: 15 * 3600 + 36 * 60,
+      chaptersRead: 12,
+      charactersRead: 168000,
+      recordedDays: 23,
+      daysInMonth: 31,
+      streakDays: 6,
+    ),
+    weekRhythm: [
+      for (var i = 0; i < minutes.length; i++)
+        ReadingRhythmStat(
+          label: '一二三四五六日'[i],
+          minutes: minutes[i],
+          start: now,
+          end: now,
+        ),
+    ],
+    now: now,
+  );
 }

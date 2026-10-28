@@ -979,6 +979,103 @@ void main() {
 
     await tester.pumpAndSettle();
   });
+
+  testWidgets('more menu triggers the add-bookmark action', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var bookmarkCalls = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: [
+              _moreMenuControls(onAddBookmark: () => bookmarkCalls++),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('加入书签'));
+    await tester.pumpAndSettle();
+
+    expect(bookmarkCalls, 1);
+  });
+}
+
+ReaderControls _moreMenuControls({required VoidCallback onAddBookmark}) {
+  return ReaderControls(
+    mode: ReaderOverlayMode.more,
+    bookTitle: '测试书',
+    chapterLabel: '第一章',
+    chapterTitle: '第一章',
+    progress: 0.2,
+    remainingText: '约 1 分钟',
+    palette: ReaderTheme.parchment,
+    backgroundPreference: ReaderBackgroundPreference.bambooCorner(),
+    customBackgroundPreference: null,
+    fontSize: 19,
+    lineHeight: 1.72,
+    paragraphSpacing: 15,
+    pageHorizontalMargin: ReaderSettings.defaultPageHorizontalMargin,
+    firstLineIndentEnabled: true,
+    textEnhancementEnabled: false,
+    fontLibraryValue: AsyncValue.data(
+      ReaderFontLibrary(
+        fonts: ReaderBuiltinFonts.values,
+        selectedFamilyKey: ReaderBuiltinFonts.serifSc.familyKey,
+      ),
+    ),
+    brightness: 1,
+    followSystemBrightness: false,
+    eyeComfortEnhanced: false,
+    timeBatteryHidden: false,
+    chapterProgressHidden: false,
+    systemStatusBarHidden: true,
+    pageEdgeHidden: false,
+    gestureNavigationBlocked: true,
+    pageTurnMode: ReaderTurnMode.slide,
+    volumePageTurnEnabled: true,
+    isListening: false,
+    currentChapterIndex: 0,
+    chapterCount: 1,
+    catalogItems: const [],
+    onBack: () {},
+    onClose: () {},
+    onModeChanged: (_) {},
+    onChapterSelected: (_) {},
+    onPreviousChapter: null,
+    onNextChapter: null,
+    onPaletteChanged: (_) {},
+    onBackgroundChanged: (_) {},
+    onCustomBackgroundImport: () async {},
+    onFontSizeChanged: (_) {},
+    onLineHeightChanged: (_) {},
+    onParagraphSpacingChanged: (_) {},
+    onLineParagraphSpacingChanged: (_, __) {},
+    onPageHorizontalMarginChanged: (_) {},
+    onFontSelected: (_) {},
+    onManageFonts: () {},
+    onFirstLineIndentChanged: (_) {},
+    onTextEnhancementChanged: (_) {},
+    onBrightnessChanged: (_) {},
+    onFollowSystemBrightnessChanged: (_) {},
+    onEyeComfortEnhancedChanged: (_) {},
+    onTimeBatteryHiddenChanged: (_) {},
+    onChapterProgressHiddenChanged: (_) {},
+    onSystemStatusBarHiddenChanged: (_) {},
+    onPageEdgeHiddenChanged: (_) {},
+    onGestureNavigationBlockedChanged: (_) {},
+    onPageTurnModeChanged: (_) {},
+    onVolumePageTurnChanged: (_) {},
+    onListeningChanged: (_) {},
+    onAddBookmark: onAddBookmark,
+  );
 }
 
 class _FakeReaderDocumentSource implements ReaderDocumentSource {

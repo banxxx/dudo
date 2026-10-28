@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../shared/theme/app_tokens.dart';
 import 'domain/reading_goal_method.dart';
 
 class ReadingGoalMethodContent {
@@ -13,8 +11,6 @@ class ReadingGoalMethodContent {
     required this.step,
     required this.minValue,
     required this.presets,
-    required this.helper,
-    required this.metric,
     required this.metricLabel,
     required this.hint,
     required this.ruleTexts,
@@ -28,8 +24,6 @@ class ReadingGoalMethodContent {
   final int step;
   final int minValue;
   final List<int> presets;
-  final String helper;
-  final String metric;
   final String metricLabel;
   final String hint;
   final List<String> ruleTexts;
@@ -50,8 +44,6 @@ extension GoalMethodData on GoalMethod {
   int get step => content.step;
   int get minValue => content.minValue;
   List<int> get presets => content.presets;
-  String get helper => content.helper;
-  String get metric => content.metric;
   String get metricLabel => content.metricLabel;
   String get hint => content.hint;
   List<String> get ruleTexts => content.ruleTexts;
@@ -115,19 +107,29 @@ class ReadingGoalSettingLineData {
 class ReadingGoalPageData {
   const ReadingGoalPageData._();
 
-  static const title = '五月阅读目标';
+  static const _monthNames = [
+    '一',
+    '二',
+    '三',
+    '四',
+    '五',
+    '六',
+    '七',
+    '八',
+    '九',
+    '十',
+    '十一',
+    '十二',
+  ];
+
+  static String titleFor(DateTime date) =>
+      '${_monthNames[date.month - 1]}月阅读目标';
+
   static const editTitle = '编辑目标';
   static const progressTitle = '本月目标进度';
-  static const currentProgress = '15h 36m';
-  static const progressSummary = '目标 20 小时 · 已完成 78%';
-  static const progressPercent = 0.78;
-  static const progressPercentText = '78%';
   static const progressPercentLabel = '完成';
   static const weeklyTitle = '本周节奏';
-  static const weeklyAverage = '日均 42 分钟';
   static const settingsTitle = '目标设置';
-  static const suggestionTitle = '每天再读 33 分钟即可达成';
-  static const suggestionDescription = '建议把睡前阅读提醒提前到 21:00。';
   static const reminderTime = '每日 21:30';
   static const reminderLabel = '睡前轻读';
   static const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
@@ -143,8 +145,6 @@ class ReadingGoalPageData {
       step: 1,
       minValue: 1,
       presets: [10, 20, 30],
-      helper: '阅读时长统计 · 每天约 39 分钟',
-      metric: '78%',
       metricLabel: '当前',
       hint: '选择方式后，下方目标数值自动切换单位和推荐预设',
       ruleTexts: [
@@ -162,14 +162,12 @@ class ReadingGoalPageData {
       step: 1,
       minValue: 1,
       presets: [12, 24, 40],
-      helper: '完成章节统计 · 每周约 6 章',
-      metric: '12',
       metricLabel: '已完成',
       hint: '章节目标按完成章节数推进，适合章节清晰的小说',
       ruleTexts: [
-        '章节阅读进度达到 90% 视为完成',
-        '重复阅读同一章节不重复计数',
-        '无章节书籍会按段落自动估算',
+        '读完并进入下一章后计为完成',
+        '同一次阅读中重复翻看不重复计数',
+        '通过目录或书签跳读不会计入完成章节',
       ],
       note: '完成章节适合章节标题明确的 TXT / EPUB；保存后按新方式统计。',
     ),
@@ -181,81 +179,14 @@ class ReadingGoalPageData {
       step: 10,
       minValue: 10,
       presets: [180, 360, 600],
-      helper: '阅读页数统计 · 每天约 12 页',
-      metric: '210',
       metricLabel: '已读',
       hint: '页数目标会随排版校准，适合想看明确读量的人',
       ruleTexts: [
-        '按当前字号、行高和屏幕尺寸估算页数',
-        '切换排版后会重新校准虚拟页',
-        'PDF 固定页数会直接使用原始页码',
+        '按阅读字数估算页数（约 800 字/页）',
+        '翻回已读位置不会重复计数',
+        '通过目录或书签跳读不会计入页数',
       ],
-      note: '阅读页数会随字体和排版变化；保存后将重新校准当前进度。',
+      note: '阅读页数按阅读字数估算；保存后继续沿用同一口径累计。',
     ),
   };
-
-  static const heroBadges = [
-    ReadingGoalHeroBadgeData(
-      icon: LucideIcons.timer,
-      text: '差 4h24m',
-      iconColor: DudoColors.secondaryContainer,
-      textColor: DudoColors.secondaryContainer,
-      fill: Color(0x1FFFF8EA),
-    ),
-    ReadingGoalHeroBadgeData(
-      icon: LucideIcons.trendingUp,
-      text: '节奏正常',
-      iconColor: DudoColors.primaryContainer,
-      textColor: DudoColors.primaryContainer,
-      fill: Color(0x2BDDE8D4),
-    ),
-  ];
-
-  static const metrics = [
-    ReadingGoalMetricData(
-      value: '23/31',
-      label: '已记录天数',
-      fill: DudoColors.surface,
-      stroke: DudoColors.outlineVariant,
-    ),
-    ReadingGoalMetricData(
-      value: '6天',
-      label: '连续阅读',
-      fill: DudoColors.primaryContainer,
-      stroke: DudoColors.primaryContainer,
-    ),
-  ];
-
-  static const weeklyBars = [
-    ReadingGoalWeekBarData(
-        label: '一', height: 34, color: DudoColors.primaryContainer),
-    ReadingGoalWeekBarData(
-        label: '二', height: 44, color: DudoColors.primaryContainer),
-    ReadingGoalWeekBarData(
-        label: '三', height: 26, color: DudoColors.surfaceLow),
-    ReadingGoalWeekBarData(label: '四', height: 52, color: DudoColors.primary),
-    ReadingGoalWeekBarData(
-        label: '五', height: 40, color: DudoColors.primaryContainer),
-    ReadingGoalWeekBarData(label: '六', height: 48, color: DudoColors.primary),
-    ReadingGoalWeekBarData(
-        label: '日', height: 22, color: DudoColors.surfaceLow),
-  ];
-
-  static const settings = [
-    ReadingGoalSettingLineData(
-      icon: LucideIcons.target,
-      label: '月度时长',
-      value: '20 小时',
-    ),
-    ReadingGoalSettingLineData(
-      icon: LucideIcons.bell,
-      label: '阅读提醒',
-      value: '21:30',
-    ),
-    ReadingGoalSettingLineData(
-      icon: LucideIcons.calendarCheck,
-      label: '统计口径',
-      value: '阅读时长',
-    ),
-  ];
 }

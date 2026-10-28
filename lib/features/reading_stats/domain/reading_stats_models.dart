@@ -207,3 +207,57 @@ class ReadingStatMetric {
   final String value;
   final String label;
 }
+
+/// Aggregated reading activity for one calendar month. Powers the reading goal
+/// screen and the profile goal card.
+class ReadingMonthStats {
+  const ReadingMonthStats({
+    required this.month,
+    required this.totalSeconds,
+    required this.chaptersRead,
+    required this.charactersRead,
+    required this.recordedDays,
+    required this.daysInMonth,
+    required this.streakDays,
+  });
+
+  final DateTime month;
+  final int totalSeconds;
+  final int chaptersRead;
+  final int charactersRead;
+
+  /// Number of days in [month] with at least one session.
+  final int recordedDays;
+  final int daysInMonth;
+
+  /// Consecutive reading days ending today (or yesterday when today is empty).
+  final int streakDays;
+
+  bool get hasData => totalSeconds > 0;
+
+  int get totalMinutes => totalSeconds <= 0 ? 0 : (totalSeconds / 60).ceil();
+
+  /// "0m", "39m", "12h" or "15h 36m".
+  String get compactDurationLabel => formatCompactDuration(totalMinutes);
+
+  /// "0 分钟", "39 分钟", "12 小时" or "15 小时 36 分钟".
+  String get proseDurationLabel => formatProseDuration(totalMinutes);
+}
+
+/// Compact duration used inside cards, e.g. "15h 36m".
+String formatCompactDuration(int minutes) {
+  if (minutes <= 0) return '0m';
+  if (minutes < 60) return '${minutes}m';
+  final hours = minutes ~/ 60;
+  final rest = minutes % 60;
+  return rest == 0 ? '${hours}h' : '${hours}h ${rest}m';
+}
+
+/// Prose duration used inside sentences, e.g. "15 小时 36 分钟".
+String formatProseDuration(int minutes) {
+  if (minutes <= 0) return '0 分钟';
+  if (minutes < 60) return '$minutes 分钟';
+  final hours = minutes ~/ 60;
+  final rest = minutes % 60;
+  return rest == 0 ? '$hours 小时' : '$hours 小时 $rest 分钟';
+}

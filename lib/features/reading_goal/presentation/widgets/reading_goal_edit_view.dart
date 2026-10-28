@@ -11,8 +11,10 @@ import '../../reading_goal_page_data.dart';
 class ReadingGoalEditView extends StatelessWidget {
   const ReadingGoalEditView({
     super.key,
+    required this.title,
     required this.method,
     required this.goalValue,
+    required this.methodProgress,
     required this.reminderEnabled,
     required this.repeatDays,
     required this.rules,
@@ -26,8 +28,12 @@ class ReadingGoalEditView extends StatelessWidget {
     required this.onRuleToggled,
   });
 
+  final String title;
   final GoalMethod method;
   final int goalValue;
+
+  /// Current month progress per method, shown in the preview card.
+  final Map<GoalMethod, String> methodProgress;
   final bool reminderEnabled;
   final Set<int> repeatDays;
   final List<bool> rules;
@@ -52,7 +58,12 @@ class ReadingGoalEditView extends StatelessWidget {
       ),
       children: [
         const SizedBox(height: 10),
-        _GoalEditPreview(method: method, goalValue: goalValue),
+        _GoalEditPreview(
+          title: title,
+          method: method,
+          goalValue: goalValue,
+          methodProgress: methodProgress,
+        ),
         const SizedBox(height: 10),
         _GoalMethodCard(method: method, onChanged: onMethodChanged),
         const SizedBox(height: 10),
@@ -134,10 +145,29 @@ class _SmallDarkButton extends StatelessWidget {
 }
 
 class _GoalEditPreview extends StatelessWidget {
-  const _GoalEditPreview({required this.method, required this.goalValue});
+  const _GoalEditPreview({
+    required this.title,
+    required this.method,
+    required this.goalValue,
+    required this.methodProgress,
+  });
 
+  final String title;
   final GoalMethod method;
   final int goalValue;
+  final Map<GoalMethod, String> methodProgress;
+
+  /// A per-day or per-week pace derived from the chosen value so the helper
+  /// line stays correct when the goal is not the default.
+  String _helperText() {
+    return switch (method) {
+      GoalMethod.duration =>
+        '阅读时长统计 · 每天约 ${(goalValue * 60 / 30).round()} 分钟',
+      GoalMethod.chapters =>
+        '完成章节统计 · 每周约 ${(goalValue / 4).round()} 章',
+      GoalMethod.pages => '阅读页数统计 · 每天约 ${(goalValue / 30).round()} 页',
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -163,7 +193,7 @@ class _GoalEditPreview extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  ReadingGoalPageData.title,
+                  title,
                   style: DudoTextStyles.sans(
                     color: DudoColors.outline,
                     fontSize: 12,
@@ -180,7 +210,7 @@ class _GoalEditPreview extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  method.helper,
+                  _helperText(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: DudoTextStyles.sans(
@@ -204,7 +234,7 @@ class _GoalEditPreview extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  method.metric,
+                  methodProgress[method] ?? '',
                   style: DudoTextStyles.numeric(
                     color: DudoColors.textPrimary,
                     fontSize: 19,

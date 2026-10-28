@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,24 +9,32 @@ import '../../../app/router/app_router.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
+import '../../reading_stats/domain/reading_stats_models.dart';
+import '../application/home_providers.dart';
 import 'widgets/home_reading_top_section.dart';
 import 'widgets/home_starter_top_section.dart';
 
 class HomePage extends ConsumerWidget {
-  const HomePage({super.key, this.hasReadingData = false});
-
-  final bool hasReadingData;
+  const HomePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final snapshot = ref.watch(homeReadingSnapshotProvider);
+
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
       body: DudoPageFrame(
         padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
         bottomSafeArea: false,
         children: [
-          if (hasReadingData)
-            const HomeReadingTopSection()
+          if (snapshot != null)
+            HomeReadingTopSection(
+              snapshot: snapshot,
+              // No chapter parameter: the reader restores the saved position,
+              // so continuing never restarts the chapter.
+              onContinue: () =>
+                  context.push('${AppRoutes.reader}/${snapshot.bookId}'),
+            )
           else
             const HomeStarterTopSection(),
           const SizedBox(height: 12),
@@ -247,13 +257,27 @@ class _RecommendedBookCard extends StatelessWidget {
   }
 }
 
-class _ReadingRhythmCard extends StatelessWidget {
+class _ReadingRhythmCard extends ConsumerWidget {
   const _ReadingRhythmCard();
 
   @override
-  Widget build(BuildContext context) {
-    const bars = [18.0, 26.0, 32.0, 22.0, 38.0, 30.0, 40.0];
-    const days = ['一', '二', '三', '四', '五', '六', '日'];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stats = ref.watch(homeWeeklyRhythmProvider);
+    final days = stats.valueOrNull ?? const <ReadingRhythmStat>[];
+    final labels = days.isEmpty
+        ? const ['一', '二', '三', '四', '五', '六', '日']
+        : [for (final day in days) day.label];
+    final minutes = days.isEmpty
+        ? const [0, 0, 0, 0, 0, 0, 0]
+        : [for (final day in days) day.minutes];
+    final totalMinutes = minutes.fold<int>(0, (sum, value) => sum + value);
+    final maxMinutes = minutes.fold<int>(0, math.max);
+
+    final summary = days.isEmpty
+        ? '暂无记录'
+        : totalMinutes <= 0
+            ? '本周还没有阅读记录'
+            : '共 ${_durationLabel(totalMinutes)}';
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -265,13 +289,25 @@ class _ReadingRhythmCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '本周节奏',
-            style: DudoTextStyles.sans(
-              color: DudoColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '本周节奏',
+                style: DudoTextStyles.sans(
+                  color: DudoColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Text(
+                summary,
+                style: DudoTextStyles.sans(
+                  color: DudoColors.secondary,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           SizedBox(
@@ -279,33 +315,15 @@ class _ReadingRhythmCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                for (var i = 0; i < days.length; i++) ...[
+                for (var i = 0; i < labels.length; i++) ...[
                   Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Container(
-                          width: 14,
-                          height: bars[i],
-                          decoration: BoxDecoration(
-                            color: i == 2 || i == 4 || i == 6
-                                ? DudoColors.primary
-                                : DudoColors.outline,
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          days[i],
-                          style: DudoTextStyles.sans(
-                            color: DudoColors.secondary,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
+                    child: _RhythmBar(
+                      label: labels[i],
+                      minutes: minutes[i],
+                      maxMinutes: maxMinutes,
                     ),
                   ),
-                  if (i != days.length - 1) const SizedBox(width: 8),
+                  if (i != labels.length - 1) const SizedBox(width: 8),
                 ],
               ],
             ),
@@ -314,4 +332,57 @@ class _ReadingRhythmCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _RhythmBar extends StatelessWidget {
+  const _RhythmBar({
+    required this.label,
+    required this.minutes,
+    required this.maxMinutes,
+  });
+
+  final String label;
+  final int minutes;
+  final int maxMinutes;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasReading = minutes > 0;
+    final height = hasReading && maxMinutes > 0
+        ? 6.0 + (minutes / maxMinutes) * 34.0
+        : 6.0;
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Container(
+          width: 14,
+          height: height,
+          decoration: BoxDecoration(
+            color: hasReading ? DudoColors.primary : DudoColors.outline,
+            borderRadius: BorderRadius.circular(7),
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: DudoTextStyles.sans(
+            color: DudoColors.secondary,
+            fontSize: 10,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _durationLabel(int minutes) {
+  if (minutes <= 0) return '0 分钟';
+  final hours = minutes ~/ 60;
+  final remaining = minutes % 60;
+  if (hours == 0) return '$remaining 分钟';
+  if (remaining == 0) return '$hours 小时';
+  return '$hours 小时 $remaining 分钟';
 }

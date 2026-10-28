@@ -1,5 +1,9 @@
 import 'package:dudo/app/router/app_router.dart';
 import 'package:dudo/core/utils/breakpoints.dart';
+import 'package:dudo/features/profile/application/profile_providers.dart';
+import 'package:dudo/features/reading_goal/application/reading_goal_overview.dart';
+import 'package:dudo/features/reading_goal/application/reading_goal_providers.dart';
+import 'package:dudo/features/reading_goal/domain/reading_goal.dart';
 import 'package:dudo/features/reading_stats/application/reading_stats_provider.dart';
 import 'package:dudo/features/reading_stats/domain/reading_stats_models.dart';
 import 'package:dudo/shared/l10n/app_localizations.dart';
@@ -34,6 +38,12 @@ void main() {
         overrides: [
           readingStatsSummaryProvider.overrideWith(
             (_) async => _routerReadingStatsSummary(),
+          ),
+          profileSummaryProvider.overrideWith(
+            (_) async => ProfileSummary.empty,
+          ),
+          readingGoalOverviewProvider.overrideWith(
+            (_) async => _routerGoalOverview(),
           ),
         ],
         child: Consumer(
@@ -220,5 +230,23 @@ ReadingStatsSummary _routerReadingStatsSummary() {
     ],
     sheetSummary: range.rhythmSubtitle,
     hasData: true,
+  );
+}
+
+ReadingGoalOverview _routerGoalOverview() {
+  final now = DateTime(2026, 5, 20);
+  return ReadingGoalOverview.build(
+    goal: ReadingGoal.defaults(),
+    stats: ReadingMonthStats(
+      month: DateTime(2026, 5),
+      totalSeconds: 0,
+      chaptersRead: 0,
+      charactersRead: 0,
+      recordedDays: 0,
+      daysInMonth: 31,
+      streakDays: 0,
+    ),
+    weekRhythm: const [],
+    now: now,
   );
 }

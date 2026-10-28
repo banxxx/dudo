@@ -117,7 +117,12 @@ class ReadingSessions extends Table {
   DateTimeColumn get startedAt => dateTime()();
   DateTimeColumn get endedAt => dateTime().nullable()();
   IntColumn get durationSeconds => integer().withDefault(const Constant(0))();
+
+  /// Characters read during the session, used for page-based goals.
   IntColumn get wordsRead => integer().withDefault(const Constant(0))();
+
+  /// Distinct chapters visited during the session.
+  IntColumn get chaptersRead => integer().withDefault(const Constant(0))();
 }
 
 /// Fonts imported by the user for reader typography.
@@ -170,7 +175,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -215,6 +220,12 @@ class AppDatabase extends _$AppDatabase {
               'fetched_at = NULL, normalized_content_length = 0 '
               "WHERE content LIKE '{\"value\":%' "
               "AND content LIKE '%\"variables\":%'",
+            );
+          }
+          if (from < 9) {
+            await m.addColumn(
+              readingSessions,
+              readingSessions.chaptersRead,
             );
           }
         },

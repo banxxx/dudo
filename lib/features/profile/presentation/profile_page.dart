@@ -7,26 +7,33 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../app/router/app_router.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
+import '../../reading_goal/application/reading_goal_overview.dart';
+import '../../reading_goal/application/reading_goal_providers.dart';
+import '../application/profile_providers.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const Scaffold(
+    final summary =
+        ref.watch(profileSummaryProvider).valueOrNull ?? ProfileSummary.empty;
+    final goal = ref.watch(readingGoalOverviewProvider).valueOrNull;
+
+    return Scaffold(
       backgroundColor: DudoColors.paperBackground,
       body: DudoPageFrame(
-        padding: EdgeInsets.fromLTRB(20, 6, 20, 10),
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
         children: [
-          _ProfileHeader(),
-          SizedBox(height: 12),
-          _ProfileIdentityCard(),
-          SizedBox(height: 12),
-          _ProfileStats(),
-          SizedBox(height: 12),
-          _MonthlyGoalCard(),
-          SizedBox(height: 12),
-          _LibraryToolsSection(),
+          const _ProfileHeader(),
+          const SizedBox(height: 12),
+          _ProfileIdentityCard(summary: summary),
+          const SizedBox(height: 12),
+          _ProfileStats(summary: summary),
+          const SizedBox(height: 12),
+          _MonthlyGoalCard(overview: goal),
+          const SizedBox(height: 12),
+          const _LibraryToolsSection(),
         ],
       ),
     );
@@ -79,7 +86,9 @@ class _ProfileHeader extends StatelessWidget {
 }
 
 class _ProfileIdentityCard extends StatelessWidget {
-  const _ProfileIdentityCard();
+  const _ProfileIdentityCard({required this.summary});
+
+  final ProfileSummary summary;
 
   @override
   Widget build(BuildContext context) {
@@ -136,7 +145,7 @@ class _ProfileIdentityCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '本月已阅读 12 小时，收藏 38 本书',
+                      summary.subtitle,
                       style: DudoTextStyles.sans(
                         color: DudoColors.outline,
                         fontSize: 12,
@@ -175,7 +184,9 @@ class _ProfileIdentityCard extends StatelessWidget {
 }
 
 class _ProfileStats extends StatelessWidget {
-  const _ProfileStats();
+  const _ProfileStats({required this.summary});
+
+  final ProfileSummary summary;
 
   @override
   Widget build(BuildContext context) {
@@ -187,11 +198,23 @@ class _ProfileStats extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: DudoColors.outlineVariant),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Expanded(child: _ProfileStat(value: '12h', label: '本月阅读')),
-          Expanded(child: _ProfileStat(value: '38', label: '收藏')),
-          Expanded(child: _ProfileStat(value: '7', label: '书签')),
+          Expanded(
+            child: _ProfileStat(
+              value: summary.monthReadingLabel,
+              label: '本月阅读',
+            ),
+          ),
+          Expanded(
+            child: _ProfileStat(value: '${summary.shelfCount}', label: '收藏'),
+          ),
+          Expanded(
+            child: _ProfileStat(
+              value: '${summary.bookmarkCount}',
+              label: '书签',
+            ),
+          ),
         ],
       ),
     );
@@ -233,10 +256,13 @@ class _ProfileStat extends StatelessWidget {
 }
 
 class _MonthlyGoalCard extends StatelessWidget {
-  const _MonthlyGoalCard();
+  const _MonthlyGoalCard({required this.overview});
+
+  final ReadingGoalOverview? overview;
 
   @override
   Widget build(BuildContext context) {
+    final percent = overview?.progressPercent ?? 0;
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(24),
@@ -256,7 +282,7 @@ class _MonthlyGoalCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      '五月阅读目标',
+                      overview?.title ?? '本月阅读目标',
                       style: DudoTextStyles.sans(
                         color: DudoColors.textPrimary,
                         fontSize: 17,
@@ -265,7 +291,7 @@ class _MonthlyGoalCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '78%',
+                    overview?.progressPercentText ?? '0%',
                     style: DudoTextStyles.numeric(
                       color: DudoColors.primary,
                       fontSize: 16,
@@ -282,7 +308,7 @@ class _MonthlyGoalCard extends StatelessWidget {
                   color: DudoColors.paperBackground,
                   alignment: Alignment.centerLeft,
                   child: FractionallySizedBox(
-                    widthFactor: 0.78,
+                    widthFactor: percent,
                     child: Container(
                       decoration: const BoxDecoration(
                         color: DudoColors.primary,
@@ -294,7 +320,7 @@ class _MonthlyGoalCard extends StatelessWidget {
               ),
               const SizedBox(height: 9),
               Text(
-                '距离 20 小时目标还差 4 小时 24 分钟。',
+                overview?.remainingDescription ?? '正在计算本月进度…',
                 style: DudoTextStyles.sans(
                   color: DudoColors.secondaryDark,
                   fontSize: 13,
@@ -342,6 +368,7 @@ class _LibraryToolsSection extends StatelessWidget {
       icon: LucideIcons.notebookPen,
       iconFill: DudoColors.surfaceLow,
       iconColor: DudoColors.secondary,
+      route: AppRoutes.bookmarks,
     ),
     _ToolItem(
       title: '数据同步',

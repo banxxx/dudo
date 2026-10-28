@@ -5,16 +5,18 @@ class _MoreMenuPopover extends StatelessWidget {
     required this.metrics,
     required this.palette,
     required this.onPageTurn,
+    this.onAddBookmark,
   });
 
   final _ReaderOverlayMetrics metrics;
   final ReaderPalette palette;
   final VoidCallback onPageTurn;
+  final VoidCallback? onAddBookmark;
 
   @override
   Widget build(BuildContext context) {
     final items = [
-      (LucideIcons.bookmarkPlus, '加入书签', null),
+      (LucideIcons.bookmarkPlus, '加入书签', onAddBookmark),
       (LucideIcons.highlighter, '划线批注', null),
       (LucideIcons.share2, '分享章节', null),
       (LucideIcons.download, '缓存全书', null),

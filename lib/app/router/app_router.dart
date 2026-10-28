@@ -137,9 +137,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final bookId = state.pathParameters['bookId']!;
           final chapterIndex =
               int.tryParse(state.uri.queryParameters['chapter'] ?? '0') ?? 0;
+          final offset =
+              int.tryParse(state.uri.queryParameters['offset'] ?? '0') ?? 0;
           return ReaderScreen(
             bookId: bookId,
             initialChapterIndex: chapterIndex,
+            initialOffset: offset,
           );
         },
       ),

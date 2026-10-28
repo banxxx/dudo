@@ -4,17 +4,28 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
 import '../../../../shared/utils/time_greeting.dart';
+import '../../application/home_providers.dart';
 
 class HomeReadingTopSection extends StatelessWidget {
-  const HomeReadingTopSection({super.key});
+  const HomeReadingTopSection({
+    super.key,
+    required this.snapshot,
+    required this.onContinue,
+  });
+
+  final HomeReadingSnapshot snapshot;
+  final VoidCallback onContinue;
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       children: [
-        _HomeHeader(),
-        SizedBox(height: 12),
-        _ContinueReadingHero(),
+        const _HomeHeader(),
+        const SizedBox(height: 12),
+        _ContinueReadingHero(
+          snapshot: snapshot,
+          onContinue: onContinue,
+        ),
       ],
     );
   }
@@ -74,15 +85,19 @@ class _HomeHeader extends StatelessWidget {
 }
 
 class _ContinueReadingHero extends StatelessWidget {
-  const _ContinueReadingHero();
+  const _ContinueReadingHero({
+    required this.snapshot,
+    required this.onContinue,
+  });
+
+  final HomeReadingSnapshot snapshot;
+  final VoidCallback onContinue;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 162,
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: DudoColors.primaryContainer,
         borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
@@ -92,76 +107,98 @@ class _ContinueReadingHero extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          const _HeroBookCover(),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: DudoColors.primaryContainer,
+        borderRadius: BorderRadius.circular(26),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onContinue,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '继续阅读',
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.primary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                _HeroBookCover(snapshot: snapshot),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            snapshot.continueLabel,
+                            style: DudoTextStyles.sans(
+                              color: DudoColors.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            snapshot.bookTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: DudoTextStyles.serif(
+                              color: DudoColors.textPrimary,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              height: 1.18,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            snapshot.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: DudoTextStyles.sans(
+                              color: DudoColors.textSecondary,
+                              fontSize: 13,
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '三体 · 第 24 章',
-                      style: DudoTextStyles.serif(
-                        color: DudoColors.textPrimary,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        height: 1.18,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              snapshot.remainingLabel,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: DudoTextStyles.sans(
+                                color: DudoColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _ReadButton(onTap: onContinue),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '旧世界的回声，在清晨雾气里慢慢浮现。',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.textSecondary,
-                        fontSize: 13,
-                        height: 1.45,
-                      ),
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '剩余 8 分钟',
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const _ReadButton(),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
 class _HeroBookCover extends StatelessWidget {
-  const _HeroBookCover();
+  const _HeroBookCover({required this.snapshot});
+
+  final HomeReadingSnapshot snapshot;
 
   @override
   Widget build(BuildContext context) {
+    final coverTitle = snapshot.bookTitle.characters.take(4).toString();
+
     return Container(
       width: 104,
       height: double.infinity,
@@ -179,7 +216,9 @@ class _HeroBookCover extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'LIU',
+            snapshot.coverLabel,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: DudoTextStyles.numeric(
               color: DudoColors.surfaceHigh,
               fontSize: 10,
@@ -189,16 +228,20 @@ class _HeroBookCover extends StatelessWidget {
           ),
           Center(
             child: Text(
-              '三体',
+              coverTitle,
+              maxLines: 2,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
               style: DudoTextStyles.serif(
                 color: DudoColors.surfaceHigh,
                 fontSize: 25,
                 fontWeight: FontWeight.w700,
+                height: 1.1,
               ),
             ),
           ),
           Text(
-            '62%',
+            snapshot.progressLabel,
             style: DudoTextStyles.numeric(
               color: DudoColors.surfaceHigh,
               fontSize: 11,
@@ -212,13 +255,15 @@ class _HeroBookCover extends StatelessWidget {
 }
 
 class _ReadButton extends StatelessWidget {
-  const _ReadButton();
+  const _ReadButton({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: AppRadius.full,
-      onTap: () {},
+      onTap: onTap,
       child: Container(
         height: 34,
         padding: const EdgeInsets.symmetric(horizontal: 14),
