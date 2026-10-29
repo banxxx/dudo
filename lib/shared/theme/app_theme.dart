@@ -12,22 +12,24 @@ class AppTheme {
 
   static const Color seed = Color(0xFF446355);
 
-  static ColorScheme lightScheme(ColorScheme? dynamicScheme) {
+  /// Builds the light scheme from the selected [seedColor] (the user's accent),
+  /// unless the platform provides a dynamic scheme to harmonise instead.
+  static ColorScheme lightScheme(ColorScheme? dynamicScheme, {Color seedColor = seed}) {
     if (dynamicScheme != null) {
       return dynamicScheme.harmonized();
     }
     return ColorScheme.fromSeed(
-      seedColor: seed,
+      seedColor: seedColor,
       brightness: Brightness.light,
     );
   }
 
-  static ColorScheme darkScheme(ColorScheme? dynamicScheme) {
+  static ColorScheme darkScheme(ColorScheme? dynamicScheme, {Color seedColor = seed}) {
     if (dynamicScheme != null) {
       return dynamicScheme.harmonized();
     }
     return ColorScheme.fromSeed(
-      seedColor: seed,
+      seedColor: seedColor,
       brightness: Brightness.dark,
     );
   }

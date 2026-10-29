@@ -337,7 +337,7 @@ class _BookshelfSearchField extends StatelessWidget {
                     controller.clear();
                     onChanged('');
                   },
-                  icon: const Icon(
+                  icon:  Icon(
                     LucideIcons.x,
                     color: DudoColors.secondary,
                     size: 17,
@@ -632,7 +632,7 @@ class _SearchResultProgressChip extends StatelessWidget {
     return Container(
       height: 24,
       padding: const EdgeInsets.symmetric(horizontal: 9),
-      decoration: const BoxDecoration(
+      decoration:  BoxDecoration(
         color: DudoColors.primaryContainer,
         borderRadius: AppRadius.full,
       ),
@@ -1176,7 +1176,7 @@ class _BookSelectionMark extends StatelessWidget {
         ),
       ),
       child: isSelected
-          ? const Icon(LucideIcons.check,
+          ?  Icon(LucideIcons.check,
               color: DudoColors.surfaceHigh, size: 15)
           : null,
     );
@@ -1268,11 +1268,11 @@ class _CoverPalette {
   final Color end;
 }
 
-const _coverPalettes = [
-  _CoverPalette(Color(0xFF6F7E68), DudoColors.primaryContainer),
+final _coverPalettes = [
+  _CoverPalette(const Color(0xFF6F7E68), DudoColors.primaryContainer),
   _CoverPalette(DudoColors.secondary, DudoColors.secondaryContainer),
-  _CoverPalette(Color(0xFF5A6B84), Color(0xFFD7E0EA)),
-  _CoverPalette(Color(0xFF9A6D45), Color(0xFFE8C99B)),
+  const _CoverPalette(Color(0xFF5A6B84), Color(0xFFD7E0EA)),
+  const _CoverPalette(Color(0xFF9A6D45), Color(0xFFE8C99B)),
 ];
 
 class _BookshelfLoadingHint extends StatelessWidget {
@@ -1289,7 +1289,7 @@ class _BookshelfLoadingHint extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(
+           SizedBox(
             width: 32,
             child: ClipRRect(
               borderRadius: AppRadius.full,
@@ -1320,7 +1320,7 @@ class _BookshelfRefreshLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ClipRRect(
+    return  ClipRRect(
       borderRadius: AppRadius.full,
       child: LinearProgressIndicator(
         minHeight: 2,
@@ -1434,7 +1434,7 @@ class _EmptyShelfIllustration extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const SizedBox(
+           SizedBox(
             height: 42,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1445,13 +1445,13 @@ class _EmptyShelfIllustration extends StatelessWidget {
                   height: 32,
                   color: DudoColors.primary,
                 ),
-                SizedBox(width: 7),
+                const SizedBox(width: 7),
                 _IllustrationBook(
                   width: 20,
                   height: 40,
                   color: DudoColors.secondary,
                 ),
-                SizedBox(width: 7),
+                const SizedBox(width: 7),
                 _IllustrationBook(
                   width: 22,
                   height: 28,
@@ -1463,7 +1463,7 @@ class _EmptyShelfIllustration extends StatelessWidget {
           const SizedBox(height: 8),
           Container(
             height: 4,
-            decoration: const BoxDecoration(
+            decoration:  BoxDecoration(
               color: DudoColors.outline,
               borderRadius: AppRadius.full,
             ),

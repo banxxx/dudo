@@ -210,7 +210,7 @@ class _ProgressDonut extends StatelessWidget {
           Container(
             width: 60,
             height: 60,
-            decoration: const BoxDecoration(
+            decoration:  BoxDecoration(
               color: DudoColors.textPrimary,
               shape: BoxShape.circle,
             ),
@@ -534,11 +534,11 @@ class _SuggestionCard extends StatelessWidget {
           Container(
             width: 42,
             height: 42,
-            decoration: const BoxDecoration(
+            decoration:  BoxDecoration(
               color: DudoColors.surface,
               shape: BoxShape.circle,
             ),
-            child: const Icon(LucideIcons.leaf,
+            child:  Icon(LucideIcons.leaf,
                 color: DudoColors.primary, size: 22),
           ),
           const SizedBox(width: 10),

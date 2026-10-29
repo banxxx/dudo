@@ -438,7 +438,7 @@ class _LocalBookImportCard extends StatelessWidget {
                   color: DudoColors.surfaceHigh.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(26),
                 ),
-                child: const Icon(
+                child:  Icon(
                   LucideIcons.filePlusCorner,
                   color: DudoColors.surfaceHigh,
                   size: 28,
@@ -509,7 +509,7 @@ class _DarkCardButton extends StatelessWidget {
         child: Container(
           height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: const BoxDecoration(
+          decoration:  BoxDecoration(
             color: DudoColors.surfaceHigh,
             borderRadius: AppRadius.full,
           ),
@@ -589,7 +589,7 @@ class _SourceAddressInput extends StatelessWidget {
               child: Container(
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: const BoxDecoration(
+                decoration:  BoxDecoration(
                   color: DudoColors.primaryContainer,
                   borderRadius: AppRadius.full,
                 ),
@@ -677,7 +677,7 @@ class _RuleFileImportRow extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               else
-                const Icon(
+                 Icon(
                   LucideIcons.chevronRight,
                   color: DudoColors.outline,
                   size: 18,
@@ -716,25 +716,25 @@ class _ImportNoticeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: const BoxDecoration(
+      decoration:  BoxDecoration(
         color: DudoColors.primaryContainer,
-        borderRadius: BorderRadius.all(Radius.circular(22)),
+        borderRadius: const BorderRadius.all(Radius.circular(22)),
       ),
-      child: const Column(
+      child:  Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _NoticeTitle(),
-          SizedBox(height: 7),
+          const _NoticeTitle(),
+          const SizedBox(height: 7),
           _NoticeLine(
             dotColor: DudoColors.primary,
             text: '本地书会直接进入书架；在线书源导入时会校验地址，无效条目会被跳过。',
           ),
-          SizedBox(height: 7),
+          const SizedBox(height: 7),
           _NoticeLine(
             dotColor: DudoColors.primary,
             text: '只有文本类型且启用的书源会参与搜索，非文本源会保留但不参与搜索。',
           ),
-          SizedBox(height: 7),
+          const SizedBox(height: 7),
           _NoticeLine(
             icon: LucideIcons.triangleAlert,
             iconColor: DudoColors.accent,

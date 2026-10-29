@@ -410,7 +410,7 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
             ),
             if (!_loadingVoices && _voices.isEmpty) ...[
               const SizedBox(height: 8),
-              const SettingsTrailingValue(
+               SettingsTrailingValue(
                 '当前设备没有可用的系统语音，请先在系统设置的“文字转语音”中安装中文语音数据。',
                 color: DudoColors.secondary,
               ),
@@ -420,7 +420,7 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
               key: const ValueKey('read-aloud-system-tts-settings'),
               onTap: _openSystemTtsSettings,
               behavior: HitTestBehavior.opaque,
-              child: const SettingsOptionRow(
+              child:  SettingsOptionRow(
                 title: '系统语音设置',
                 description: '安装或管理设备的中文语音数据',
                 trailing: Icon(
@@ -498,7 +498,7 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
           ),
           if (settings.engine == ReadAloudEngine.online) ...[
             const SizedBox(height: 6),
-            const SettingsTrailingValue(
+             SettingsTrailingValue(
               '在线音色的音调由接口服务端决定，此设置仅对系统语音生效。',
               color: DudoColors.secondary,
             ),
@@ -745,7 +745,7 @@ class _OnlineEngineFields extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        const SettingsTrailingValue(
+         SettingsTrailingValue(
           '接口需直接返回音频（mp3/wav）。文本模式以 text/plain 提交正文；JSON 模式提交 {"text","voice","rate"}。',
           color: DudoColors.secondary,
         ),

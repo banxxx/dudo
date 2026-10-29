@@ -218,7 +218,7 @@ class _PresetSwitch extends StatelessWidget {
     return Container(
       height: 44,
       padding: const EdgeInsets.all(4),
-      decoration: const BoxDecoration(
+      decoration:  BoxDecoration(
         color: DudoColors.surfaceLow,
         borderRadius: AppRadius.full,
       ),

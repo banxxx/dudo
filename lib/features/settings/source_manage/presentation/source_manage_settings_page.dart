@@ -422,7 +422,7 @@ class _SourceSummary extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(LucideIcons.rss, color: DudoColors.primary, size: 34),
+          Icon(LucideIcons.rss, color: DudoColors.primary, size: 34),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -825,15 +825,15 @@ class _SourceSearchField extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(horizontal: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: const BorderSide(color: DudoColors.outlineVariant),
+          borderSide: BorderSide(color: DudoColors.outlineVariant),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: const BorderSide(color: DudoColors.outlineVariant),
+          borderSide: BorderSide(color: DudoColors.outlineVariant),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: const BorderSide(color: DudoColors.primary),
+          borderSide: BorderSide(color: DudoColors.primary),
         ),
       ),
       style: DudoTextStyles.sans(
@@ -913,7 +913,7 @@ class _SourceErrorCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(LucideIcons.triangleAlert, color: DudoColors.accent),
+          Icon(LucideIcons.triangleAlert, color: DudoColors.accent),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -1158,7 +1158,7 @@ class _SourceSelectionBox extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: selected
-          ? const Icon(LucideIcons.check,
+          ?  Icon(LucideIcons.check,
               color: DudoColors.surfaceHigh, size: 13)
           : null,
     );

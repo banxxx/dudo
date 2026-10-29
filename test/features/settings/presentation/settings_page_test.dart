@@ -1,8 +1,8 @@
-import 'package:dudo/features/reader_engine/application/reader_preferences_provider.dart';
-import 'package:dudo/features/reader_engine/domain/reader_preferences.dart';
 import 'package:dudo/features/settings/presentation/settings_page.dart';
 import 'package:dudo/features/settings/read_aloud_settings/application/read_aloud_settings_provider.dart';
 import 'package:dudo/features/settings/read_aloud_settings/domain/read_aloud_settings.dart';
+import 'package:dudo/features/settings/theme_settings/application/theme_settings_provider.dart';
+import 'package:dudo/features/settings/theme_settings/domain/theme_settings.dart';
 import 'package:dudo/features/settings/typography_settings/application/reader_font_providers.dart';
 import 'package:dudo/features/settings/typography_settings/domain/reader_font.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
@@ -15,8 +15,8 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          readerPreferencesProvider.overrideWith(
-            (_) => Stream.value(ReaderPreferences.defaults()),
+          themeSettingsProvider.overrideWith(
+            (_) => Stream.value(ThemeSettings.defaults()),
           ),
           readAloudSettingsProvider.overrideWith(
             (_) => Stream.value(
@@ -43,7 +43,7 @@ void main() {
     expect(find.text('阅读体验'), findsOneWidget);
     expect(find.text('主题与外观'), findsOneWidget);
     expect(find.text('纸感、深色、跟随系统'), findsOneWidget);
-    expect(find.text('羊皮纸'), findsOneWidget);
+    expect(find.text('松叶绿 · 纸色'), findsOneWidget);
     expect(find.text('字体管理'), findsOneWidget);
     expect(find.text('导入、选择和管理阅读字体'), findsOneWidget);
     expect(find.text('Noto Serif SC'), findsOneWidget);
@@ -121,7 +121,7 @@ void main() {
     expect(rowDescription.style?.color, DudoColors.secondary);
     expect(rowDescription.style?.fontSize, 11);
 
-    final rowValue = tester.widget<Text>(find.text('羊皮纸'));
+    final rowValue = tester.widget<Text>(find.text('松叶绿 · 纸色'));
     expect(rowValue.style?.color, DudoColors.secondary);
     expect(rowValue.style?.fontSize, 12);
 

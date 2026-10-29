@@ -17,11 +17,39 @@ import '../../features/settings/about/presentation/about_app_page.dart';
 import '../../features/settings/read_aloud_settings/presentation/read_aloud_settings_page.dart';
 import '../../features/settings/source_add/presentation/source_add_settings_page.dart';
 import '../../features/settings/source_manage/presentation/source_manage_settings_page.dart';
+import '../../features/settings/theme_settings/application/theme_settings_provider.dart';
 import '../../features/settings/theme_settings/presentation/theme_settings_page.dart';
 import '../../features/settings/typography_settings/presentation/typography_settings_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
+import '../../shared/theme/app_tokens.dart';
 import '../../shared/widgets/error_state_view.dart';
 import '../../shared/widgets/home_scaffold.dart';
+
+/// Wraps a route page so it remounts when the colour palette changes.
+///
+/// `DudoColors` resolves through static getters, so `const` subtrees keep the
+/// colours they were first built with unless their elements are recreated.
+/// Watching the theme settings here (the builder itself is not re-run by the
+/// router on an unrelated rebuild) rekeys this wrapper, which throws away the
+/// page's elements and rebuilds every `const` descendant with the fresh
+/// palette. The reader route opts out: remounting it would reset the
+/// in-chapter reading position.
+class _ThemedPage extends ConsumerWidget {
+  const _ThemedPage({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(themeSettingsProvider);
+    return KeyedSubtree(
+      key: ValueKey(DudoColors.palette),
+      child: child,
+    );
+  }
+}
+
+Widget _themed(Widget page) => _ThemedPage(child: page);
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -31,7 +59,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.bookmarks,
         name: AppRoutes.bookmarksName,
-        builder: (_, __) => const BookmarksPage(),
+        builder: (_, __) => _themed(const BookmarksPage()),
       ),
       // Main scaffold with bottom navigation.
       StatefulShellRoute.indexedStack(
@@ -43,7 +71,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: AppRoutes.home,
                 name: AppRoutes.homeName,
-                builder: (_, __) => const HomePage(),
+                builder: (_, __) => _themed(const HomePage()),
               ),
             ],
           ),
@@ -52,7 +80,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: AppRoutes.bookshelf,
                 name: AppRoutes.bookshelfName,
-                builder: (_, __) => const BookshelfLibraryPage(),
+                builder: (_, __) => _themed(const BookshelfLibraryPage()),
               ),
             ],
           ),
@@ -61,7 +89,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: AppRoutes.search,
                 name: AppRoutes.searchName,
-                builder: (_, __) => const SearchPage(),
+                builder: (_, __) => _themed(const SearchPage()),
               ),
             ],
           ),
@@ -70,7 +98,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: AppRoutes.profile,
                 name: AppRoutes.profileName,
-                builder: (_, __) => const ProfilePage(),
+                builder: (_, __) => _themed(const ProfilePage()),
               ),
             ],
           ),
@@ -79,54 +107,54 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.settings,
         name: AppRoutes.settingsName,
-        builder: (_, __) => const SettingsPage(),
+        builder: (_, __) => _themed(const SettingsPage()),
       ),
       GoRoute(
         path: AppRoutes.aboutApp,
         name: AppRoutes.aboutAppName,
-        builder: (_, __) => const AboutAppPage(),
+        builder: (_, __) => _themed(const AboutAppPage()),
       ),
       GoRoute(
         path: AppRoutes.readingStats,
         name: AppRoutes.readingStatsName,
-        builder: (_, __) => const ReadingStatsPage(),
+        builder: (_, __) => _themed(const ReadingStatsPage()),
       ),
       GoRoute(
         path: AppRoutes.readingGoal,
         name: AppRoutes.readingGoalName,
-        builder: (_, __) => const ReadingGoalPage(),
+        builder: (_, __) => _themed(const ReadingGoalPage()),
       ),
       GoRoute(
         path: AppRoutes.sourceSettings,
         name: AppRoutes.sourceSettingsName,
-        builder: (_, __) => const SourceManageSettingsPage(),
+        builder: (_, __) => _themed(const SourceManageSettingsPage()),
       ),
       GoRoute(
         path: AppRoutes.sourceAdd,
         name: AppRoutes.sourceAddName,
-        builder: (_, __) => const SourceAddSettingsPage(),
+        builder: (_, __) => _themed(const SourceAddSettingsPage()),
       ),
       GoRoute(
         path: AppRoutes.themeSettings,
         name: AppRoutes.themeSettingsName,
-        builder: (_, __) => const ThemeSettingsPage(),
+        builder: (_, __) => _themed(const ThemeSettingsPage()),
       ),
       GoRoute(
         path: AppRoutes.typographySettings,
         name: AppRoutes.typographySettingsName,
-        builder: (_, __) => const TypographySettingsPage(),
+        builder: (_, __) => _themed(const TypographySettingsPage()),
       ),
       GoRoute(
         path: AppRoutes.readAloudSettings,
         name: AppRoutes.readAloudSettingsName,
-        builder: (_, __) => const ReadAloudSettingsPage(),
+        builder: (_, __) => _themed(const ReadAloudSettingsPage()),
       ),
       GoRoute(
         path: '${AppRoutes.bookDetail}/:bookId',
         name: AppRoutes.bookDetailName,
         builder: (context, state) {
           final bookId = state.pathParameters['bookId']!;
-          return BookDetailPage(bookId: bookId);
+          return _themed(BookDetailPage(bookId: bookId));
         },
       ),
       // Reader is a fullscreen route outside the shell.

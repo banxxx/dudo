@@ -126,9 +126,9 @@ class _SourceDiagnosticsSheetState
     final height = MediaQuery.sizeOf(context).height * 0.82;
     return Container(
       height: height,
-      decoration: const BoxDecoration(
+      decoration:  BoxDecoration(
         color: DudoColors.paperBackground,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Column(
         children: [
@@ -367,11 +367,11 @@ class _EmptyDiagnostics extends StatelessWidget {
             Container(
               width: 52,
               height: 52,
-              decoration: const BoxDecoration(
+              decoration:  BoxDecoration(
                 color: DudoColors.primaryContainer,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child:  Icon(
                 LucideIcons.check,
                 color: DudoColors.primary,
                 size: 24,

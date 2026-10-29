@@ -72,10 +72,10 @@ class _CalendarRangeSelectorSheetState
     return Container(
       height: 574,
       padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
-      decoration: const BoxDecoration(
+      decoration:  BoxDecoration(
         color: DudoColors.surfaceHigh,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: const [
           BoxShadow(
             color: Color(0x3325251F),
             offset: Offset(0, -18),

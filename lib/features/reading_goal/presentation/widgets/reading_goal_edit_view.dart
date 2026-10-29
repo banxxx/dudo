@@ -300,7 +300,7 @@ class _GoalMethodCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(LucideIcons.sparkles,
+                 Icon(LucideIcons.sparkles,
                     color: DudoColors.secondary, size: 13),
                 const SizedBox(width: 6),
                 Expanded(
@@ -580,7 +580,7 @@ class _GoalReminderCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(LucideIcons.clock3,
+                 Icon(LucideIcons.clock3,
                     color: DudoColors.secondary, size: 16),
                 const SizedBox(width: 10),
                 Text(
@@ -659,7 +659,7 @@ class _DudoSwitch extends StatelessWidget {
           child: Container(
             width: 22,
             height: 22,
-            decoration: const BoxDecoration(
+            decoration:  BoxDecoration(
               color: DudoColors.surfaceHigh,
               shape: BoxShape.circle,
             ),
@@ -779,7 +779,7 @@ class _RuleRow extends StatelessWidget {
                   ),
                 ),
                 child: selected
-                    ? const Icon(LucideIcons.check,
+                    ?  Icon(LucideIcons.check,
                         color: DudoColors.surfaceHigh, size: 13)
                     : null,
               ),
@@ -819,7 +819,7 @@ class _GoalEditNote extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(LucideIcons.info, color: DudoColors.secondary, size: 18),
+          Icon(LucideIcons.info, color: DudoColors.secondary, size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

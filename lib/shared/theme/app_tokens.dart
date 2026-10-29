@@ -1,31 +1,49 @@
 import 'package:flutter/material.dart';
 
+import 'dudo_palette.dart';
+
+/// The app-wide colour tokens. These were once compile-time constants, but the
+/// theme settings let the user pick a mode (light/dark) and an accent at
+/// runtime, so every token now resolves through the active [DudoPalette].
+///
+/// [DudoApp] installs the palette for the current setting before building the
+/// widget tree, and swapping it there repaints every page because the root
+/// `MaterialApp` rebuilds. Pages therefore keep reading `DudoColors.x` without
+/// needing a `Theme.of(context)` lookup at each call site.
 class DudoColors {
   DudoColors._();
 
-  static const Color paperBackground = Color(0xFFF8F4EA);
-  static const Color surface = Color(0xFFFFFBF2);
-  static const Color surfaceLow = Color(0xFFF3ECDD);
-  static const Color surfaceHigh = Color(0xFFFFF8EA);
-  static const Color primary = Color(0xFF5E6F5B);
-  static const Color primaryContainer = Color(0xFFDDE8D4);
-  static const Color primaryContainerStrong = Color(0xFFBFD0B5);
-  static const Color primaryContainerMuted = Color(0xFFC9D7C0);
-  static const Color onPrimaryContainer = Color(0xFF1B2918);
-  static const Color primaryDark = Color(0xFF4B5A45);
-  static const Color secondary = Color(0xFF8A735A);
-  static const Color secondaryDark = Color(0xFF5B4B39);
-  static const Color secondaryContainer = Color(0xFFEFE0CC);
-  static const Color accent = Color(0xFFB98242);
-  static const Color accentSoft = Color(0xFFD3B98E);
-  static const Color accentMuted = Color(0xFFC7B48B);
-  static const Color textPrimary = Color(0xFF25251F);
-  static const Color textSecondary = Color(0xFF6F6B61);
-  static const Color outline = Color(0xFFD8CDBB);
-  static const Color outlineVariant = Color(0xFFE7DCC8);
-  static const Color navigationStroke = Color(0xCCFFFFFF);
-  static const Color navigationShadow = Color(0x2225251F);
+  static DudoPalette _active = DudoPalette.light(DudoAccent.pine);
 
+  static DudoPalette get palette => _active;
+
+  static void use(DudoPalette palette) => _active = palette;
+
+  static Color get paperBackground => _active.paperBackground;
+  static Color get surface => _active.surface;
+  static Color get surfaceLow => _active.surfaceLow;
+  static Color get surfaceHigh => _active.surfaceHigh;
+  static Color get primary => _active.primary;
+  static Color get primaryContainer => _active.primaryContainer;
+  static Color get primaryContainerStrong => _active.primaryContainerStrong;
+  static Color get primaryContainerMuted => _active.primaryContainerMuted;
+  static Color get onPrimaryContainer => _active.onPrimaryContainer;
+  static Color get primaryDark => _active.primaryDark;
+  static Color get secondary => _active.secondary;
+  static Color get secondaryDark => _active.secondaryDark;
+  static Color get secondaryContainer => _active.secondaryContainer;
+  static Color get accent => _active.accent;
+  static Color get accentSoft => _active.accentSoft;
+  static Color get accentMuted => _active.accentMuted;
+  static Color get textPrimary => _active.textPrimary;
+  static Color get textSecondary => _active.textSecondary;
+  static Color get outline => _active.outline;
+  static Color get outlineVariant => _active.outlineVariant;
+  static Color get navigationStroke => _active.navigationStroke;
+  static Color get navigationShadow => _active.navigationShadow;
+
+  /// The bottom tab bar still references these by name and branches on the
+  /// platform brightness itself, so they stay as fixed constants.
   static const Color darkBackground = Color(0xFF1C1F22);
   static const Color darkSurface = Color(0xF2262930);
   static const Color darkNavigationActive = Color(0xFF2A2E28);

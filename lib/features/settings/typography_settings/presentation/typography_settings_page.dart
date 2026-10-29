@@ -440,7 +440,7 @@ class _ImportFontEntry extends StatelessWidget {
                   color: DudoColors.surfaceHigh,
                   borderRadius: BorderRadius.circular(19),
                 ),
-                child: const Icon(
+                child:  Icon(
                   LucideIcons.folderPlus,
                   color: DudoColors.primary,
                   size: 19,
@@ -482,8 +482,8 @@ class _ImportFontEntry extends StatelessWidget {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(
-                        key: ValueKey('font-import-arrow'),
+                    :  Icon(
+                        key: const ValueKey('font-import-arrow'),
                         LucideIcons.chevronRight,
                         color: DudoColors.primary,
                         size: 18,
@@ -605,7 +605,7 @@ class _FontCard extends StatelessWidget {
                     color: DudoColors.primary,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(
+                  child:  Icon(
                     LucideIcons.check,
                     color: DudoColors.surfaceHigh,
                     size: 15,
@@ -618,7 +618,7 @@ class _FontCard extends StatelessWidget {
                   child: InkWell(
                     onTap: deleting ? null : onDelete,
                     borderRadius: BorderRadius.circular(15),
-                    child: const SizedBox(
+                    child:  SizedBox(
                       width: 30,
                       height: 30,
                       child: Icon(
@@ -799,9 +799,9 @@ class _DeleteFontSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-      decoration: const BoxDecoration(
+      decoration:  BoxDecoration(
         color: DudoColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         border: Border(top: BorderSide(color: DudoColors.outlineVariant)),
       ),
       child: SafeArea(
@@ -870,7 +870,7 @@ class _DeleteFontSheet extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(
+                   Icon(
                     LucideIcons.fileType,
                     color: DudoColors.secondary,
                     size: 18,

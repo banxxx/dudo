@@ -7,18 +7,23 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
-import '../../reader_engine/application/reader_preferences_provider.dart';
 import '../../settings/read_aloud_settings/application/read_aloud_settings_provider.dart';
 import '../../settings/read_aloud_settings/domain/read_aloud_settings.dart';
+import '../../settings/theme_settings/application/theme_settings_provider.dart';
+import '../../settings/theme_settings/domain/theme_settings.dart';
 import '../../settings/typography_settings/application/reader_font_providers.dart';
-
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final readerPreferences = ref.watch(readerPreferencesProvider).valueOrNull;
-    final paletteName = readerPreferences?.palette.name ?? '羊皮纸';
+    final themeSettings =
+        ref.watch(themeSettingsProvider).valueOrNull ?? ThemeSettings.defaults();
+    final themeModeLabel = switch (themeSettings.mode) {
+      DudoThemeMode.paper => '纸色',
+      DudoThemeMode.dark => '深色',
+      DudoThemeMode.system => '跟随系统',
+    };
     final selectedFont = ref.watch(selectedReaderFontProvider).valueOrNull;
     final readAloud = ref.watch(readAloudSettingsProvider).valueOrNull;
     final readAloudVoice = readAloud?.engine == ReadAloudEngine.online
@@ -44,7 +49,7 @@ class SettingsPage extends ConsumerWidget {
               _SettingRowData(
                 title: '主题与外观',
                 description: '纸感、深色、跟随系统',
-                value: paletteName,
+                value: '${themeSettings.accent.label} · $themeModeLabel',
                 icon: LucideIcons.palette,
                 iconFill: DudoColors.primaryContainer,
                 route: AppRoutes.themeSettings,
@@ -68,7 +73,7 @@ class SettingsPage extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 14),
-          const _SettingsSection(
+           _SettingsSection(
             title: '内容与书源',
             rows: [
               _SettingRowData(
@@ -81,7 +86,7 @@ class SettingsPage extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 14),
-          const _SettingsSection(
+           _SettingsSection(
             title: '通用',
             rows: [
               _SettingRowData(
@@ -184,7 +189,7 @@ class _SettingsHero extends StatelessWidget {
               color: const Color(0x22FFF8EA),
               borderRadius: BorderRadius.circular(31),
             ),
-            child: const Icon(
+            child:  Icon(
               LucideIcons.settings,
               color: DudoColors.secondaryContainer,
               size: 28,
@@ -370,10 +375,10 @@ class _SyncSwitch extends StatelessWidget {
         key: const ValueKey('settings-sync-switch-thumb'),
         width: 20,
         height: 20,
-        decoration: const BoxDecoration(
+        decoration:  BoxDecoration(
           color: DudoColors.primary,
           shape: BoxShape.circle,
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
               color: Color(0x1F25251F),
               offset: Offset(0, 2),

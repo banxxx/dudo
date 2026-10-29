@@ -203,7 +203,7 @@ class _BookmarkSummary extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
+           Icon(
             LucideIcons.bookmark,
             color: DudoColors.primary,
             size: 34,
@@ -345,7 +345,7 @@ class _BookmarkEntryCard extends StatelessWidget {
               IconButton(
                 key: ValueKey('bookmark-delete-${entry.id}'),
                 onPressed: onDelete,
-                icon: const Icon(
+                icon:  Icon(
                   LucideIcons.trash2,
                   color: DudoColors.secondary,
                   size: 18,
@@ -374,7 +374,7 @@ class _BookmarkEmptySummary extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
+           Icon(
             LucideIcons.bookmark,
             color: DudoColors.primary,
             size: 34,
@@ -437,7 +437,7 @@ class _BookmarkEmptyState extends StatelessWidget {
               color: DudoColors.surfaceLow,
               borderRadius: BorderRadius.circular(38),
             ),
-            child: const Icon(
+            child:  Icon(
               LucideIcons.bookmark,
               color: DudoColors.secondary,
               size: 32,
@@ -469,7 +469,7 @@ class _BookmarkEmptyState extends StatelessWidget {
             child: Container(
               height: 38,
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: const BoxDecoration(
+              decoration:  BoxDecoration(
                 color: DudoColors.textPrimary,
                 borderRadius: AppRadius.full,
               ),
@@ -485,7 +485,7 @@ class _BookmarkEmptyState extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  const Icon(
+                   Icon(
                     LucideIcons.arrowRight,
                     color: DudoColors.surfaceHigh,
                     size: 14,

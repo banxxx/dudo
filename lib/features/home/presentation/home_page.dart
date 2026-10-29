@@ -153,7 +153,7 @@ class _RecommendationSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        const Row(
+         Row(
           children: [
             Expanded(
               child: _RecommendedBookCard(
@@ -163,7 +163,7 @@ class _RecommendationSection extends StatelessWidget {
                 gradient: [DudoColors.accent, DudoColors.secondaryContainer],
               ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: _RecommendedBookCard(
                 title: '明朝那些事儿',
@@ -172,7 +172,7 @@ class _RecommendationSection extends StatelessWidget {
                 gradient: [DudoColors.primary, DudoColors.primaryContainer],
               ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: _RecommendedBookCard(
                 title: '长安的荔枝',

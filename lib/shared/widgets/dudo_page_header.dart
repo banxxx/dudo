@@ -11,18 +11,18 @@ class DudoCircleIconButton extends StatelessWidget {
     required this.onTap,
     this.size = 44,
     this.iconSize,
-    this.backgroundColor = DudoColors.surface,
-    this.iconColor = DudoColors.secondary,
-    this.borderColor = DudoColors.outline,
+    this.backgroundColor,
+    this.iconColor,
+    this.borderColor,
   });
 
   final IconData icon;
   final VoidCallback onTap;
   final double size;
   final double? iconSize;
-  final Color backgroundColor;
-  final Color iconColor;
-  final Color borderColor;
+  final Color? backgroundColor;
+  final Color? iconColor;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -36,13 +36,13 @@ class DudoCircleIconButton extends StatelessWidget {
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: backgroundColor,
+            color: backgroundColor ?? DudoColors.surface,
             borderRadius: BorderRadius.circular(size / 2),
-            border: Border.all(color: borderColor),
+            border: Border.all(color: borderColor ?? DudoColors.outline),
           ),
           child: Icon(
             icon,
-            color: iconColor,
+            color: iconColor ?? DudoColors.secondary,
             size: iconSize ?? (icon == LucideIcons.chevronLeft ? 22 : 19),
           ),
         ),

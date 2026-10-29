@@ -679,7 +679,7 @@ class _GeneratedBookCover extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
+      decoration:  BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -688,7 +688,7 @@ class _GeneratedBookCover extends StatelessWidget {
             DudoColors.primary,
             DudoColors.accentSoft,
           ],
-          stops: [0, 0.58, 1],
+          stops: const [0, 0.58, 1],
         ),
       ),
       child: Column(
@@ -1223,7 +1223,7 @@ class _ChapterListMessageTile extends StatelessWidget {
               child: Text(actionLabel!),
             ),
           ] else
-            const Icon(
+             Icon(
               LucideIcons.chevronRight,
               color: DudoColors.secondary,
               size: 18,
@@ -1242,14 +1242,14 @@ class _RemainingChaptersLoadingTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 54,
-      decoration: const BoxDecoration(
+      decoration:  BoxDecoration(
         color: DudoColors.surfaceLow,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
       ),
       child: Row(
         children: [
           const SizedBox(width: 14),
-          const SizedBox(
+           SizedBox(
             width: 16,
             height: 16,
             child: CircularProgressIndicator(
@@ -1322,7 +1322,7 @@ class _ChapterListTile extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(
+                     Icon(
                       LucideIcons.chevronRight,
                       color: DudoColors.secondary,
                       size: 18,
@@ -1332,7 +1332,7 @@ class _ChapterListTile extends StatelessWidget {
               ),
             ),
             if (!isLast)
-              const Divider(
+               Divider(
                 height: 1,
                 indent: 14,
                 endIndent: 14,
@@ -1498,9 +1498,9 @@ class _BookDetailLoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DudoPageFrame(
+    return  DudoPageFrame(
       children: [
-        SizedBox(height: 180),
+        const SizedBox(height: 180),
         Center(child: CircularProgressIndicator(color: DudoColors.primary)),
       ],
     );

@@ -413,18 +413,18 @@ _MessageColors _colors(
 ) {
   if (style == AppMessageVisualStyle.snack) {
     return switch (kind) {
-      AppMessageKind.success => const _MessageColors.snack(
+      AppMessageKind.success => _MessageColors.snack(
           accent: DudoColors.primaryContainerStrong,
         ),
-      AppMessageKind.warning => const _MessageColors.snack(
+      AppMessageKind.warning => _MessageColors.snack(
           accent: DudoColors.accentSoft,
         ),
-      AppMessageKind.error => const _MessageColors.snack(
-          accent: Color(0xFFFFB4A9),
+      AppMessageKind.error => _MessageColors.snack(
+          accent: const Color(0xFFFFB4A9),
         ),
       AppMessageKind.loading ||
       AppMessageKind.info =>
-        const _MessageColors.snack(
+        _MessageColors.snack(
           accent: DudoColors.outline,
         ),
     };
@@ -452,19 +452,19 @@ _MessageColors _colors(
   }
 
   return switch (kind) {
-    AppMessageKind.success => const _MessageColors.paper(
+    AppMessageKind.success => _MessageColors.paper(
         accent: DudoColors.primary,
         iconBackground: DudoColors.primaryContainer,
       ),
-    AppMessageKind.warning => const _MessageColors.paper(
+    AppMessageKind.warning => _MessageColors.paper(
         accent: DudoColors.secondary,
         iconBackground: DudoColors.surfaceLow,
       ),
-    AppMessageKind.error => const _MessageColors.paper(
+    AppMessageKind.error => _MessageColors.paper(
         accent: DudoColors.accent,
         iconBackground: DudoColors.surfaceLow,
       ),
-    AppMessageKind.loading || AppMessageKind.info => const _MessageColors.paper(
+    AppMessageKind.loading || AppMessageKind.info => _MessageColors.paper(
         accent: DudoColors.secondary,
         iconBackground: DudoColors.surfaceLow,
       ),
@@ -494,7 +494,7 @@ class _MessageColors {
     required this.close,
   });
 
-  const _MessageColors.paper({
+  _MessageColors.paper({
     required Color accent,
     required this.iconBackground,
   })  : background = const Color(0xF7FFFBF2),
@@ -521,7 +521,7 @@ class _MessageColors {
           close: foreground,
         );
 
-  const _MessageColors.snack({
+  _MessageColors.snack({
     required Color accent,
   }) : this(
           background: DudoColors.textPrimary,

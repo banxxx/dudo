@@ -246,7 +246,7 @@ class _SearchHeader extends StatelessWidget {
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(color: DudoColors.outline),
                   ),
-                  child: const Icon(
+                  child:  Icon(
                     LucideIcons.slidersHorizontal,
                     color: DudoColors.primary,
                     size: 20,
@@ -351,7 +351,7 @@ class _SearchField extends StatelessWidget {
               const SizedBox(width: 10),
               GestureDetector(
                 onTap: onClear,
-                child: const Icon(
+                child:  Icon(
                   LucideIcons.x,
                   color: DudoColors.secondary,
                   size: 18,
@@ -387,7 +387,7 @@ class _SearchEmptySuggestions extends StatelessWidget {
               color: DudoColors.surface,
               borderRadius: BorderRadius.circular(32),
             ),
-            child: const Icon(
+            child:  Icon(
               LucideIcons.telescope,
               color: DudoColors.primary,
               size: 30,
@@ -855,7 +855,7 @@ class _PartialFailureNotice extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(LucideIcons.info, color: DudoColors.secondary, size: 16),
+          Icon(LucideIcons.info, color: DudoColors.secondary, size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -1118,7 +1118,7 @@ class _SearchResultCoverPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DecoratedBox(
+    return  DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,

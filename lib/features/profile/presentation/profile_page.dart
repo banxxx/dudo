@@ -72,7 +72,7 @@ class _ProfileHeader extends StatelessWidget {
                 borderRadius: BorderRadius.circular(22),
                 border: Border.all(color: DudoColors.outline),
               ),
-              child: const Icon(
+              child:  Icon(
                 LucideIcons.settings,
                 color: DudoColors.secondary,
                 size: 21,
@@ -158,7 +158,7 @@ class _ProfileIdentityCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                     Icon(
                       LucideIcons.badgeCheck,
                       color: DudoColors.primaryContainer,
                       size: 15,
@@ -310,7 +310,7 @@ class _MonthlyGoalCard extends StatelessWidget {
                   child: FractionallySizedBox(
                     widthFactor: percent,
                     child: Container(
-                      decoration: const BoxDecoration(
+                      decoration:  BoxDecoration(
                         color: DudoColors.primary,
                         borderRadius: AppRadius.full,
                       ),
@@ -338,7 +338,7 @@ class _MonthlyGoalCard extends StatelessWidget {
 class _LibraryToolsSection extends StatelessWidget {
   const _LibraryToolsSection();
 
-  static const _items = [
+  static final _items = [
     _ToolItem(
       title: '书源管理',
       description: '添加、启用、更新和校验书源',

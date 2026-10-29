@@ -70,7 +70,7 @@ class _ReadingStatsLoadingCard extends StatelessWidget {
         border: Border.all(color: DudoColors.outlineVariant),
       ),
       alignment: Alignment.center,
-      child: const CircularProgressIndicator(color: DudoColors.primary),
+      child: CircularProgressIndicator(color: DudoColors.primary),
     );
   }
 }
@@ -194,7 +194,7 @@ class _StatsRangeButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+               Icon(
                 LucideIcons.calendarDays,
                 color: DudoColors.secondary,
                 size: 17,
@@ -656,7 +656,7 @@ class _ContributionRow extends StatelessWidget {
             child: FractionallySizedBox(
               widthFactor: item.ratio,
               child: Container(
-                decoration: const BoxDecoration(
+                decoration:  BoxDecoration(
                   color: DudoColors.primary,
                   borderRadius: AppRadius.full,
                 ),
@@ -692,7 +692,7 @@ class _EmptyRhythmCard extends StatelessWidget {
               color: DudoColors.primaryContainer,
               borderRadius: BorderRadius.circular(26),
             ),
-            child: const Icon(
+            child:  Icon(
               LucideIcons.bookOpen,
               color: DudoColors.primary,
               size: 24,
