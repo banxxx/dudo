@@ -28,17 +28,14 @@ class TtsVoice {
     return TtsVoice(
       name: name,
       locale: locale,
-      identifier: identifier is String && identifier.isNotEmpty
-          ? identifier
-          : null,
+      identifier:
+          identifier is String && identifier.isNotEmpty ? identifier : null,
     );
   }
 
   @override
   bool operator ==(Object other) {
-    return other is TtsVoice &&
-        other.name == name &&
-        other.locale == locale;
+    return other is TtsVoice && other.name == name && other.locale == locale;
   }
 
   @override

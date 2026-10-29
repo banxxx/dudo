@@ -27,11 +27,17 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage> {
   ReadAloudSettings? _settings;
   List<TtsVoice> _voices = const [];
   bool _loadingVoices = true;
+  bool _voicesRequestInFlight = false;
   bool _previewing = false;
+  double? _previewProgress;
+  String? _previewError;
   Timer? _saveTimer;
   bool _dirty = false;
   ReadAloudSettingsRepository? _repository;
   ReadAloudPlayer? _player;
+  final TextEditingController _urlController = TextEditingController();
+  final TextEditingController _tokenController = TextEditingController();
+  final TextEditingController _onlineVoiceController = TextEditingController();
 
   @override
   void initState() {
@@ -45,6 +51,9 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage> {
     final player = _player;
     player?.bind();
     if (_previewing) unawaited(player?.stop());
+    _urlController.dispose();
+    _tokenController.dispose();
+    _onlineVoiceController.dispose();
     super.dispose();
   }
 
@@ -60,30 +69,69 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage> {
     if (!mounted) return;
     final player = ref.read(readAloudPlayerProvider);
     _player = player;
+    _urlController.text = settings.onlineUrl ?? '';
+    _tokenController.text = settings.onlineToken ?? '';
+    _onlineVoiceController.text = settings.onlineVoice ?? '';
     setState(() => _settings = settings);
     unawaited(player.apply(settings));
     await _loadVoices();
   }
 
+  ReadAloudSettings? get _current => _settings;
+
+  void _updateField(
+    ReadAloudSettings Function(ReadAloudSettings settings) change,
+  ) {
+    final settings = _current;
+    if (settings == null) return;
+    _update(change(settings));
+  }
+
+  /// The platform TTS engine often answers with an empty list right after the
+  /// page opens (it is still connecting); retrying a few times avoids the page
+  /// getting stuck with only the "system default" option.
   Future<void> _loadVoices() async {
+    if (_voicesRequestInFlight) return;
+    _voicesRequestInFlight = true;
     try {
-      final player =
-          _player ?? ref.read<ReadAloudPlayer>(readAloudPlayerProvider);
-      final voices = await player.voices();
-      if (!mounted) return;
-      setState(() {
-        _voices = voices.where((voice) => voice.isChinese).toList();
-        if (_voices.isEmpty) _voices = voices;
-        _loadingVoices = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _loadingVoices = false);
+      if (!_loadingVoices) setState(() => _loadingVoices = true);
+      for (var attempt = 0; attempt < 3; attempt++) {
+        try {
+          final voices = await _playerRef.voices();
+          if (!mounted) return;
+          if (voices.isNotEmpty) {
+            setState(() {
+              _voices = voices.where((voice) => voice.isChinese).toList();
+              if (_voices.isEmpty) _voices = voices;
+            });
+            return;
+          }
+        } catch (_) {
+          // Engine not ready yet; fall through to the retry delay.
+        }
+        if (!mounted) return;
+        await Future<void>.delayed(Duration(milliseconds: 300 * (attempt + 1)));
+      }
+    } finally {
+      _voicesRequestInFlight = false;
+      if (mounted) setState(() => _loadingVoices = false);
     }
   }
 
   void _update(ReadAloudSettings next) {
-    setState(() => _settings = next);
+    // A preview keeps speaking with the parameters it started with; leaving it
+    // running while the page shows different values is misleading.
+    final wasPreviewing = _previewing;
+    setState(() {
+      _settings = next;
+      _previewing = false;
+      _previewProgress = null;
+      _previewError = null;
+    });
+    if (wasPreviewing) unawaited(_playerRef.stop());
+    if (next.engine == ReadAloudEngine.system && _voices.isEmpty) {
+      unawaited(_loadVoices());
+    }
     _dirty = true;
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 350), _flushSave);
@@ -99,19 +147,62 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage> {
     unawaited(repository.save(settings));
   }
 
+  ReadAloudPlayer get _playerRef =>
+      _player ?? ref.read<ReadAloudPlayer>(readAloudPlayerProvider);
+
+  bool _canPreview(ReadAloudSettings settings) =>
+      settings.engine == ReadAloudEngine.system || settings.hasOnlineEndpoint;
+
+  /// Explains why the preview is unavailable (or what went wrong) instead of
+  /// letting the button flash a false "playing" state.
+  String? get _previewMessage {
+    final error = _previewError;
+    if (error != null) return error;
+    final settings = _settings;
+    if (settings == null || _canPreview(settings)) return null;
+    return '填写在线接口地址后可试听';
+  }
+
   Future<void> _togglePreview() async {
     final settings = _settings;
     if (settings == null) return;
-    final player = ref.read(readAloudPlayerProvider);
+    final player = _playerRef;
     if (_previewing) {
-      setState(() => _previewing = false);
+      setState(() {
+        _previewing = false;
+        _previewProgress = null;
+      });
       await player.stop();
       return;
     }
-    setState(() => _previewing = true);
+    if (!_canPreview(settings)) {
+      setState(() => _previewError = null);
+      return;
+    }
+    setState(() {
+      _previewing = true;
+      _previewProgress = null;
+      _previewError = null;
+    });
     player.bind(
       onCompleted: () {
-        if (mounted) setState(() => _previewing = false);
+        if (!mounted) return;
+        setState(() {
+          _previewing = false;
+          _previewProgress = null;
+        });
+      },
+      onFailed: (error) {
+        if (!mounted) return;
+        setState(() {
+          _previewing = false;
+          _previewProgress = null;
+          _previewError = '试听失败：请检查接口地址、访问令牌与网络';
+        });
+      },
+      onProgress: (progress) {
+        if (!mounted || !_previewing) return;
+        setState(() => _previewProgress = progress);
       },
     );
     await player.apply(settings);
@@ -146,34 +237,98 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage> {
         else ...[
           _VoicePreviewPlayer(
             playing: _previewing,
+            progress: _previewProgress,
+            enabled: _canPreview(settings),
+            message: _previewMessage,
             rateLabel: _rateLabel(settings.speechRate),
             onToggle: _togglePreview,
           ),
           const SizedBox(height: 14),
-          const SettingsSectionTitle('声音'),
+          const SettingsSectionTitle('朗读引擎'),
           const SizedBox(height: 8),
-          _VoiceGrid(
-            voices: _voices,
-            loading: _loadingVoices,
-            selectedName: settings.voiceName,
-            onSelect: (voice) {
-              _update(
-                voice == null
-                    ? settings.copyWith(clearVoiceName: true)
-                    : settings.copyWith(
-                        voiceName: voice.name,
-                        voiceLocale: voice.locale,
-                      ),
-              );
-            },
+          Row(
+            children: [
+              Expanded(
+                child: _EngineChoice(
+                  label: '系统语音',
+                  state: '离线 · 设备音色',
+                  selected: settings.engine == ReadAloudEngine.system,
+                  onTap: () {
+                    _update(
+                      settings.copyWith(engine: ReadAloudEngine.system),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _EngineChoice(
+                  label: '在线引擎',
+                  state: '更自然的音色',
+                  selected: settings.engine == ReadAloudEngine.online,
+                  onTap: () {
+                    _update(
+                      settings.copyWith(engine: ReadAloudEngine.online),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-          if (!_loadingVoices && _voices.isEmpty) ...[
+          const SizedBox(height: 14),
+          if (settings.engine == ReadAloudEngine.system) ...[
+            const SettingsSectionTitle('声音'),
             const SizedBox(height: 8),
-            const SettingsTrailingValue(
-              '当前设备没有可用的系统语音，请先在系统设置的“文字转语音”中安装中文语音数据。',
-              color: DudoColors.secondary,
+            _VoiceGrid(
+              voices: _voices,
+              loading: _loadingVoices,
+              selectedName: settings.voiceName,
+              onSelect: (voice) {
+                _update(
+                  voice == null
+                      ? settings.copyWith(clearVoiceName: true)
+                      : settings.copyWith(
+                          voiceName: voice.name,
+                          voiceLocale: voice.locale,
+                        ),
+                );
+              },
             ),
-          ],
+            if (!_loadingVoices && _voices.isEmpty) ...[
+              const SizedBox(height: 8),
+              const SettingsTrailingValue(
+                '当前设备没有可用的系统语音，请先在系统设置的“文字转语音”中安装中文语音数据。',
+                color: DudoColors.secondary,
+              ),
+            ],
+          ] else
+            _OnlineEngineFields(
+              settings: settings,
+              urlController: _urlController,
+              tokenController: _tokenController,
+              voiceController: _onlineVoiceController,
+              onUrlChanged: (value) => _updateField(
+                (current) => current.copyWith(
+                  onlineUrl: value,
+                  clearOnlineUrl: value.trim().isEmpty,
+                ),
+              ),
+              onTokenChanged: (value) => _updateField(
+                (current) => current.copyWith(
+                  onlineToken: value,
+                  clearOnlineToken: value.trim().isEmpty,
+                ),
+              ),
+              onVoiceChanged: (value) => _updateField(
+                (current) => current.copyWith(
+                  onlineVoice: value,
+                  clearOnlineVoice: value.trim().isEmpty,
+                ),
+              ),
+              onFormatChanged: (format) => _updateField(
+                (current) => current.copyWith(onlineFormat: format),
+              ),
+            ),
           const SizedBox(height: 14),
           SettingsMeterControl(
             label: '语速',
@@ -281,6 +436,257 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage> {
   }
 }
 
+class _EngineChoice extends StatelessWidget {
+  const _EngineChoice({
+    required this.label,
+    required this.state,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final String state;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 72,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: DudoColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? DudoColors.secondary : DudoColors.outlineVariant,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  selected ? LucideIcons.check : LucideIcons.server,
+                  color: selected ? DudoColors.primary : DudoColors.secondary,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              state,
+              style: DudoTextStyles.sans(
+                color: DudoColors.secondary,
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OnlineEngineFields extends StatelessWidget {
+  const _OnlineEngineFields({
+    required this.settings,
+    required this.urlController,
+    required this.tokenController,
+    required this.voiceController,
+    required this.onUrlChanged,
+    required this.onTokenChanged,
+    required this.onVoiceChanged,
+    required this.onFormatChanged,
+  });
+
+  final ReadAloudSettings settings;
+  final TextEditingController urlController;
+  final TextEditingController tokenController;
+  final TextEditingController voiceController;
+  final ValueChanged<String> onUrlChanged;
+  final ValueChanged<String> onTokenChanged;
+  final ValueChanged<String> onVoiceChanged;
+  final ValueChanged<OnlineTtsFormat> onFormatChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SettingsSectionTitle('在线接口'),
+        const SizedBox(height: 8),
+        _SettingField(
+          key: const ValueKey('read-aloud-online-url'),
+          label: '接口地址',
+          hint: 'https://example.com/tts',
+          controller: urlController,
+          keyboardType: TextInputType.url,
+          onChanged: onUrlChanged,
+        ),
+        const SizedBox(height: 8),
+        _SettingField(
+          label: '访问令牌（可选）',
+          hint: '以 Bearer Token 发送',
+          controller: tokenController,
+          onChanged: onTokenChanged,
+        ),
+        const SizedBox(height: 8),
+        _SettingField(
+          label: '音色（可选）',
+          hint: '如 zh-CN-XiaoxiaoNeural',
+          controller: voiceController,
+          onChanged: onVoiceChanged,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Text(
+              '请求格式',
+              style: DudoTextStyles.sans(
+                color: DudoColors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            _FormatChip(
+              label: '文本',
+              selected: settings.onlineFormat == OnlineTtsFormat.text,
+              onTap: () => onFormatChanged(OnlineTtsFormat.text),
+            ),
+            const SizedBox(width: 8),
+            _FormatChip(
+              label: 'JSON',
+              selected: settings.onlineFormat == OnlineTtsFormat.json,
+              onTap: () => onFormatChanged(OnlineTtsFormat.json),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        const SettingsTrailingValue(
+          '接口需直接返回音频（mp3/wav）。文本模式以 text/plain 提交正文；JSON 模式提交 {"text","voice","rate"}。',
+          color: DudoColors.secondary,
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingField extends StatelessWidget {
+  const _SettingField({
+    super.key,
+    required this.label,
+    required this.hint,
+    required this.controller,
+    required this.onChanged,
+    this.keyboardType,
+  });
+
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final TextInputType? keyboardType;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: DudoColors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: DudoTextStyles.sans(
+              color: DudoColors.secondary,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          TextField(
+            controller: controller,
+            onChanged: onChanged,
+            keyboardType: keyboardType,
+            style: DudoTextStyles.sans(
+              color: DudoColors.textPrimary,
+              fontSize: 13,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: hint,
+              hintStyle: DudoTextStyles.sans(
+                color: DudoColors.outline,
+                fontSize: 12,
+              ),
+              border: InputBorder.none,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FormatChip extends StatelessWidget {
+  const _FormatChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? DudoColors.primaryContainer : DudoColors.surface,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color:
+                selected ? DudoColors.accentMuted : DudoColors.outlineVariant,
+          ),
+        ),
+        child: Text(
+          label,
+          style: DudoTextStyles.sans(
+            color: selected ? DudoColors.primary : DudoColors.secondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _VoiceGrid extends StatelessWidget {
   const _VoiceGrid({
     required this.voices,
@@ -317,8 +723,7 @@ class _VoiceGrid extends StatelessWidget {
             child: _VoiceChoice(
               label: voice?.displayName ?? '系统默认',
               state: voice?.locale ?? '跟随系统',
-              iconColor:
-                  selected ? DudoColors.primary : DudoColors.secondary,
+              iconColor: selected ? DudoColors.primary : DudoColors.secondary,
               selected: selected,
               onTap: () => onSelect(voice),
             ),
@@ -332,11 +737,19 @@ class _VoiceGrid extends StatelessWidget {
 class _VoicePreviewPlayer extends StatelessWidget {
   const _VoicePreviewPlayer({
     required this.playing,
+    required this.progress,
+    required this.enabled,
+    required this.message,
     required this.rateLabel,
     required this.onToggle,
   });
 
   final bool playing;
+
+  /// 0..1 playback position; `null` while the sample is still being prepared.
+  final double? progress;
+  final bool enabled;
+  final String? message;
   final String rateLabel;
   final VoidCallback onToggle;
 
@@ -388,36 +801,77 @@ class _VoicePreviewPlayer extends StatelessWidget {
             children: [
               GestureDetector(
                 key: const ValueKey('read-aloud-preview-button'),
-                onTap: onToggle,
+                onTap: enabled ? onToggle : null,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: DudoColors.textPrimary,
+                    color: enabled
+                        ? DudoColors.textPrimary
+                        : DudoColors.outlineVariant,
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: Icon(
                     playing ? LucideIcons.square : LucideIcons.play,
-                    color: DudoColors.surfaceHigh,
+                    color:
+                        enabled ? DudoColors.surfaceHigh : DudoColors.secondary,
                     size: 16,
                   ),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: Container(
-                    height: 8,
-                    color: DudoColors.surface.withValues(alpha: 0.67),
-                    alignment: Alignment.centerLeft,
-                    child: FractionallySizedBox(
-                      widthFactor: playing ? 1 : 0.02,
-                      child: Container(color: DudoColors.primary),
-                    ),
-                  ),
-                ),
+                child: message != null
+                    ? Text(
+                        message!,
+                        key: const ValueKey('read-aloud-preview-message'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: DudoTextStyles.sans(
+                          color: DudoColors.secondary,
+                          fontSize: 11,
+                        ),
+                      )
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: SizedBox(
+                          height: 8,
+                          child: !playing
+                              ? Container(
+                                  color: DudoColors.surface
+                                      .withValues(alpha: 0.67),
+                                )
+                              // While the sample is still being prepared
+                              // there is no position yet; once sound starts
+                              // the bar follows the real playback position.
+                              : progress == null
+                                  ? LinearProgressIndicator(
+                                      color: DudoColors.primary,
+                                      backgroundColor: DudoColors.surface
+                                          .withValues(alpha: 0.67),
+                                    )
+                                  : TweenAnimationBuilder<double>(
+                                      // Progress arrives word by word (system)
+                                      // or in ~200ms ticks (online); easing
+                                      // between values keeps the bar smooth.
+                                      tween: Tween<double>(
+                                        begin: 0,
+                                        end: progress!,
+                                      ),
+                                      duration:
+                                          const Duration(milliseconds: 240),
+                                      curve: Curves.linear,
+                                      builder: (context, value, _) =>
+                                          LinearProgressIndicator(
+                                        value: value,
+                                        color: DudoColors.primary,
+                                        backgroundColor: DudoColors.surface
+                                            .withValues(alpha: 0.67),
+                                      ),
+                                    ),
+                        ),
+                      ),
               ),
             ],
           ),
@@ -475,8 +929,8 @@ class _VoiceChoice extends StatelessWidget {
               state,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style:
-                  DudoTextStyles.sans(color: DudoColors.secondary, fontSize: 10),
+              style: DudoTextStyles.sans(
+                  color: DudoColors.secondary, fontSize: 10),
             ),
           ],
         ),

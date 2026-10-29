@@ -1462,7 +1462,12 @@ class _FakeReadAloudPlayer implements ReadAloudPlayer {
   }
 
   @override
-  void bind({ValueChanged<int>? onSegmentStarted, VoidCallback? onCompleted}) {
+  void bind({
+    ValueChanged<int>? onSegmentStarted,
+    VoidCallback? onCompleted,
+    ValueChanged<Object>? onFailed,
+    ValueChanged<double>? onProgress,
+  }) {
     _onSegmentStarted = onSegmentStarted;
   }
 

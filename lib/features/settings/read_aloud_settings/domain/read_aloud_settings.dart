@@ -1,6 +1,19 @@
-/// Persisted configuration for reading aloud with the system TTS engine.
+/// Which backend turns text into speech.
+enum ReadAloudEngine { system, online }
+
+/// Body format understood by a user supplied online TTS endpoint.
+enum OnlineTtsFormat {
+  /// `Content-Type: text/plain`, the whole body is the text to speak.
+  text,
+
+  /// JSON body with `text`, `voice` and `rate` keys.
+  json,
+}
+
+/// Persisted configuration for reading aloud.
 class ReadAloudSettings {
   const ReadAloudSettings({
+    this.engine = ReadAloudEngine.system,
     this.voiceName,
     this.voiceLocale,
     this.language = 'zh-CN',
@@ -11,9 +24,15 @@ class ReadAloudSettings {
     this.timerMinutes = 15,
     this.backgroundEnabled = true,
     this.paragraphFollowEnabled = true,
+    this.onlineUrl,
+    this.onlineToken,
+    this.onlineVoice,
+    this.onlineFormat = OnlineTtsFormat.text,
   });
 
   static const String preferenceKey = 'read_aloud.settings';
+
+  final ReadAloudEngine engine;
 
   /// Device voice name, `null` keeps the engine's default voice.
   final String? voiceName;
@@ -38,6 +57,17 @@ class ReadAloudSettings {
 
   final bool paragraphFollowEnabled;
 
+  /// Endpoint returning audio bytes for the requested text.
+  final String? onlineUrl;
+
+  /// Optional token sent as `Authorization: Bearer <token>`.
+  final String? onlineToken;
+
+  /// Optional voice name forwarded to the online endpoint.
+  final String? onlineVoice;
+
+  final OnlineTtsFormat onlineFormat;
+
   factory ReadAloudSettings.defaults() => const ReadAloudSettings();
 
   /// flutter_tts takes `0.0 - 1.0` where `0.5` is normal speed on both
@@ -46,7 +76,11 @@ class ReadAloudSettings {
 
   String get voiceLabel => voiceName == null ? '系统语音' : (voiceLocale ?? '系统语音');
 
+  bool get hasOnlineEndpoint =>
+      onlineUrl != null && onlineUrl!.trim().isNotEmpty;
+
   ReadAloudSettings copyWith({
+    ReadAloudEngine? engine,
     String? voiceName,
     bool clearVoiceName = false,
     String? voiceLocale,
@@ -58,8 +92,16 @@ class ReadAloudSettings {
     int? timerMinutes,
     bool? backgroundEnabled,
     bool? paragraphFollowEnabled,
+    String? onlineUrl,
+    bool clearOnlineUrl = false,
+    String? onlineToken,
+    bool clearOnlineToken = false,
+    String? onlineVoice,
+    bool clearOnlineVoice = false,
+    OnlineTtsFormat? onlineFormat,
   }) {
     return ReadAloudSettings(
+      engine: engine ?? this.engine,
       voiceName: clearVoiceName ? null : (voiceName ?? this.voiceName),
       voiceLocale: clearVoiceName ? null : (voiceLocale ?? this.voiceLocale),
       language: language ?? this.language,
@@ -71,11 +113,16 @@ class ReadAloudSettings {
       backgroundEnabled: backgroundEnabled ?? this.backgroundEnabled,
       paragraphFollowEnabled:
           paragraphFollowEnabled ?? this.paragraphFollowEnabled,
+      onlineUrl: clearOnlineUrl ? null : (onlineUrl ?? this.onlineUrl),
+      onlineToken: clearOnlineToken ? null : (onlineToken ?? this.onlineToken),
+      onlineVoice: clearOnlineVoice ? null : (onlineVoice ?? this.onlineVoice),
+      onlineFormat: onlineFormat ?? this.onlineFormat,
     );
   }
 
   Map<String, Object?> toJson() {
     return {
+      'engine': engine.name,
       'voiceName': voiceName,
       'voiceLocale': voiceLocale,
       'language': language,
@@ -86,6 +133,10 @@ class ReadAloudSettings {
       'timerMinutes': timerMinutes,
       'backgroundEnabled': backgroundEnabled,
       'paragraphFollowEnabled': paragraphFollowEnabled,
+      'onlineUrl': onlineUrl,
+      'onlineToken': onlineToken,
+      'onlineVoice': onlineVoice,
+      'onlineFormat': onlineFormat.name,
     };
   }
 
@@ -100,30 +151,61 @@ class ReadAloudSettings {
     final hasVoice = voiceName is String && voiceName.trim().isNotEmpty;
 
     return ReadAloudSettings(
+      engine: _readEngine(json['engine']),
       voiceName: hasVoice ? voiceName.trim() : null,
       voiceLocale: hasVoice && voiceLocale is String && voiceLocale.isNotEmpty
           ? voiceLocale
           : null,
-      language: json['language'] is String && (json['language'] as String).isNotEmpty
-          ? json['language'] as String
-          : defaults.language,
+      language:
+          json['language'] is String && (json['language'] as String).isNotEmpty
+              ? json['language'] as String
+              : defaults.language,
       speechRate:
           _readDouble(json['speechRate'], defaults.speechRate, 0.5, 2.0),
       pitch: _readDouble(json['pitch'], defaults.pitch, 0.5, 2.0),
       volume: _readDouble(json['volume'], defaults.volume, 0.0, 1.0),
       timerEnabled: _readBool(json['timerEnabled'], defaults.timerEnabled),
-      timerMinutes: _readInt(json['timerMinutes'], defaults.timerMinutes, 5, 120),
+      timerMinutes:
+          _readInt(json['timerMinutes'], defaults.timerMinutes, 5, 120),
       backgroundEnabled:
           _readBool(json['backgroundEnabled'], defaults.backgroundEnabled),
       paragraphFollowEnabled: _readBool(
         json['paragraphFollowEnabled'],
         defaults.paragraphFollowEnabled,
       ),
+      onlineUrl: _readString(json['onlineUrl']),
+      onlineToken: _readString(json['onlineToken']),
+      onlineVoice: _readString(json['onlineVoice']),
+      onlineFormat: _readFormat(json['onlineFormat']),
     );
   }
 
-  static double _readDouble(Object? value, double fallback, double min,
-      double max) {
+  static ReadAloudEngine _readEngine(Object? value) {
+    if (value is String) {
+      for (final engine in ReadAloudEngine.values) {
+        if (engine.name == value) return engine;
+      }
+    }
+    return ReadAloudEngine.system;
+  }
+
+  static OnlineTtsFormat _readFormat(Object? value) {
+    if (value is String) {
+      for (final format in OnlineTtsFormat.values) {
+        if (format.name == value) return format;
+      }
+    }
+    return OnlineTtsFormat.text;
+  }
+
+  static String? _readString(Object? value) {
+    if (value is! String) return null;
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static double _readDouble(
+      Object? value, double fallback, double min, double max) {
     if (value is! num) return fallback;
     final parsed = value.toDouble();
     if (parsed.isNaN) return fallback;
@@ -142,6 +224,7 @@ class ReadAloudSettings {
   @override
   bool operator ==(Object other) {
     return other is ReadAloudSettings &&
+        other.engine == engine &&
         other.voiceName == voiceName &&
         other.voiceLocale == voiceLocale &&
         other.language == language &&
@@ -151,11 +234,16 @@ class ReadAloudSettings {
         other.timerEnabled == timerEnabled &&
         other.timerMinutes == timerMinutes &&
         other.backgroundEnabled == backgroundEnabled &&
-        other.paragraphFollowEnabled == paragraphFollowEnabled;
+        other.paragraphFollowEnabled == paragraphFollowEnabled &&
+        other.onlineUrl == onlineUrl &&
+        other.onlineToken == onlineToken &&
+        other.onlineVoice == onlineVoice &&
+        other.onlineFormat == onlineFormat;
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
+        engine,
         voiceName,
         voiceLocale,
         language,
@@ -166,5 +254,9 @@ class ReadAloudSettings {
         timerMinutes,
         backgroundEnabled,
         paragraphFollowEnabled,
-      );
+        onlineUrl,
+        onlineToken,
+        onlineVoice,
+        onlineFormat,
+      ]);
 }

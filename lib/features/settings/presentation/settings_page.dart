@@ -9,6 +9,7 @@ import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../../reader_engine/application/reader_preferences_provider.dart';
 import '../../settings/read_aloud_settings/application/read_aloud_settings_provider.dart';
+import '../../settings/read_aloud_settings/domain/read_aloud_settings.dart';
 import '../../settings/typography_settings/application/reader_font_providers.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -20,7 +21,9 @@ class SettingsPage extends ConsumerWidget {
     final paletteName = readerPreferences?.palette.name ?? '羊皮纸';
     final selectedFont = ref.watch(selectedReaderFontProvider).valueOrNull;
     final readAloud = ref.watch(readAloudSettingsProvider).valueOrNull;
-    final readAloudVoice = readAloud?.voiceName == null ? '系统语音' : '自定义音色';
+    final readAloudVoice = readAloud?.engine == ReadAloudEngine.online
+        ? '在线引擎'
+        : (readAloud?.voiceName == null ? '系统语音' : '自定义音色');
     final readAloudValue =
         '$readAloudVoice · ${(readAloud?.speechRate ?? 1.0).toStringAsFixed(1)}x';
 

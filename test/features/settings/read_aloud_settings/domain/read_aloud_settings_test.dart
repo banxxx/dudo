@@ -41,7 +41,8 @@ void main() {
 
   test('ttsRate maps the UI multiplier onto the engine range', () {
     expect(ReadAloudSettings.defaults().copyWith(speechRate: 2.0).ttsRate, 1.0);
-    expect(ReadAloudSettings.defaults().copyWith(speechRate: 0.5).ttsRate, 0.25);
+    expect(
+        ReadAloudSettings.defaults().copyWith(speechRate: 0.5).ttsRate, 0.25);
   });
 
   test('out of range values are clamped instead of rejected', () {
@@ -76,5 +77,45 @@ void main() {
     final cleared = withVoice.copyWith(clearVoiceName: true);
     expect(cleared.voiceName, isNull);
     expect(cleared.voiceLocale, isNull);
+  });
+
+  test('online engine settings survive a JSON round trip', () {
+    final settings = ReadAloudSettings.defaults().copyWith(
+      engine: ReadAloudEngine.online,
+      onlineUrl: 'https://tts.example.com/speak',
+      onlineToken: 'secret',
+      onlineVoice: 'zh-CN-XiaoxiaoNeural',
+      onlineFormat: OnlineTtsFormat.json,
+    );
+
+    final decoded = ReadAloudSettings.fromJson(
+      jsonDecode(jsonEncode(settings.toJson())),
+    );
+
+    expect(decoded, settings);
+    expect(decoded.hasOnlineEndpoint, isTrue);
+  });
+
+  test('unknown engine and format fall back to the defaults', () {
+    final settings = ReadAloudSettings.fromJson({
+      'engine': 'robot',
+      'onlineFormat': 'xml',
+    });
+
+    expect(settings.engine, ReadAloudEngine.system);
+    expect(settings.onlineFormat, OnlineTtsFormat.text);
+  });
+
+  test('empty online fields decode as null', () {
+    final settings = ReadAloudSettings.fromJson({
+      'onlineUrl': '   ',
+      'onlineToken': '',
+      'onlineVoice': null,
+    });
+
+    expect(settings.onlineUrl, isNull);
+    expect(settings.onlineToken, isNull);
+    expect(settings.onlineVoice, isNull);
+    expect(settings.hasOnlineEndpoint, isFalse);
   });
 }

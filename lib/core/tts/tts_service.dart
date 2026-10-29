@@ -60,7 +60,8 @@ class TtsService {
     } catch (error, stackTrace) {
       // The stored voice may no longer be installed (ROM update, engine
       // switch); keeping the default voice is better than failing playback.
-      debugPrint('[tts] failed to select voice $voiceName: $error\n$stackTrace');
+      debugPrint(
+          '[tts] failed to select voice $voiceName: $error\n$stackTrace');
     }
   }
 
@@ -81,7 +82,9 @@ class TtsService {
       if (a.isChinese != b.isChinese) return a.isChinese ? -1 : 1;
       return a.locale.compareTo(b.locale);
     });
-    _voices = parsed;
+    // An empty answer usually means the platform engine is not connected yet;
+    // caching it would hide every voice for the rest of the session.
+    if (parsed.isNotEmpty) _voices = parsed;
     return parsed;
   }
 
@@ -111,10 +114,6 @@ class TtsService {
   Future<void> stop() async => _handler?.stop();
 
   Future<void> restartCurrent() async => _handler?.restartCurrent();
-
-  Future<void> speakOnce(String text) async {
-    await _tts.speak(text);
-  }
 }
 
 /// Background-capable [BaseAudioHandler] that drives [FlutterTts] segment by
@@ -124,6 +123,7 @@ class TtsAudioHandler extends BaseAudioHandler with SeekHandler {
     _tts.setCompletionHandler(_onSegmentDone);
     _tts.setCancelHandler(_onCancelled);
     _tts.setErrorHandler(_onSpeechError);
+    _tts.setProgressHandler(_onSpeechProgress);
   }
 
   final FlutterTts _tts;
@@ -133,6 +133,9 @@ class TtsAudioHandler extends BaseAudioHandler with SeekHandler {
 
   ValueChanged<int>? onSegmentStarted;
   VoidCallback? onCompleted;
+
+  /// 0..1 progress inside the segment currently being spoken.
+  ValueChanged<double>? onProgress;
 
   int get cursor => _cursor;
 
@@ -214,6 +217,18 @@ class TtsAudioHandler extends BaseAudioHandler with SeekHandler {
       ),
     );
     await _tts.speak(_queue[_cursor]);
+  }
+
+  /// Word level offsets from the platform engine; the first callback marks the
+  /// moment sound actually starts, so the UI can leave its loading state.
+  void _onSpeechProgress(
+    String text,
+    int startOffset,
+    int endOffset,
+    String word,
+  ) {
+    if (!_active || text.isEmpty) return;
+    onProgress?.call((endOffset / text.length).clamp(0.0, 1.0));
   }
 
   void _onSegmentDone() {
