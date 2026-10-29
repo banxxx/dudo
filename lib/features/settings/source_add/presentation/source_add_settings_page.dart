@@ -246,20 +246,20 @@ class _SourceAddSettingsPageState extends ConsumerState<SourceAddSettingsPage> {
       _sourceUrlController.clear();
       ref.invalidate(sourcesProvider);
       ref.read(appMessageServiceProvider).success(
-            _formatRuleImportSummary(result),
-            title: '书源导入成功',
-            dedupeKey: _sourceUrlImportMessageKey,
-            visualStyle: AppMessageVisualStyle.paper,
-            actionLabel: '查看',
-            onAction: () {
-              _messageService.dismiss(_sourceUrlImportMessageKey);
-              if (context.canPop()) {
-                context.pop(true);
-                return;
-              }
-              _router.go(AppRoutes.sourceSettings);
-            },
-          );
+        _formatRuleImportSummary(result),
+        title: '书源导入成功',
+        dedupeKey: _sourceUrlImportMessageKey,
+        visualStyle: AppMessageVisualStyle.paper,
+        actionLabel: '查看',
+        onAction: () {
+          _messageService.dismiss(_sourceUrlImportMessageKey);
+          if (context.canPop()) {
+            context.pop(true);
+            return;
+          }
+          _router.go(AppRoutes.sourceSettings);
+        },
+      );
     } on SourceImportException catch (error) {
       if (!mounted) return;
       ref.read(appMessageServiceProvider).error(

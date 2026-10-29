@@ -278,4 +278,3 @@ class _AccentChip extends StatelessWidget {
     );
   }
 }
-

@@ -14,11 +14,22 @@ final selectedReaderFontFamilyProvider = FutureProvider<String>((ref) async {
   return repository.readSelectedFontFamily();
 });
 
+/// The selected font with its display name, for settings summaries.
+final selectedReaderFontProvider = FutureProvider<ReaderFont?>((ref) async {
+  final repository = ref.watch(readerFontRepositoryProvider);
+  await repository.loadImportedFonts();
+  final library = await repository.loadLibrary();
+  return library.selectedFont;
+});
+
 final readerFontLibraryControllerProvider = StateNotifierProvider<
     ReaderFontLibraryController, AsyncValue<ReaderFontLibrary>>((ref) {
   return ReaderFontLibraryController(
     repository: ref.watch(readerFontRepositoryProvider),
-    onSelectedChanged: () => ref.invalidate(selectedReaderFontFamilyProvider),
+    onSelectedChanged: () {
+      ref.invalidate(selectedReaderFontFamilyProvider);
+      ref.invalidate(selectedReaderFontProvider);
+    },
   );
 });
 

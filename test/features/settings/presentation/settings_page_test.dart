@@ -1,4 +1,10 @@
+import 'package:dudo/features/reader_engine/application/reader_preferences_provider.dart';
+import 'package:dudo/features/reader_engine/domain/reader_preferences.dart';
 import 'package:dudo/features/settings/presentation/settings_page.dart';
+import 'package:dudo/features/settings/read_aloud_settings/application/read_aloud_settings_provider.dart';
+import 'package:dudo/features/settings/read_aloud_settings/domain/read_aloud_settings.dart';
+import 'package:dudo/features/settings/typography_settings/application/reader_font_providers.dart';
+import 'package:dudo/features/settings/typography_settings/domain/reader_font.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,12 +13,26 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('renders the Pencil F2 settings design', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(
+      ProviderScope(
+        overrides: [
+          readerPreferencesProvider.overrideWith(
+            (_) => Stream.value(ReaderPreferences.defaults()),
+          ),
+          readAloudSettingsProvider.overrideWith(
+            (_) => Stream.value(
+              ReadAloudSettings.defaults().copyWith(speechRate: 1.2),
+            ),
+          ),
+          selectedReaderFontProvider.overrideWith(
+            (_) async => ReaderBuiltinFonts.serifSc,
+          ),
+        ],
+        child: const MaterialApp(
           home: SettingsPage(),
         ),
       ),
     );
+    await tester.pump();
 
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(scaffold.backgroundColor, DudoColors.paperBackground);
@@ -23,13 +43,13 @@ void main() {
     expect(find.text('阅读体验'), findsOneWidget);
     expect(find.text('主题与外观'), findsOneWidget);
     expect(find.text('纸感、深色、跟随系统'), findsOneWidget);
-    expect(find.text('纸色'), findsOneWidget);
+    expect(find.text('羊皮纸'), findsOneWidget);
     expect(find.text('字体管理'), findsOneWidget);
     expect(find.text('导入、选择和管理阅读字体'), findsOneWidget);
-    expect(find.text('霞鹜文楷'), findsOneWidget);
+    expect(find.text('Noto Serif SC'), findsOneWidget);
     expect(find.text('阅读朗读'), findsOneWidget);
     expect(find.text('声音、语速、定时与后台播放'), findsOneWidget);
-    expect(find.text('女声 · 1.0x'), findsOneWidget);
+    expect(find.text('系统语音 · 1.2x'), findsOneWidget);
     expect(find.text('内容与书源'), findsOneWidget);
     expect(find.text('书架更新'), findsOneWidget);
     expect(find.text('更新频率、章节提醒和自动拉取'), findsOneWidget);
@@ -101,7 +121,7 @@ void main() {
     expect(rowDescription.style?.color, DudoColors.secondary);
     expect(rowDescription.style?.fontSize, 11);
 
-    final rowValue = tester.widget<Text>(find.text('纸色'));
+    final rowValue = tester.widget<Text>(find.text('羊皮纸'));
     expect(rowValue.style?.color, DudoColors.secondary);
     expect(rowValue.style?.fontSize, 12);
 

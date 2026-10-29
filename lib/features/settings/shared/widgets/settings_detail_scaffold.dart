@@ -120,15 +120,24 @@ class SettingsMeterControl extends StatelessWidget {
     required this.value,
     required this.color,
     required this.fraction,
+    this.minValue = 0,
+    this.maxValue = 1,
+    this.onChanged,
   });
 
   final String label;
   final String value;
   final Color color;
   final double fraction;
+  final double minValue;
+  final double maxValue;
+  final ValueChanged<double>? onChanged;
 
   @override
   Widget build(BuildContext context) {
+    final onChanged = this.onChanged;
+    final currentValue =
+        minValue + (maxValue - minValue) * fraction.clamp(0.0, 1.0);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -159,19 +168,36 @@ class SettingsMeterControl extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Container(
-              height: 8,
-              color: DudoColors.outlineVariant,
-              alignment: Alignment.centerLeft,
-              child: FractionallySizedBox(
-                widthFactor: fraction,
-                child: Container(color: color),
+          if (onChanged == null) ...[
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Container(
+                height: 8,
+                color: DudoColors.outlineVariant,
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: fraction,
+                  child: Container(color: color),
+                ),
               ),
             ),
-          ),
+          ] else
+            SliderTheme(
+              data: SliderThemeData(
+                activeTrackColor: color,
+                inactiveTrackColor: DudoColors.outlineVariant,
+                thumbColor: color,
+                trackHeight: 4,
+                overlayShape: SliderComponentShape.noOverlay,
+              ),
+              child: Slider(
+                value: currentValue,
+                min: minValue,
+                max: maxValue,
+                onChanged: onChanged,
+              ),
+            ),
         ],
       ),
     );
@@ -254,13 +280,14 @@ class SettingsTrailingValue extends StatelessWidget {
 }
 
 class SettingsDudoSwitch extends StatelessWidget {
-  const SettingsDudoSwitch({super.key, required this.on});
+  const SettingsDudoSwitch({super.key, required this.on, this.onTap});
 
   final bool on;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final indicator = Container(
       width: 52,
       height: 30,
       padding: const EdgeInsets.all(4),
@@ -287,6 +314,14 @@ class SettingsDudoSwitch extends StatelessWidget {
           ],
         ),
       ),
+    );
+
+    final onTap = this.onTap;
+    if (onTap == null) return indicator;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: indicator,
     );
   }
 }

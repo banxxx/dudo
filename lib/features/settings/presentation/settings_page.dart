@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/router/app_router.dart';
 import '../../../shared/theme/app_fonts.dart';
@@ -6,30 +7,41 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
+import '../../reader_engine/application/reader_preferences_provider.dart';
+import '../../settings/read_aloud_settings/application/read_aloud_settings_provider.dart';
+import '../../settings/typography_settings/application/reader_font_providers.dart';
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final readerPreferences = ref.watch(readerPreferencesProvider).valueOrNull;
+    final paletteName = readerPreferences?.palette.name ?? '羊皮纸';
+    final selectedFont = ref.watch(selectedReaderFontProvider).valueOrNull;
+    final readAloud = ref.watch(readAloudSettingsProvider).valueOrNull;
+    final readAloudVoice = readAloud?.voiceName == null ? '系统语音' : '自定义音色';
+    final readAloudValue =
+        '$readAloudVoice · ${(readAloud?.speechRate ?? 1.0).toStringAsFixed(1)}x';
+
+    return Scaffold(
       backgroundColor: DudoColors.paperBackground,
       body: DudoPageFrame(
-        padding: EdgeInsets.fromLTRB(20, 6, 20, 18),
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
         constrainWidth: false,
         eager: true,
         children: [
-          _TopActions(),
-          SizedBox(height: 14),
-          _SettingsHero(),
-          SizedBox(height: 14),
+          const _TopActions(),
+          const SizedBox(height: 14),
+          const _SettingsHero(),
+          const SizedBox(height: 14),
           _SettingsSection(
             title: '阅读体验',
             rows: [
               _SettingRowData(
                 title: '主题与外观',
                 description: '纸感、深色、跟随系统',
-                value: '纸色',
+                value: paletteName,
                 icon: LucideIcons.palette,
                 iconFill: DudoColors.primaryContainer,
                 route: AppRoutes.themeSettings,
@@ -37,7 +49,7 @@ class SettingsPage extends StatelessWidget {
               _SettingRowData(
                 title: '字体管理',
                 description: '导入、选择和管理阅读字体',
-                value: '霞鹜文楷',
+                value: selectedFont?.displayName ?? '默认字体',
                 icon: LucideIcons.type,
                 iconFill: DudoColors.surfaceLow,
                 route: AppRoutes.typographySettings,
@@ -45,15 +57,15 @@ class SettingsPage extends StatelessWidget {
               _SettingRowData(
                 title: '阅读朗读',
                 description: '声音、语速、定时与后台播放',
-                value: '女声 · 1.0x',
+                value: readAloudValue,
                 icon: LucideIcons.volume2,
                 iconFill: DudoColors.primaryContainer,
                 route: AppRoutes.readAloudSettings,
               ),
             ],
           ),
-          SizedBox(height: 14),
-          _SettingsSection(
+          const SizedBox(height: 14),
+          const _SettingsSection(
             title: '内容与书源',
             rows: [
               _SettingRowData(
@@ -65,8 +77,8 @@ class SettingsPage extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: 14),
-          _SettingsSection(
+          const SizedBox(height: 14),
+          const _SettingsSection(
             title: '通用',
             rows: [
               _SettingRowData(

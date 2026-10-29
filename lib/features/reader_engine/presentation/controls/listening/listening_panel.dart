@@ -8,6 +8,10 @@ class _ListeningPanel extends StatelessWidget {
     required this.remainingText,
     required this.isListening,
     required this.onListeningChanged,
+    required this.speechRate,
+    required this.timerActive,
+    required this.onSpeechRateChanged,
+    required this.onTimerTapped,
   });
 
   final _ReaderOverlayMetrics metrics;
@@ -16,6 +20,10 @@ class _ListeningPanel extends StatelessWidget {
   final String remainingText;
   final bool isListening;
   final ValueChanged<bool> onListeningChanged;
+  final double speechRate;
+  final bool timerActive;
+  final ValueChanged<double>? onSpeechRateChanged;
+  final VoidCallback? onTimerTapped;
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +58,7 @@ class _ListeningPanel extends StatelessWidget {
                 ],
               ),
               GestureDetector(
+                key: const ValueKey('reader-listening-toggle'),
                 onTap: () => onListeningChanged(!isListening),
                 behavior: HitTestBehavior.opaque,
                 child: Container(
@@ -107,8 +116,13 @@ class _ListeningPanel extends StatelessWidget {
                     child: _ListeningPill(
                       metrics: metrics,
                       label: const ['0.8x', '1.0x', '1.2x', '定时'][i],
-                      selected: i == 1,
-                      onTap: () {},
+                      selected: i < 3
+                          ? (speechRate - const [0.8, 1.0, 1.2][i]).abs() < 0.01
+                          : timerActive,
+                      onTap: i < 3
+                          ? () => onSpeechRateChanged
+                              ?.call(const [0.8, 1.0, 1.2][i])
+                          : () => onTimerTapped?.call(),
                     ),
                   ),
                 ],

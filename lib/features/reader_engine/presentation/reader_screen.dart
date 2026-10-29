@@ -8,24 +8,32 @@ import 'package:go_router/go_router.dart';
 import '../../../core/utils/logger.dart';
 import '../../reading_stats/application/reading_stats_provider.dart';
 import '../../reading_stats/data/reading_session_recorder.dart';
+import '../../settings/read_aloud_settings/application/read_aloud_player.dart';
+import '../../settings/read_aloud_settings/application/read_aloud_settings_provider.dart';
+import '../../settings/read_aloud_settings/data/read_aloud_settings_repository.dart';
+import '../../settings/read_aloud_settings/domain/read_aloud_settings.dart';
 import '../../settings/typography_settings/application/reader_font_providers.dart';
-import '../domain/reader_theme.dart';
 import '../application/reader_background_providers.dart';
 import '../application/reader_engine_providers.dart';
 import '../application/reader_engine_state.dart';
+import '../application/reader_preferences_provider.dart';
 import '../controller/reader_session_controller.dart';
+import '../controller/reader_tts_controller.dart';
 import '../controller/reader_viewport_controller.dart';
+import '../data/reader_preferences_repository.dart';
 import '../domain/reader_annotation.dart';
 import '../domain/reader_background.dart';
 import '../domain/reader_catalog_item.dart';
 import '../domain/reader_chapter.dart';
 import '../domain/reader_insets.dart';
 import '../domain/reader_location.dart';
-import '../domain/reader_range.dart';
 import '../domain/reader_overlay_mode.dart';
+import '../domain/reader_preferences.dart';
+import '../domain/reader_range.dart';
 import '../domain/reader_reading_time.dart';
 import '../domain/reader_settings.dart';
 import '../domain/reader_session_tracker.dart';
+import '../domain/reader_theme.dart';
 import '../domain/reader_turn_mode.dart';
 import '../domain/reader_viewport_state.dart';
 import '../layout/reader_layout_cache.dart';
@@ -91,6 +99,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   bool _gestureNavigationBlocked = true;
   bool _allowRoutePop = false;
   bool _volumePageTurnEnabled = true;
+  ReaderTurnMode _turnMode = ReaderTurnMode.slide;
   bool _isListening = false;
   int _volumePageTurnRequestId = 0;
   int _volumePageTurnDirection = 0;
@@ -99,17 +108,36 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   DateTime? _readingSessionStartedAt;
   ReadingSessionRecorder? _readingSessionRecorder;
   final ReadingSessionTracker _sessionTracker = ReadingSessionTracker();
+  ReaderPreferences? _preferences;
+  ReaderPreferencesRepository? _preferencesRepository;
+  Timer? _preferencesSaveTimer;
+  bool _preferencesDirty = false;
+  ReadAloudSettings _readAloudSettings = ReadAloudSettings.defaults();
+  ReadAloudSettingsRepository? _readAloudRepository;
+  ReadAloudPlayer? _readAloudPlayer;
+  List<ReaderTtsSegment> _ttsSegments = const [];
+  Timer? _readAloudTimer;
+  bool _readAloudTimerActive = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _syncSystemUiMode();
+    unawaited(_loadPreferences());
+    unawaited(_loadReadAloudSettings());
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncSystemUiMode());
   }
 
   @override
   void dispose() {
+    _readAloudTimer?.cancel();
+    final readAloudPlayer = _readAloudPlayer;
+    if (readAloudPlayer != null) {
+      readAloudPlayer.bind();
+      unawaited(readAloudPlayer.stop());
+    }
+    _flushPreferences();
     unawaited(_flushReadingSession());
     WidgetsBinding.instance.removeObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -123,6 +151,310 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       );
     });
     super.dispose();
+  }
+
+  Future<void> _loadPreferences() async {
+    ReaderPreferences preferences;
+    try {
+      final repository = ref.read(readerPreferencesRepositoryProvider);
+      _preferencesRepository = repository;
+      preferences = await repository.load();
+    } catch (error, stackTrace) {
+      log.w(
+        '[reader] failed to load preferences',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      preferences = ReaderPreferences.defaults();
+    }
+    if (!mounted) return;
+    setState(() => _applyPreferences(preferences));
+    _syncSystemUiMode();
+  }
+
+  void _applyPreferences(ReaderPreferences preferences) {
+    _preferences = preferences;
+    _palette = preferences.palette;
+    _fontSize = preferences.fontSize;
+    _lineHeight = preferences.lineHeight;
+    _paragraphSpacing = preferences.paragraphSpacing;
+    _pageHorizontalMargin = preferences.pageHorizontalMargin;
+    _firstLineIndentEnabled = preferences.firstLineIndentEnabled;
+    _textEnhancementEnabled = preferences.textEnhancementEnabled;
+    _turnMode = preferences.turnMode;
+    _followSystemBrightness = preferences.followSystemBrightness;
+    _brightness = preferences.followSystemBrightness
+        ? _brightnessForSystemMode()
+        : preferences.brightness;
+    _eyeComfortEnhanced = preferences.eyeComfortEnhanced;
+    _timeBatteryHidden = preferences.timeBatteryHidden;
+    _chapterProgressHidden = preferences.chapterProgressHidden;
+    _systemStatusBarHidden = preferences.systemStatusBarHidden;
+    _pageEdgeHidden = preferences.pageEdgeHidden;
+    _gestureNavigationBlocked = preferences.gestureNavigationBlocked;
+    _volumePageTurnEnabled = preferences.volumePageTurnEnabled;
+  }
+
+  /// Snapshots the current settings and writes them after a short debounce so
+  /// dragging a slider only costs one write.
+  void _schedulePreferencesSave() {
+    if (_preferencesRepository == null) return;
+
+    _preferences = ReaderPreferences(
+      paletteId: _palette.id,
+      fontSize: _fontSize,
+      lineHeight: _lineHeight,
+      paragraphSpacing: _paragraphSpacing,
+      pageHorizontalMargin: _pageHorizontalMargin,
+      firstLineIndentEnabled: _firstLineIndentEnabled,
+      textEnhancementEnabled: _textEnhancementEnabled,
+      turnMode: _turnMode,
+      brightness: _brightness,
+      followSystemBrightness: _followSystemBrightness,
+      eyeComfortEnhanced: _eyeComfortEnhanced,
+      timeBatteryHidden: _timeBatteryHidden,
+      chapterProgressHidden: _chapterProgressHidden,
+      systemStatusBarHidden: _systemStatusBarHidden,
+      pageEdgeHidden: _pageEdgeHidden,
+      gestureNavigationBlocked: _gestureNavigationBlocked,
+      volumePageTurnEnabled: _volumePageTurnEnabled,
+    );
+    _preferencesDirty = true;
+    _preferencesSaveTimer?.cancel();
+    _preferencesSaveTimer =
+        Timer(const Duration(milliseconds: 400), _flushPreferences);
+  }
+
+  void _flushPreferences() {
+    _preferencesSaveTimer?.cancel();
+    _preferencesSaveTimer = null;
+
+    final preferences = _preferences;
+    final repository = _preferencesRepository;
+    if (!_preferencesDirty || preferences == null || repository == null) {
+      return;
+    }
+    _preferencesDirty = false;
+    unawaited(_savePreferences(repository, preferences));
+  }
+
+  Future<void> _savePreferences(
+    ReaderPreferencesRepository repository,
+    ReaderPreferences preferences,
+  ) async {
+    try {
+      await repository.save(preferences);
+    } catch (error, stackTrace) {
+      log.w(
+        '[reader] failed to save preferences',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _loadReadAloudSettings() async {
+    try {
+      final repository = ref.read(readAloudSettingsRepositoryProvider);
+      _readAloudRepository = repository;
+      final settings = await repository.load();
+      if (!mounted) return;
+      setState(() => _readAloudSettings = settings);
+    } catch (error, stackTrace) {
+      log.w(
+        '[reader] failed to load read-aloud settings',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _setListening(bool value) async {
+    if (value) {
+      await _startListening();
+    } else {
+      await _stopListening();
+    }
+  }
+
+  Future<void> _startListening() async {
+    final controller = _controller;
+    final state = controller?.state;
+    final viewport = state?.viewport;
+    final location = state?.location;
+    if (controller == null || viewport == null || location == null) {
+      if (mounted) setState(() => _isListening = false);
+      return;
+    }
+    final chapter = _chapterItemForLocation(viewport, location).chapter;
+    await _startListeningForChapter(chapter, controller);
+  }
+
+  Future<void> _startListeningForChapter(
+    ReaderChapter chapter,
+    ReaderSessionController controller,
+  ) async {
+    final segments = const ReaderTtsController().buildChapterSegments(chapter);
+    if (segments.isEmpty) {
+      if (mounted) setState(() => _isListening = false);
+      return;
+    }
+
+    ReadAloudSettings settings;
+    try {
+      final repository = _readAloudRepository ??
+          ref.read<ReadAloudSettingsRepository>(
+            readAloudSettingsRepositoryProvider,
+          );
+      _readAloudRepository = repository;
+      settings = await repository.load();
+    } catch (error, stackTrace) {
+      log.w(
+        '[reader] failed to load read-aloud settings',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      settings = _readAloudSettings;
+    }
+    if (!mounted) return;
+
+    final player = ref.read(readAloudPlayerProvider);
+    _readAloudSettings = settings;
+    _readAloudPlayer = player;
+    _ttsSegments = segments;
+    _scheduleReadAloudTimer(settings);
+    player.bind(
+      onSegmentStarted: _onTtsSegmentStarted,
+      onCompleted: _onTtsChapterCompleted,
+    );
+    setState(() => _isListening = true);
+    await player.apply(settings);
+    await player.play(segments.map((segment) => segment.text).toList());
+  }
+
+  Future<void> _stopListening() async {
+    _readAloudTimer?.cancel();
+    _readAloudTimer = null;
+    _readAloudTimerActive = false;
+    final player = _readAloudPlayer;
+    player?.bind();
+    await player?.stop();
+    _ttsSegments = const [];
+    if (mounted && _isListening) {
+      setState(() => _isListening = false);
+    }
+  }
+
+  void _scheduleReadAloudTimer(ReadAloudSettings settings) {
+    _readAloudTimer?.cancel();
+    _readAloudTimer = null;
+    _readAloudTimerActive = false;
+    if (!settings.timerEnabled) return;
+    _readAloudTimerActive = true;
+    _readAloudTimer = Timer(Duration(minutes: settings.timerMinutes), () {
+      if (!mounted) return;
+      unawaited(_setListening(false));
+    });
+  }
+
+  void _toggleReadAloudTimer() {
+    if (_readAloudTimerActive) {
+      _readAloudTimer?.cancel();
+      _readAloudTimer = null;
+      setState(() => _readAloudTimerActive = false);
+      return;
+    }
+    setState(() => _readAloudTimerActive = true);
+    _readAloudTimer = Timer(
+      Duration(minutes: _readAloudSettings.timerMinutes),
+      () {
+        if (!mounted) return;
+        unawaited(_setListening(false));
+      },
+    );
+  }
+
+  Future<void> _onSpeechRateChanged(double rate) async {
+    final next = _readAloudSettings.copyWith(speechRate: rate);
+    setState(() => _readAloudSettings = next);
+    final repository = _readAloudRepository;
+    if (repository != null) unawaited(repository.save(next));
+
+    final player = _readAloudPlayer;
+    if (player == null || !_isListening) return;
+    await player.apply(next);
+    await player.restartCurrent();
+  }
+
+  /// Keeps the visible page on the paragraph being spoken when the user turned
+  /// on 段落跟读.
+  void _onTtsSegmentStarted(int index) {
+    if (!mounted || !_isListening) return;
+    final controller = _controller;
+    final viewport = controller?.state.viewport;
+    final location = controller?.state.location;
+    if (controller == null || viewport == null || location == null) return;
+    if (!_readAloudSettings.paragraphFollowEnabled) return;
+    if (index < 0 || index >= _ttsSegments.length) return;
+
+    final start = _ttsSegments[index].range.start;
+    if (start.chapterIndex != location.chapterIndex) return;
+    if (_currentPageContains(viewport, location, start)) return;
+    unawaited(controller.followReadAloudLocation(start));
+  }
+
+  bool _currentPageContains(
+    ReaderViewportState viewport,
+    ReaderLocation current,
+    ReaderLocation target,
+  ) {
+    final pages = viewport.currentLayout.pages;
+    if (pages.isEmpty) return false;
+    final page = pages.firstWhere(
+      (candidate) {
+        final isLastPage = candidate.pageIndex == pages.last.pageIndex;
+        final startsInPage = current.offset >= candidate.start.offset;
+        final endsInPage = isLastPage
+            ? current.offset <= candidate.end.offset
+            : current.offset < candidate.end.offset;
+        return startsInPage && endsInPage;
+      },
+      orElse: () => pages.last,
+    );
+    final isLastPage = page.pageIndex == pages.last.pageIndex;
+    return target.offset >= page.start.offset &&
+        (isLastPage
+            ? target.offset <= page.end.offset
+            : target.offset < page.end.offset);
+  }
+
+  Future<void> _onTtsChapterCompleted() async {
+    if (!mounted || !_isListening) return;
+    final controller = _controller;
+    final document = controller?.state.document;
+    final location = controller?.state.location;
+    if (controller == null || document == null || location == null) {
+      await _stopListening();
+      return;
+    }
+    if (location.chapterIndex + 1 >= document.chapterCount) {
+      await _stopListening();
+      return;
+    }
+
+    await controller.goToNextChapter();
+    if (!mounted || !_isListening) return;
+
+    final state = controller.state;
+    final viewport = state.viewport;
+    final nextLocation = state.location;
+    if (viewport == null || nextLocation == null) {
+      await _stopListening();
+      return;
+    }
+    setState(() => _overlayMode = ReaderOverlayMode.listening);
+    final chapter = _chapterItemForLocation(viewport, nextLocation).chapter;
+    await _startListeningForChapter(chapter, controller);
   }
 
   @override
@@ -139,6 +471,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         _startReadingSession();
       }
       return;
+    }
+    if (state == AppLifecycleState.paused &&
+        _isListening &&
+        !_readAloudSettings.backgroundEnabled) {
+      unawaited(_setListening(false));
     }
     unawaited(_flushReadingSession());
   }
@@ -186,6 +523,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Wait for the persisted appearance before the controller is created so
+    // the first layout already uses the saved typography.
+    if (_preferences == null) {
+      return Scaffold(
+        key: const ValueKey('reader-engine-screen'),
+        backgroundColor: _palette.background,
+        body: const SizedBox.expand(),
+      );
+    }
+
     final foreground = _palette.foreground;
     final selectedFontFamily =
         ref.watch(selectedReaderFontFamilyProvider).valueOrNull ??
@@ -417,6 +764,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             : () => _nextChapter(controller),
         onPaletteChanged: (palette) {
           setState(() => _palette = palette);
+          _schedulePreferencesSave();
         },
         onBackgroundChanged: (background) {
           unawaited(
@@ -454,6 +802,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             _followSystemBrightness = false;
             _brightness = value;
           });
+          _schedulePreferencesSave();
         },
         onFollowSystemBrightnessChanged: (value) {
           setState(() {
@@ -462,26 +811,34 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
               _brightness = _brightnessForSystemMode();
             }
           });
+          _schedulePreferencesSave();
         },
         onEyeComfortEnhancedChanged: (value) {
           setState(() => _eyeComfortEnhanced = value);
+          _schedulePreferencesSave();
         },
         onTimeBatteryHiddenChanged: (value) {
           setState(() => _timeBatteryHidden = value);
+          _schedulePreferencesSave();
         },
         onChapterProgressHiddenChanged: (value) {
           setState(() => _chapterProgressHidden = value);
+          _schedulePreferencesSave();
         },
         onSystemStatusBarHiddenChanged: (value) {
           _updateSystemStatusBarHidden(value);
         },
         onPageEdgeHiddenChanged: (value) {
           setState(() => _pageEdgeHidden = value);
+          _schedulePreferencesSave();
         },
         onGestureNavigationBlockedChanged: (value) {
           setState(() => _gestureNavigationBlocked = value);
+          _schedulePreferencesSave();
         },
         onPageTurnModeChanged: (mode) async {
+          setState(() => _turnMode = mode);
+          _schedulePreferencesSave();
           await controller
               .updateSettings(state.settings.copyWith(turnMode: mode));
           if (mounted) {
@@ -490,6 +847,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         },
         onVolumePageTurnChanged: (value) {
           setState(() => _volumePageTurnEnabled = value);
+          _schedulePreferencesSave();
         },
         onAddBookmark: () => unawaited(
           _addBookmark(
@@ -499,8 +857,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           ),
         ),
         onListeningChanged: (value) {
-          setState(() => _isListening = value);
+          unawaited(_setListening(value));
         },
+        speechRate: _readAloudSettings.speechRate,
+        timerActive: _readAloudTimerActive,
+        onSpeechRateChanged: (rate) => unawaited(_onSpeechRateChanged(rate)),
+        onTimerTapped: _toggleReadAloudTimer,
       ),
     ];
   }
@@ -558,6 +920,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   ) async {
     final fontSize = ReaderSettings.clampFontSize(value);
     setState(() => _fontSize = fontSize);
+    _schedulePreferencesSave();
     await controller.updateSettings(
       state.settings.copyWith(
         fontSize: _scaledTextSize(fontSize),
@@ -574,6 +937,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   ) async {
     final paragraphSpacing = ReaderSettings.clampParagraphSpacing(value);
     setState(() => _paragraphSpacing = paragraphSpacing);
+    _schedulePreferencesSave();
     await controller.updateSettings(
       state.settings.copyWith(
         paragraphSpacing: _scaledParagraphSpacing(paragraphSpacing),
@@ -593,6 +957,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       _lineHeight = lineHeight;
       _paragraphSpacing = clampedParagraphSpacing;
     });
+    _schedulePreferencesSave();
     await controller.updateSettings(
       controller.state.settings.copyWith(
         lineHeight: lineHeight,
@@ -608,6 +973,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     double value,
   ) async {
     setState(() => _lineHeight = value);
+    _schedulePreferencesSave();
     await controller.updateSettings(state.settings.copyWith(lineHeight: value));
     if (mounted) setState(() {});
   }
@@ -619,6 +985,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final pageHorizontalMargin =
         ReaderSettings.clampPageHorizontalMargin(value);
     setState(() => _pageHorizontalMargin = pageHorizontalMargin);
+    _schedulePreferencesSave();
     await controller.updateSettings(
       controller.state.settings.copyWith(
         pagePadding: _pagePaddingWithHorizontalMargin(pageHorizontalMargin),
@@ -632,6 +999,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     bool value,
   ) async {
     setState(() => _firstLineIndentEnabled = value);
+    _schedulePreferencesSave();
     await controller.updateSettings(
       controller.state.settings.copyWith(firstLineIndentEnabled: value),
     );
@@ -643,6 +1011,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     bool value,
   ) async {
     setState(() => _textEnhancementEnabled = value);
+    _schedulePreferencesSave();
     await controller.updateSettings(
       controller.state.settings.copyWith(textEnhancementEnabled: value),
     );
@@ -724,10 +1093,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   ) {
     final metrics = ReaderPageMetrics.fromSize(size);
     return ReaderSettings.defaults().copyWith(
+      paletteId: _palette.id,
       fontFamily: fontFamily,
       fontSize: metrics.s(_fontSize),
       lineHeight: _lineHeight,
-      turnMode: ReaderTurnMode.slide,
+      turnMode: _turnMode,
       paragraphSpacing: metrics.s(_paragraphSpacing),
       pagePadding: _pagePaddingWithHorizontalMargin(
         _pageHorizontalMargin,
@@ -865,6 +1235,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (_systemStatusBarHidden == value) return;
     setState(() => _systemStatusBarHidden = value);
     _syncSystemUiMode();
+    _schedulePreferencesSave();
   }
 
   Future<void> _addBookmark({

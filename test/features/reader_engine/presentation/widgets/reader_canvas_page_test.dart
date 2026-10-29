@@ -173,6 +173,7 @@ void main() {
 }
 
 const _palette = ReaderPalette(
+  id: 'test',
   name: 'test',
   background: Color(0xFFF8F4EA),
   foreground: Color(0xFF25251F),

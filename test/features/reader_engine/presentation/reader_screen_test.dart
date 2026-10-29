@@ -1,4 +1,6 @@
 import 'package:dudo/features/reader_engine/application/reader_engine_providers.dart';
+import 'package:dudo/features/reader_engine/application/reader_preferences_provider.dart';
+import 'package:dudo/features/reader_engine/data/reader_preferences_repository.dart';
 import 'package:dudo/features/reader_engine/data/reader_content_parser.dart';
 import 'package:dudo/features/reader_engine/data/reader_document_source.dart';
 import 'package:dudo/features/reader_engine/data/reader_progress_repository.dart';
@@ -7,6 +9,7 @@ import 'package:dudo/features/reader_engine/domain/reader_chapter.dart';
 import 'package:dudo/features/reader_engine/domain/reader_document.dart';
 import 'package:dudo/features/reader_engine/domain/reader_location.dart';
 import 'package:dudo/features/reader_engine/domain/reader_overlay_mode.dart';
+import 'package:dudo/features/reader_engine/domain/reader_preferences.dart';
 import 'package:dudo/features/reader_engine/domain/reader_settings.dart';
 import 'package:dudo/features/reader_engine/domain/reader_source_type.dart';
 import 'package:dudo/features/reader_engine/domain/reader_turn_mode.dart';
@@ -15,7 +18,12 @@ import 'package:dudo/features/reader_engine/presentation/reader_screen.dart';
 import 'package:dudo/features/reader_engine/presentation/widgets/reader_background.dart';
 import 'package:dudo/features/reader_engine/presentation/widgets/reader_canvas_page.dart';
 import 'package:dudo/features/reader_engine/domain/reader_theme.dart';
+import 'package:dudo/features/settings/read_aloud_settings/application/read_aloud_player.dart';
+import 'package:dudo/features/settings/read_aloud_settings/application/read_aloud_settings_provider.dart';
+import 'package:dudo/features/settings/read_aloud_settings/data/read_aloud_settings_repository.dart';
+import 'package:dudo/features/settings/read_aloud_settings/domain/read_aloud_settings.dart';
 import 'package:dudo/features/settings/typography_settings/domain/reader_font.dart';
+import 'package:dudo/core/tts/tts_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,6 +39,13 @@ void main() {
           readerProgressRepositoryProvider.overrideWithValue(
             _MemoryProgressRepository(),
           ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            _MemoryReaderPreferencesRepository(),
+          ),
+          readAloudSettingsRepositoryProvider.overrideWithValue(
+            _MemoryReadAloudRepository(),
+          ),
+          readAloudPlayerProvider.overrideWithValue(_FakeReadAloudPlayer()),
         ],
         child: const MaterialApp(
           home: ReaderScreen(bookId: 'book-1'),
@@ -69,6 +84,13 @@ void main() {
           readerProgressRepositoryProvider.overrideWithValue(
             _MemoryProgressRepository(),
           ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            _MemoryReaderPreferencesRepository(),
+          ),
+          readAloudSettingsRepositoryProvider.overrideWithValue(
+            _MemoryReadAloudRepository(),
+          ),
+          readAloudPlayerProvider.overrideWithValue(_FakeReadAloudPlayer()),
         ],
         child: const MaterialApp(
           home: ReaderScreen(bookId: 'book-1', initialChapterIndex: 1),
@@ -150,6 +172,13 @@ void main() {
           readerProgressRepositoryProvider.overrideWithValue(
             _MemoryProgressRepository(),
           ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            _MemoryReaderPreferencesRepository(),
+          ),
+          readAloudSettingsRepositoryProvider.overrideWithValue(
+            _MemoryReadAloudRepository(),
+          ),
+          readAloudPlayerProvider.overrideWithValue(_FakeReadAloudPlayer()),
         ],
         child: const MaterialApp(
           home: ReaderScreen(bookId: 'book-1'),
@@ -204,6 +233,13 @@ void main() {
           readerProgressRepositoryProvider.overrideWithValue(
             _MemoryProgressRepository(),
           ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            _MemoryReaderPreferencesRepository(),
+          ),
+          readAloudSettingsRepositoryProvider.overrideWithValue(
+            _MemoryReadAloudRepository(),
+          ),
+          readAloudPlayerProvider.overrideWithValue(_FakeReadAloudPlayer()),
         ],
         child: const MaterialApp(
           home: ReaderScreen(bookId: 'book-1'),
@@ -256,6 +292,13 @@ void main() {
           readerProgressRepositoryProvider.overrideWithValue(
             _MemoryProgressRepository(),
           ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            _MemoryReaderPreferencesRepository(),
+          ),
+          readAloudSettingsRepositoryProvider.overrideWithValue(
+            _MemoryReadAloudRepository(),
+          ),
+          readAloudPlayerProvider.overrideWithValue(_FakeReadAloudPlayer()),
         ],
         child: const MaterialApp(
           home: ReaderScreen(bookId: 'book-1'),
@@ -298,6 +341,13 @@ void main() {
           readerProgressRepositoryProvider.overrideWithValue(
             _MemoryProgressRepository(),
           ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            _MemoryReaderPreferencesRepository(),
+          ),
+          readAloudSettingsRepositoryProvider.overrideWithValue(
+            _MemoryReadAloudRepository(),
+          ),
+          readAloudPlayerProvider.overrideWithValue(_FakeReadAloudPlayer()),
         ],
         child: const MaterialApp(
           home: ReaderScreen(bookId: 'book-1'),
@@ -677,6 +727,13 @@ void main() {
           readerProgressRepositoryProvider.overrideWithValue(
             _MemoryProgressRepository(),
           ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            _MemoryReaderPreferencesRepository(),
+          ),
+          readAloudSettingsRepositoryProvider.overrideWithValue(
+            _MemoryReadAloudRepository(),
+          ),
+          readAloudPlayerProvider.overrideWithValue(_FakeReadAloudPlayer()),
         ],
         child: const MaterialApp(
           home: ReaderScreen(bookId: 'book-1'),
@@ -714,6 +771,112 @@ void main() {
     expect(chapterTop.dy, greaterThanOrEqualTo(17));
   });
 
+  testWidgets('ReaderScreen reads the current chapter aloud', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final player = _FakeReadAloudPlayer();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerDocumentSourceProvider.overrideWithValue(
+            _FakeReaderDocumentSource(),
+          ),
+          readerProgressRepositoryProvider.overrideWithValue(
+            _MemoryProgressRepository(),
+          ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            _MemoryReaderPreferencesRepository(),
+          ),
+          readAloudSettingsRepositoryProvider.overrideWithValue(
+            _MemoryReadAloudRepository(),
+          ),
+          readAloudPlayerProvider.overrideWithValue(player),
+        ],
+        child: const MaterialApp(
+          home: ReaderScreen(bookId: 'book-1'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tapAt(const Offset(195, 420));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('朗读'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('reader-listening-panel')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('reader-listening-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(player.spoken, isNotEmpty);
+    expect(player.applied, isNotNull);
+    expect(find.text('朗读中'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('reader-listening-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(player.stopped, isTrue);
+    expect(find.text('朗读中'), findsNothing);
+  });
+
+  testWidgets('ReaderScreen restores saved preferences and persists changes',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final preferencesRepository = _MemoryReaderPreferencesRepository()
+      ..preferences = ReaderPreferences.defaults().copyWith(
+        paletteId: ReaderTheme.night.id,
+        fontSize: 26,
+      );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readerDocumentSourceProvider.overrideWithValue(
+            _FakeReaderDocumentSource(),
+          ),
+          readerProgressRepositoryProvider.overrideWithValue(
+            _MemoryProgressRepository(),
+          ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            preferencesRepository,
+          ),
+        ],
+        child: const MaterialApp(
+          home: ReaderScreen(bookId: 'book-1'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scaffold = tester.widget<Scaffold>(
+      find.byKey(const ValueKey('reader-engine-screen')),
+    );
+    expect(scaffold.backgroundColor, ReaderTheme.night.background);
+
+    await tester.tapAt(const Offset(195, 420));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(229, 786));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('滚动'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 450));
+
+    expect(preferencesRepository.preferences.turnMode, ReaderTurnMode.scroll);
+    expect(preferencesRepository.preferences.paletteId, ReaderTheme.night.id);
+    expect(preferencesRepository.preferences.fontSize, 26);
+  });
+
   testWidgets('ReaderScreen switches to simulated mode through reader controls',
       (tester) async {
     tester.view.devicePixelRatio = 1;
@@ -730,6 +893,13 @@ void main() {
           readerProgressRepositoryProvider.overrideWithValue(
             _MemoryProgressRepository(),
           ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            _MemoryReaderPreferencesRepository(),
+          ),
+          readAloudSettingsRepositoryProvider.overrideWithValue(
+            _MemoryReadAloudRepository(),
+          ),
+          readAloudPlayerProvider.overrideWithValue(_FakeReadAloudPlayer()),
         ],
         child: const MaterialApp(
           home: ReaderScreen(bookId: 'book-1'),
@@ -781,6 +951,13 @@ void main() {
           readerProgressRepositoryProvider.overrideWithValue(
             _MemoryProgressRepository(),
           ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            _MemoryReaderPreferencesRepository(),
+          ),
+          readAloudSettingsRepositoryProvider.overrideWithValue(
+            _MemoryReadAloudRepository(),
+          ),
+          readAloudPlayerProvider.overrideWithValue(_FakeReadAloudPlayer()),
         ],
         child: const MaterialApp(
           home: ReaderScreen(bookId: 'book-1'),
@@ -832,6 +1009,13 @@ void main() {
           readerProgressRepositoryProvider.overrideWithValue(
             _MemoryProgressRepository(),
           ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            _MemoryReaderPreferencesRepository(),
+          ),
+          readAloudSettingsRepositoryProvider.overrideWithValue(
+            _MemoryReadAloudRepository(),
+          ),
+          readAloudPlayerProvider.overrideWithValue(_FakeReadAloudPlayer()),
         ],
         child: const MaterialApp(
           home: ReaderScreen(bookId: 'book-1'),
@@ -894,6 +1078,13 @@ void main() {
           readerProgressRepositoryProvider.overrideWithValue(
             progressRepository,
           ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            _MemoryReaderPreferencesRepository(),
+          ),
+          readAloudSettingsRepositoryProvider.overrideWithValue(
+            _MemoryReadAloudRepository(),
+          ),
+          readAloudPlayerProvider.overrideWithValue(_FakeReadAloudPlayer()),
         ],
         child: const MaterialApp(
           home: ReaderScreen(bookId: 'book-1'),
@@ -942,6 +1133,13 @@ void main() {
           readerProgressRepositoryProvider.overrideWithValue(
             _MemoryProgressRepository(),
           ),
+          readerPreferencesRepositoryProvider.overrideWithValue(
+            _MemoryReaderPreferencesRepository(),
+          ),
+          readAloudSettingsRepositoryProvider.overrideWithValue(
+            _MemoryReadAloudRepository(),
+          ),
+          readAloudPlayerProvider.overrideWithValue(_FakeReadAloudPlayer()),
         ],
         child: const MaterialApp(
           home: ReaderScreen(
@@ -1207,5 +1405,80 @@ class _MemoryProgressRepository implements ReaderProgressRepository {
   @override
   Future<void> saveProgress(ReaderLocation location) async {
     saved = location;
+  }
+}
+
+class _MemoryReaderPreferencesRepository
+    implements ReaderPreferencesRepository {
+  ReaderPreferences preferences = ReaderPreferences.defaults();
+
+  @override
+  Future<ReaderPreferences> load() async => preferences;
+
+  @override
+  Future<void> save(ReaderPreferences preferences) async {
+    this.preferences = preferences;
+  }
+
+  @override
+  Stream<ReaderPreferences> watch() => Stream.value(preferences);
+}
+
+class _MemoryReadAloudRepository implements ReadAloudSettingsRepository {
+  ReadAloudSettings settings = ReadAloudSettings.defaults();
+
+  @override
+  Future<ReadAloudSettings> load() async => settings;
+
+  @override
+  Future<void> save(ReadAloudSettings settings) async {
+    this.settings = settings;
+  }
+
+  @override
+  Stream<ReadAloudSettings> watch() => Stream.value(settings);
+}
+
+class _FakeReadAloudPlayer implements ReadAloudPlayer {
+  final List<String> spoken = [];
+  ReadAloudSettings? applied;
+  bool stopped = false;
+  ValueChanged<int>? _onSegmentStarted;
+
+  @override
+  Future<void> apply(ReadAloudSettings settings) async {
+    applied = settings;
+  }
+
+  @override
+  Future<List<TtsVoice>> voices() async => const [];
+
+  @override
+  Future<void> play(List<String> segments, {int startIndex = 0}) async {
+    spoken
+      ..clear()
+      ..addAll(segments);
+    _onSegmentStarted?.call(startIndex);
+  }
+
+  @override
+  void bind({ValueChanged<int>? onSegmentStarted, VoidCallback? onCompleted}) {
+    _onSegmentStarted = onSegmentStarted;
+  }
+
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> stop() async {
+    stopped = true;
+  }
+
+  @override
+  Future<void> restartCurrent() async {}
+
+  @override
+  Future<void> preview(ReadAloudSettings settings, String text) async {
+    await play([text]);
   }
 }

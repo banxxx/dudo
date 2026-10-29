@@ -170,18 +170,37 @@ class ReaderSessionController {
     );
   }
 
+  /// Moves the viewport to the paragraph currently being read aloud. Unlike
+  /// the other navigations this keeps the reading overlay (and therefore the
+  /// listening panel) on screen.
+  Future<void> followReadAloudLocation(ReaderLocation location) async {
+    final document = state.document;
+    if (document == null) return;
+
+    final clamped = location.clamp(chapterCount: document.chapterCount);
+    await _loadLocation(
+      documentChapterCount: document.chapterCount,
+      location: clamped,
+      cause: ReaderNavigationCause.scrollBoundary,
+      preloadAdjacent: false,
+      saveProgress: true,
+      hideOverlay: false,
+    );
+  }
+
   Future<void> _loadLocation({
     required int documentChapterCount,
     required ReaderLocation location,
     required ReaderNavigationCause cause,
     required bool preloadAdjacent,
     required bool saveProgress,
+    bool hideOverlay = true,
   }) async {
     final generation = ++_loadGeneration;
     _updateState(state.copyWith(
       loadStatus:
           state.viewport == null ? ReaderLoadStatus.loading : state.loadStatus,
-      overlay: state.overlay.hideAll(),
+      overlay: hideOverlay ? state.overlay.hideAll() : state.overlay,
     ));
     try {
       final viewport = await _progressController.runWithoutSaving(

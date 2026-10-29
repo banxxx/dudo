@@ -74,6 +74,10 @@ class ReaderControls extends StatelessWidget {
     required this.pageTurnMode,
     required this.volumePageTurnEnabled,
     required this.isListening,
+    this.speechRate = 1.0,
+    this.timerActive = false,
+    this.onSpeechRateChanged,
+    this.onTimerTapped,
     required this.currentChapterIndex,
     required this.chapterCount,
     required this.catalogItems,
@@ -139,6 +143,10 @@ class ReaderControls extends StatelessWidget {
   final ReaderTurnMode pageTurnMode;
   final bool volumePageTurnEnabled;
   final bool isListening;
+  final double speechRate;
+  final bool timerActive;
+  final ValueChanged<double>? onSpeechRateChanged;
+  final VoidCallback? onTimerTapped;
   final int currentChapterIndex;
   final int chapterCount;
   final List<ReaderCatalogItem> catalogItems;
@@ -330,6 +338,10 @@ class ReaderControls extends StatelessWidget {
                     remainingText: remainingText,
                     isListening: isListening,
                     onListeningChanged: onListeningChanged,
+                    speechRate: speechRate,
+                    timerActive: timerActive,
+                    onSpeechRateChanged: onSpeechRateChanged,
+                    onTimerTapped: onTimerTapped,
                   ),
                 );
               case ReaderOverlayMode.more:

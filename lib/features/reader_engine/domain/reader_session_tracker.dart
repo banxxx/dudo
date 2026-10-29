@@ -50,8 +50,7 @@ class ReadingSessionTracker {
   /// Returns the progress since the previous call and marks it as recorded so
   /// pausing and resuming does not count the same chapter twice.
   ReadingSessionDelta takeDelta() {
-    final chapters =
-        _completedChapters.difference(_recordedChapters).length;
+    final chapters = _completedChapters.difference(_recordedChapters).length;
     _recordedChapters.addAll(_completedChapters);
 
     final characters = _characters - _recordedCharacters;

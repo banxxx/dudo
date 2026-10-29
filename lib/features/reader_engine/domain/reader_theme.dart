@@ -5,6 +5,7 @@ class ReaderTheme {
   ReaderTheme._();
 
   static const ReaderPalette parchment = ReaderPalette(
+    id: 'parchment',
     name: '羊皮纸',
     background: Color(0xFFF8F4EA),
     foreground: Color(0xFF25251F),
@@ -17,6 +18,7 @@ class ReaderTheme {
   );
 
   static const ReaderPalette night = ReaderPalette(
+    id: 'night',
     name: '夜间',
     background: Color(0xFF121212),
     foreground: Color(0xFFCFCFCF),
@@ -29,6 +31,7 @@ class ReaderTheme {
   );
 
   static const ReaderPalette eyeCare = ReaderPalette(
+    id: 'eyeCare',
     name: '护眼绿',
     background: Color(0xFFEAF3DF),
     foreground: Color(0xFF203A25),
@@ -41,6 +44,7 @@ class ReaderTheme {
   );
 
   static const ReaderPalette warmBrown = ReaderPalette(
+    id: 'warmBrown',
     name: '暖棕',
     background: Color(0xFFE8D7BD),
     foreground: Color(0xFF33281E),
@@ -53,6 +57,7 @@ class ReaderTheme {
   );
 
   static const ReaderPalette plain = ReaderPalette(
+    id: 'plain',
     name: '简白',
     background: Color(0xFFFFFFFF),
     foreground: Color(0xFF202124),
@@ -70,11 +75,21 @@ class ReaderTheme {
     warmBrown,
     night,
   ];
+
+  /// Resolves a persisted palette id, falling back to the paper theme for
+  /// unknown ids so an older or corrupted preference never breaks the reader.
+  static ReaderPalette paletteById(String? id) {
+    for (final palette in [...presets, plain]) {
+      if (palette.id == id) return palette;
+    }
+    return parchment;
+  }
 }
 
 @immutable
 class ReaderPalette {
   const ReaderPalette({
+    required this.id,
     required this.name,
     required this.background,
     required this.foreground,
@@ -86,6 +101,8 @@ class ReaderPalette {
     this.accent,
   });
 
+  /// Stable identifier used by persisted reader preferences.
+  final String id;
   final String name;
   final Color background;
   final Color foreground;
