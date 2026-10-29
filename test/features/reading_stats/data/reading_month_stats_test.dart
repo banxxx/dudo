@@ -83,8 +83,7 @@ void main() {
     await insertSession(startedAt: DateTime(2026, 5, 19, 9));
     await insertSession(startedAt: DateTime(2026, 5, 20, 9));
 
-    final onReadingDay =
-        await repository.getMonthStats(DateTime(2026, 5, 20));
+    final onReadingDay = await repository.getMonthStats(DateTime(2026, 5, 20));
     expect(onReadingDay.streakDays, 3);
 
     // No session on the 21st: the streak still counts from the 20th.
@@ -92,8 +91,7 @@ void main() {
     expect(nextDay.streakDays, 3);
 
     // A missed day breaks it.
-    final twoDaysLater =
-        await repository.getMonthStats(DateTime(2026, 5, 22));
+    final twoDaysLater = await repository.getMonthStats(DateTime(2026, 5, 22));
     expect(twoDaysLater.streakDays, 0);
   });
 

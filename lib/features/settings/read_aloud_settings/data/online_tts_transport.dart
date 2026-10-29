@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
+import '../../../../core/exceptions/app_exception.dart';
 import '../../../../core/network/http_client.dart';
 import '../domain/read_aloud_settings.dart';
 
@@ -78,17 +80,26 @@ class DioOnlineTtsTransport implements OnlineTtsTransport {
 
   @override
   Future<List<int>> synthesize(ReadAloudSettings settings, String text) async {
-    if (!settings.hasOnlineEndpoint) {
-      throw StateError('未配置在线朗读接口地址');
+    final urlError = onlineUrlError(settings.onlineUrl);
+    if (urlError != null) {
+      throw AppException(type: AppExceptionType.invalid, message: urlError);
     }
     final request = buildOnlineTtsRequest(settings, text);
     try {
       return await _post(request).timeout(_timeout);
+    } on TimeoutException catch (error) {
+      throw AppException.timeout('请求超时，服务器没有响应', cause: error);
     } on DioException catch (error) {
       // A pooled keep-alive socket is sometimes closed by the server between
       // two paragraphs; retrying once recovers those without dropping text.
-      if (!_isTransient(error)) rethrow;
-      return _post(request).timeout(_timeout);
+      if (!_isTransient(error)) throw _describe(error);
+      try {
+        return await _post(request).timeout(_timeout);
+      } on TimeoutException catch (retryError) {
+        throw AppException.timeout('请求超时，服务器没有响应', cause: retryError);
+      } on DioException catch (retryError) {
+        throw _describe(retryError);
+      }
     }
   }
 
@@ -104,9 +115,69 @@ class DioOnlineTtsTransport implements OnlineTtsTransport {
     );
     final data = response.data;
     if (data == null || data.isEmpty) {
-      throw StateError('在线朗读接口返回了空音频');
+      throw const AppException(
+        type: AppExceptionType.invalid,
+        message: '接口没有返回音频，请确认接口直接返回 mp3/wav',
+      );
     }
     return data;
+  }
+
+  /// Turns a transport failure into the sentence the settings page shows.
+  AppException _describe(DioException error) {
+    final status = error.response?.statusCode;
+    if (status != null) {
+      return switch (status) {
+        401 || 403 => AppException(
+            type: AppExceptionType.unauthorized,
+            message: '访问令牌无效或没有权限（HTTP $status）',
+            code: '$status',
+            cause: error,
+          ),
+        404 => AppException(
+            type: AppExceptionType.notFound,
+            message: '接口地址不存在（HTTP 404）',
+            code: '404',
+            cause: error,
+          ),
+        429 => AppException(
+            type: AppExceptionType.network,
+            message: '请求过于频繁，请稍后再试（HTTP 429）',
+            code: '429',
+            cause: error,
+          ),
+        >= 500 => AppException(
+            type: AppExceptionType.server,
+            message: '服务端出错（HTTP $status）',
+            code: '$status',
+            cause: error,
+          ),
+        _ => AppException(
+            type: AppExceptionType.network,
+            message: '接口返回错误（HTTP $status）',
+            code: '$status',
+            cause: error,
+          ),
+      };
+    }
+    return switch (error.type) {
+      DioExceptionType.connectionTimeout ||
+      DioExceptionType.sendTimeout ||
+      DioExceptionType.receiveTimeout =>
+        AppException.timeout('连接超时，请检查网络或服务器状态', cause: error),
+      DioExceptionType.connectionError => AppException.network(
+          '无法连接服务器，请检查地址与网络',
+          cause: error,
+        ),
+      DioExceptionType.badCertificate => AppException.network(
+          '证书校验失败，请检查接口地址',
+          cause: error,
+        ),
+      _ => AppException.network(
+          '请求失败：${error.message ?? error.type.name}',
+          cause: error,
+        ),
+    };
   }
 
   /// Timeouts are not retried: a second 12s wait is worse than reporting the

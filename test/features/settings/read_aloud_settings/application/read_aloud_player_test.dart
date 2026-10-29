@@ -43,6 +43,16 @@ void main() {
     expect(system.spoken, isEmpty);
   });
 
+  test('pause and resume reach the selected engine', () async {
+    await player.apply(ReadAloudSettings.defaults());
+    await player.pause();
+    await player.resume();
+
+    expect(system.paused, isTrue);
+    expect(system.resumed, isTrue);
+    expect(online.paused, isFalse);
+  });
+
   test('bind forwards callbacks to both engines', () {
     var started = -1;
     var completed = false;
@@ -93,6 +103,26 @@ void main() {
     expect(completed, isFalse);
   });
 
+  test('a dead endpoint aborts after a few segments instead of the chapter',
+      () async {
+    final transport = _FailingTransport();
+    final onlinePlayer = OnlineReadAloudPlayer(transport: transport);
+    Object? failure;
+    var started = -1;
+    onlinePlayer.bind(
+      onSegmentStarted: (index) => started = index,
+      onFailed: (error) => failure = error,
+    );
+
+    await onlinePlayer.play(const ['一', '二', '三', '四', '五', '六']);
+    await pumpEventQueue();
+
+    expect(failure, isA<HttpException>());
+    expect(transport.calls, 3);
+    // Nothing ever played, so the page was never moved to a new paragraph.
+    expect(started, -1);
+  });
+
   test('stop stops both engines so a switched engine cannot keep talking',
       () async {
     await player.stop();
@@ -107,6 +137,8 @@ class _RecordingPlayer implements ReadAloudPlayer {
   ReadAloudSettings? applied;
   List<TtsVoice> voicesResult = const [];
   bool stopped = false;
+  bool paused = false;
+  bool resumed = false;
   ValueChanged<int>? _onSegmentStarted;
   VoidCallback? _onCompleted;
 
@@ -123,7 +155,11 @@ class _RecordingPlayer implements ReadAloudPlayer {
   Future<List<TtsVoice>> voices() async => voicesResult;
 
   @override
-  Future<void> play(List<String> segments, {int startIndex = 0}) async {
+  Future<void> play(
+    List<String> segments, {
+    int startIndex = 0,
+    String? title,
+  }) async {
     spoken
       ..clear()
       ..addAll(segments);
@@ -141,7 +177,14 @@ class _RecordingPlayer implements ReadAloudPlayer {
   }
 
   @override
-  Future<void> pause() async {}
+  Future<void> pause() async {
+    paused = true;
+  }
+
+  @override
+  Future<void> resume() async {
+    resumed = true;
+  }
 
   @override
   Future<void> stop() async {
@@ -155,11 +198,17 @@ class _RecordingPlayer implements ReadAloudPlayer {
   Future<void> preview(ReadAloudSettings settings, String text) async {
     await play([text]);
   }
+
+  @override
+  Future<void> testOnlineConnection(ReadAloudSettings settings) async {}
 }
 
 class _FailingTransport implements OnlineTtsTransport {
+  int calls = 0;
+
   @override
   Future<List<int>> synthesize(ReadAloudSettings settings, String text) async {
+    calls++;
     throw const HttpException('offline');
   }
 }

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:dudo/core/exceptions/app_exception.dart';
 import 'package:dudo/features/settings/read_aloud_settings/data/online_tts_transport.dart';
 import 'package:dudo/features/settings/read_aloud_settings/domain/read_aloud_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -72,10 +73,103 @@ void main() {
 
     await expectLater(
       transport.synthesize(endpoint, '你好'),
-      throwsA(isA<DioException>()),
+      throwsA(isA<AppException>()),
     );
     expect(adapter.calls, 2);
   });
+
+  test('an unusable address is rejected before any request', () async {
+    final adapter = _StatusAdapter(200);
+    final transport =
+        DioOnlineTtsTransport(dio: Dio()..httpClientAdapter = adapter);
+
+    await expectLater(
+      transport.synthesize(
+        endpoint.copyWith(onlineUrl: 'tts.example.com/speak'),
+        '你好',
+      ),
+      throwsA(
+        isA<AppException>().having(
+          (error) => error.message,
+          'message',
+          '地址需以 http:// 或 https:// 开头',
+        ),
+      ),
+    );
+    expect(adapter.calls, 0);
+  });
+
+  test('a 401 points at the token', () async {
+    final adapter = _StatusAdapter(401);
+    final transport =
+        DioOnlineTtsTransport(dio: Dio()..httpClientAdapter = adapter);
+
+    await expectLater(
+      transport.synthesize(endpoint, '你好'),
+      throwsA(
+        isA<AppException>().having(
+          (error) => error.message,
+          'message',
+          contains('访问令牌'),
+        ),
+      ),
+    );
+  });
+
+  test('a 500 points at the server', () async {
+    final adapter = _StatusAdapter(500);
+    final transport =
+        DioOnlineTtsTransport(dio: Dio()..httpClientAdapter = adapter);
+
+    await expectLater(
+      transport.synthesize(endpoint, '你好'),
+      throwsA(
+        isA<AppException>().having(
+          (error) => error.message,
+          'message',
+          contains('服务端出错'),
+        ),
+      ),
+    );
+  });
+
+  test('an empty response body is reported as missing audio', () async {
+    final adapter = _StatusAdapter(200, body: const []);
+    final transport =
+        DioOnlineTtsTransport(dio: Dio()..httpClientAdapter = adapter);
+
+    await expectLater(
+      transport.synthesize(endpoint, '你好'),
+      throwsA(
+        isA<AppException>().having(
+          (error) => error.message,
+          'message',
+          contains('没有返回音频'),
+        ),
+      ),
+    );
+  });
+}
+
+class _StatusAdapter implements HttpClientAdapter {
+  _StatusAdapter(this.statusCode, {this.body = const [1, 2, 3]});
+
+  final int statusCode;
+  final List<int> body;
+  int calls = 0;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    calls++;
+    return ResponseBody.fromBytes(body, statusCode);
+  }
+
+  @override
+  void close({bool force = false}) {}
 }
 
 class _FlakyAdapter implements HttpClientAdapter {

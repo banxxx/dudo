@@ -6,6 +6,10 @@ enum AppExceptionType {
   notFound,
   server,
   parse,
+
+  /// The input, or what the other side returned, does not match the expected
+  /// contract (e.g. a malformed URL or an endpoint that answers with no audio).
+  invalid,
   database,
   route,
   cancelled,

@@ -73,10 +73,13 @@ class TxtChapterParser {
 
     for (var i = 0; i < matches.length; i++) {
       final current = matches[i];
-      final nextOffset = i + 1 < matches.length ? matches[i + 1].offset : content.length;
-      final chapterContent = content.substring(current.offset, nextOffset).trim();
+      final nextOffset =
+          i + 1 < matches.length ? matches[i + 1].offset : content.length;
+      final chapterContent =
+          content.substring(current.offset, nextOffset).trim();
       if (chapterContent.isEmpty) continue;
-      chapters.add(ParsedTxtChapter(title: current.title, content: chapterContent));
+      chapters
+          .add(ParsedTxtChapter(title: current.title, content: chapterContent));
     }
 
     return chapters;

@@ -87,8 +87,7 @@ class SourceRule {
   /// Whether the header is a JS expression that has to be evaluated per request.
   bool get hasDynamicHeader {
     final raw = headerRaw?.trim().toLowerCase();
-    return raw != null &&
-        (raw.startsWith('@js:') || raw.startsWith('<js>'));
+    return raw != null && (raw.startsWith('@js:') || raw.startsWith('<js>'));
   }
 
   factory SourceRule.fromJson(Map<String, dynamic> json) {

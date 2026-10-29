@@ -822,8 +822,23 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('reader-listening-toggle')));
     await tester.pumpAndSettle();
 
+    // Pausing keeps the player's position; stopping is reserved for leaving.
+    expect(player.paused, isTrue);
+    expect(player.stopped, isFalse);
+    expect(find.text('朗读中'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('reader-listening-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(player.resumed, isTrue);
+    expect(find.text('朗读中'), findsOneWidget);
+
+    player.fireFailed(Exception('offline'));
+    await tester.pumpAndSettle();
+
     expect(player.stopped, isTrue);
     expect(find.text('朗读中'), findsNothing);
+    expect(find.text('朗读失败，请检查朗读设置或网络'), findsOneWidget);
   });
 
   testWidgets('ReaderScreen restores saved preferences and persists changes',
@@ -1443,7 +1458,10 @@ class _FakeReadAloudPlayer implements ReadAloudPlayer {
   final List<String> spoken = [];
   ReadAloudSettings? applied;
   bool stopped = false;
+  bool paused = false;
+  bool resumed = false;
   ValueChanged<int>? _onSegmentStarted;
+  ValueChanged<Object>? _onFailed;
 
   @override
   Future<void> apply(ReadAloudSettings settings) async {
@@ -1454,7 +1472,11 @@ class _FakeReadAloudPlayer implements ReadAloudPlayer {
   Future<List<TtsVoice>> voices() async => const [];
 
   @override
-  Future<void> play(List<String> segments, {int startIndex = 0}) async {
+  Future<void> play(
+    List<String> segments, {
+    int startIndex = 0,
+    String? title,
+  }) async {
     spoken
       ..clear()
       ..addAll(segments);
@@ -1469,10 +1491,21 @@ class _FakeReadAloudPlayer implements ReadAloudPlayer {
     ValueChanged<double>? onProgress,
   }) {
     _onSegmentStarted = onSegmentStarted;
+    _onFailed = onFailed;
+  }
+
+  void fireFailed(Object error) => _onFailed?.call(error);
+
+  @override
+  Future<void> pause() async {
+    paused = true;
   }
 
   @override
-  Future<void> pause() async {}
+  Future<void> resume() async {
+    resumed = true;
+    paused = false;
+  }
 
   @override
   Future<void> stop() async {
@@ -1486,4 +1519,7 @@ class _FakeReadAloudPlayer implements ReadAloudPlayer {
   Future<void> preview(ReadAloudSettings settings, String text) async {
     await play([text]);
   }
+
+  @override
+  Future<void> testOnlineConnection(ReadAloudSettings settings) async {}
 }

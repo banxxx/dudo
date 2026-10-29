@@ -159,12 +159,11 @@ Future<void> _awaitChapterData(
   int chapterIndex,
 ) async {
   await container.read(bookChapterCountProvider(bookId).future);
-  await container
-      .read(
-        currentBookChapterMetaProvider(
-          CurrentBookChapterKey(bookId: bookId, chapterIndex: chapterIndex),
-        ).future,
-      );
+  await container.read(
+    currentBookChapterMetaProvider(
+      CurrentBookChapterKey(bookId: bookId, chapterIndex: chapterIndex),
+    ).future,
+  );
 }
 
 Book _book({

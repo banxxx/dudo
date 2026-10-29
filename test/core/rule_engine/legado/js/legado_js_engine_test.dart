@@ -244,7 +244,8 @@ void main() {
     test('keeps non-wrapper results intact', () {
       const context = LegadoJsContext(key: '', page: 1);
 
-      expect(engine.decodeResultForTesting('plain text', context), 'plain text');
+      expect(
+          engine.decodeResultForTesting('plain text', context), 'plain text');
       expect(engine.decodeResultForTesting('{"a":1}', context), '{"a":1}');
       expect(engine.decodeResultForTesting('null', context), isNull);
     });

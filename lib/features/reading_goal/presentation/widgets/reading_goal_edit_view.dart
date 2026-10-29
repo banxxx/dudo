@@ -161,10 +161,8 @@ class _GoalEditPreview extends StatelessWidget {
   /// line stays correct when the goal is not the default.
   String _helperText() {
     return switch (method) {
-      GoalMethod.duration =>
-        '阅读时长统计 · 每天约 ${(goalValue * 60 / 30).round()} 分钟',
-      GoalMethod.chapters =>
-        '完成章节统计 · 每周约 ${(goalValue / 4).round()} 章',
+      GoalMethod.duration => '阅读时长统计 · 每天约 ${(goalValue * 60 / 30).round()} 分钟',
+      GoalMethod.chapters => '完成章节统计 · 每周约 ${(goalValue / 4).round()} 章',
       GoalMethod.pages => '阅读页数统计 · 每天约 ${(goalValue / 30).round()} 页',
     };
   }

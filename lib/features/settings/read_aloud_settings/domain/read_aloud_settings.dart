@@ -1,6 +1,22 @@
 /// Which backend turns text into speech.
 enum ReadAloudEngine { system, online }
 
+/// Explains why [url] cannot be used as an online TTS endpoint, or `null` when
+/// it looks usable. Shared by the settings page and the transport so the
+/// message the user sees matches what the request would actually do.
+String? onlineUrlError(String? url) {
+  final value = url?.trim() ?? '';
+  if (value.isEmpty) return '请填写接口地址';
+  final uri = Uri.tryParse(value);
+  if (uri == null) return '接口地址格式不正确';
+  if (!uri.hasScheme) return '地址需以 http:// 或 https:// 开头';
+  if (uri.scheme != 'http' && uri.scheme != 'https') {
+    return '仅支持 http:// 或 https:// 地址';
+  }
+  if (uri.host.isEmpty) return '地址缺少服务器域名或 IP';
+  return null;
+}
+
 /// Body format understood by a user supplied online TTS endpoint.
 enum OnlineTtsFormat {
   /// `Content-Type: text/plain`, the whole body is the text to speak.

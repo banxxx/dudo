@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/exceptions/app_exception.dart';
 import '../../../core/utils/logger.dart';
 import '../../reading_stats/application/reading_stats_provider.dart';
 import '../../reading_stats/data/reading_session_recorder.dart';
@@ -101,6 +102,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   bool _volumePageTurnEnabled = true;
   ReaderTurnMode _turnMode = ReaderTurnMode.slide;
   bool _isListening = false;
+  bool _isReadAloudPaused = false;
   int _volumePageTurnRequestId = 0;
   int _volumePageTurnDirection = 0;
   List<ReaderCatalogItem> _catalogItems = const [];
@@ -271,10 +273,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   Future<void> _setListening(bool value) async {
     if (value) {
+      // Resuming keeps the player's cursor, so pausing does not restart the
+      // chapter (the system engine re-reads only the current paragraph).
+      if (_isReadAloudPaused) {
+        _isReadAloudPaused = false;
+        if (mounted) setState(() => _isListening = true);
+        await _readAloudPlayer?.resume();
+        return;
+      }
       await _startListening();
-    } else {
-      await _stopListening();
+      return;
     }
+    if (!_isListening) return;
+    _isReadAloudPaused = true;
+    if (mounted) setState(() => _isListening = false);
+    await _readAloudPlayer?.pause();
   }
 
   Future<void> _startListening() async {
@@ -326,16 +339,24 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     player.bind(
       onSegmentStarted: _onTtsSegmentStarted,
       onCompleted: _onTtsChapterCompleted,
+      onFailed: _onTtsFailed,
     );
     setState(() => _isListening = true);
     await player.apply(settings);
-    await player.play(segments.map((segment) => segment.text).toList());
+    final bookTitle = controller.state.document?.title;
+    await player.play(
+      segments.map((segment) => segment.text).toList(),
+      // Shown in the media notification / lock screen while playing.
+      title:
+          bookTitle == null ? chapter.title : '$bookTitle · ${chapter.title}',
+    );
   }
 
   Future<void> _stopListening() async {
     _readAloudTimer?.cancel();
     _readAloudTimer = null;
     _readAloudTimerActive = false;
+    _isReadAloudPaused = false;
     final player = _readAloudPlayer;
     player?.bind();
     await player?.stop();
@@ -343,6 +364,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (mounted && _isListening) {
       setState(() => _isListening = false);
     }
+  }
+
+  /// Every segment failed (bad endpoint, offline); stop instead of leaving the
+  /// panel stuck on "朗读中" with no sound.
+  void _onTtsFailed(Object error) {
+    if (!mounted) return;
+    unawaited(_stopListening());
+    // The online engine already knows why it failed (bad token, timeout, ...);
+    // repeating that here saves the user a trip to the settings page.
+    final message =
+        error is AppException ? '朗读失败：${error.message}' : '朗读失败，请检查朗读设置或网络';
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _scheduleReadAloudTimer(ReadAloudSettings settings) {
@@ -353,7 +387,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _readAloudTimerActive = true;
     _readAloudTimer = Timer(Duration(minutes: settings.timerMinutes), () {
       if (!mounted) return;
-      unawaited(_setListening(false));
+      unawaited(_stopListening());
     });
   }
 
@@ -369,7 +403,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       Duration(minutes: _readAloudSettings.timerMinutes),
       () {
         if (!mounted) return;
-        unawaited(_setListening(false));
+        unawaited(_stopListening());
       },
     );
   }
@@ -381,9 +415,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (repository != null) unawaited(repository.save(next));
 
     final player = _readAloudPlayer;
-    if (player == null || !_isListening) return;
+    if (player == null) return;
+    // Keep a paused session in sync so resuming uses the new speed.
     await player.apply(next);
-    await player.restartCurrent();
+    if (_isListening) await player.restartCurrent();
   }
 
   /// Keeps the visible page on the paragraph being spoken when the user turned
