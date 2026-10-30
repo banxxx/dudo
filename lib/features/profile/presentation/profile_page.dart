@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../shared/theme/app_tokens.dart';
+import '../../../shared/widgets/dudo_entry_row.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../../reading_goal/application/reading_goal_overview.dart';
 import '../../reading_goal/application/reading_goal_providers.dart';
@@ -404,83 +405,20 @@ class _LibraryToolsSection extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         for (final item in items) ...[
-          _ToolRow(item: item),
-          if (item != items.last) const SizedBox(height: 6),
+          DudoEntryRow(
+            icon: item.icon,
+            iconFill: item.iconFill,
+            iconColor: item.iconColor,
+            title: item.title,
+            description: item.description,
+            showChevron: true,
+            onTap: () => _handleOpenTool(context, item),
+          ),
+          if (item != items.last) const SizedBox(height: 9),
         ],
       ],
-    );
-  }
-}
-
-class _ToolRow extends StatelessWidget {
-  const _ToolRow({required this.item});
-
-  final _ToolItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: () => _handleOpenTool(context, item),
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          height: 56,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: DudoColors.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: DudoColors.outlineVariant),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: item.iconFill,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Icon(item.icon, color: item.iconColor, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      item.description,
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.secondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(
-                LucideIcons.chevronRight,
-                color: Color(0xFFB8A88E),
-                size: 18,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

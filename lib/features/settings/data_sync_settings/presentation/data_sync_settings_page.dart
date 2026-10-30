@@ -84,7 +84,7 @@ class _DataSyncSettingsPageState extends ConsumerState<DataSyncSettingsPage> {
           _CloudHero(enabled: settings.enabled),
           const SizedBox(height: 14),
           const SettingsSectionTitle('自动同步'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           SettingsOptionRow(
             title: '启用同步',
             description: '连接云端后自动上传与下载',
@@ -95,11 +95,11 @@ class _DataSyncSettingsPageState extends ConsumerState<DataSyncSettingsPage> {
                 _update(settings.copyWith(enabled: !settings.enabled));
               },
             ),
-            height: 56,
+            height: 68,
           ),
           const SizedBox(height: 14),
           const SettingsSectionTitle('同步范围'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           _ScopeRow(
             title: '阅读进度',
             description: _countText(progressCount, '本有阅读进度'),
@@ -110,7 +110,7 @@ class _DataSyncSettingsPageState extends ConsumerState<DataSyncSettingsPage> {
               _update(settings.copyWith(progress: !settings.progress));
             },
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 9),
           _ScopeRow(
             title: '书签与笔记',
             description: _countText(bookmarkCount, '条'),
@@ -121,7 +121,7 @@ class _DataSyncSettingsPageState extends ConsumerState<DataSyncSettingsPage> {
               _update(settings.copyWith(bookmarks: !settings.bookmarks));
             },
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 9),
           _ScopeRow(
             title: '高亮',
             description: _countText(highlightCount, '处'),
@@ -132,7 +132,7 @@ class _DataSyncSettingsPageState extends ConsumerState<DataSyncSettingsPage> {
               _update(settings.copyWith(highlights: !settings.highlights));
             },
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 9),
           _ScopeRow(
             title: '设置',
             description: '主题、字体与朗读偏好',
@@ -281,7 +281,7 @@ class _ScopeRow extends StatelessWidget {
           on: on,
           onTap: enabled ? onTap : null,
         ),
-        height: 56,
+        height: 68,
       ),
     );
   }

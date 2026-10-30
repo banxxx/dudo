@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
+import '../../../../shared/widgets/dudo_entry_row.dart';
 import '../../../../shared/widgets/dudo_page_frame.dart';
 import '../../../../shared/widgets/dudo_page_header.dart';
 
@@ -204,13 +205,15 @@ class SettingsMeterControl extends StatelessWidget {
   }
 }
 
+/// A switch/trailing row. It delegates to [DudoEntryRow] so it shares the same
+/// height, padding and type scale as the settings and profile entries.
 class SettingsOptionRow extends StatelessWidget {
   const SettingsOptionRow({
     super.key,
     required this.title,
     required this.description,
     required this.trailing,
-    required this.height,
+    this.height = 68,
   });
 
   final String title;
@@ -220,46 +223,11 @@ class SettingsOptionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: height,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: DudoColors.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  description,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.secondary,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          trailing,
-        ],
-      ),
+    return DudoEntryRow(
+      title: title,
+      description: description,
+      trailing: trailing,
+      minHeight: height,
     );
   }
 }

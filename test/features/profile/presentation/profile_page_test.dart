@@ -153,20 +153,23 @@ void main() {
           .last,
     );
     final toolDecoration = toolRow.decoration! as BoxDecoration;
-    expect(toolRow.constraints?.maxHeight, 56);
-    expect(toolRow.padding, const EdgeInsets.symmetric(horizontal: 12));
+    expect(toolRow.constraints?.minHeight, 68);
+    expect(
+      toolRow.padding,
+      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    );
     expect(toolDecoration.color, DudoColors.surface);
-    expect(toolDecoration.borderRadius, BorderRadius.circular(18));
+    expect(toolDecoration.borderRadius, BorderRadius.circular(20));
     expect(toolDecoration.border?.top.color, DudoColors.outlineVariant);
 
     final toolTitle = tester.widget<Text>(find.text('阅读记录'));
     expect(toolTitle.style?.color, DudoColors.textPrimary);
-    expect(toolTitle.style?.fontSize, 14);
+    expect(toolTitle.style?.fontSize, 14.5);
     expect(toolTitle.style?.fontWeight, FontWeight.w600);
 
     final toolDescription = tester.widget<Text>(find.text('查看每日阅读曲线'));
     expect(toolDescription.style?.color, DudoColors.secondary);
-    expect(toolDescription.style?.fontSize, 11);
+    expect(toolDescription.style?.fontSize, 11.5);
   });
 }
 

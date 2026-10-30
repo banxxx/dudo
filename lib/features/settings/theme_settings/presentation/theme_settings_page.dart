@@ -117,7 +117,7 @@ class ThemeSettingsPage extends ConsumerWidget {
             on: immersive,
             onTap: () => _toggleImmersive(ref, !immersive),
           ),
-          height: 54,
+          height: 68,
         ),
       ],
     );

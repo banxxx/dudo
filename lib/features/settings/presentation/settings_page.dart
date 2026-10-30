@@ -6,6 +6,7 @@ import '../../../shared/theme/app_fonts.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../shared/theme/app_tokens.dart';
+import '../../../shared/widgets/dudo_entry_row.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../../settings/data_sync_settings/application/data_sync_settings_provider.dart';
 import '../../settings/data_sync_settings/domain/data_sync_settings.dart';
@@ -278,96 +279,20 @@ class _SettingsSection extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         for (final row in rows) ...[
-          _SettingRow(data: row),
-          if (row != rows.last) const SizedBox(height: 7),
+          DudoEntryRow(
+            icon: row.icon,
+            iconFill: row.iconFill,
+            title: row.title,
+            description: row.description,
+            value: row.value,
+            showChevron: true,
+            onTap: () => _handleOpenSetting(context, row.route),
+          ),
+          if (row != rows.last) const SizedBox(height: 9),
         ],
       ],
-    );
-  }
-}
-
-class _SettingRow extends StatelessWidget {
-  const _SettingRow({required this.data});
-
-  final _SettingRowData data;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: () => _handleOpenSetting(context, data.route),
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          height: 56,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: DudoColors.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: DudoColors.outlineVariant),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: data.iconFill,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Icon(data.icon, color: DudoColors.secondary, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      data.title,
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      data.description,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.secondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (data.value != null) ...[
-                Text(
-                  data.value!,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.secondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                const SizedBox(width: 10),
-              ],
-              const Icon(
-                LucideIcons.chevronRight,
-                color: Color(0xFFB8A88E),
-                size: 18,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

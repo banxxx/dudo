@@ -1,35 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:share_plus/share_plus.dart';
 
-import '../../../../../shared/theme/app_fonts.dart';
-import '../../../../../shared/theme/app_tokens.dart';
+import '../../../../app/router/app_router.dart';
+import '../../../../shared/messages/app_message_service.dart';
+import '../../../../shared/theme/app_fonts.dart';
+import '../../../../shared/theme/app_tokens.dart';
+import '../data/external_link_launcher.dart';
+import '../domain/about_links.dart';
+import '../domain/about_platform.dart';
 
-enum AndroidUpdateDisplayState {
+enum AboutUpdateDisplayState {
   beforeCheck,
   hasUpdate,
 }
 
-const _lucideGitHubIcon = IconData(
-  57574,
-  fontFamily: 'Lucide',
-  fontPackage: 'lucide_icons_flutter',
-);
-
-class AndroidAboutAppPage extends StatefulWidget {
-  const AndroidAboutAppPage({
+class AboutAppView extends ConsumerStatefulWidget {
+  const AboutAppView({
     super.key,
-    this.initialUpdateState = AndroidUpdateDisplayState.beforeCheck,
+    this.platform = AboutPlatform.android,
+    this.initialUpdateState = AboutUpdateDisplayState.beforeCheck,
   });
 
-  final AndroidUpdateDisplayState initialUpdateState;
+  final AboutPlatform platform;
+  final AboutUpdateDisplayState initialUpdateState;
 
   @override
-  State<AndroidAboutAppPage> createState() => _AndroidAboutAppPageState();
+  ConsumerState<AboutAppView> createState() => _AboutAppViewState();
 }
 
-class _AndroidAboutAppPageState extends State<AndroidAboutAppPage> {
-  late AndroidUpdateDisplayState _updateState;
+class _AboutAppViewState extends ConsumerState<AboutAppView> {
+  late AboutUpdateDisplayState _updateState;
 
   @override
   void initState() {
@@ -38,13 +41,37 @@ class _AndroidAboutAppPageState extends State<AndroidAboutAppPage> {
   }
 
   void _checkForUpdates() {
-    setState(() => _updateState = AndroidUpdateDisplayState.hasUpdate);
+    setState(() => _updateState = AboutUpdateDisplayState.hasUpdate);
+  }
+
+  Future<void> _openExternal(Uri uri, {required String failureTitle}) async {
+    final opened = await ref.read(externalLinkLauncherProvider).open(uri);
+    if (!opened && mounted) {
+      ref.read(appMessageServiceProvider).warning(
+        '无法打开浏览器，可手动访问 ${AboutLinks.display(uri)}',
+        title: failureTitle,
+        dedupeKey: 'about-external-link',
+      );
+    }
+  }
+
+  Future<void> _shareApp() async {
+    try {
+      await Share.share('Dudo · 一间安静的随身书房\n${AboutLinks.repository}');
+    } catch (_) {
+      if (!mounted) return;
+      ref.read(appMessageServiceProvider).warning(
+        '当前环境暂不支持系统分享',
+        title: '分享失败',
+        dedupeKey: 'about-share',
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _AndroidAboutColors.page,
+      backgroundColor: _AboutColors.page,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
@@ -52,24 +79,34 @@ class _AndroidAboutAppPageState extends State<AndroidAboutAppPage> {
             parent: ClampingScrollPhysics(),
           ),
           children: [
-            const _AndroidTopActions(),
+            _AboutTopActions(onShare: _shareApp),
             const SizedBox(height: 14),
-            const _AndroidAppIdentityCard(),
+            const _AboutAppIdentityCard(),
             const SizedBox(height: 14),
-            _AndroidUpdateSection(
+            _AboutUpdateSection(
+              platform: widget.platform,
               state: _updateState,
               onCheckUpdates: _checkForUpdates,
+              onOpenRepository: () => _openExternal(
+                AboutLinks.repository,
+                failureTitle: '打开仓库地址失败',
+              ),
             ),
             const SizedBox(height: 14),
-            const _AndroidSupportSection(),
+            _AboutSupportSection(
+              onOpenGuide: () => context.push(AppRoutes.aboutGuide),
+              onFeedback: () => context.push(AppRoutes.aboutFeedback),
+              onShowLicenses: () => context.push(AppRoutes.aboutLicenses),
+            ),
             const SizedBox(height: 14),
-            const _AndroidListRow(
+            _AboutListRow(
               icon: LucideIcons.shieldCheck,
               title: '隐私政策',
               description: '查看阅读记录、书签与高亮的数据说明',
+              onTap: () => context.push(AppRoutes.aboutPrivacy),
             ),
             const SizedBox(height: 14),
-            const _AndroidAboutFooter(),
+            const _AboutFooter(),
           ],
         ),
       ),
@@ -77,8 +114,10 @@ class _AndroidAboutAppPageState extends State<AndroidAboutAppPage> {
   }
 }
 
-class _AndroidTopActions extends StatelessWidget {
-  const _AndroidTopActions();
+class _AboutTopActions extends StatelessWidget {
+  const _AboutTopActions({required this.onShare});
+
+  final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -87,27 +126,27 @@ class _AndroidTopActions extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _AndroidCircleButton(
+          _AboutCircleButton(
             icon: LucideIcons.chevronLeft,
             onTap: () => context.pop(),
           ),
           Text(
             '应用说明',
             style: DudoTextStyles.sans(
-              color: _AndroidAboutColors.text,
+              color: _AboutColors.text,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
-          _AndroidCircleButton(icon: LucideIcons.share2, onTap: () {}),
+          _AboutCircleButton(icon: LucideIcons.share2, onTap: onShare),
         ],
       ),
     );
   }
 }
 
-class _AndroidCircleButton extends StatelessWidget {
-  const _AndroidCircleButton({required this.icon, required this.onTap});
+class _AboutCircleButton extends StatelessWidget {
+  const _AboutCircleButton({required this.icon, required this.onTap});
 
   final IconData icon;
   final VoidCallback onTap;
@@ -125,19 +164,19 @@ class _AndroidCircleButton extends StatelessWidget {
           height: 44,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: _AndroidAboutColors.surface,
+            color: _AboutColors.surface,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: _AndroidAboutColors.outlineStrong),
+            border: Border.all(color: _AboutColors.outlineStrong),
           ),
-          child: Icon(icon, color: _AndroidAboutColors.secondary, size: 20),
+          child: Icon(icon, color: _AboutColors.secondary, size: 20),
         ),
       ),
     );
   }
 }
 
-class _AndroidAppIdentityCard extends StatelessWidget {
-  const _AndroidAppIdentityCard();
+class _AboutAppIdentityCard extends StatelessWidget {
+  const _AboutAppIdentityCard();
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +184,7 @@ class _AndroidAppIdentityCard extends StatelessWidget {
       height: 154,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _AndroidAboutColors.text,
+        color: _AboutColors.text,
         borderRadius: BorderRadius.circular(28),
         boxShadow: const [
           BoxShadow(
@@ -158,13 +197,13 @@ class _AndroidAppIdentityCard extends StatelessWidget {
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _AndroidAppIdentityHeader(),
+          _AboutAppIdentityHeader(),
           SizedBox(height: 12),
           Text(
             '一间安静的随身书房，用来整理书架、记录阅读，并保持舒服的阅读节奏。',
             style: TextStyle(
               fontFamily: DudoFonts.sansSc,
-              color: _AndroidAboutColors.outlineStrong,
+              color: _AboutColors.outlineStrong,
               fontSize: 12,
               height: 1.4,
               decoration: TextDecoration.none,
@@ -176,8 +215,8 @@ class _AndroidAppIdentityCard extends StatelessWidget {
   }
 }
 
-class _AndroidAppIdentityHeader extends StatelessWidget {
-  const _AndroidAppIdentityHeader();
+class _AboutAppIdentityHeader extends StatelessWidget {
+  const _AboutAppIdentityHeader();
 
   @override
   Widget build(BuildContext context) {
@@ -188,9 +227,9 @@ class _AndroidAppIdentityHeader extends StatelessWidget {
           height: 66,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: _AndroidAboutColors.logoSurface,
+            color: _AboutColors.logoSurface,
             borderRadius: BorderRadius.circular(23),
-            border: Border.all(color: _AndroidAboutColors.outline),
+            border: Border.all(color: _AboutColors.outline),
           ),
           child: Text(
             '读',
@@ -211,7 +250,7 @@ class _AndroidAppIdentityHeader extends StatelessWidget {
               Text(
                 'Dudo',
                 style: DudoTextStyles.serif(
-                  color: _AndroidAboutColors.logoSurface,
+                  color: _AboutColors.logoSurface,
                   fontSize: 30,
                   fontWeight: FontWeight.w700,
                   height: 1.05,
@@ -221,7 +260,7 @@ class _AndroidAppIdentityHeader extends StatelessWidget {
               Text(
                 'v1.0.0 · 内测版',
                 style: DudoTextStyles.sans(
-                  color: _AndroidAboutColors.outlineStrong,
+                  color: _AboutColors.outlineStrong,
                   fontSize: 12,
                 ),
               ),
@@ -233,92 +272,105 @@ class _AndroidAppIdentityHeader extends StatelessWidget {
   }
 }
 
-class _AndroidUpdateSection extends StatelessWidget {
-  const _AndroidUpdateSection({
+class _AboutUpdateSection extends StatelessWidget {
+  const _AboutUpdateSection({
+    required this.platform,
     required this.state,
     required this.onCheckUpdates,
+    required this.onOpenRepository,
   });
 
-  final AndroidUpdateDisplayState state;
+  final AboutPlatform platform;
+  final AboutUpdateDisplayState state;
   final VoidCallback onCheckUpdates;
+  final VoidCallback onOpenRepository;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _AndroidSectionTitle('应用更新'),
+        const _AboutSectionTitle('应用更新'),
         const SizedBox(height: 8),
-        _AndroidUpdateCard(state: state, onCheckUpdates: onCheckUpdates),
+        _AboutUpdateCard(
+          platform: platform,
+          state: state,
+          onCheckUpdates: onCheckUpdates,
+          onOpenRepository: onOpenRepository,
+        ),
       ],
     );
   }
 }
 
-class _AndroidUpdateCard extends StatelessWidget {
-  const _AndroidUpdateCard({
+class _AboutUpdateCard extends StatelessWidget {
+  const _AboutUpdateCard({
+    required this.platform,
     required this.state,
     required this.onCheckUpdates,
+    required this.onOpenRepository,
   });
 
-  final AndroidUpdateDisplayState state;
+  final AboutPlatform platform;
+  final AboutUpdateDisplayState state;
   final VoidCallback onCheckUpdates;
+  final VoidCallback onOpenRepository;
 
-  bool get _hasUpdate => state == AndroidUpdateDisplayState.hasUpdate;
+  bool get _hasUpdate => state == AboutUpdateDisplayState.hasUpdate;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _AndroidAboutColors.updateSurface,
+        color: _AboutColors.updateSurface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _AndroidAboutColors.updateOutline),
+        border: Border.all(color: _AboutColors.updateOutline),
       ),
       child: Column(
         children: [
-          _AndroidUpdateHeader(
+          _AboutUpdateHeader(
             icon: _hasUpdate ? LucideIcons.packageCheck : LucideIcons.package,
             title: _hasUpdate ? '发现新版本' : '检查应用更新',
             description: _hasUpdate
                 ? '下载最新安装包，或查看项目仓库中的版本说明。'
-                : '联网检查是否有新的 Android 安装包可用。',
+                : '联网检查是否有新的 ${platform.packageLabel} 可用。',
           ),
           const SizedBox(height: 12),
-          _AndroidVersionPanel(
+          _AboutVersionPanel(
             remoteLabel: _hasUpdate ? '最新版本' : '远端版本',
             remoteVersion: _hasUpdate ? 'v0.1.1' : '待检测',
             showNewBadge: _hasUpdate,
           ),
           const SizedBox(height: 12),
-          _AndroidActionRow(
-            left: _AndroidUpdateButton.primary(
+          _AboutActionRow(
+            left: _AboutUpdateButton.primary(
               icon: _hasUpdate ? LucideIcons.download : LucideIcons.download,
               label: _hasUpdate ? '立即下载' : '检测更新',
-              backgroundColor: _AndroidAboutColors.darkButton,
-              foregroundColor: _AndroidAboutColors.buttonLightText,
+              backgroundColor: _AboutColors.darkButton,
+              foregroundColor: _AboutColors.buttonLightText,
               shadowColor: const Color(0x40000000),
               onTap: _hasUpdate ? null : onCheckUpdates,
             ),
-            right: const _AndroidUpdateButton.primary(
-              icon: _lucideGitHubIcon,
+            right: _AboutUpdateButton.primary(
+              icon: LucideIcons.gitBranch,
               label: '仓库地址',
-              backgroundColor: _AndroidAboutColors.brownButton,
-              foregroundColor: _AndroidAboutColors.repoText,
-              shadowColor: Color(0x668A6432),
+              backgroundColor: _AboutColors.brownButton,
+              foregroundColor: _AboutColors.repoText,
+              shadowColor: const Color(0x668A6432),
+              onTap: onOpenRepository,
             ),
           ),
           const SizedBox(height: 12),
-          _AndroidActionRow(
-            left: _AndroidUpdateButton.secondary(
-              icon: LucideIcons.refreshCw,
-              label: '检测更新',
-              onTap: onCheckUpdates,
-            ),
-            right: _AndroidUpdateButton.secondary(
+          SizedBox(
+            width: double.infinity,
+            child: _AboutUpdateButton.secondary(
               icon: LucideIcons.listChecks,
               label: '查看日志',
-              onTap: () => _showAndroidChangelogSheet(context),
+              onTap: () => _showAboutChangelogSheet(
+                context,
+                onOpenRepository: onOpenRepository,
+              ),
             ),
           ),
         ],
@@ -327,8 +379,8 @@ class _AndroidUpdateCard extends StatelessWidget {
   }
 }
 
-class _AndroidUpdateHeader extends StatelessWidget {
-  const _AndroidUpdateHeader({
+class _AboutUpdateHeader extends StatelessWidget {
+  const _AboutUpdateHeader({
     required this.icon,
     required this.title,
     required this.description,
@@ -347,11 +399,11 @@ class _AndroidUpdateHeader extends StatelessWidget {
           height: 46,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: _AndroidAboutColors.iconTile,
+            color: _AboutColors.iconTile,
             borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: _AndroidAboutColors.outline),
+            border: Border.all(color: _AboutColors.outline),
           ),
-          child: Icon(icon, color: _AndroidAboutColors.packageIcon, size: 23),
+          child: Icon(icon, color: _AboutColors.packageIcon, size: 23),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -361,7 +413,7 @@ class _AndroidUpdateHeader extends StatelessWidget {
               Text(
                 title,
                 style: DudoTextStyles.sans(
-                  color: _AndroidAboutColors.updateTitle,
+                  color: _AboutColors.updateTitle,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   height: 1.35,
@@ -373,7 +425,7 @@ class _AndroidUpdateHeader extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: DudoTextStyles.sans(
-                  color: _AndroidAboutColors.updateDescription,
+                  color: _AboutColors.updateDescription,
                   fontSize: 12,
                   height: 1.45,
                 ),
@@ -386,8 +438,8 @@ class _AndroidUpdateHeader extends StatelessWidget {
   }
 }
 
-class _AndroidVersionPanel extends StatelessWidget {
-  const _AndroidVersionPanel({
+class _AboutVersionPanel extends StatelessWidget {
+  const _AboutVersionPanel({
     required this.remoteLabel,
     required this.remoteVersion,
     required this.showNewBadge,
@@ -403,17 +455,17 @@ class _AndroidVersionPanel extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 58),
       padding: const EdgeInsets.all(9),
       decoration: BoxDecoration(
-        color: _AndroidAboutColors.versionPanel,
+        color: _AboutColors.versionPanel,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _AndroidAboutColors.versionOutline),
+        border: Border.all(color: _AboutColors.versionOutline),
       ),
       child: Row(
         children: [
           const Expanded(
-            child: _AndroidVersionCell(
+            child: _AboutVersionCell(
               label: '当前版本',
               version: 'v0.1.0',
-              versionColor: _AndroidAboutColors.versionText,
+              versionColor: _AboutColors.versionText,
             ),
           ),
           const SizedBox(width: 8),
@@ -422,23 +474,23 @@ class _AndroidVersionPanel extends StatelessWidget {
             height: 28,
             alignment: Alignment.center,
             decoration: const BoxDecoration(
-              color: _AndroidAboutColors.versionArrowBg,
+              color: _AboutColors.versionArrowBg,
               shape: BoxShape.circle,
             ),
             child: const Icon(
               LucideIcons.arrowRight,
-              color: _AndroidAboutColors.packageIcon,
+              color: _AboutColors.packageIcon,
               size: 15,
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: _AndroidVersionCell(
+            child: _AboutVersionCell(
               label: remoteLabel,
               version: remoteVersion,
               versionColor: showNewBadge
-                  ? _AndroidAboutColors.remoteVersionText
-                  : _AndroidAboutColors.pendingText,
+                  ? _AboutColors.remoteVersionText
+                  : _AboutColors.pendingText,
               showNewBadge: showNewBadge,
             ),
           ),
@@ -448,8 +500,8 @@ class _AndroidVersionPanel extends StatelessWidget {
   }
 }
 
-class _AndroidVersionCell extends StatelessWidget {
-  const _AndroidVersionCell({
+class _AboutVersionCell extends StatelessWidget {
+  const _AboutVersionCell({
     required this.label,
     required this.version,
     required this.versionColor,
@@ -471,7 +523,7 @@ class _AndroidVersionCell extends StatelessWidget {
         Text(
           label,
           style: DudoTextStyles.numeric(
-            color: _AndroidAboutColors.versionLabel,
+            color: _AboutColors.versionLabel,
             fontSize: 10,
             fontWeight: FontWeight.w600,
             height: 1.3,
@@ -499,13 +551,13 @@ class _AndroidVersionCell extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.fromLTRB(6, 3, 6, 3),
                 decoration: BoxDecoration(
-                  color: _AndroidAboutColors.remoteVersionText,
+                  color: _AboutColors.remoteVersionText,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   'NEW',
                   style: DudoTextStyles.numeric(
-                    color: _AndroidAboutColors.buttonLightText,
+                    color: _AboutColors.buttonLightText,
                     fontSize: 9,
                     fontWeight: FontWeight.w800,
                     height: 1.1,
@@ -521,8 +573,8 @@ class _AndroidVersionCell extends StatelessWidget {
   }
 }
 
-class _AndroidActionRow extends StatelessWidget {
-  const _AndroidActionRow({required this.left, required this.right});
+class _AboutActionRow extends StatelessWidget {
+  const _AboutActionRow({required this.left, required this.right});
 
   final Widget left;
   final Widget right;
@@ -539,8 +591,8 @@ class _AndroidActionRow extends StatelessWidget {
   }
 }
 
-class _AndroidUpdateButton extends StatelessWidget {
-  const _AndroidUpdateButton.primary({
+class _AboutUpdateButton extends StatelessWidget {
+  const _AboutUpdateButton.primary({
     required this.icon,
     required this.label,
     required this.backgroundColor,
@@ -550,14 +602,14 @@ class _AndroidUpdateButton extends StatelessWidget {
   })  : height = 48,
         borderColor = null;
 
-  const _AndroidUpdateButton.secondary({
+  const _AboutUpdateButton.secondary({
     required this.icon,
     required this.label,
     this.onTap,
   })  : height = 42,
-        backgroundColor = _AndroidAboutColors.secondaryButton,
-        foregroundColor = _AndroidAboutColors.secondaryButtonText,
-        borderColor = _AndroidAboutColors.secondaryButtonOutline,
+        backgroundColor = _AboutColors.secondaryButton,
+        foregroundColor = _AboutColors.secondaryButtonText,
+        borderColor = _AboutColors.secondaryButtonOutline,
         shadowColor = null;
 
   final IconData icon;
@@ -617,19 +669,25 @@ class _AndroidUpdateButton extends StatelessWidget {
   }
 }
 
-Future<void> _showAndroidChangelogSheet(BuildContext context) {
+Future<void> _showAboutChangelogSheet(
+  BuildContext context, {
+  required VoidCallback onOpenRepository,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     barrierColor: const Color(0x6625251F),
-    builder: (context) => const _AndroidChangelogSheet(),
+    builder: (context) =>
+        _AboutChangelogSheet(onOpenRepository: onOpenRepository),
   );
 }
 
-class _AndroidChangelogSheet extends StatelessWidget {
-  const _AndroidChangelogSheet();
+class _AboutChangelogSheet extends StatelessWidget {
+  const _AboutChangelogSheet({required this.onOpenRepository});
+
+  final VoidCallback onOpenRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -643,10 +701,10 @@ class _AndroidChangelogSheet extends StatelessWidget {
         height: sheetHeight,
         padding: EdgeInsets.fromLTRB(20, 10, 20, 24 + bottomInset),
         decoration: const BoxDecoration(
-          color: _AndroidAboutColors.surface,
+          color: _AboutColors.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
           border: Border(
-            top: BorderSide(color: _AndroidAboutColors.outline),
+            top: BorderSide(color: _AboutColors.outline),
           ),
           boxShadow: [
             BoxShadow(
@@ -656,17 +714,17 @@ class _AndroidChangelogSheet extends StatelessWidget {
             ),
           ],
         ),
-        child: const Column(
+        child: Column(
           children: [
-            _AndroidSheetHandle(),
-            SizedBox(height: 14),
-            _AndroidChangelogHeader(),
-            SizedBox(height: 14),
-            _AndroidChangelogSummary(),
-            SizedBox(height: 14),
-            Expanded(child: _AndroidChangelogList()),
-            SizedBox(height: 14),
-            _AndroidChangelogActions(),
+            const _AboutSheetHandle(),
+            const SizedBox(height: 14),
+            const _AboutChangelogHeader(),
+            const SizedBox(height: 14),
+            const _AboutChangelogSummary(),
+            const SizedBox(height: 14),
+            const Expanded(child: _AboutChangelogList()),
+            const SizedBox(height: 14),
+            _AboutChangelogActions(onOpenRepository: onOpenRepository),
           ],
         ),
       ),
@@ -674,8 +732,8 @@ class _AndroidChangelogSheet extends StatelessWidget {
   }
 }
 
-class _AndroidSheetHandle extends StatelessWidget {
-  const _AndroidSheetHandle();
+class _AboutSheetHandle extends StatelessWidget {
+  const _AboutSheetHandle();
 
   @override
   Widget build(BuildContext context) {
@@ -686,7 +744,7 @@ class _AndroidSheetHandle extends StatelessWidget {
           width: 42,
           height: 4,
           decoration: BoxDecoration(
-            color: _AndroidAboutColors.outlineStrong,
+            color: _AboutColors.outlineStrong,
             borderRadius: BorderRadius.circular(2),
           ),
         ),
@@ -695,8 +753,8 @@ class _AndroidSheetHandle extends StatelessWidget {
   }
 }
 
-class _AndroidChangelogHeader extends StatelessWidget {
-  const _AndroidChangelogHeader();
+class _AboutChangelogHeader extends StatelessWidget {
+  const _AboutChangelogHeader();
 
   @override
   Widget build(BuildContext context) {
@@ -707,12 +765,12 @@ class _AndroidChangelogHeader extends StatelessWidget {
           height: 42,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: _AndroidAboutColors.text,
+            color: _AboutColors.text,
             borderRadius: BorderRadius.circular(17),
           ),
           child: const Icon(
             LucideIcons.listChecks,
-            color: _AndroidAboutColors.logoSurface,
+            color: _AboutColors.logoSurface,
             size: 21,
           ),
         ),
@@ -725,7 +783,7 @@ class _AndroidChangelogHeader extends StatelessWidget {
               Text(
                 '更新日志',
                 style: DudoTextStyles.sans(
-                  color: _AndroidAboutColors.text,
+                  color: _AboutColors.text,
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
                 ),
@@ -734,7 +792,7 @@ class _AndroidChangelogHeader extends StatelessWidget {
               Text(
                 'Dudo 0.1.1 · 2026/06/07',
                 style: DudoTextStyles.sans(
-                  color: _AndroidAboutColors.secondary,
+                  color: _AboutColors.secondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -743,7 +801,7 @@ class _AndroidChangelogHeader extends StatelessWidget {
           ),
         ),
         Material(
-          color: _AndroidAboutColors.surfaceLow,
+          color: _AboutColors.surfaceLow,
           borderRadius: BorderRadius.circular(18),
           child: InkWell(
             onTap: () => Navigator.of(context).pop(),
@@ -753,7 +811,7 @@ class _AndroidChangelogHeader extends StatelessWidget {
               height: 36,
               child: Icon(
                 LucideIcons.x,
-                color: _AndroidAboutColors.secondary,
+                color: _AboutColors.secondary,
                 size: 18,
               ),
             ),
@@ -764,8 +822,8 @@ class _AndroidChangelogHeader extends StatelessWidget {
   }
 }
 
-class _AndroidChangelogSummary extends StatelessWidget {
-  const _AndroidChangelogSummary();
+class _AboutChangelogSummary extends StatelessWidget {
+  const _AboutChangelogSummary();
 
   @override
   Widget build(BuildContext context) {
@@ -773,9 +831,9 @@ class _AndroidChangelogSummary extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: _AndroidAboutColors.page,
+        color: _AboutColors.page,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _AndroidAboutColors.outline),
+        border: Border.all(color: _AboutColors.outline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -783,7 +841,7 @@ class _AndroidChangelogSummary extends StatelessWidget {
           Text(
             '本次更新重点',
             style: DudoTextStyles.sans(
-              color: _AndroidAboutColors.text,
+              color: _AboutColors.text,
               fontSize: 13,
               fontWeight: FontWeight.w700,
             ),
@@ -792,7 +850,7 @@ class _AndroidChangelogSummary extends StatelessWidget {
           Text(
             '改善阅读器稳定性，补齐应用说明、隐私说明与开源分发相关入口。',
             style: DudoTextStyles.sans(
-              color: _AndroidAboutColors.secondaryDark,
+              color: _AboutColors.secondaryDark,
               fontSize: 12,
               height: 1.45,
             ),
@@ -803,8 +861,8 @@ class _AndroidChangelogSummary extends StatelessWidget {
   }
 }
 
-class _AndroidChangelogList extends StatelessWidget {
-  const _AndroidChangelogList();
+class _AboutChangelogList extends StatelessWidget {
+  const _AboutChangelogList();
 
   @override
   Widget build(BuildContext context) {
@@ -812,19 +870,19 @@ class _AndroidChangelogList extends StatelessWidget {
       padding: EdgeInsets.zero,
       physics: const ClampingScrollPhysics(),
       itemBuilder: (context, index) {
-        return _AndroidChangelogGroupView(
-            group: _androidChangelogGroups[index]);
+        return _AboutChangelogGroupView(
+            group: _aboutChangelogGroups[index]);
       },
       separatorBuilder: (_, __) => const SizedBox(height: 9),
-      itemCount: _androidChangelogGroups.length,
+      itemCount: _aboutChangelogGroups.length,
     );
   }
 }
 
-class _AndroidChangelogGroupView extends StatelessWidget {
-  const _AndroidChangelogGroupView({required this.group});
+class _AboutChangelogGroupView extends StatelessWidget {
+  const _AboutChangelogGroupView({required this.group});
 
-  final _AndroidChangelogGroup group;
+  final _AboutChangelogGroup group;
 
   @override
   Widget build(BuildContext context) {
@@ -846,7 +904,7 @@ class _AndroidChangelogGroupView extends StatelessWidget {
             Text(
               group.title,
               style: DudoTextStyles.sans(
-                color: _AndroidAboutColors.text,
+                color: _AboutColors.text,
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
@@ -863,7 +921,7 @@ class _AndroidChangelogGroupView extends StatelessWidget {
                 child: Text(
                   '· $item',
                   style: DudoTextStyles.sans(
-                    color: _AndroidAboutColors.secondaryDark,
+                    color: _AboutColors.secondaryDark,
                     fontSize: 12,
                     height: 1.35,
                   ),
@@ -878,37 +936,39 @@ class _AndroidChangelogGroupView extends StatelessWidget {
   }
 }
 
-class _AndroidChangelogActions extends StatelessWidget {
-  const _AndroidChangelogActions();
+class _AboutChangelogActions extends StatelessWidget {
+  const _AboutChangelogActions({required this.onOpenRepository});
+
+  final VoidCallback onOpenRepository;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child: _AndroidSheetActionButton(
+          child: _AboutSheetActionButton(
             label: '知道了',
-            backgroundColor: _AndroidAboutColors.text,
-            foregroundColor: _AndroidAboutColors.logoSurface,
+            backgroundColor: _AboutColors.text,
+            foregroundColor: _AboutColors.logoSurface,
             onTap: () => Navigator.of(context).pop(),
           ),
         ),
         const SizedBox(width: 8),
-        _AndroidSheetActionButton(
+        _AboutSheetActionButton(
           width: 108,
           label: '查看 GitHub',
-          backgroundColor: _AndroidAboutColors.surfaceLow,
-          foregroundColor: _AndroidAboutColors.secondary,
-          borderColor: _AndroidAboutColors.outlineStrong,
-          onTap: () {},
+          backgroundColor: _AboutColors.surfaceLow,
+          foregroundColor: _AboutColors.secondary,
+          borderColor: _AboutColors.outlineStrong,
+          onTap: onOpenRepository,
         ),
       ],
     );
   }
 }
 
-class _AndroidSheetActionButton extends StatelessWidget {
-  const _AndroidSheetActionButton({
+class _AboutSheetActionButton extends StatelessWidget {
+  const _AboutSheetActionButton({
     required this.label,
     required this.backgroundColor,
     required this.foregroundColor,
@@ -956,8 +1016,8 @@ class _AndroidSheetActionButton extends StatelessWidget {
   }
 }
 
-class _AndroidChangelogGroup {
-  const _AndroidChangelogGroup({
+class _AboutChangelogGroup {
+  const _AboutChangelogGroup({
     required this.title,
     required this.items,
   });
@@ -966,29 +1026,29 @@ class _AndroidChangelogGroup {
   final List<String> items;
 }
 
-const _androidChangelogGroups = [
-  _AndroidChangelogGroup(
+const _aboutChangelogGroups = [
+  _AboutChangelogGroup(
     title: '阅读体验',
     items: [
       '优化章节翻页时的状态同步',
       '降低连续翻页导致的误触概率',
     ],
   ),
-  _AndroidChangelogGroup(
+  _AboutChangelogGroup(
     title: '应用说明',
     items: [
       '新增应用更新检测模块',
       '隐私政策入口改为统一列表样式',
     ],
   ),
-  _AndroidChangelogGroup(
+  _AboutChangelogGroup(
     title: '开源分发',
     items: [
-      'Android 支持下载 APK 后覆盖安装',
-      'iOS 提供 GitHub Releases 跳转与链接复制',
+      '各平台支持安装包下载与覆盖安装',
+      '支持 GitHub Releases 跳转与链接复制',
     ],
   ),
-  _AndroidChangelogGroup(
+  _AboutChangelogGroup(
     title: '修复',
     items: [
       '修复部分小屏设备下的文字拥挤',
@@ -997,40 +1057,51 @@ const _androidChangelogGroups = [
   ),
 ];
 
-class _AndroidSupportSection extends StatelessWidget {
-  const _AndroidSupportSection();
+class _AboutSupportSection extends StatelessWidget {
+  const _AboutSupportSection({
+    required this.onOpenGuide,
+    required this.onFeedback,
+    required this.onShowLicenses,
+  });
+
+  final VoidCallback onOpenGuide;
+  final VoidCallback onFeedback;
+  final VoidCallback onShowLicenses;
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _AndroidSectionTitle('帮助与支持'),
-        SizedBox(height: 8),
-        _AndroidListRow(
+        const _AboutSectionTitle('帮助与支持'),
+        const SizedBox(height: 8),
+        _AboutListRow(
           icon: LucideIcons.bookOpen,
           title: '使用说明',
           description: '了解导入、书架与阅读设置',
+          onTap: onOpenGuide,
         ),
-        SizedBox(height: 7),
-        _AndroidListRow(
+        const SizedBox(height: 7),
+        _AboutListRow(
           icon: LucideIcons.messageCircle,
           title: '反馈与建议',
           description: '告诉我们遇到的问题或想法',
+          onTap: onFeedback,
         ),
-        SizedBox(height: 7),
-        _AndroidListRow(
+        const SizedBox(height: 7),
+        _AboutListRow(
           icon: LucideIcons.fileText,
           title: '开源许可',
           description: '查看第三方库与版权说明',
+          onTap: onShowLicenses,
         ),
       ],
     );
   }
 }
 
-class _AndroidSectionTitle extends StatelessWidget {
-  const _AndroidSectionTitle(this.text);
+class _AboutSectionTitle extends StatelessWidget {
+  const _AboutSectionTitle(this.text);
 
   final String text;
 
@@ -1039,7 +1110,7 @@ class _AndroidSectionTitle extends StatelessWidget {
     return Text(
       text,
       style: DudoTextStyles.sans(
-        color: _AndroidAboutColors.text,
+        color: _AboutColors.text,
         fontSize: text == '应用更新' ? 16 : 17,
         fontWeight: FontWeight.w600,
         height: text == '应用更新' ? 1.45 : null,
@@ -1049,58 +1120,61 @@ class _AndroidSectionTitle extends StatelessWidget {
   }
 }
 
-class _AndroidListRow extends StatelessWidget {
-  const _AndroidListRow({
+class _AboutListRow extends StatelessWidget {
+  const _AboutListRow({
     required this.icon,
     required this.title,
     required this.description,
+    required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String description;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
         child: Container(
-          height: 52,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          constraints: const BoxConstraints(minHeight: 68),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: _AndroidAboutColors.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: _AndroidAboutColors.outline),
+            color: _AboutColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _AboutColors.outline),
           ),
           child: Row(
             children: [
-              Icon(icon, color: _AndroidAboutColors.secondary, size: 18),
+              Icon(icon, color: _AboutColors.secondary, size: 18),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
                       style: DudoTextStyles.sans(
-                        color: _AndroidAboutColors.text,
-                        fontSize: 14,
+                        color: _AboutColors.text,
+                        fontSize: 14.5,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       description,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: DudoTextStyles.sans(
-                        color: _AndroidAboutColors.secondary,
-                        fontSize: 11,
+                        color: _AboutColors.secondary,
+                        fontSize: 11.5,
                       ),
                     ),
                   ],
@@ -1108,7 +1182,7 @@ class _AndroidListRow extends StatelessWidget {
               ),
               const Icon(
                 LucideIcons.chevronRight,
-                color: _AndroidAboutColors.chevron,
+                color: _AboutColors.chevron,
                 size: 18,
               ),
             ],
@@ -1119,8 +1193,8 @@ class _AndroidListRow extends StatelessWidget {
   }
 }
 
-class _AndroidAboutFooter extends StatelessWidget {
-  const _AndroidAboutFooter();
+class _AboutFooter extends StatelessWidget {
+  const _AboutFooter();
 
   @override
   Widget build(BuildContext context) {
@@ -1130,7 +1204,7 @@ class _AndroidAboutFooter extends StatelessWidget {
         child: Text(
           'Dudo · 2026',
           style: DudoTextStyles.sans(
-            color: _AndroidAboutColors.secondary,
+            color: _AboutColors.secondary,
             fontSize: 12,
           ),
         ),
@@ -1139,8 +1213,8 @@ class _AndroidAboutFooter extends StatelessWidget {
   }
 }
 
-class _AndroidAboutColors {
-  const _AndroidAboutColors._();
+class _AboutColors {
+  const _AboutColors._();
 
   static const Color page = Color(0xFFF8F4EA);
   static const Color surface = Color(0xFFFFFBF2);

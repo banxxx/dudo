@@ -135,20 +135,23 @@ void main() {
           .last,
     );
     final rowDecoration = row.decoration! as BoxDecoration;
-    expect(row.constraints?.maxHeight, 56);
-    expect(row.padding, const EdgeInsets.symmetric(horizontal: 12));
+    expect(row.constraints?.minHeight, 68);
+    expect(
+      row.padding,
+      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    );
     expect(rowDecoration.color, DudoColors.surface);
-    expect(rowDecoration.borderRadius, BorderRadius.circular(18));
+    expect(rowDecoration.borderRadius, BorderRadius.circular(20));
     expect(rowDecoration.border?.top.color, DudoColors.outlineVariant);
 
     final rowTitle = tester.widget<Text>(find.text('主题与外观'));
     expect(rowTitle.style?.color, DudoColors.textPrimary);
-    expect(rowTitle.style?.fontSize, 14);
+    expect(rowTitle.style?.fontSize, 14.5);
     expect(rowTitle.style?.fontWeight, FontWeight.w600);
 
     final rowDescription = tester.widget<Text>(find.text('纸感、深色、跟随系统'));
     expect(rowDescription.style?.color, DudoColors.secondary);
-    expect(rowDescription.style?.fontSize, 11);
+    expect(rowDescription.style?.fontSize, 11.5);
 
     final rowValue = tester.widget<Text>(find.text('松叶绿 · 纸色'));
     expect(rowValue.style?.color, DudoColors.secondary);

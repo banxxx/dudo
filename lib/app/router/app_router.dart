@@ -14,6 +14,10 @@ import '../../features/reading_goal/presentation/reading_goal_page.dart';
 import '../../features/reading_stats/presentation/reading_stats_page.dart';
 import '../../features/search/presentation/search_page.dart';
 import '../../features/settings/about/presentation/about_app_page.dart';
+import '../../features/settings/about/presentation/about_feedback_page.dart';
+import '../../features/settings/about/presentation/about_guide_page.dart';
+import '../../features/settings/about/presentation/about_licenses_page.dart';
+import '../../features/settings/about/presentation/about_privacy_page.dart';
 import '../../features/settings/data_sync_settings/presentation/data_sync_settings_page.dart';
 import '../../features/settings/read_aloud_settings/presentation/read_aloud_settings_page.dart';
 import '../../features/settings/shelf_update_settings/presentation/shelf_update_settings_page.dart';
@@ -116,6 +120,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.aboutApp,
         name: AppRoutes.aboutAppName,
         builder: (_, __) => _themed(const AboutAppPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.aboutGuide,
+        name: AppRoutes.aboutGuideName,
+        builder: (_, __) => _themed(const AboutGuidePage()),
+      ),
+      GoRoute(
+        path: AppRoutes.aboutFeedback,
+        name: AppRoutes.aboutFeedbackName,
+        builder: (_, __) => _themed(const AboutFeedbackPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.aboutLicenses,
+        name: AppRoutes.aboutLicensesName,
+        builder: (_, __) => _themed(const AboutLicensesPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.aboutPrivacy,
+        name: AppRoutes.aboutPrivacyName,
+        builder: (_, __) => _themed(const AboutPrivacyPage()),
       ),
       GoRoute(
         path: AppRoutes.readingStats,
@@ -267,6 +291,18 @@ class AppRoutes {
 
   static const aboutApp = '/settings/about';
   static const aboutAppName = 'settings-about';
+
+  static const aboutGuide = '/settings/about/guide';
+  static const aboutGuideName = 'settings-about-guide';
+
+  static const aboutFeedback = '/settings/about/feedback';
+  static const aboutFeedbackName = 'settings-about-feedback';
+
+  static const aboutLicenses = '/settings/about/licenses';
+  static const aboutLicensesName = 'settings-about-licenses';
+
+  static const aboutPrivacy = '/settings/about/privacy';
+  static const aboutPrivacyName = 'settings-about-privacy';
 
   static const readingStats = '/reading-stats';
   static const readingStatsName = 'reading-stats';

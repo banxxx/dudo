@@ -198,8 +198,8 @@ class _UsageRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final canClear = item.clearable && item.bytes > 0;
     final row = Container(
-      constraints: const BoxConstraints(minHeight: 64),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      constraints: const BoxConstraints(minHeight: 68),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: DudoColors.surface,
         borderRadius: BorderRadius.circular(20),
@@ -208,13 +208,13 @@ class _UsageRow extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: 40,
+            height: 40,
             decoration: BoxDecoration(
               color: item.clearable
                   ? DudoColors.primaryContainer
                   : DudoColors.surfaceLow,
-              borderRadius: BorderRadius.circular(19),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
               _iconFor(item.category),
@@ -232,18 +232,18 @@ class _UsageRow extends StatelessWidget {
                   item.title,
                   style: DudoTextStyles.sans(
                     color: DudoColors.textPrimary,
-                    fontSize: 14,
+                    fontSize: 14.5,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
                   item.description,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: DudoTextStyles.sans(
                     color: DudoColors.secondary,
-                    fontSize: 11,
+                    fontSize: 11.5,
                   ),
                 ),
               ],

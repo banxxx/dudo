@@ -455,8 +455,8 @@ class _ImportFontEntry extends StatelessWidget {
         onTap: loading ? null : onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          height: 62,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          height: 76,
+          padding: const EdgeInsets.symmetric(horizontal: 13),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: DudoColors.primaryContainerStrong),
@@ -464,21 +464,22 @@ class _ImportFontEntry extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   color: DudoColors.surfaceHigh,
-                  borderRadius: BorderRadius.circular(19),
+                  borderRadius: BorderRadius.circular(21),
                 ),
-                child:  Icon(
+                child: Icon(
                   LucideIcons.folderPlus,
                   color: DudoColors.primary,
-                  size: 19,
+                  size: 20,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -486,11 +487,11 @@ class _ImportFontEntry extends StatelessWidget {
                       '添加本地字体',
                       style: DudoTextStyles.sans(
                         color: DudoColors.textPrimary,
-                        fontSize: 14,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       '支持 .ttf、.otf，单个文件不超过 50MB',
                       maxLines: 1,
@@ -503,6 +504,7 @@ class _ImportFontEntry extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(width: 12),
               AnimatedSwitcher(
                 duration: AppMotion.short,
                 child: loading
@@ -512,7 +514,7 @@ class _ImportFontEntry extends StatelessWidget {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    :  Icon(
+                    : Icon(
                         key: const ValueKey('font-import-arrow'),
                         LucideIcons.chevronRight,
                         color: DudoColors.primary,

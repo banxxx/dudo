@@ -73,7 +73,7 @@ class _ShelfUpdateSettingsPageState
           _UpdateHero(settings: settings, onlineBookCount: onlineCount),
           const SizedBox(height: 14),
           const SettingsSectionTitle('自动更新'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           SettingsOptionRow(
             title: '自动更新书架',
             description: '定期检查在线书源的新章节',
@@ -84,11 +84,11 @@ class _ShelfUpdateSettingsPageState
                 _update(settings.copyWith(enabled: !settings.enabled));
               },
             ),
-            height: 56,
+            height: 68,
           ),
           const SizedBox(height: 14),
           const SettingsSectionTitle('更新频率'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
               for (final frequency in ShelfUpdateFrequency.values) ...[
@@ -108,7 +108,7 @@ class _ShelfUpdateSettingsPageState
           ),
           const SizedBox(height: 14),
           const SettingsSectionTitle('更新条件'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           SettingsOptionRow(
             title: '仅 Wi-Fi 更新',
             description: '移动网络下跳过自动检查',
@@ -119,9 +119,9 @@ class _ShelfUpdateSettingsPageState
                 _update(settings.copyWith(wifiOnly: !settings.wifiOnly));
               },
             ),
-            height: 56,
+            height: 68,
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 9),
           SettingsOptionRow(
             title: '章节更新提醒',
             description: '发现新章节时通知我',
@@ -134,7 +134,7 @@ class _ShelfUpdateSettingsPageState
                 );
               },
             ),
-            height: 56,
+            height: 68,
           ),
           const SizedBox(height: 12),
           Text(

@@ -428,7 +428,7 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
                   color: DudoColors.outline,
                   size: 16,
                 ),
-                height: 52,
+                height: 68,
               ),
             ),
           ] else
@@ -535,9 +535,9 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
                 ),
               ],
             ),
-            height: 52,
+            height: 68,
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 9),
           SettingsOptionRow(
             title: '后台朗读',
             description: '锁屏或切到后台后继续播放',
@@ -551,9 +551,9 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
                 );
               },
             ),
-            height: 52,
+            height: 68,
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 9),
           SettingsOptionRow(
             title: '段落跟读',
             description: '朗读时页面自动跟随当前段落',
@@ -567,7 +567,7 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
                 );
               },
             ),
-            height: 52,
+            height: 68,
           ),
         ],
       ],
