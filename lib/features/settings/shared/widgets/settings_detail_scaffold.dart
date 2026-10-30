@@ -287,15 +287,22 @@ class SettingsDudoSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = DudoColors.isDark;
     final indicator = Container(
       width: 52,
       height: 30,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: on ? DudoColors.primaryContainer : DudoColors.surface,
+        color: on
+            ? DudoColors.primaryContainer
+            : (dark ? DudoColors.surfaceLow : DudoColors.surface),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: on ? DudoColors.accentMuted : DudoColors.outline,
+          color: on
+              ? (dark
+                  ? DudoColors.primary.withValues(alpha: 0.55)
+                  : DudoColors.accentMuted)
+              : DudoColors.outline,
         ),
       ),
       alignment: on ? Alignment.centerRight : Alignment.centerLeft,
@@ -303,12 +310,14 @@ class SettingsDudoSwitch extends StatelessWidget {
         width: 20,
         height: 20,
         decoration: BoxDecoration(
-          color: on ? DudoColors.primary : DudoColors.outline,
+          color: on
+              ? DudoColors.primary
+              : (dark ? DudoColors.textSecondary : DudoColors.outline),
           shape: BoxShape.circle,
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: Color(0x1F25251F),
-              offset: Offset(0, 2),
+              color: dark ? const Color(0x66000000) : const Color(0x1F25251F),
+              offset: const Offset(0, 2),
               blurRadius: 6,
             ),
           ],

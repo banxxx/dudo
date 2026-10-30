@@ -72,7 +72,7 @@ class _ProfileHeader extends StatelessWidget {
                 borderRadius: BorderRadius.circular(22),
                 border: Border.all(color: DudoColors.outline),
               ),
-              child:  Icon(
+              child: Icon(
                 LucideIcons.settings,
                 color: DudoColors.secondary,
                 size: 21,
@@ -92,16 +92,18 @@ class _ProfileIdentityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = DudoColors.isDark;
     return Container(
       height: 138,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: DudoColors.textPrimary,
+        color: DudoColors.ink,
         borderRadius: BorderRadius.circular(26),
-        boxShadow: const [
+        border: dark ? Border.all(color: DudoColors.outline) : null,
+        boxShadow: [
           BoxShadow(
-            color: Color(0x2625251F),
-            offset: Offset(0, 12),
+            color: dark ? const Color(0x66000000) : const Color(0x2625251F),
+            offset: const Offset(0, 12),
             blurRadius: 30,
           ),
         ],
@@ -114,7 +116,10 @@ class _ProfileIdentityCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: DudoColors.primaryContainer,
               borderRadius: BorderRadius.circular(38),
-              border: Border.all(color: const Color(0xCCFFF8EA), width: 2),
+              border: Border.all(
+                color: dark ? DudoColors.outline : const Color(0xCCFFF8EA),
+                width: 2,
+              ),
             ),
             alignment: Alignment.center,
             child: Text(
@@ -138,7 +143,7 @@ class _ProfileIdentityCard extends StatelessWidget {
                     Text(
                       '纸上旅人',
                       style: DudoTextStyles.serif(
-                        color: DudoColors.surfaceHigh,
+                        color: DudoColors.onInk,
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
                       ),
@@ -147,7 +152,7 @@ class _ProfileIdentityCard extends StatelessWidget {
                     Text(
                       summary.subtitle,
                       style: DudoTextStyles.sans(
-                        color: DudoColors.outline,
+                        color: DudoColors.onInkMuted,
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
                         height: 1.4,
@@ -158,16 +163,20 @@ class _ProfileIdentityCard extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                     Icon(
+                    Icon(
                       LucideIcons.badgeCheck,
-                      color: DudoColors.primaryContainer,
+                      color: DudoColors.isDark
+                          ? DudoColors.primary
+                          : DudoColors.primaryContainer,
                       size: 15,
                     ),
                     const SizedBox(width: 5),
                     Text(
                       '静读会员',
                       style: DudoTextStyles.sans(
-                        color: DudoColors.primaryContainer,
+                        color: DudoColors.isDark
+                            ? DudoColors.primary
+                            : DudoColors.primaryContainer,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -310,7 +319,7 @@ class _MonthlyGoalCard extends StatelessWidget {
                   child: FractionallySizedBox(
                     widthFactor: percent,
                     child: Container(
-                      decoration:  BoxDecoration(
+                      decoration: BoxDecoration(
                         color: DudoColors.primary,
                         borderRadius: AppRadius.full,
                       ),
@@ -338,49 +347,52 @@ class _MonthlyGoalCard extends StatelessWidget {
 class _LibraryToolsSection extends StatelessWidget {
   const _LibraryToolsSection();
 
-  static final _items = [
-    _ToolItem(
-      title: '书源管理',
-      description: '添加、启用、更新和校验书源',
-      icon: LucideIcons.rss,
-      iconFill: DudoColors.surfaceLow,
-      iconColor: DudoColors.secondary,
-      route: AppRoutes.sourceSettings,
-    ),
-    _ToolItem(
-      title: '阅读记录',
-      description: '查看每日阅读曲线',
-      icon: LucideIcons.timer,
-      iconFill: DudoColors.surfaceLow,
-      iconColor: DudoColors.secondary,
-      route: AppRoutes.readingStats,
-    ),
-    _ToolItem(
-      title: '离线缓存',
-      description: '管理已下载章节',
-      icon: LucideIcons.download,
-      iconFill: DudoColors.primaryContainer,
-      iconColor: DudoColors.primary,
-    ),
-    _ToolItem(
-      title: '笔记摘录',
-      description: '整理高亮与想法',
-      icon: LucideIcons.notebookPen,
-      iconFill: DudoColors.surfaceLow,
-      iconColor: DudoColors.secondary,
-      route: AppRoutes.bookmarks,
-    ),
-    _ToolItem(
-      title: '数据同步',
-      description: '云端保持最新',
-      icon: LucideIcons.refreshCw,
-      iconFill: DudoColors.primaryContainer,
-      iconColor: DudoColors.primary,
-    ),
-  ];
+  /// Built per build, not cached: the fills come from the active palette and
+  /// must follow a theme switch the moment the palette changes.
+  List<_ToolItem> get _items => [
+        _ToolItem(
+          title: '书源管理',
+          description: '添加、启用、更新和校验书源',
+          icon: LucideIcons.rss,
+          iconFill: DudoColors.surfaceLow,
+          iconColor: DudoColors.secondary,
+          route: AppRoutes.sourceSettings,
+        ),
+        _ToolItem(
+          title: '阅读记录',
+          description: '查看每日阅读曲线',
+          icon: LucideIcons.timer,
+          iconFill: DudoColors.surfaceLow,
+          iconColor: DudoColors.secondary,
+          route: AppRoutes.readingStats,
+        ),
+        _ToolItem(
+          title: '离线缓存',
+          description: '管理已下载章节',
+          icon: LucideIcons.download,
+          iconFill: DudoColors.primaryContainer,
+          iconColor: DudoColors.primary,
+        ),
+        _ToolItem(
+          title: '笔记摘录',
+          description: '整理高亮与想法',
+          icon: LucideIcons.notebookPen,
+          iconFill: DudoColors.surfaceLow,
+          iconColor: DudoColors.secondary,
+          route: AppRoutes.bookmarks,
+        ),
+        _ToolItem(
+          title: '数据同步',
+          description: '云端保持最新',
+          icon: LucideIcons.refreshCw,
+          iconFill: DudoColors.primaryContainer,
+          iconColor: DudoColors.primary,
+        ),
+      ];
 
   @override
   Widget build(BuildContext context) {
+    final items = _items;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -393,9 +405,9 @@ class _LibraryToolsSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        for (final item in _items) ...[
+        for (final item in items) ...[
           _ToolRow(item: item),
-          if (item != _items.last) const SizedBox(height: 6),
+          if (item != items.last) const SizedBox(height: 6),
         ],
       ],
     );

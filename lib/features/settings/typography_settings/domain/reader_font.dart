@@ -26,6 +26,29 @@ class ReaderFont {
   bool get isBuiltin => source == ReaderFontSource.builtin;
   bool get canDelete => source == ReaderFontSource.imported;
   String get sourceLabel => isBuiltin ? '内置字体' : '本地字体';
+
+  /// `文件名 · 大小` line shown under an imported font's name.
+  String get fileLabel =>
+      '${originalFileName ?? displayName} · ${formatReaderFontSize(fileSize)}';
+}
+
+/// Human readable font file size; `本地字体` stands in for missing metadata.
+String formatReaderFontSize(int? bytes) {
+  if (bytes == null || bytes <= 0) return '本地字体';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
+  return '${(bytes / 1024 / 1024).toStringAsFixed(1)}MB';
+}
+
+/// Outcome of picking a font file: a brand new import, or a file that was
+/// already in the library.
+class ReaderFontImportResult {
+  const ReaderFontImportResult({
+    required this.font,
+    this.alreadyImported = false,
+  });
+
+  final ReaderFont font;
+  final bool alreadyImported;
 }
 
 class ReaderFontLibrary {

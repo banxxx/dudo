@@ -1,5 +1,7 @@
 import 'package:dudo/shared/messages/app_message.dart';
 import 'package:dudo/shared/messages/app_message_card.dart';
+import 'package:dudo/shared/theme/app_tokens.dart';
+import 'package:dudo/shared/theme/dudo_palette.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -114,5 +116,32 @@ void main() {
     expect(cardBox.size.height, lessThan(70));
     expect(cardLeft, closeTo(expectedLeft, 0.1));
     expect(find.byIcon(Icons.close), findsNothing);
+  });
+
+  testWidgets('paper message keeps ink text on its cream card in dark mode', (
+    tester,
+  ) async {
+    DudoColors.use(DudoPalette.dark(DudoAccent.pine));
+    addTearDown(() => DudoColors.use(DudoPalette.light(DudoAccent.pine)));
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AppMessageCard(
+            request: AppMessageRequest(
+              title: '已清理封面缓存',
+              description: '缓存可以随时重新生成',
+              kind: AppMessageKind.success,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final title = tester.widget<Text>(find.text('已清理封面缓存'));
+    expect(title.style?.color, const Color(0xFF25251F));
+
+    final description = tester.widget<Text>(find.text('缓存可以随时重新生成'));
+    expect(description.style?.color, const Color(0xFF6F6B61));
   });
 }

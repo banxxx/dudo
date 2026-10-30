@@ -422,8 +422,10 @@ class _LocalBookImportCard extends StatelessWidget {
       height: 214,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: DudoColors.textPrimary,
+        color: DudoColors.ink,
         borderRadius: BorderRadius.circular(28),
+        border:
+            DudoColors.isDark ? Border.all(color: DudoColors.outline) : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,19 +437,19 @@ class _LocalBookImportCard extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: DudoColors.surfaceHigh.withValues(alpha: 0.14),
+                  color: DudoColors.onInk.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(26),
                 ),
-                child:  Icon(
+                child: Icon(
                   LucideIcons.filePlusCorner,
-                  color: DudoColors.surfaceHigh,
+                  color: DudoColors.onInk,
                   size: 28,
                 ),
               ),
               Text(
                 '推荐',
                 style: DudoTextStyles.sans(
-                  color: DudoColors.outline,
+                  color: DudoColors.onInkMuted,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -458,7 +460,7 @@ class _LocalBookImportCard extends StatelessWidget {
           Text(
             '导入本地书籍文件',
             style: DudoTextStyles.serif(
-              color: DudoColors.surfaceHigh,
+              color: DudoColors.onInk,
               fontSize: 24,
               fontWeight: FontWeight.w700,
             ),
@@ -467,7 +469,7 @@ class _LocalBookImportCard extends StatelessWidget {
           Text(
             '选择 TXT、EPUB 等文件，导入后直接加入书架。',
             style: DudoTextStyles.sans(
-              color: DudoColors.outline,
+              color: DudoColors.onInkMuted,
               fontSize: 13,
               height: 1.45,
             ),
@@ -509,8 +511,9 @@ class _DarkCardButton extends StatelessWidget {
         child: Container(
           height: 40,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration:  BoxDecoration(
-            color: DudoColors.surfaceHigh,
+          decoration: BoxDecoration(
+            color:
+                DudoColors.isDark ? DudoColors.onInk : DudoColors.surfaceHigh,
             borderRadius: AppRadius.full,
           ),
           child: Row(
@@ -519,13 +522,20 @@ class _DarkCardButton extends StatelessWidget {
               Text(
                 label,
                 style: DudoTextStyles.sans(
-                  color: DudoColors.textPrimary,
+                  color: DudoColors.isDark
+                      ? DudoColors.ink
+                      : DudoColors.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(width: 6),
-              Icon(icon, color: DudoColors.textPrimary, size: 14),
+              Icon(
+                icon,
+                color:
+                    DudoColors.isDark ? DudoColors.ink : DudoColors.textPrimary,
+                size: 14,
+              ),
             ],
           ),
         ),
@@ -589,7 +599,7 @@ class _SourceAddressInput extends StatelessWidget {
               child: Container(
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration:  BoxDecoration(
+                decoration: BoxDecoration(
                   color: DudoColors.primaryContainer,
                   borderRadius: AppRadius.full,
                 ),
@@ -677,7 +687,7 @@ class _RuleFileImportRow extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               else
-                 Icon(
+                Icon(
                   LucideIcons.chevronRight,
                   color: DudoColors.outline,
                   size: 18,
@@ -716,11 +726,11 @@ class _ImportNoticeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration:  BoxDecoration(
+      decoration: BoxDecoration(
         color: DudoColors.primaryContainer,
         borderRadius: const BorderRadius.all(Radius.circular(22)),
       ),
-      child:  Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const _NoticeTitle(),

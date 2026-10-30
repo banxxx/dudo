@@ -1,6 +1,12 @@
+import 'package:dudo/features/settings/data_sync_settings/application/data_sync_settings_provider.dart';
+import 'package:dudo/features/settings/data_sync_settings/domain/data_sync_settings.dart';
 import 'package:dudo/features/settings/presentation/settings_page.dart';
 import 'package:dudo/features/settings/read_aloud_settings/application/read_aloud_settings_provider.dart';
 import 'package:dudo/features/settings/read_aloud_settings/domain/read_aloud_settings.dart';
+import 'package:dudo/features/settings/shelf_update_settings/application/shelf_update_settings_provider.dart';
+import 'package:dudo/features/settings/shelf_update_settings/domain/shelf_update_settings.dart';
+import 'package:dudo/features/settings/storage_settings/application/storage_usage_provider.dart';
+import 'package:dudo/features/settings/storage_settings/domain/storage_usage.dart';
 import 'package:dudo/features/settings/theme_settings/application/theme_settings_provider.dart';
 import 'package:dudo/features/settings/theme_settings/domain/theme_settings.dart';
 import 'package:dudo/features/settings/typography_settings/application/reader_font_providers.dart';
@@ -25,6 +31,28 @@ void main() {
           ),
           selectedReaderFontProvider.overrideWith(
             (_) async => ReaderBuiltinFonts.serifSc,
+          ),
+          shelfUpdateSettingsProvider.overrideWith(
+            (_) => Stream.value(
+              ShelfUpdateSettings.defaults().copyWith(
+                frequency: ShelfUpdateFrequency.everyThreeDays,
+              ),
+            ),
+          ),
+          dataSyncSettingsProvider.overrideWith(
+            (_) => Stream.value(DataSyncSettings.defaults()),
+          ),
+          storageUsageProvider.overrideWith(
+            (_) async => const StorageUsage(
+              items: [
+                StorageUsageItem(
+                  category: StorageCategory.database,
+                  title: '阅读数据库',
+                  description: '书籍、章节、书签与阅读记录',
+                  bytes: 1288490188,
+                ),
+              ],
+            ),
           ),
         ],
         child: const MaterialApp(
@@ -53,12 +81,13 @@ void main() {
     expect(find.text('内容与书源'), findsOneWidget);
     expect(find.text('书架更新'), findsOneWidget);
     expect(find.text('更新频率、章节提醒和自动拉取'), findsOneWidget);
-    expect(find.text('每天'), findsOneWidget);
+    expect(find.text('每 3 天'), findsOneWidget);
     expect(find.text('通用'), findsOneWidget);
     expect(find.text('数据同步'), findsOneWidget);
     expect(find.text('阅读进度、书签、高亮和设置'), findsOneWidget);
+    expect(find.text('已开启'), findsOneWidget);
     expect(find.text('缓存与存储'), findsOneWidget);
-    expect(find.text('离线章节、封面缓存与清理'), findsOneWidget);
+    expect(find.text('封面缓存、语音与数据库'), findsOneWidget);
     expect(find.text('1.2GB'), findsOneWidget);
 
     final hero = tester.widget<Container>(
@@ -125,15 +154,8 @@ void main() {
     expect(rowValue.style?.color, DudoColors.secondary);
     expect(rowValue.style?.fontSize, 12);
 
-    final switchTrack = tester.widget<Container>(
-      find.byKey(const ValueKey('settings-sync-switch-track')),
-    );
-    final switchDecoration = switchTrack.decoration! as BoxDecoration;
-    expect(switchTrack.constraints?.maxWidth, 52);
-    expect(switchTrack.constraints?.maxHeight, 30);
-    expect(switchTrack.padding, const EdgeInsets.all(4));
-    expect(switchDecoration.color, DudoColors.primaryContainer);
-    expect(switchDecoration.borderRadius, BorderRadius.circular(15));
-    expect(switchDecoration.border?.top.color, DudoColors.accentMuted);
+    final syncValue = tester.widget<Text>(find.text('已开启'));
+    expect(syncValue.style?.color, DudoColors.secondary);
+    expect(syncValue.style?.fontSize, 12);
   });
 }

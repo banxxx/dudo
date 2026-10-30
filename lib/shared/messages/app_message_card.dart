@@ -422,9 +422,7 @@ _MessageColors _colors(
       AppMessageKind.error => _MessageColors.snack(
           accent: const Color(0xFFFFB4A9),
         ),
-      AppMessageKind.loading ||
-      AppMessageKind.info =>
-        _MessageColors.snack(
+      AppMessageKind.loading || AppMessageKind.info => _MessageColors.snack(
           accent: DudoColors.outline,
         ),
     };
@@ -499,12 +497,15 @@ class _MessageColors {
     required this.iconBackground,
   })  : background = const Color(0xF7FFFBF2),
         border = const Color(0xCCFFFFFF),
-        title = DudoColors.textPrimary,
-        description = DudoColors.textSecondary,
+        // The paper card keeps its cream stock in both themes (like the
+        // inverted "阅读" buttons), so its text is fixed paper ink. Using the
+        // palette's textPrimary here would paint cream text on cream in dark.
+        title = const Color(0xFF25251F),
+        description = const Color(0xFF6F6B61),
         icon = accent,
-        actionBackground = DudoColors.textPrimary,
-        actionForeground = DudoColors.surfaceHigh,
-        close = DudoColors.secondary;
+        actionBackground = const Color(0xFF25251F),
+        actionForeground = const Color(0xFFFFF8EA),
+        close = const Color(0xFF8A735A);
 
   const _MessageColors.filled({
     required Color background,

@@ -75,13 +75,35 @@ class _TypographySettingsPageState
     if (_importing) return;
     setState(() => _importing = true);
     try {
-      final font = await ref
+      final result = await ref
           .read(readerFontLibraryControllerProvider.notifier)
           .importFont();
-      if (!mounted || font == null) return;
+      if (!mounted || result == null) return;
+
+      final font = result.font;
+      final library = ref.read(readerFontLibraryControllerProvider).valueOrNull;
+      final alreadySelected =
+          library?.selectedFamilyKey == font.familyKey;
+
+      if (alreadySelected) {
+        _showFontSnack(
+          '「${font.displayName}」已是当前字体',
+          description: font.fileLabel,
+          kind: AppMessageKind.success,
+        );
+        return;
+      }
+
+      // Importing is only half the intent; offer to switch right away instead
+      // of asking the user to find the new card and tap it.
       _showFontSnack(
-        '已导入「${font.displayName}」，可在列表中启用',
+        result.alreadyImported
+            ? '「${font.displayName}」已在字体库中'
+            : '已导入「${font.displayName}」',
+        description: font.fileLabel,
         kind: AppMessageKind.success,
+        actionLabel: '启用',
+        onAction: () => _selectFont(font),
       );
     } on ReaderFontImportException catch (error) {
       if (!mounted) return;
@@ -133,13 +155,21 @@ class _TypographySettingsPageState
   void _showFontSnack(
     String message, {
     required AppMessageKind kind,
+    String? description,
+    String? actionLabel,
+    void Function()? onAction,
   }) {
     _messageService.show(
       AppMessageRequest(
         title: message,
+        description: description,
         kind: kind,
         position: AppMessagePosition.bottom,
         visualStyle: AppMessageVisualStyle.snack,
+        actionLabel: actionLabel,
+        onAction: onAction,
+        // An actionable snack needs enough time to be tapped.
+        duration: actionLabel == null ? null : const Duration(seconds: 6),
         dedupeKey: _fontSnackDedupeKey,
         replaceExisting: true,
         dismissible: false,
@@ -462,7 +492,7 @@ class _ImportFontEntry extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '支持 .ttf、.otf 文件，导入后可在列表中启用',
+                      '支持 .ttf、.otf，单个文件不超过 50MB',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: DudoTextStyles.sans(
@@ -515,9 +545,8 @@ class _FontCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final foreground = selected ? DudoColors.primaryDark : DudoColors.secondary;
-    final description = font.isBuiltin
-        ? _builtinDescription(font)
-        : '${font.originalFileName ?? font.displayName} · ${_formatFileSize(font.fileSize)}';
+    final description =
+        font.isBuiltin ? _builtinDescription(font) : font.fileLabel;
 
     return Material(
       color: selected ? DudoColors.primaryContainer : DudoColors.surface,
@@ -641,12 +670,6 @@ class _FontCard extends StatelessWidget {
       DudoFonts.sansSc => '清晰稳定的中文无衬线字体',
       _ => '适合长时间中文阅读的衬线字体',
     };
-  }
-
-  String _formatFileSize(int? bytes) {
-    if (bytes == null || bytes <= 0) return '本地字体';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
-    return '${(bytes / 1024 / 1024).toStringAsFixed(1)}MB';
   }
 }
 

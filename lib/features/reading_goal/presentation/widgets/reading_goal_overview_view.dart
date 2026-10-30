@@ -67,16 +67,18 @@ class _GoalHeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = DudoColors.isDark;
     return Container(
       height: 164,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: DudoColors.textPrimary,
+        color: DudoColors.ink,
         borderRadius: BorderRadius.circular(28),
-        boxShadow: const [
+        border: dark ? Border.all(color: DudoColors.outline) : null,
+        boxShadow: [
           BoxShadow(
-            color: Color(0x2625251F),
-            offset: Offset(0, 12),
+            color: dark ? const Color(0x66000000) : const Color(0x2625251F),
+            offset: const Offset(0, 12),
             blurRadius: 30,
           ),
         ],
@@ -94,7 +96,7 @@ class _GoalHeroCard extends StatelessWidget {
                     Text(
                       ReadingGoalPageData.progressTitle,
                       style: DudoTextStyles.sans(
-                        color: DudoColors.outline,
+                        color: DudoColors.onInkMuted,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -103,7 +105,7 @@ class _GoalHeroCard extends StatelessWidget {
                     Text(
                       overview.currentProgress,
                       style: DudoTextStyles.numeric(
-                        color: DudoColors.surfaceHigh,
+                        color: DudoColors.onInk,
                         fontSize: 34,
                         fontWeight: FontWeight.w700,
                         height: 1.05,
@@ -113,7 +115,7 @@ class _GoalHeroCard extends StatelessWidget {
                     Text(
                       overview.progressSummary,
                       style: DudoTextStyles.sans(
-                        color: DudoColors.outline,
+                        color: DudoColors.onInkMuted,
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
                       ),
@@ -194,7 +196,7 @@ class _ProgressDonut extends StatelessWidget {
               value: 1,
               strokeWidth: 15,
               strokeCap: StrokeCap.round,
-              color: DudoColors.surfaceHigh.withValues(alpha: 0.13),
+              color: DudoColors.onInk.withValues(alpha: 0.13),
             ),
           ),
           SizedBox(
@@ -204,15 +206,20 @@ class _ProgressDonut extends StatelessWidget {
               value: percent,
               strokeWidth: 15,
               strokeCap: StrokeCap.round,
-              color: DudoColors.primaryContainer,
+              color: DudoColors.isDark
+                  ? DudoColors.primary
+                  : DudoColors.primaryContainer,
             ),
           ),
           Container(
             width: 60,
             height: 60,
-            decoration:  BoxDecoration(
-              color: DudoColors.textPrimary,
+            decoration: BoxDecoration(
+              color: DudoColors.ink,
               shape: BoxShape.circle,
+              border: DudoColors.isDark
+                  ? Border.all(color: DudoColors.outline)
+                  : null,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -220,7 +227,7 @@ class _ProgressDonut extends StatelessWidget {
                 Text(
                   percentText,
                   style: DudoTextStyles.numeric(
-                    color: DudoColors.surfaceHigh,
+                    color: DudoColors.onInk,
                     fontSize: 19,
                     fontWeight: FontWeight.w700,
                     height: 1,
@@ -230,7 +237,7 @@ class _ProgressDonut extends StatelessWidget {
                 Text(
                   ReadingGoalPageData.progressPercentLabel,
                   style: DudoTextStyles.sans(
-                    color: DudoColors.outline,
+                    color: DudoColors.onInkMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w400,
                   ),
@@ -534,12 +541,11 @@ class _SuggestionCard extends StatelessWidget {
           Container(
             width: 42,
             height: 42,
-            decoration:  BoxDecoration(
+            decoration: BoxDecoration(
               color: DudoColors.surface,
               shape: BoxShape.circle,
             ),
-            child:  Icon(LucideIcons.leaf,
-                color: DudoColors.primary, size: 22),
+            child: Icon(LucideIcons.leaf, color: DudoColors.primary, size: 22),
           ),
           const SizedBox(width: 10),
           Expanded(

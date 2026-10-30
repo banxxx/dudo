@@ -14,7 +14,7 @@ import '../domain/reader_font.dart';
 abstract class ReaderFontRepository {
   Future<ReaderFontLibrary> loadLibrary();
 
-  Future<ReaderFont?> pickAndImportFont();
+  Future<ReaderFontImportResult?> pickAndImportFont();
 
   Future<void> selectFont(String familyKey);
 
@@ -70,7 +70,7 @@ class DriftReaderFontRepository implements ReaderFontRepository {
   }
 
   @override
-  Future<ReaderFont?> pickAndImportFont() async {
+  Future<ReaderFontImportResult?> pickAndImportFont() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['ttf', 'otf'],
@@ -93,10 +93,34 @@ class DriftReaderFontRepository implements ReaderFontRepository {
     if (bytes.length > _maxFontBytes) {
       throw const ReaderFontImportException('字体文件超过 50MB，无法导入');
     }
+    if (!ReaderFontFileValidator.looksLikeFont(bytes)) {
+      throw const ReaderFontImportException('文件不是有效的字体，请选择 .ttf 或 .otf');
+    }
 
     final digest = sha256.convert(bytes).toString();
     final id = 'font_${digest.substring(0, 16)}';
     final familyKey = 'DudoImportedFont_${digest.substring(0, 16)}';
+
+    // The same file can be picked again after it was already imported; keep the
+    // existing record and its metadata instead of resetting its import time.
+    final existing = await (_database.select(_database.importedReaderFonts)
+          ..where((table) => table.id.equals(id) & table.isDeleted.equals(false)))
+        .getSingleOrNull();
+    if (existing != null) {
+      final font = _fromImportedFont(existing);
+      final file = await _resolveSupportFile(existing.relativePath);
+      if (await file.exists()) await _loader.loadFont(font, file);
+      return ReaderFontImportResult(font: font, alreadyImported: true);
+    }
+
+    // Load before persisting: a corrupt file must not leave a broken row and a
+    // half-imported font behind.
+    try {
+      await _loader.loadBytes(familyKey, bytes);
+    } catch (_) {
+      throw const ReaderFontImportException('字体文件无法解析，请换一个字体文件');
+    }
+
     final displayName = _displayNameFor(bytes, file.name);
     final relativePath = p.join('fonts', 'imported', id, 'font.$extension');
     final target = await _resolveSupportFile(relativePath);
@@ -129,8 +153,7 @@ class DriftReaderFontRepository implements ReaderFontRepository {
       relativePath: relativePath,
       importedAt: now,
     );
-    await _loader.loadFont(font, target);
-    return font;
+    return ReaderFontImportResult(font: font);
   }
 
   @override
@@ -254,6 +277,25 @@ class DriftReaderFontRepository implements ReaderFontRepository {
   Future<File> _resolveSupportFile(String relativePath) async {
     final dir = await getApplicationSupportDirectory();
     return File(p.join(dir.path, relativePath));
+  }
+}
+
+/// Cheap structural check that keeps non-font files (renamed images, HTML,
+/// truncated downloads) out of the library before the engine tries to load
+/// them.
+class ReaderFontFileValidator {
+  ReaderFontFileValidator._();
+
+  /// True for the sfnt signatures the Flutter engine can load: TrueType
+  /// (`0x00010000`), OpenType/CFF (`OTTO`) and Apple's `true` / `typ1`.
+  static bool looksLikeFont(Uint8List bytes) {
+    if (bytes.length < 12) return false;
+    final tag = String.fromCharCodes(bytes.sublist(0, 4));
+    if (tag == 'OTTO' || tag == 'true' || tag == 'typ1') return true;
+    return bytes[0] == 0x00 &&
+        bytes[1] == 0x01 &&
+        bytes[2] == 0x00 &&
+        bytes[3] == 0x00;
   }
 }
 
@@ -429,11 +471,17 @@ class ReaderFontLoader {
   final Set<String> _loadedFamilies = <String>{};
 
   Future<void> loadFont(ReaderFont font, File file) async {
-    if (font.isBuiltin || _loadedFamilies.contains(font.familyKey)) return;
-    final bytes = await file.readAsBytes();
-    final loader = FontLoader(font.familyKey)
+    if (font.isBuiltin) return;
+    await loadBytes(font.familyKey, await file.readAsBytes());
+  }
+
+  /// Loads [bytes] under [familyKey]; also used to validate a file before it is
+  /// written to disk.
+  Future<void> loadBytes(String familyKey, Uint8List bytes) async {
+    if (_loadedFamilies.contains(familyKey)) return;
+    final loader = FontLoader(familyKey)
       ..addFont(Future<ByteData>.value(ByteData.sublistView(bytes)));
     await loader.load();
-    _loadedFamilies.add(font.familyKey);
+    _loadedFamilies.add(familyKey);
   }
 }

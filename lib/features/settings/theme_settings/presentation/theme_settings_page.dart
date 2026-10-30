@@ -22,11 +22,10 @@ class ThemeSettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings =
-        ref.watch(themeSettingsProvider).valueOrNull ?? ThemeSettings.defaults();
-    final readerPrefs =
-        ref.watch(readerPreferencesProvider).valueOrNull ??
-            ReaderPreferences.defaults();
+    final settings = ref.watch(themeSettingsProvider).valueOrNull ??
+        ThemeSettings.defaults();
+    final readerPrefs = ref.watch(readerPreferencesProvider).valueOrNull ??
+        ReaderPreferences.defaults();
     final immersive = readerPrefs.timeBatteryHidden &&
         readerPrefs.chapterProgressHidden &&
         readerPrefs.systemStatusBarHidden;
@@ -55,7 +54,8 @@ class ThemeSettingsPage extends ConsumerWidget {
                   titleColor: const Color(0xFF25251F),
                   subtitleColor: const Color(0xFF8A735A),
                   selected: settings.mode == DudoThemeMode.paper,
-                  onTap: () => _save(ref, settings.copyWith(mode: DudoThemeMode.paper)),
+                  onTap: () =>
+                      _save(ref, settings.copyWith(mode: DudoThemeMode.paper)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -63,11 +63,12 @@ class ThemeSettingsPage extends ConsumerWidget {
                 child: _ModeCard(
                   title: '深色',
                   subtitle: '夜间阅读',
-                  fill: const Color(0xFF23272C),
-                  titleColor: const Color(0xFFECE7DC),
-                  subtitleColor: const Color(0xFFA9A398),
+                  fill: const Color(0xFF1C1F22),
+                  titleColor: const Color(0xFFF4EBD8),
+                  subtitleColor: const Color(0xFFB8AA91),
                   selected: settings.mode == DudoThemeMode.dark,
-                  onTap: () => _save(ref, settings.copyWith(mode: DudoThemeMode.dark)),
+                  onTap: () =>
+                      _save(ref, settings.copyWith(mode: DudoThemeMode.dark)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -76,11 +77,12 @@ class ThemeSettingsPage extends ConsumerWidget {
                   title: '跟随系统',
                   subtitle: '自动切换',
                   fill: const Color(0xFFFFFBF2),
-                  splitFill: const Color(0xFF23272C),
+                  splitFill: const Color(0xFF1C1F22),
                   titleColor: const Color(0xFF25251F),
                   subtitleColor: const Color(0xFF8A735A),
                   selected: settings.mode == DudoThemeMode.system,
-                  onTap: () => _save(ref, settings.copyWith(mode: DudoThemeMode.system)),
+                  onTap: () =>
+                      _save(ref, settings.copyWith(mode: DudoThemeMode.system)),
                 ),
               ),
             ],
@@ -90,7 +92,7 @@ class ThemeSettingsPage extends ConsumerWidget {
         const SettingsSectionTitle('强调色'),
         const SizedBox(height: 8),
         SizedBox(
-          height: 54,
+          height: 82,
           child: Row(
             children: [
               for (final accent in DudoAccent.values) ...[
@@ -126,17 +128,16 @@ class ThemeSettingsPage extends ConsumerWidget {
   }
 
   void _toggleImmersive(WidgetRef ref, bool value) {
-    final prefs =
-        ref.read(readerPreferencesProvider).valueOrNull ??
-            ReaderPreferences.defaults();
+    final prefs = ref.read(readerPreferencesProvider).valueOrNull ??
+        ReaderPreferences.defaults();
     unawaited(
       ref.read(readerPreferencesRepositoryProvider).save(
-        prefs.copyWith(
-          timeBatteryHidden: value,
-          chapterProgressHidden: value,
-          systemStatusBarHidden: value,
-        ),
-      ),
+            prefs.copyWith(
+              timeBatteryHidden: value,
+              chapterProgressHidden: value,
+              systemStatusBarHidden: value,
+            ),
+          ),
     );
   }
 }
@@ -153,16 +154,18 @@ class _ThemePreview extends StatelessWidget {
       DudoThemeMode.dark => '深色',
       DudoThemeMode.system => '跟随系统',
     };
+    final dark = DudoColors.isDark;
     return Container(
       height: 178,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: DudoColors.textPrimary,
+        color: DudoColors.ink,
         borderRadius: BorderRadius.circular(26),
-        boxShadow: const [
+        border: dark ? Border.all(color: DudoColors.outline) : null,
+        boxShadow: [
           BoxShadow(
-            color: Color(0x2225251F),
-            offset: Offset(0, 12),
+            color: dark ? const Color(0x66000000) : const Color(0x2225251F),
+            offset: const Offset(0, 12),
             blurRadius: 30,
           ),
         ],
@@ -173,7 +176,7 @@ class _ThemePreview extends StatelessWidget {
           Text(
             '当前主题',
             style: DudoTextStyles.sans(
-              color: DudoColors.outline,
+              color: DudoColors.onInkMuted,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -182,7 +185,7 @@ class _ThemePreview extends StatelessWidget {
           Text(
             '${settings.accent.label} · $modeLabel',
             style: DudoTextStyles.serif(
-              color: DudoColors.surfaceHigh,
+              color: DudoColors.onInk,
               fontSize: 28,
               fontWeight: FontWeight.w700,
             ),
@@ -191,7 +194,7 @@ class _ThemePreview extends StatelessWidget {
           Text(
             '强调色用于进度、书签和可操作按钮；模式决定纸张底色与明暗。',
             style: DudoTextStyles.sans(
-              color: DudoColors.outline,
+              color: DudoColors.onInkMuted,
               fontSize: 13,
               height: 1.45,
             ),
@@ -201,13 +204,17 @@ class _ThemePreview extends StatelessWidget {
             children: [
               _Swatch(DudoColors.paperBackground),
               const SizedBox(width: 8),
-              _Swatch(DudoColors.secondaryContainer),
+              _Swatch(dark
+                  ? DudoColors.surfaceHigh
+                  : DudoColors.secondaryContainer),
               const SizedBox(width: 8),
-              _Swatch(DudoColors.primaryContainer),
+              _Swatch(dark
+                  ? DudoColors.secondaryContainer
+                  : DudoColors.primaryContainer),
               const SizedBox(width: 8),
               _Swatch(DudoColors.primary),
               const SizedBox(width: 8),
-              _Swatch(DudoColors.surfaceHigh),
+              _Swatch(dark ? DudoColors.accent : DudoColors.surfaceHigh),
             ],
           ),
         ],
@@ -229,7 +236,11 @@ class _Swatch extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.33)),
+        border: Border.all(
+          color: DudoColors.isDark
+              ? DudoColors.onInk.withValues(alpha: 0.22)
+              : Colors.white.withValues(alpha: 0.33),
+        ),
       ),
     );
   }
@@ -261,6 +272,16 @@ class _ModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = DudoColors.isDark;
+    // A full-strength paper swatch glares inside the dark theme, so dim the
+    // light previews slightly while keeping their paper identity readable.
+    final cardFill = dark
+        ? Color.alphaBlend(DudoColors.surface.withValues(alpha: 0.22), fill)
+        : fill;
+    // The split card previews "system": its dark half has to stay readable as
+    // a dark surface instead of vanishing into the near-black page.
+    final splitHalf =
+        splitFill == null ? null : (dark ? DudoColors.surfaceLow : splitFill!);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -270,20 +291,20 @@ class _ModeCard extends StatelessWidget {
             height: double.infinity,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: splitFill == null ? fill : null,
-              gradient: splitFill == null
+              color: splitHalf == null ? cardFill : null,
+              gradient: splitHalf == null
                   ? null
                   : LinearGradient(
                       // Mostly light with a dark tail, so the dark-mode sliver
                       // is unmistakable while both labels stay readable.
-                      colors: [fill, splitFill!],
+                      colors: [cardFill, splitHalf],
                       stops: const [0.75, 0.75],
                     ),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: selected
                     ? DudoColors.primary
-                    : DudoColors.outlineVariant,
+                    : (dark ? DudoColors.outline : DudoColors.outlineVariant),
                 width: selected ? 2 : 1,
               ),
             ),
@@ -304,7 +325,8 @@ class _ModeCard extends StatelessWidget {
                 ),
                 Text(
                   subtitle,
-                  style: DudoTextStyles.sans(color: subtitleColor, fontSize: 11),
+                  style:
+                      DudoTextStyles.sans(color: subtitleColor, fontSize: 11),
                 ),
               ],
             ),
@@ -316,13 +338,15 @@ class _ModeCard extends StatelessWidget {
               child: Container(
                 width: 18,
                 height: 18,
-                decoration:  BoxDecoration(
+                decoration: BoxDecoration(
                   color: DudoColors.primary,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   LucideIcons.check,
-                  color: DudoColors.surfaceHigh,
+                  color: DudoColors.isDark
+                      ? DudoColors.paperBackground
+                      : DudoColors.surfaceHigh,
                   size: 12,
                 ),
               ),
@@ -333,6 +357,9 @@ class _ModeCard extends StatelessWidget {
   }
 }
 
+/// Accent swatch tile. A raised, tinted paper tile rather than a flat outlined
+/// pill: the swatch has its own gradient and shadow, and the selected tile
+/// carries a soft accent glow plus a check badge.
 class _AccentChip extends StatelessWidget {
   const _AccentChip({
     required this.label,
@@ -348,47 +375,116 @@ class _AccentChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = DudoColors.isDark;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
+      child: AnimatedContainer(
+        duration: AppMotion.short,
+        curve: AppMotion.emphasized,
         decoration: BoxDecoration(
-          color: DudoColors.surface,
-          borderRadius: BorderRadius.circular(18),
+          color: selected
+              ? Color.alphaBlend(
+                  DudoColors.primary.withValues(alpha: dark ? 0.16 : 0.10),
+                  DudoColors.surfaceLow,
+                )
+              : DudoColors.surfaceLow,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: selected ? DudoColors.primary : DudoColors.outlineVariant,
-            width: selected ? 2 : 1,
+            width: selected ? 1.6 : 1,
           ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                // Keeps pale swatches visible on the dark card surface.
-                border: Border.all(color: DudoColors.outline),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: DudoTextStyles.sans(
-                  color: selected
-                      ? DudoColors.textPrimary
-                      : DudoColors.secondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: selected
+                  ? color.withValues(alpha: dark ? 0.30 : 0.22)
+                  : (dark ? const Color(0x33000000) : const Color(0x0F25251F)),
+              offset: Offset(0, selected ? 6 : 2),
+              blurRadius: selected ? 16 : 6,
             ),
           ],
         ),
+        child: Stack(
+          children: [
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _AccentDot(color: color),
+                  const SizedBox(height: 8),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DudoTextStyles.sans(
+                      color: selected
+                          ? DudoColors.textPrimary
+                          : DudoColors.secondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (selected)
+              Positioned(
+                top: 6,
+                right: 6,
+                child: Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: DudoColors.primary,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    LucideIcons.check,
+                    color: dark
+                        ? DudoColors.paperBackground
+                        : DudoColors.surfaceHigh,
+                    size: 10,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccentDot extends StatelessWidget {
+  const _AccentDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color.lerp(color, Colors.white, 0.18)!, color],
+        ),
+        // The ring keeps near-black swatches readable on the dark tile.
+        border: Border.all(
+          color: DudoColors.isDark
+              ? Colors.white.withValues(alpha: 0.28)
+              : Colors.white.withValues(alpha: 0.72),
+          width: 1.4,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.38),
+            offset: const Offset(0, 3),
+            blurRadius: 8,
+          ),
+        ],
       ),
     );
   }

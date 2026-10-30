@@ -14,9 +14,12 @@ import '../../features/reading_goal/presentation/reading_goal_page.dart';
 import '../../features/reading_stats/presentation/reading_stats_page.dart';
 import '../../features/search/presentation/search_page.dart';
 import '../../features/settings/about/presentation/about_app_page.dart';
+import '../../features/settings/data_sync_settings/presentation/data_sync_settings_page.dart';
 import '../../features/settings/read_aloud_settings/presentation/read_aloud_settings_page.dart';
+import '../../features/settings/shelf_update_settings/presentation/shelf_update_settings_page.dart';
 import '../../features/settings/source_add/presentation/source_add_settings_page.dart';
 import '../../features/settings/source_manage/presentation/source_manage_settings_page.dart';
+import '../../features/settings/storage_settings/presentation/storage_settings_page.dart';
 import '../../features/settings/theme_settings/application/theme_settings_provider.dart';
 import '../../features/settings/theme_settings/presentation/theme_settings_page.dart';
 import '../../features/settings/typography_settings/presentation/typography_settings_page.dart';
@@ -150,6 +153,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => _themed(const ReadAloudSettingsPage()),
       ),
       GoRoute(
+        path: AppRoutes.storageSettings,
+        name: AppRoutes.storageSettingsName,
+        builder: (_, __) => _themed(const StorageSettingsPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.shelfUpdateSettings,
+        name: AppRoutes.shelfUpdateSettingsName,
+        builder: (_, __) => _themed(const ShelfUpdateSettingsPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.dataSyncSettings,
+        name: AppRoutes.dataSyncSettingsName,
+        builder: (_, __) => _themed(const DataSyncSettingsPage()),
+      ),
+      GoRoute(
         path: '${AppRoutes.bookDetail}/:bookId',
         name: AppRoutes.bookDetailName,
         builder: (context, state) {
@@ -270,6 +288,15 @@ class AppRoutes {
 
   static const readAloudSettings = '/settings/read-aloud';
   static const readAloudSettingsName = 'settings-read-aloud';
+
+  static const storageSettings = '/settings/storage';
+  static const storageSettingsName = 'settings-storage';
+
+  static const shelfUpdateSettings = '/settings/shelf-update';
+  static const shelfUpdateSettingsName = 'settings-shelf-update';
+
+  static const dataSyncSettings = '/settings/data-sync';
+  static const dataSyncSettingsName = 'settings-data-sync';
 
   static const bookDetail = '/books';
   static const bookDetailName = 'book-detail';

@@ -19,10 +19,14 @@ class DudoColors {
 
   static void use(DudoPalette palette) => _active = palette;
 
+  static bool get isDark => _active.isDark;
   static Color get paperBackground => _active.paperBackground;
   static Color get surface => _active.surface;
   static Color get surfaceLow => _active.surfaceLow;
   static Color get surfaceHigh => _active.surfaceHigh;
+  static Color get ink => _active.ink;
+  static Color get onInk => _active.onInk;
+  static Color get onInkMuted => _active.onInkMuted;
   static Color get primary => _active.primary;
   static Color get primaryContainer => _active.primaryContainer;
   static Color get primaryContainerStrong => _active.primaryContainerStrong;
@@ -43,12 +47,11 @@ class DudoColors {
   static Color get navigationShadow => _active.navigationShadow;
 
   /// The bottom tab bar still references these by name and branches on the
-  /// platform brightness itself, so they stay as fixed constants.
+  /// platform brightness itself, so they stay as fixed constants. The active
+  /// pill and its foreground come from the palette instead, so they follow the
+  /// chosen accent.
   static const Color darkBackground = Color(0xFF1C1F22);
   static const Color darkSurface = Color(0xF2262930);
-  static const Color darkNavigationActive = Color(0xFF2A2E28);
-  static const Color darkNavigationActiveForeground = Color(0xFF8EAD84);
-  static const Color darkNavigationInactive = Color(0xFFB8AA91);
   static const Color darkNavigationStroke = Color(0xCC3E4248);
   static const Color darkNavigationShadow = Color(0x66000000);
 }

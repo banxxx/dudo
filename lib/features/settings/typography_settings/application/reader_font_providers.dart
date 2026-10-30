@@ -52,17 +52,17 @@ class ReaderFontLibraryController
     state = await AsyncValue.guard(_repository.loadLibrary);
   }
 
-  Future<ReaderFont?> importFont() async {
+  Future<ReaderFontImportResult?> importFont() async {
     final previous = state;
     try {
-      final font = await _repository.pickAndImportFont();
-      if (font != null) {
+      final result = await _repository.pickAndImportFont();
+      if (result != null) {
         state = AsyncValue.data(await _repository.loadLibrary());
       }
-      return font;
+      return result;
     } catch (error, stackTrace) {
       state = previous;
-      return Future<ReaderFont?>.error(error, stackTrace);
+      return Future<ReaderFontImportResult?>.error(error, stackTrace);
     }
   }
 

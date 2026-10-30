@@ -32,6 +32,46 @@ void main() {
           ReaderFontDisplayNameParser.tryReadDisplayName(Uint8List(4)), null);
     });
   });
+
+  group('ReaderFontFileValidator', () {
+    test('accepts the sfnt signatures the engine can load', () {
+      expect(ReaderFontFileValidator.looksLikeFont(_sfntVersion(0x00010000)),
+          isTrue);
+      expect(ReaderFontFileValidator.looksLikeFont(_sfntTag('OTTO')), isTrue);
+      expect(ReaderFontFileValidator.looksLikeFont(_sfntTag('true')), isTrue);
+      expect(ReaderFontFileValidator.looksLikeFont(_sfntTag('typ1')), isTrue);
+    });
+
+    test('rejects short and non-font files', () {
+      expect(ReaderFontFileValidator.looksLikeFont(Uint8List(4)), isFalse);
+      expect(
+        ReaderFontFileValidator.looksLikeFont(
+          Uint8List.fromList(ascii.encode('<!DOCTYPE htm')),
+        ),
+        isFalse,
+      );
+      expect(
+        ReaderFontFileValidator.looksLikeFont(
+          Uint8List.fromList(
+            const [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0],
+          ),
+        ),
+        isFalse,
+      );
+    });
+  });
+}
+
+Uint8List _sfntVersion(int version) {
+  final bytes = Uint8List(12);
+  _writeUint32(bytes, 0, version);
+  return bytes;
+}
+
+Uint8List _sfntTag(String tag) {
+  final bytes = Uint8List(12);
+  bytes.setRange(0, 4, ascii.encode(tag));
+  return bytes;
 }
 
 Uint8List _fontBytes(List<_NameRecord> records) {

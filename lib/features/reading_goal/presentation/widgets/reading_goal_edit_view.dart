@@ -169,16 +169,18 @@ class _GoalEditPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = DudoColors.isDark;
     return Container(
       height: 108,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: DudoColors.textPrimary,
+        color: DudoColors.ink,
         borderRadius: BorderRadius.circular(28),
-        boxShadow: const [
+        border: dark ? Border.all(color: DudoColors.outline) : null,
+        boxShadow: [
           BoxShadow(
-            color: Color(0x2225251F),
-            offset: Offset(0, 12),
+            color: dark ? const Color(0x66000000) : const Color(0x2225251F),
+            offset: const Offset(0, 12),
             blurRadius: 28,
           ),
         ],
@@ -193,7 +195,7 @@ class _GoalEditPreview extends StatelessWidget {
                 Text(
                   title,
                   style: DudoTextStyles.sans(
-                    color: DudoColors.outline,
+                    color: DudoColors.onInkMuted,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -201,7 +203,7 @@ class _GoalEditPreview extends StatelessWidget {
                 Text(
                   '$goalValue ${method.unit} / 月',
                   style: DudoTextStyles.serif(
-                    color: DudoColors.surfaceHigh,
+                    color: DudoColors.onInk,
                     fontSize: 26,
                     fontWeight: FontWeight.w700,
                     height: 1.05,
@@ -212,7 +214,7 @@ class _GoalEditPreview extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: DudoTextStyles.sans(
-                    color: DudoColors.outline,
+                    color: DudoColors.onInkMuted,
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                   ),
@@ -300,7 +302,7 @@ class _GoalMethodCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                 Icon(LucideIcons.sparkles,
+                Icon(LucideIcons.sparkles,
                     color: DudoColors.secondary, size: 13),
                 const SizedBox(width: 6),
                 Expanded(
@@ -580,8 +582,7 @@ class _GoalReminderCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                 Icon(LucideIcons.clock3,
-                    color: DudoColors.secondary, size: 16),
+                Icon(LucideIcons.clock3, color: DudoColors.secondary, size: 16),
                 const SizedBox(width: 10),
                 Text(
                   ReadingGoalPageData.reminderTime,
@@ -659,7 +660,7 @@ class _DudoSwitch extends StatelessWidget {
           child: Container(
             width: 22,
             height: 22,
-            decoration:  BoxDecoration(
+            decoration: BoxDecoration(
               color: DudoColors.surfaceHigh,
               shape: BoxShape.circle,
             ),
@@ -779,7 +780,7 @@ class _RuleRow extends StatelessWidget {
                   ),
                 ),
                 child: selected
-                    ?  Icon(LucideIcons.check,
+                    ? Icon(LucideIcons.check,
                         color: DudoColors.surfaceHigh, size: 13)
                     : null,
               ),

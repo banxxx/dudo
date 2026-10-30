@@ -83,8 +83,10 @@ class DudoBottomTabBar extends StatelessWidget {
                             child: DecoratedBox(
                               key: const ValueKey('bottom-tab-indicator'),
                               decoration: BoxDecoration(
+                                // Palette-driven so the tab pill follows the
+                                // chosen accent instead of staying pine.
                                 color: isDark
-                                    ? DudoColors.darkNavigationActive
+                                    ? DudoColors.primaryContainer
                                     : DudoColors.textPrimary,
                                 borderRadius: BorderRadius.circular(24),
                               ),
@@ -100,12 +102,9 @@ class DudoBottomTabBar extends StatelessWidget {
                                     destination: destinations[index],
                                     selected: index == currentIndex,
                                     selectedForeground: isDark
-                                        ? DudoColors
-                                            .darkNavigationActiveForeground
+                                        ? DudoColors.primary
                                         : DudoColors.surfaceHigh,
-                                    unselectedForeground: isDark
-                                        ? DudoColors.darkNavigationInactive
-                                        : DudoColors.secondary,
+                                    unselectedForeground: DudoColors.secondary,
                                     onTap: () => onDestinationSelected(index),
                                   ),
                                 ),

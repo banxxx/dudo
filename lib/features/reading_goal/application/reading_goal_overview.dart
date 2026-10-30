@@ -70,16 +70,28 @@ class ReadingGoalOverview {
           text: remainingValue <= 0
               ? '已达成'
               : '差 ${_remainingLabel(goal, remainingValue)}',
-          iconColor: DudoColors.secondaryContainer,
-          textColor: DudoColors.secondaryContainer,
-          fill: const Color(0x1FFFF8EA),
+          iconColor: DudoColors.isDark
+              ? DudoColors.onInkMuted
+              : DudoColors.secondaryContainer,
+          textColor: DudoColors.isDark
+              ? DudoColors.onInkMuted
+              : DudoColors.secondaryContainer,
+          fill: DudoColors.isDark
+              ? DudoColors.onInk.withValues(alpha: 0.10)
+              : const Color(0x1FFFF8EA),
         ),
         ReadingGoalHeroBadgeData(
           icon: LucideIcons.trendingUp,
           text: _paceLabel(ratio, expectedRatio),
-          iconColor: DudoColors.primaryContainer,
-          textColor: DudoColors.primaryContainer,
-          fill: const Color(0x2BDDE8D4),
+          iconColor: DudoColors.isDark
+              ? DudoColors.primary
+              : DudoColors.primaryContainer,
+          textColor: DudoColors.isDark
+              ? DudoColors.primary
+              : DudoColors.primaryContainer,
+          fill: DudoColors.isDark
+              ? DudoColors.primary.withValues(alpha: 0.14)
+              : const Color(0x2BDDE8D4),
         ),
       ],
       metrics: [

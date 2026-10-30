@@ -55,7 +55,7 @@ void main() {
   });
 
   testWidgets('keeps the font list visible while importing', (tester) async {
-    final importCompleter = Completer<ReaderFont?>();
+    final importCompleter = Completer<ReaderFontImportResult?>();
     final repository = _FakeReaderFontRepository(
       importCompleter: importCompleter,
     );
@@ -157,6 +157,130 @@ void main() {
 
     expect(messageService.dismissedKeys, contains('typography-settings-snack'));
   });
+
+  testWidgets('importing a new font offers to enable it right away', (
+    tester,
+  ) async {
+    final messages = _FakeAppMessageService();
+    final imported = ReaderFont(
+      id: 'imported-new',
+      displayName: '思源宋体',
+      familyKey: 'DudoImportedFont_demo_new',
+      source: ReaderFontSource.imported,
+      originalFileName: 'SourceHanSerif.otf',
+      fileSize: 9437184,
+      relativePath: 'fonts/imported/imported-new/font.otf',
+      importedAt: DateTime(2026),
+    );
+    final repository = _FakeReaderFontRepository(
+      importResult: ReaderFontImportResult(font: imported),
+    );
+
+    await tester.pumpWidget(_page(repository, messages));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('我的字体'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加本地字体'));
+    await tester.pumpAndSettle();
+
+    final request = messages.shownRequests.last;
+    expect(request.title, '已导入「思源宋体」');
+    expect(request.description, 'SourceHanSerif.otf · 9.0MB');
+    expect(request.actionLabel, '启用');
+    expect(request.onAction, isNotNull);
+    expect(find.text('思源宋体'), findsOneWidget);
+
+    request.onAction!();
+    await tester.pumpAndSettle();
+
+    expect(repository.selectedFamilyKey, 'DudoImportedFont_demo_new');
+    expect(messages.shownRequests.last.title, '已启用「思源宋体」');
+  });
+
+  testWidgets('re-importing a known file reports it instead of duplicating', (
+    tester,
+  ) async {
+    final messages = _FakeAppMessageService();
+    final duplicate = ReaderFont(
+      id: 'imported-shusong',
+      displayName: '方正书宋',
+      familyKey: 'DudoImportedFont_demo_shusong',
+      source: ReaderFontSource.imported,
+      originalFileName: 'FZShuSong.otf',
+      fileSize: 8273912,
+      relativePath: 'fonts/imported/imported-shusong/font.otf',
+      importedAt: DateTime(2026),
+    );
+    final repository = _FakeReaderFontRepository(
+      importResult: ReaderFontImportResult(
+        font: duplicate,
+        alreadyImported: true,
+      ),
+    );
+
+    await tester.pumpWidget(_page(repository, messages));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('我的字体'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加本地字体'));
+    await tester.pumpAndSettle();
+
+    final request = messages.shownRequests.last;
+    expect(request.title, '「方正书宋」已在字体库中');
+    expect(request.actionLabel, '启用');
+    expect(find.text('方正书宋'), findsOneWidget);
+  });
+
+  testWidgets('importing the font that is already active only reports it', (
+    tester,
+  ) async {
+    final messages = _FakeAppMessageService();
+    final active = ReaderFont(
+      id: 'imported-wenkai',
+      displayName: '霞鹜文楷',
+      familyKey: 'DudoImportedFont_demo_wenkai',
+      source: ReaderFontSource.imported,
+      originalFileName: 'LXGWWenKai-Regular.ttf',
+      fileSize: 12373196,
+      relativePath: 'fonts/imported/imported-wenkai/font.ttf',
+      importedAt: DateTime(2026),
+    );
+    final repository = _FakeReaderFontRepository(
+      importResult: ReaderFontImportResult(
+        font: active,
+        alreadyImported: true,
+      ),
+    );
+
+    await tester.pumpWidget(_page(repository, messages));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('我的字体'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('添加本地字体'));
+    await tester.pumpAndSettle();
+
+    final request = messages.shownRequests.last;
+    expect(request.title, '「霞鹜文楷」已是当前字体');
+    expect(request.actionLabel, isNull);
+  });
+}
+
+Widget _page(
+  ReaderFontRepository repository,
+  AppMessageService messages,
+) {
+  return ProviderScope(
+    overrides: [
+      readerFontRepositoryProvider.overrideWithValue(repository),
+      appMessageServiceProvider.overrideWithValue(messages),
+    ],
+    child: const MaterialApp(
+      home: TypographySettingsPage(),
+    ),
+  );
 }
 
 class _FakeAppMessageService implements AppMessageService {
@@ -246,11 +370,15 @@ class _FakeReaderFontRepository implements ReaderFontRepository {
   _FakeReaderFontRepository({
     this.importCompleter,
     this.deleteCompleter,
+    this.importResult,
   });
 
-  final Completer<ReaderFont?>? importCompleter;
+  final Completer<ReaderFontImportResult?>? importCompleter;
   final Completer<void>? deleteCompleter;
+  final ReaderFontImportResult? importResult;
   String _selectedFamilyKey = 'DudoImportedFont_demo_wenkai';
+  String get selectedFamilyKey => _selectedFamilyKey;
+
   final List<ReaderFont> _importedFonts = [
     ReaderFont(
       id: 'imported-wenkai',
@@ -283,10 +411,13 @@ class _FakeReaderFontRepository implements ReaderFontRepository {
   }
 
   @override
-  Future<ReaderFont?> pickAndImportFont() async {
-    final font = await (importCompleter?.future ?? Future<ReaderFont?>.value());
-    if (font != null) _importedFonts.add(font);
-    return font;
+  Future<ReaderFontImportResult?> pickAndImportFont() async {
+    final result = await (importCompleter?.future ??
+        Future<ReaderFontImportResult?>.value(importResult));
+    if (result != null && !result.alreadyImported) {
+      _importedFonts.add(result.font);
+    }
+    return result;
   }
 
   @override
