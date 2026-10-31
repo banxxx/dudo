@@ -144,7 +144,7 @@ void main() {
     expect(find.text('今天想读点什么？'), findsOneWidget);
     await tester.tap(find.text('统计'));
     await pumpNavigation(tester);
-    expect(find.text('阅读统计'), findsOneWidget);
+    expect(find.text('阅读记录'), findsWidgets);
     expect(find.text('本周节奏'), findsOneWidget);
   });
 
@@ -195,7 +195,7 @@ void main() {
     await tester.tap(find.text('阅读记录'));
     await pumpNavigation(tester);
 
-    expect(find.text('阅读统计'), findsOneWidget);
+    expect(find.text('阅读记录'), findsWidgets);
     expect(find.text('6h 40m'), findsOneWidget);
   });
 }
@@ -230,6 +230,14 @@ ReadingStatsSummary _routerReadingStatsSummary() {
     ],
     sheetSummary: range.rhythmSubtitle,
     hasData: true,
+    readingDays: 5,
+    totalMinutes: 400,
+    chaptersRead: 12,
+    wordsRead: 68000,
+    sessionCount: 18,
+    longestSessionMinutes: 48,
+    bestDayLabel: '周三',
+    bestDayMinutes: 82,
   );
 }
 

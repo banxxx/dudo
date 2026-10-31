@@ -373,6 +373,7 @@ class _LibraryToolsSection extends StatelessWidget {
           icon: LucideIcons.download,
           iconFill: DudoColors.primaryContainer,
           iconColor: DudoColors.primary,
+          route: AppRoutes.offlineCache,
         ),
         _ToolItem(
           title: '笔记摘录',

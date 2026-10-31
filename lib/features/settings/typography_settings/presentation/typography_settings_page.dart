@@ -455,8 +455,8 @@ class _ImportFontEntry extends StatelessWidget {
         onTap: loading ? null : onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          height: 76,
-          padding: const EdgeInsets.symmetric(horizontal: 13),
+          constraints: const BoxConstraints(minHeight: 68),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: DudoColors.primaryContainerStrong),
@@ -464,19 +464,19 @@ class _ImportFontEntry extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: DudoColors.surfaceHigh,
-                  borderRadius: BorderRadius.circular(21),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Icon(
                   LucideIcons.folderPlus,
                   color: DudoColors.primary,
-                  size: 20,
+                  size: 19,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 13),
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -487,7 +487,7 @@ class _ImportFontEntry extends StatelessWidget {
                       '添加本地字体',
                       style: DudoTextStyles.sans(
                         color: DudoColors.textPrimary,
-                        fontSize: 15,
+                        fontSize: 14.5,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -498,13 +498,13 @@ class _ImportFontEntry extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: DudoTextStyles.sans(
                         color: DudoColors.primaryDark,
-                        fontSize: 11,
+                        fontSize: 11.5,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               AnimatedSwitcher(
                 duration: AppMotion.short,
                 child: loading
@@ -557,8 +557,8 @@ class _FontCard extends StatelessWidget {
         onTap: deleting ? null : onSelect,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          height: 76,
-          padding: const EdgeInsets.symmetric(horizontal: 13),
+          constraints: const BoxConstraints(minHeight: 68),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
@@ -570,16 +570,16 @@ class _FontCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color:
                       selected ? DudoColors.surfaceHigh : DudoColors.surfaceLow,
-                  borderRadius: BorderRadius.circular(21),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Icon(LucideIcons.fileType, color: foreground, size: 20),
+                child: Icon(LucideIcons.fileType, color: foreground, size: 19),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 13),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -594,7 +594,7 @@ class _FontCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: DudoTextStyles.sans(
                               color: DudoColors.textPrimary,
-                              fontSize: 15,
+                              fontSize: 14.5,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -610,7 +610,7 @@ class _FontCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style:
-                          DudoTextStyles.sans(color: foreground, fontSize: 11),
+                          DudoTextStyles.sans(color: foreground, fontSize: 11.5),
                     ),
                   ],
                 ),
@@ -681,7 +681,7 @@ class _FontLibraryLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const SizedBox(
-      height: 76,
+      height: 68,
       child: Center(
         child: SizedBox(
           width: 20,

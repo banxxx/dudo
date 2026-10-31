@@ -9,9 +9,14 @@ import '../../../../shared/widgets/dudo_page_frame.dart';
 import '../../../../shared/widgets/dudo_page_header.dart';
 
 class SettingsDetailScaffold extends StatelessWidget {
-  const SettingsDetailScaffold({super.key, required this.children});
+  const SettingsDetailScaffold({
+    super.key,
+    required this.children,
+    this.bottomBar,
+  });
 
   final List<Widget> children;
+  final Widget? bottomBar;
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +28,7 @@ class SettingsDetailScaffold extends StatelessWidget {
         eager: true,
         children: children,
       ),
+      bottomNavigationBar: bottomBar,
     );
   }
 }
@@ -33,6 +39,8 @@ class SettingsDetailHeader extends StatelessWidget {
     required this.eyebrow,
     required this.title,
     this.actionIcon,
+    this.actionLabel,
+    this.actionEmphasized = false,
     this.onActionTap,
     this.showAction = true,
   });
@@ -40,11 +48,22 @@ class SettingsDetailHeader extends StatelessWidget {
   final String eyebrow;
   final String title;
   final IconData? actionIcon;
+
+  /// When set, the trailing action renders as a text pill (e.g. 编辑 / 完成)
+  /// instead of an icon circle. Text actions are easier to read for mode
+  /// switches such as entering a list's editing state.
+  final String? actionLabel;
+  final bool actionEmphasized;
   final VoidCallback? onActionTap;
   final bool showAction;
 
   @override
   Widget build(BuildContext context) {
+    final actionLabel = this.actionLabel;
+    final actionIcon = this.actionIcon;
+    final hasAction =
+        showAction && (actionLabel != null || actionIcon != null);
+
     return DudoPageHeader(
       title: title,
       height: 60,
@@ -82,16 +101,71 @@ class SettingsDetailHeader extends StatelessWidget {
           ],
         ),
       ),
-      trailing: showAction && actionIcon != null
+      trailing: hasAction
           ? Padding(
               padding: const EdgeInsets.only(left: 12),
-              child: DudoCircleIconButton(
-                icon: actionIcon!,
-                iconSize: 20,
-                onTap: onActionTap ?? () {},
-              ),
+              child: actionLabel != null
+                  ? _HeaderTextAction(
+                      label: actionLabel,
+                      emphasized: actionEmphasized,
+                      onTap: onActionTap ?? () {},
+                    )
+                  : DudoCircleIconButton(
+                      icon: actionIcon!,
+                      iconSize: 20,
+                      onTap: onActionTap ?? () {},
+                    ),
             )
           : null,
+    );
+  }
+}
+
+class _HeaderTextAction extends StatelessWidget {
+  const _HeaderTextAction({
+    required this.label,
+    required this.emphasized,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool emphasized;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: AnimatedContainer(
+          duration: AppMotion.short,
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color:
+                emphasized ? DudoColors.primaryContainer : DudoColors.surface,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(
+              color: emphasized
+                  ? DudoColors.primaryContainerStrong
+                  : DudoColors.outline,
+            ),
+          ),
+          child: Text(
+            label,
+            style: DudoTextStyles.sans(
+              color:
+                  emphasized ? DudoColors.primaryDark : DudoColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

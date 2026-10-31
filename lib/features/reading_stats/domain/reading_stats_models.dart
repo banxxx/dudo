@@ -187,6 +187,14 @@ class ReadingStatsSummary {
     required this.contributions,
     required this.sheetSummary,
     required this.hasData,
+    required this.readingDays,
+    required this.totalMinutes,
+    required this.chaptersRead,
+    required this.wordsRead,
+    required this.sessionCount,
+    required this.longestSessionMinutes,
+    required this.bestDayLabel,
+    required this.bestDayMinutes,
   });
 
   final ReadingStatsRange range;
@@ -199,6 +207,29 @@ class ReadingStatsSummary {
   final List<BookReadingContribution> contributions;
   final String sheetSummary;
   final bool hasData;
+
+  /// Days in [range] with at least one recorded session.
+  final int readingDays;
+
+  /// Total reading time in minutes, used for averages.
+  final int totalMinutes;
+  final int chaptersRead;
+  final int wordsRead;
+  final int sessionCount;
+  final int longestSessionMinutes;
+
+  /// Label of the day with the most reading time, e.g. "周三" or "5月22日".
+  final String? bestDayLabel;
+  final int bestDayMinutes;
+
+  /// "5/7" for the hero ring.
+  String get readingDayRatioLabel => '$readingDays/${range.dayCount}';
+
+  double get readingDayRatio =>
+      range.dayCount <= 0 ? 0 : readingDays / range.dayCount;
+
+  int get averageSessionMinutes =>
+      sessionCount <= 0 ? 0 : (totalMinutes / sessionCount).round();
 }
 
 class ReadingStatMetric {
@@ -251,6 +282,17 @@ String formatCompactDuration(int minutes) {
   final hours = minutes ~/ 60;
   final rest = minutes % 60;
   return rest == 0 ? '${hours}h' : '${hours}h ${rest}m';
+}
+
+/// Character totals for the detail rows, e.g. "8600 字" or "3.2 万字".
+String formatReadingWords(int words) {
+  if (words <= 0) return '0 字';
+  if (words < 10000) return '$words 字';
+  final wan = words / 10000;
+  final text = wan >= 100
+      ? wan.round().toString()
+      : wan.toStringAsFixed(1).replaceFirst(RegExp(r'\.0$'), '');
+  return '$text 万字';
 }
 
 /// Prose duration used inside sentences, e.g. "15 小时 36 分钟".

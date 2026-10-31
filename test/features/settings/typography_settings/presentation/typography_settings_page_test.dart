@@ -45,6 +45,32 @@ void main() {
     expect(find.text('霞鹜文楷'), findsOneWidget);
     expect(find.text('LXGWWenKai-Regular.ttf · 11.8MB'), findsOneWidget);
 
+    // The import entry and the font cards share the app-wide 68px row.
+    for (final label in ['添加本地字体', '霞鹜文楷']) {
+      final row = tester.widget<Container>(
+        find
+            .ancestor(of: find.text(label), matching: find.byType(Container))
+            .last,
+      );
+      expect(row.constraints?.minHeight, 68, reason: label);
+      expect(
+        row.padding,
+        const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        reason: label,
+      );
+    }
+    expect(
+      tester.widget<Text>(find.text('霞鹜文楷')).style?.fontSize,
+      14.5,
+    );
+    expect(
+      tester
+          .widget<Text>(find.text('LXGWWenKai-Regular.ttf · 11.8MB'))
+          .style
+          ?.fontSize,
+      11.5,
+    );
+
     await tester.tap(find.byIcon(LucideIcons.trash2));
     await tester.pumpAndSettle();
 

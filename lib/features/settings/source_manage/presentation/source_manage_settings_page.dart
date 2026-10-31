@@ -16,8 +16,6 @@ import 'source_diagnostics_sheet.dart';
 
 const _sourceManageMessageKey = 'source-manage-actions';
 const _sourcePageSize = 100;
-const _dangerFill = Color(0xFFF4DDD2);
-const _dangerText = Color(0xFFA8553A);
 
 class SourceManageSettingsPage extends ConsumerStatefulWidget {
   const SourceManageSettingsPage({super.key});
@@ -89,31 +87,6 @@ class _SourceManageSettingsPageState
         _selectedSourceIds.addAll(filteredIds);
       }
     });
-  }
-
-  Future<void> _enableSource(Source source) async {
-    if (source.enabled) return;
-    try {
-      await ref
-          .read(sourceRepositoryProvider)
-          .setSourceEnabled(source.id, true);
-      if (!mounted) return;
-      setState(() => _selectedSourceIds.remove(source.id));
-      ref.read(appMessageServiceProvider).success(
-            '已启用“${source.name}”',
-            title: '书源已启用',
-            dedupeKey: _sourceManageMessageKey,
-            visualStyle: AppMessageVisualStyle.paper,
-          );
-    } catch (_) {
-      if (!mounted) return;
-      ref.read(appMessageServiceProvider).error(
-            '启用失败，请稍后重试。',
-            title: '操作失败',
-            dedupeKey: _sourceManageMessageKey,
-            visualStyle: AppMessageVisualStyle.paper,
-          );
-    }
   }
 
   Future<void> _enableSelectedSources(List<Source> sources) async {
@@ -221,6 +194,9 @@ class _SourceManageSettingsPageState
         .where((source) => _selectedSourceIds.contains(source.id))
         .toList(growable: false);
     if (selectedSources.isEmpty) return;
+    if (selectedSources.length == 1) {
+      return _confirmDeleteSource(selectedSources.single);
+    }
 
     final confirmed = await _showDeleteConfirmation(
       title: '删除选中的书源？',
@@ -299,13 +275,23 @@ class _SourceManageSettingsPageState
   @override
   Widget build(BuildContext context) {
     final sourcesValue = ref.watch(sourcesProvider);
+    final sources = sourcesValue.valueOrNull ?? const <Source>[];
 
     return SettingsDetailScaffold(
+      bottomBar: _isManageMode
+          ? _SourceBulkActionBar(
+              hasSelection: _selectedSourceIds.isNotEmpty,
+              onEnable: () => _enableSelectedSources(sources),
+              onDisable: () => _disableSelectedSources(sources),
+              onDelete: () => _confirmDeleteSelectedSources(sources),
+            )
+          : null,
       children: [
         SettingsDetailHeader(
           eyebrow: '内容与书源',
           title: '书源管理',
-          actionIcon: LucideIcons.slidersHorizontal,
+          actionLabel: _isManageMode ? '完成' : '编辑',
+          actionEmphasized: _isManageMode,
           onActionTap: _toggleManageMode,
         ),
         const SizedBox(height: 14),
@@ -336,38 +322,26 @@ class _SourceManageSettingsPageState
             final allFilteredSelected = filteredSources.isNotEmpty &&
                 selectedFilteredCount == filteredSources.length;
 
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_isManageMode) ...[
-                  _SourceManagementBar(
-                    selectedCount: selectedFilteredCount,
-                    totalCount: filteredSources.length,
-                    allSelected: allFilteredSelected,
-                    onSelectAll: () =>
-                        _toggleAllFilteredSources(filteredSources),
-                    onEnableSelected: () => _enableSelectedSources(sources),
-                    onDisableSelected: () => _disableSelectedSources(sources),
-                    onDeleteSelected: () =>
-                        _confirmDeleteSelectedSources(sources),
-                  ),
-                  const SizedBox(height: 14),
-                ],
-                _SourceListSection(
-                  sources: sources,
-                  filteredSources: filteredSources,
-                  query: _searchQuery,
-                  visibleCount: _visibleCount,
-                  searchController: _searchController,
-                  isManageMode: _isManageMode,
-                  selectedSourceIds: _selectedSourceIds,
-                  onSearchChanged: _updateSearchQuery,
-                  onLoadMore: _loadMoreSources,
-                  onToggleSelected: _toggleSourceSelected,
-                  onEnableSource: _enableSource,
-                  onDeleteSource: _confirmDeleteSource,
-                ),
-              ],
+            return _SourceListSection(
+              sources: sources,
+              filteredSources: filteredSources,
+              query: _searchQuery,
+              visibleCount: _visibleCount,
+              searchController: _searchController,
+              isManageMode: _isManageMode,
+              selectedSourceIds: _selectedSourceIds,
+              onSearchChanged: _updateSearchQuery,
+              onLoadMore: _loadMoreSources,
+              onToggleSelected: _toggleSourceSelected,
+              manageBar: _isManageMode
+                  ? _SourceSelectionBar(
+                      selectedCount: selectedFilteredCount,
+                      totalCount: filteredSources.length,
+                      allSelected: allFilteredSelected,
+                      onSelectAll: () =>
+                          _toggleAllFilteredSources(filteredSources),
+                    )
+                  : null,
             );
           },
         ),
@@ -410,7 +384,7 @@ class _SourceSummary extends StatelessWidget {
         (totalCount == 0
             ? '先导入 Legado JSON 规则文件，再进入管理模式启用或删除。'
             : disabledCount > 0
-                ? '启用后才会参与搜索与章节更新，可通过右上角进入管理模式。'
+                ? '启用后才会参与搜索与章节更新，点击右上角「编辑」可批量管理。'
                 : '共导入 $totalCount 个书源，可进入管理模式查看或删除。');
 
     return Container(
@@ -419,10 +393,19 @@ class _SourceSummary extends StatelessWidget {
       decoration: BoxDecoration(
         color: DudoColors.primaryContainer,
         borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: DudoColors.primaryContainerStrong),
       ),
       child: Row(
         children: [
-          Icon(LucideIcons.rss, color: DudoColors.primary, size: 34),
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: DudoColors.surfaceHigh,
+              borderRadius: BorderRadius.circular(26),
+            ),
+            child: Icon(LucideIcons.rss, color: DudoColors.primary, size: 24),
+          ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -466,7 +449,7 @@ class _SourceQuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 58,
+      height: 64,
       child: Row(
         children: [
           Expanded(
@@ -508,105 +491,67 @@ class _SourceQuickActions extends StatelessWidget {
   }
 }
 
-class _SourceManagementBar extends StatelessWidget {
-  const _SourceManagementBar({
+/// Slim bar under the search field: select-all on the left, count on the
+/// right. Bulk actions live in [_SourceBulkActionBar] at the bottom of the
+/// screen, the way contextual edit modes normally work.
+class _SourceSelectionBar extends StatelessWidget {
+  const _SourceSelectionBar({
     required this.selectedCount,
     required this.totalCount,
     required this.allSelected,
     required this.onSelectAll,
-    required this.onEnableSelected,
-    required this.onDisableSelected,
-    required this.onDeleteSelected,
   });
 
   final int selectedCount;
   final int totalCount;
   final bool allSelected;
   final VoidCallback onSelectAll;
-  final VoidCallback onEnableSelected;
-  final VoidCallback onDisableSelected;
-  final VoidCallback onDeleteSelected;
 
   @override
   Widget build(BuildContext context) {
-    final hasSelection = selectedCount > 0;
-
     return Container(
-      padding: const EdgeInsets.all(10),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: DudoColors.outlineVariant),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: onSelectAll,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _SourceSelectionBox(selected: allSelected),
-                        const SizedBox(width: 7),
-                        Text(
-                          '全选',
-                          style: DudoTextStyles.sans(
-                            color: DudoColors.textPrimary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+          InkWell(
+            onTap: onSelectAll,
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: 48,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _SourceSelectionBox(selected: allSelected),
+                    const SizedBox(width: 8),
+                    Text(
+                      '全选',
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
-              Text(
-                '已选 $selectedCount/$totalCount',
-                style: DudoTextStyles.sans(
-                  color: DudoColors.secondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 8,
-            children: [
-              _BulkActionButton(
-                icon: LucideIcons.check,
-                label: '批量启用',
-                enabled: hasSelection,
-                fill: DudoColors.primaryContainer,
-                color: DudoColors.primary,
-                onTap: onEnableSelected,
-              ),
-              _BulkActionButton(
-                icon: LucideIcons.ban,
-                label: '批量禁用',
-                enabled: hasSelection,
-                fill: DudoColors.surfaceLow,
-                color: DudoColors.secondaryDark,
-                onTap: onDisableSelected,
-              ),
-              _BulkActionButton(
-                icon: LucideIcons.trash2,
-                label: '批量删除',
-                enabled: hasSelection,
-                fill: _dangerFill,
-                color: _dangerText,
-                onTap: onDeleteSelected,
-              ),
-            ],
+          const Spacer(),
+          Text(
+            '已选 $selectedCount / $totalCount',
+            style: DudoTextStyles.sans(
+              color: DudoColors.secondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -614,50 +559,116 @@ class _SourceManagementBar extends StatelessWidget {
   }
 }
 
-class _BulkActionButton extends StatelessWidget {
-  const _BulkActionButton({
+/// Contextual bottom bar shown while editing: the actions stay in one fixed
+/// place instead of floating next to the list header, and dim until at least
+/// one source is selected.
+class _SourceBulkActionBar extends StatelessWidget {
+  const _SourceBulkActionBar({
+    required this.hasSelection,
+    required this.onEnable,
+    required this.onDisable,
+    required this.onDelete,
+  });
+
+  final bool hasSelection;
+  final VoidCallback onEnable;
+  final VoidCallback onDisable;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Container(
+        height: 60,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: BoxDecoration(
+          color: DudoColors.ink,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: DudoColors.ink.withValues(alpha: 0.18),
+              offset: const Offset(0, 6),
+              blurRadius: 18,
+            ),
+          ],
+        ),
+        child: Row(
+          // Stretch so each action's InkWell fills the bar height; otherwise
+          // the tap target collapses to the icon/label row and taps near the
+          // top or bottom edge of the bar do nothing.
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _BulkAction(
+                icon: LucideIcons.check,
+                label: '启用',
+                enabled: hasSelection,
+                onTap: onEnable,
+              ),
+            ),
+            Expanded(
+              child: _BulkAction(
+                icon: LucideIcons.ban,
+                label: '停用',
+                enabled: hasSelection,
+                onTap: onDisable,
+              ),
+            ),
+            Expanded(
+              child: _BulkAction(
+                icon: LucideIcons.trash2,
+                label: '删除',
+                enabled: hasSelection,
+                color: const Color(0xFFE7A98F),
+                onTap: onDelete,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BulkAction extends StatelessWidget {
+  const _BulkAction({
     required this.icon,
     required this.label,
     required this.enabled,
-    required this.fill,
-    required this.color,
     required this.onTap,
+    this.color,
   });
 
   final IconData icon;
   final String label;
   final bool enabled;
-  final Color fill;
-  final Color color;
   final VoidCallback onTap;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = enabled ? color : DudoColors.secondary;
+    final color = this.color ?? DudoColors.onInk;
 
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(15),
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(15),
-        child: Container(
-          height: 30,
-          padding: const EdgeInsets.symmetric(horizontal: 9),
-          decoration: BoxDecoration(
-            color: enabled ? fill : DudoColors.surfaceLow,
-            borderRadius: BorderRadius.circular(15),
-          ),
+    return Opacity(
+      opacity: enabled ? 1 : 0.35,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(16),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 13, color: effectiveColor),
-              const SizedBox(width: 4),
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 6),
               Text(
                 label,
                 style: DudoTextStyles.sans(
-                  color: effectiveColor,
-                  fontSize: 11,
+                  color: color,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -681,8 +692,7 @@ class _SourceListSection extends StatelessWidget {
     required this.onSearchChanged,
     required this.onLoadMore,
     required this.onToggleSelected,
-    required this.onEnableSource,
-    required this.onDeleteSource,
+    this.manageBar,
   });
 
   final List<Source> sources;
@@ -695,8 +705,7 @@ class _SourceListSection extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onLoadMore;
   final ValueChanged<String> onToggleSelected;
-  final ValueChanged<Source> onEnableSource;
-  final ValueChanged<Source> onDeleteSource;
+  final Widget? manageBar;
 
   @override
   Widget build(BuildContext context) {
@@ -718,14 +727,17 @@ class _SourceListSection extends StatelessWidget {
           controller: searchController,
           onChanged: onSearchChanged,
         ),
-        const SizedBox(height: 12),
+        if (manageBar != null) ...[
+          const SizedBox(height: 10),
+          manageBar!,
+        ],
+        const SizedBox(height: 10),
         _SourceListHeader(
           query: query,
           totalCount: sources.length,
           filteredCount: filteredSources.length,
-          isManageMode: isManageMode,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         if (filteredSources.isEmpty)
           const EmptyStateView(
             icon: LucideIcons.searchX,
@@ -739,10 +751,8 @@ class _SourceListSection extends StatelessWidget {
               isManageMode: isManageMode,
               selected: selectedSourceIds.contains(visibleSources[i].id),
               onToggleSelected: () => onToggleSelected(visibleSources[i].id),
-              onEnable: () => onEnableSource(visibleSources[i]),
-              onDelete: () => onDeleteSource(visibleSources[i]),
             ),
-            if (i != visibleSources.length - 1) const SizedBox(height: 8),
+            if (i != visibleSources.length - 1) const SizedBox(height: 9),
           ],
           if (hiddenCount > 0) ...[
             const SizedBox(height: 12),
@@ -762,13 +772,11 @@ class _SourceListHeader extends StatelessWidget {
     required this.query,
     required this.totalCount,
     required this.filteredCount,
-    required this.isManageMode,
   });
 
   final String query;
   final int totalCount;
   final int filteredCount;
-  final bool isManageMode;
 
   @override
   Widget build(BuildContext context) {
@@ -776,28 +784,13 @@ class _SourceListHeader extends StatelessWidget {
         ? '书源列表 · $totalCount 个'
         : '搜索结果 · $filteredCount / $totalCount 个';
 
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            style: DudoTextStyles.sans(
-              color: DudoColors.textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        if (isManageMode)
-          Text(
-            '管理模式 · 可启用、禁用或删除',
-            style: DudoTextStyles.sans(
-              color: DudoColors.secondary,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-      ],
+    return Text(
+      title,
+      style: DudoTextStyles.sans(
+        color: DudoColors.textPrimary,
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 }
@@ -813,32 +806,58 @@ class _SourceSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      textInputAction: TextInputAction.search,
-      decoration: InputDecoration(
-        hintText: '搜索书源名称、分组或 URL',
-        prefixIcon: const Icon(LucideIcons.search, size: 18),
-        filled: true,
-        fillColor: DudoColors.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: DudoColors.outlineVariant),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: DudoColors.outlineVariant),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: DudoColors.primary),
-        ),
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.only(left: 14, right: 6),
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: DudoColors.outlineVariant),
       ),
-      style: DudoTextStyles.sans(
-        color: DudoColors.textPrimary,
-        fontSize: 13,
+      child: Row(
+        children: [
+          Icon(LucideIcons.search, size: 17, color: DudoColors.secondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              textInputAction: TextInputAction.search,
+              style: DudoTextStyles.sans(
+                color: DudoColors.textPrimary,
+                fontSize: 13,
+              ),
+              decoration: InputDecoration.collapsed(
+                hintText: '搜索书源名称、分组或 URL',
+                hintStyle: DudoTextStyles.sans(
+                  color: DudoColors.secondary,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              if (value.text.isEmpty) return const SizedBox(width: 8);
+              return IconButton(
+                onPressed: () {
+                  controller.clear();
+                  onChanged('');
+                },
+                icon: const Icon(LucideIcons.x, size: 16),
+                color: DudoColors.secondary,
+                tooltip: '清空搜索',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 36,
+                  height: 36,
+                ),
+                visualDensity: VisualDensity.compact,
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -857,25 +876,36 @@ class _LoadMoreSourcesButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         child: Container(
-          height: 48,
+          height: 52,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: DudoColors.surface,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: DudoColors.outlineVariant),
           ),
-          child: Text(
-            '还有 $hiddenCount 个书源，加载更多',
-            style: DudoTextStyles.sans(
-              color: DudoColors.primary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '还有 $hiddenCount 个书源，加载更多',
+                style: DudoTextStyles.sans(
+                  color: DudoColors.primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                LucideIcons.chevronDown,
+                size: 16,
+                color: DudoColors.primary,
+              ),
+            ],
           ),
         ),
       ),
@@ -965,13 +995,13 @@ class _QuickAction extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 17),
-              const SizedBox(height: 4),
+              Icon(icon, color: color, size: 18),
+              const SizedBox(height: 5),
               Text(
                 label,
                 style: DudoTextStyles.sans(
                   color: color,
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -990,8 +1020,6 @@ class _SourceRow extends StatelessWidget {
     required this.isManageMode,
     required this.selected,
     required this.onToggleSelected,
-    required this.onEnable,
-    required this.onDelete,
   });
 
   factory _SourceRow.fromSource(
@@ -999,8 +1027,6 @@ class _SourceRow extends StatelessWidget {
     required bool isManageMode,
     required bool selected,
     required VoidCallback onToggleSelected,
-    required VoidCallback onEnable,
-    required VoidCallback onDelete,
   }) {
     final descriptionParts = <String>[
       if (source.groupName != null && source.groupName!.trim().isNotEmpty)
@@ -1016,8 +1042,6 @@ class _SourceRow extends StatelessWidget {
       isManageMode: isManageMode,
       selected: selected,
       onToggleSelected: onToggleSelected,
-      onEnable: onEnable,
-      onDelete: onDelete,
     );
   }
 
@@ -1026,51 +1050,60 @@ class _SourceRow extends StatelessWidget {
   final bool isManageMode;
   final bool selected;
   final VoidCallback onToggleSelected;
-  final VoidCallback onEnable;
-  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final dotColor = source.enabled ? DudoColors.primary : DudoColors.secondary;
-    final dotFill =
-        source.enabled ? DudoColors.primaryContainer : DudoColors.surfaceLow;
+    final enabled = source.enabled;
+    final accent = enabled ? DudoColors.primary : DudoColors.secondary;
+    final tileFill =
+        enabled ? DudoColors.primaryContainer : DudoColors.surfaceLow;
+    final highlighted = isManageMode && selected;
 
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: isManageMode ? onToggleSelected : null,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          height: 64,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
+        borderRadius: BorderRadius.circular(20),
+        child: AnimatedContainer(
+          duration: AppMotion.short,
+          constraints: const BoxConstraints(minHeight: 68),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: DudoColors.surface,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: DudoColors.outlineVariant),
+            color: highlighted
+                ? DudoColors.primaryContainer.withValues(alpha: 0.55)
+                : DudoColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: highlighted
+                  ? DudoColors.primary.withValues(alpha: 0.45)
+                  : DudoColors.outlineVariant,
+            ),
           ),
           child: Row(
             children: [
               if (isManageMode) ...[
                 _SourceSelectionBox(selected: selected),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
               ],
               Container(
-                width: 30,
-                height: 30,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: dotFill,
-                  borderRadius: BorderRadius.circular(15),
+                  color: tileFill,
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 alignment: Alignment.center,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration:
-                      BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                child: Text(
+                  _sourceInitial(source.name),
+                  style: DudoTextStyles.sans(
+                    color: accent,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 13),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1082,57 +1115,61 @@ class _SourceRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: DudoTextStyles.sans(
                         color: DudoColors.textPrimary,
-                        fontSize: 14,
+                        fontSize: 14.5,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       description,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: DudoTextStyles.sans(
                         color: DudoColors.secondary,
-                        fontSize: 11,
+                        fontSize: 11.5,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              if (isManageMode) ...[
-                _ActionPill(
-                  icon: source.enabled ? LucideIcons.check : LucideIcons.power,
-                  label: source.enabled ? '已启用' : '启用',
-                  fill: source.enabled
-                      ? DudoColors.primaryContainer
-                      : DudoColors.textPrimary,
-                  color: source.enabled
-                      ? DudoColors.primary
-                      : DudoColors.surfaceHigh,
-                  onTap: source.enabled ? null : onEnable,
-                ),
-                const SizedBox(width: 5),
-                _ActionPill(
-                  icon: LucideIcons.trash2,
-                  label: '删除',
-                  fill: _dangerFill,
-                  color: _dangerText,
-                  onTap: onDelete,
-                ),
-              ] else
-                Text(
-                  source.enabled ? '启用中' : '已停用',
-                  style: DudoTextStyles.sans(
-                    color: source.enabled
-                        ? DudoColors.primary
-                        : DudoColors.secondary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              _SourceStatusChip(enabled: enabled),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// First visible character of a source name, used as its identity tile.
+String _sourceInitial(String name) {
+  final trimmed = name.trim();
+  if (trimmed.isEmpty) return '源';
+  return trimmed.characters.first;
+}
+
+class _SourceStatusChip extends StatelessWidget {
+  const _SourceStatusChip({required this.enabled});
+
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      decoration: BoxDecoration(
+        color: enabled ? DudoColors.primaryContainer : DudoColors.surfaceLow,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        enabled ? '启用中' : '已停用',
+        style: DudoTextStyles.sans(
+          color: enabled ? DudoColors.primary : DudoColors.secondary,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -1161,57 +1198,6 @@ class _SourceSelectionBox extends StatelessWidget {
           ?  Icon(LucideIcons.check,
               color: DudoColors.surfaceHigh, size: 13)
           : null,
-    );
-  }
-}
-
-class _ActionPill extends StatelessWidget {
-  const _ActionPill({
-    required this.icon,
-    required this.label,
-    required this.fill,
-    required this.color,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color fill;
-  final Color color;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(15),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(15),
-        child: Container(
-          height: 30,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          decoration: BoxDecoration(
-            color: fill,
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 13, color: color),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: DudoTextStyles.sans(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

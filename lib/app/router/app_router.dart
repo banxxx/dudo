@@ -8,6 +8,7 @@ import '../../features/bookshelf/application/bookshelf_providers.dart';
 import '../../features/bookshelf/presentation/book_detail_page.dart';
 import '../../features/bookshelf/presentation/bookshelf_library_page.dart';
 import '../../features/home/presentation/home_page.dart';
+import '../../features/offline_cache/presentation/offline_cache_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../../features/reader_engine/presentation/reader_screen.dart';
 import '../../features/reading_goal/presentation/reading_goal_page.dart';
@@ -67,6 +68,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.bookmarks,
         name: AppRoutes.bookmarksName,
         builder: (_, __) => _themed(const BookmarksPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.offlineCache,
+        name: AppRoutes.offlineCacheName,
+        builder: (_, __) => _themed(const OfflineCachePage()),
       ),
       // Main scaffold with bottom navigation.
       StatefulShellRoute.indexedStack(
@@ -273,6 +279,9 @@ class AppRoutes {
 
   static const bookmarks = '/bookmarks';
   static const bookmarksName = 'bookmarks';
+
+  static const offlineCache = '/offline-cache';
+  static const offlineCacheName = 'offline-cache';
 
   static const bookshelf = '/bookshelf';
   static const bookshelfName = 'bookshelf';

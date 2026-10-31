@@ -18,6 +18,10 @@ class ReadingStatsRepository {
     final bookSeconds = <String, int>{};
     final bookTitles = <String, String>{};
     var totalSeconds = 0;
+    var chaptersRead = 0;
+    var wordsRead = 0;
+    var sessionCount = 0;
+    var longestSessionSeconds = 0;
 
     for (final row in rows) {
       final date = DateUtils.dateOnly(row.session.startedAt);
@@ -27,6 +31,10 @@ class ReadingStatsRepository {
           (bookSeconds[row.session.bookId] ?? 0) + seconds;
       bookTitles[row.session.bookId] = row.book.title;
       totalSeconds += seconds;
+      chaptersRead += row.session.chaptersRead;
+      wordsRead += row.session.wordsRead;
+      sessionCount += 1;
+      if (seconds > longestSessionSeconds) longestSessionSeconds = seconds;
     }
 
     final rhythmStats = _rhythmStats(range, dailySeconds);
@@ -36,6 +44,15 @@ class ReadingStatsRepository {
     final averageMinutes =
         range.dayCount == 0 ? 0 : (totalMinutes / range.dayCount).round();
     final hasData = totalSeconds > 0;
+
+    DateTime? bestDay;
+    var bestDaySeconds = 0;
+    for (final entry in dailySeconds.entries) {
+      if (entry.value > bestDaySeconds) {
+        bestDaySeconds = entry.value;
+        bestDay = entry.key;
+      }
+    }
 
     return ReadingStatsSummary(
       range: range,
@@ -49,9 +66,17 @@ class ReadingStatsRepository {
       rhythmStats: rhythmStats,
       rhythmGranularity: range.rhythmGranularity,
       rhythmSubtitle: range.rhythmSubtitle,
-      contributions: _contributions(bookSeconds, bookTitles),
+      contributions: _contributions(bookSeconds, bookTitles, totalSeconds),
       sheetSummary: readingStatsRangePreviewText(range),
       hasData: hasData,
+      readingDays: readingDays,
+      totalMinutes: totalMinutes,
+      chaptersRead: chaptersRead,
+      wordsRead: wordsRead,
+      sessionCount: sessionCount,
+      longestSessionMinutes: _secondsToDisplayMinutes(longestSessionSeconds),
+      bestDayLabel: bestDay == null ? null : _bestDayLabel(range, bestDay),
+      bestDayMinutes: _secondsToDisplayMinutes(bestDaySeconds),
     );
   }
 
@@ -266,20 +291,29 @@ class ReadingStatsRepository {
   List<BookReadingContribution> _contributions(
     Map<String, int> bookSeconds,
     Map<String, String> bookTitles,
+    int totalSeconds,
   ) {
     if (bookSeconds.isEmpty) return const [];
 
     final sorted = bookSeconds.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    final maxSeconds = sorted.first.value;
 
     return sorted.take(5).map((entry) {
       return BookReadingContribution(
         title: bookTitles[entry.key] ?? '未知书籍',
         durationLabel: _formatDuration(entry.value),
-        ratio: maxSeconds == 0 ? 0 : (entry.value / maxSeconds).clamp(0.0, 1.0),
+        ratio: totalSeconds <= 0
+            ? 0
+            : (entry.value / totalSeconds).clamp(0.0, 1.0),
       );
     }).toList();
+  }
+
+  String _bestDayLabel(ReadingStatsRange range, DateTime day) {
+    if (range.preset == ReadingStatsPreset.week && range.dayCount <= 7) {
+      return '周${const ['一', '二', '三', '四', '五', '六', '日'][day.weekday - 1]}';
+    }
+    return '${day.month}月${day.day}日';
   }
 
   String _dayLabelFor(ReadingStatsRange range, DateTime date) {

@@ -43,6 +43,8 @@ void main() {
     expect(find.text('3'), findsOneWidget);
     expect(find.text('失效'), findsWidgets);
     expect(find.text('需注意'), findsOneWidget);
+    expect(find.text('问题明细'), findsOneWidget);
+    expect(find.text('2 项'), findsOneWidget);
     expect(find.text('坏源'), findsOneWidget);
     expect(find.text('无搜索源'), findsOneWidget);
     expect(find.text('删除 1 个失效书源'), findsOneWidget);

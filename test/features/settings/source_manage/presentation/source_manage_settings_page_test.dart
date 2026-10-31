@@ -10,7 +10,6 @@ import 'package:dudo/shared/messages/app_message_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 void main() {
   testWidgets('renders F3 baseline without design hint text', (tester) async {
@@ -24,45 +23,78 @@ void main() {
     expect(find.text('修复失效'), findsOneWidget);
     expect(find.text('1 个书源待启用'), findsOneWidget);
     expect(find.text('点击右上角设置，进入启用与删除管理'), findsNothing);
+
+    // Source rows share the app-wide 68px entry rhythm.
+    final row = tester.widget<AnimatedContainer>(
+      find
+          .ancestor(
+            of: find.text('起点中文'),
+            matching: find.byType(AnimatedContainer),
+          )
+          .first,
+    );
+    expect(row.constraints?.minHeight, 68);
+    expect(
+      row.padding,
+      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    );
+    expect(find.text('起'), findsOneWidget);
+    expect(find.text('已停用'), findsNWidgets(1));
   });
 
-  testWidgets('top-right settings button toggles management mode',
+  testWidgets('header edit action toggles management mode', (tester) async {
+    final harness = await _pumpSourceManageSettings(tester);
+    addTearDown(harness.dispose);
+
+    expect(find.text('编辑'), findsOneWidget);
+    expect(find.text('完成'), findsNothing);
+
+    await tester.tap(find.text('编辑'));
+    await tester.pump();
+
+    expect(find.text('完成'), findsOneWidget);
+    expect(find.text('编辑'), findsNothing);
+    expect(find.text('全选'), findsOneWidget);
+    expect(find.text('已选 0 / 2'), findsOneWidget);
+    expect(find.text('启用'), findsOneWidget);
+    expect(find.text('停用'), findsOneWidget);
+    expect(find.text('删除'), findsOneWidget);
+    expect(find.text('管理模式 · 可启用、禁用或删除'), findsNothing);
+
+    // Each bottom action's tap target fills the 60px bar, not just the glyph.
+    for (final label in ['启用', '停用', '删除']) {
+      final ink = find.ancestor(of: find.text(label), matching: find.byType(InkWell));
+      expect(tester.getSize(ink.first).height, 60, reason: label);
+    }
+
+    await tester.tap(find.text('完成'));
+    await tester.pump();
+
+    expect(find.text('编辑'), findsOneWidget);
+    expect(find.text('全选'), findsNothing);
+    expect(find.text('已选 0 / 2'), findsNothing);
+    expect(find.text('启用'), findsNothing);
+    expect(find.text('停用'), findsNothing);
+    expect(find.text('删除'), findsNothing);
+  });
+
+  testWidgets('enables a selected disabled source from the bulk bar',
       (tester) async {
     final harness = await _pumpSourceManageSettings(tester);
     addTearDown(harness.dispose);
 
-    await tester.tap(find.byIcon(LucideIcons.slidersHorizontal));
+    await tester.tap(find.text('编辑'));
     await tester.pump();
-
-    expect(find.text('全选'), findsOneWidget);
-    expect(find.text('批量启用'), findsOneWidget);
-    expect(find.text('批量禁用'), findsOneWidget);
-    expect(find.text('批量删除'), findsOneWidget);
-    expect(find.text('管理模式 · 可启用、禁用或删除'), findsOneWidget);
-    expect(find.text('删除'), findsNWidgets(2));
-
-    await tester.tap(find.byIcon(LucideIcons.slidersHorizontal));
+    await tester.tap(find.text('番茄小说'));
     await tester.pump();
+    expect(find.text('已选 1 / 2'), findsOneWidget);
 
-    expect(find.text('全选'), findsNothing);
-    expect(find.text('批量启用'), findsNothing);
-    expect(find.text('批量禁用'), findsNothing);
-    expect(find.text('管理模式 · 可启用、禁用或删除'), findsNothing);
-    expect(find.text('删除'), findsNothing);
-  });
-
-  testWidgets('enables a disabled source from management row', (tester) async {
-    final harness = await _pumpSourceManageSettings(tester);
-    addTearDown(harness.dispose);
-
-    await tester.tap(find.byIcon(LucideIcons.slidersHorizontal));
-    await tester.pump();
     await tester.tap(find.text('启用'));
     await tester.pump();
 
     final source = harness.repository.sourceById('fanqie');
     expect(source.enabled, isTrue);
-    expect(find.text('已启用'), findsNWidgets(2));
+    expect(find.text('启用中'), findsNWidgets(2));
   });
 
   testWidgets('opens rule diagnostics from quick actions', (tester) async {
@@ -77,13 +109,16 @@ void main() {
     expect(find.text('关闭'), findsNothing);
   });
 
-  testWidgets('single delete requires confirmation', (tester) async {
+  testWidgets('deleting one selected source requires confirmation',
+      (tester) async {
     final harness = await _pumpSourceManageSettings(tester);
     addTearDown(harness.dispose);
 
-    await tester.tap(find.byIcon(LucideIcons.slidersHorizontal));
+    await tester.tap(find.text('编辑'));
     await tester.pump();
-    await tester.tap(find.text('删除').first);
+    await tester.tap(find.text('番茄小说'));
+    await tester.pump();
+    await tester.tap(find.text('删除'));
     await tester.pump();
 
     expect(find.text('删除书源？'), findsOneWidget);
@@ -111,15 +146,15 @@ void main() {
 
     await tester.enterText(find.byType(TextField), '番茄');
     await tester.pump();
-    await tester.tap(find.byIcon(LucideIcons.slidersHorizontal));
+    await tester.tap(find.text('编辑'));
     await tester.pump();
 
     expect(find.text('搜索结果 · 1 / 2 个'), findsOneWidget);
     await tester.tap(find.text('全选'));
     await tester.pump();
-    expect(find.text('已选 1/1'), findsOneWidget);
+    expect(find.text('已选 1 / 1'), findsOneWidget);
 
-    await tester.tap(find.text('批量启用'));
+    await tester.tap(find.text('启用'));
     await tester.pump();
 
     expect(harness.repository.sourceById('fanqie').enabled, isTrue);
@@ -137,15 +172,15 @@ void main() {
 
     await tester.enterText(find.byType(TextField), '起点');
     await tester.pump();
-    await tester.tap(find.byIcon(LucideIcons.slidersHorizontal));
+    await tester.tap(find.text('编辑'));
     await tester.pump();
 
     expect(find.text('搜索结果 · 1 / 2 个'), findsOneWidget);
     await tester.tap(find.text('全选'));
     await tester.pump();
-    expect(find.text('已选 1/1'), findsOneWidget);
+    expect(find.text('已选 1 / 1'), findsOneWidget);
 
-    await tester.tap(find.text('批量禁用'));
+    await tester.tap(find.text('停用'));
     await tester.pump();
 
     expect(harness.repository.sourceById('qidian').enabled, isFalse);
@@ -160,12 +195,13 @@ void main() {
     final harness = await _pumpSourceManageSettings(tester);
     addTearDown(harness.dispose);
 
-    await tester.tap(find.byIcon(LucideIcons.slidersHorizontal));
+    await tester.tap(find.text('编辑'));
     await tester.pump();
     await tester.tap(find.text('全选'));
     await tester.pump();
-    await tester.tap(find.text('批量删除'));
+    await tester.tap(find.text('删除'));
     await tester.pump();
+    expect(find.text('删除选中的书源？'), findsOneWidget);
     await tester.tap(find.text('删除').last);
     await tester.pump();
 
@@ -175,9 +211,7 @@ void main() {
     expect(harness.repository.lastDeleteSourcesIds, {'fanqie', 'qidian'});
   });
 
-  testWidgets(
-      'management bar wraps bulk actions on compact screens without overflow',
-      (tester) async {
+  testWidgets('selection bar and bulk bar fit compact screens', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(320, 720);
     addTearDown(tester.view.reset);
@@ -185,14 +219,20 @@ void main() {
     final harness = await _pumpSourceManageSettings(tester);
     addTearDown(harness.dispose);
 
-    await tester.tap(find.byIcon(LucideIcons.slidersHorizontal));
+    await tester.tap(find.text('编辑'));
     await tester.pump();
 
     expect(find.text('全选'), findsOneWidget);
-    expect(find.text('已选 0/2'), findsOneWidget);
-    expect(find.text('批量启用'), findsOneWidget);
-    expect(find.text('批量禁用'), findsOneWidget);
-    expect(find.text('批量删除'), findsOneWidget);
+    expect(find.text('已选 0 / 2'), findsOneWidget);
+    expect(find.text('启用'), findsOneWidget);
+    expect(find.text('停用'), findsOneWidget);
+    expect(find.text('删除'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    // Nothing selected: the actions are inert, so no delete dialog opens.
+    await tester.tap(find.text('删除'));
+    await tester.pump();
+    expect(find.text('删除选中的书源？'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

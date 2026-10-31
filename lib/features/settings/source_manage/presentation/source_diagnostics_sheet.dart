@@ -78,16 +78,39 @@ class _SourceDiagnosticsSheetState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('删除失效书源？'),
-        content: Text('将删除 ${broken.length} 个无法使用的书源，此操作不可撤销。'),
+        backgroundColor: DudoColors.surface,
+        surfaceTintColor: Colors.transparent,
+        title: Text(
+          '删除失效书源？',
+          style: DudoTextStyles.sans(
+            color: DudoColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          '将删除 ${broken.length} 个无法使用的书源，此操作不可撤销。',
+          style: DudoTextStyles.sans(
+            color: DudoColors.secondaryDark,
+            fontSize: 13,
+            height: 1.5,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('取消'),
           ),
-          FilledButton(
+          TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('删除'),
+            child: Text(
+              '删除',
+              style: DudoTextStyles.sans(
+                color: _dangerText,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -126,23 +149,31 @@ class _SourceDiagnosticsSheetState
     final height = MediaQuery.sizeOf(context).height * 0.82;
     return Container(
       height: height,
-      decoration:  BoxDecoration(
-        color: DudoColors.paperBackground,
+      padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+      decoration: BoxDecoration(
+        color: DudoColors.surfaceHigh,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x3325251F),
+            offset: Offset(0, -18),
+            blurRadius: 36,
+          ),
+        ],
       ),
       child: Column(
         children: [
           const SizedBox(height: 10),
           Container(
-            width: 42,
-            height: 4,
+            width: 44,
+            height: 5,
             decoration: BoxDecoration(
               color: DudoColors.outline,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.circular(99),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
             child: Row(
               children: [
                 Expanded(
@@ -157,7 +188,7 @@ class _SourceDiagnosticsSheetState
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       Text(
                         '检查书源规则结构，不会发起网络请求',
                         style: DudoTextStyles.sans(
@@ -168,15 +199,14 @@ class _SourceDiagnosticsSheetState
                     ],
                   ),
                 ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(LucideIcons.x, size: 20),
-                  color: DudoColors.secondary,
-                  tooltip: '关闭',
+                const SizedBox(width: 8),
+                _SheetCloseButton(
+                  onTap: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 16),
           Expanded(child: _buildBody()),
         ],
       ),
@@ -185,13 +215,23 @@ class _SourceDiagnosticsSheetState
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(strokeWidth: 2),
-            SizedBox(height: 12),
-            Text('正在检查书源规则…'),
+            const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              '正在检查书源规则…',
+              style: DudoTextStyles.sans(
+                color: DudoColors.secondary,
+                fontSize: 12.5,
+              ),
+            ),
           ],
         ),
       );
@@ -203,24 +243,36 @@ class _SourceDiagnosticsSheetState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                LucideIcons.circleAlert,
-                color: _dangerText,
-                size: 28,
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: _dangerFill,
+                  borderRadius: BorderRadius.circular(26),
+                ),
+                child: const Icon(
+                  LucideIcons.circleAlert,
+                  color: _dangerText,
+                  size: 24,
+                ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 14),
               Text(
                 _error!,
                 textAlign: TextAlign.center,
                 style: DudoTextStyles.sans(
                   color: DudoColors.textPrimary,
                   fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 14),
-              FilledButton(
-                onPressed: _diagnose,
-                child: const Text('重新检查'),
+              const SizedBox(height: 16),
+              _SheetActionButton(
+                label: '重新检查',
+                icon: LucideIcons.refreshCw,
+                background: DudoColors.surfaceLow,
+                foreground: DudoColors.textPrimary,
+                onTap: _diagnose,
               ),
             ],
           ),
@@ -237,76 +289,140 @@ class _SourceDiagnosticsSheetState
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 2, 20, 10),
-          child: Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  label: '书源',
-                  value: '${report.totalCount}',
-                  color: DudoColors.primary,
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          child: Container(
+            height: 74,
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            decoration: BoxDecoration(
+              color: DudoColors.surface,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: DudoColors.outlineVariant),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _StatColumn(
+                    label: '书源',
+                    value: '${report.totalCount}',
+                    color: DudoColors.primary,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _StatCard(
-                  label: '失效',
-                  value: '${report.brokenCount}',
-                  color:
-                      report.brokenCount > 0 ? _dangerText : DudoColors.primary,
+                const _StatDivider(),
+                Expanded(
+                  child: _StatColumn(
+                    label: '失效',
+                    value: '${report.brokenCount}',
+                    color: report.brokenCount > 0
+                        ? _dangerText
+                        : DudoColors.primary,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _StatCard(
-                  label: '需注意',
-                  value: '${report.attentionCount}',
-                  color: DudoColors.accent,
+                const _StatDivider(),
+                Expanded(
+                  child: _StatColumn(
+                    label: '需注意',
+                    value: '${report.attentionCount}',
+                    color: DudoColors.accent,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-        if (report.brokenCount > 0)
+        if (issues.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _deleting ? null : _deleteBrokenSources,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _dangerFill,
-                  foregroundColor: _dangerText,
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Row(
+              children: [
+                Text(
+                  '问题明细',
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                icon: _deleting
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(LucideIcons.trash2, size: 16),
-                label: Text('删除 ${report.brokenCount} 个失效书源'),
-              ),
+                const Spacer(),
+                Text(
+                  '${issues.length} 项',
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.secondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         Expanded(
           child: issues.isEmpty
               ? _EmptyDiagnostics(healthyCount: report.healthyCount)
               : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(20, 2, 20, 24),
+                  padding: const EdgeInsets.fromLTRB(20, 2, 20, 16),
                   itemCount: issues.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, index) =>
                       _DiagnosticCard(entry: issues[index]),
                 ),
         ),
+        if (report.brokenCount > 0)
+          _DeleteBrokenFooter(
+            brokenCount: report.brokenCount,
+            deleting: _deleting,
+            onTap: _deleteBrokenSources,
+          ),
       ],
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
+class _SheetCloseButton extends StatelessWidget {
+  const _SheetCloseButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(22),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: DudoColors.surface,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: DudoColors.outlineVariant),
+          ),
+          child: Icon(
+            LucideIcons.x,
+            color: DudoColors.secondary,
+            size: 20,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatDivider extends StatelessWidget {
+  const _StatDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 1,
+      height: 30,
+      color: DudoColors.outlineVariant,
+    );
+  }
+}
+
+class _StatColumn extends StatelessWidget {
+  const _StatColumn({
     required this.label,
     required this.value,
     required this.color,
@@ -318,34 +434,116 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          value,
+          style: DudoTextStyles.numeric(
+            color: color,
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: DudoTextStyles.sans(
+            color: DudoColors.secondary,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DeleteBrokenFooter extends StatelessWidget {
+  const _DeleteBrokenFooter({
+    required this.brokenCount,
+    required this.deleting,
+    required this.onTap,
+  });
+
+  final int brokenCount;
+  final bool deleting;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      height: 58,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
       decoration: BoxDecoration(
-        color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: DudoColors.outlineVariant),
+        color: DudoColors.surfaceHigh,
+        border: Border(top: BorderSide(color: DudoColors.outlineVariant)),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: DudoTextStyles.numeric(
-              color: color,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
+      child: _SheetActionButton(
+        label: '删除 $brokenCount 个失效书源',
+        icon: LucideIcons.trash2,
+        background: _dangerText,
+        foreground: DudoColors.surfaceHigh,
+        loading: deleting,
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _SheetActionButton extends StatelessWidget {
+  const _SheetActionButton({
+    required this.label,
+    required this.icon,
+    required this.background,
+    required this.foreground,
+    required this.onTap,
+    this.loading = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color background;
+  final Color foreground;
+  final VoidCallback onTap;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: background,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: loading ? null : onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          height: 52,
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (loading)
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(foreground),
+                  ),
+                )
+              else
+                Icon(icon, size: 17, color: foreground),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: DudoTextStyles.sans(
+                  color: foreground,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
-          Text(
-            label,
-            style: DudoTextStyles.sans(
-              color: DudoColors.secondary,
-              fontSize: 11,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -424,6 +622,11 @@ class _DiagnosticCard extends StatelessWidget {
             : entry.warningCount > 0
                 ? '警告'
                 : '提示';
+    final icon = entry.isBroken
+        ? LucideIcons.circleAlert
+        : searchlessOnly || entry.warningCount > 0
+            ? LucideIcons.triangleAlert
+            : LucideIcons.info;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -437,45 +640,62 @@ class _DiagnosticCard extends StatelessWidget {
         children: [
           Row(
             children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Icon(icon, color: color, size: 16),
+              ),
+              const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  entry.source.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.source.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.textPrimary,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      entry.source.url,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.secondary,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                height: 24,
+                padding: const EdgeInsets.symmetric(horizontal: 9),
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(999),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   badge,
                   style: DudoTextStyles.sans(
                     color: color,
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            entry.source.url,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: DudoTextStyles.sans(
-              color: DudoColors.secondary,
-              fontSize: 11,
-            ),
           ),
           const SizedBox(height: 8),
           if (entry.parseError != null)

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../app/router/app_router.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/calendar_range_selector/calendar_range_sheet.dart';
@@ -13,12 +14,30 @@ import '../application/reading_stats_provider.dart';
 import '../data/reading_stats_repository.dart';
 import '../domain/reading_stats_models.dart';
 
+const _dangerFill = Color(0xFFF4DDD2);
+const _dangerText = Color(0xFFA8553A);
+
 class ReadingStatsPage extends ConsumerWidget {
   const ReadingStatsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final range = ref.watch(readingStatsRangeProvider);
     final summary = ref.watch(readingStatsSummaryProvider);
+
+    Widget frame(ReadingStatsRange headerRange, Widget child) {
+      return DudoPageFrame(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+        children: [
+          _StatsHeader(
+            range: headerRange,
+            onRangeTap: () => _showRangeSheet(context, ref),
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      );
+    }
 
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
@@ -26,31 +45,33 @@ class ReadingStatsPage extends ConsumerWidget {
         data: (summary) => DudoPageFrame(
           padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
           children: [
-            _StatsHeader(summary: summary),
+            _StatsHeader(
+              range: summary.range,
+              onRangeTap: () => _showRangeSheet(context, ref),
+            ),
             const SizedBox(height: 12),
-            _OverviewCard(summary: summary),
+            _StatsHero(summary: summary),
+            const SizedBox(height: 10),
+            _QuickMetrics(summary: summary),
             const SizedBox(height: 12),
             _RhythmChart(summary: summary),
             const SizedBox(height: 12),
-            if (summary.hasData)
-              _BookContributionCard(summary: summary)
-            else
-              const _EmptyRhythmCard(),
+            if (summary.hasData) ...[
+              _ReadingDetailCard(summary: summary),
+              const SizedBox(height: 12),
+              _BookContributionCard(summary: summary),
+            ] else
+              _EmptyRhythmCard(
+                onRead: () => context.go(AppRoutes.bookshelf),
+              ),
           ],
         ),
-        loading: () => const DudoPageFrame(
-          padding: EdgeInsets.fromLTRB(20, 6, 20, 10),
-          children: [
-            _ReadingStatsLoadingCard(),
-          ],
-        ),
-        error: (_, __) => DudoPageFrame(
-          padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
-          children: [
-            _ReadingStatsErrorCard(
-              onRetry: () => ref.invalidate(readingStatsSummaryProvider),
-            ),
-          ],
+        loading: () => frame(range, const _ReadingStatsLoadingCard()),
+        error: (_, __) => frame(
+          range,
+          _ReadingStatsErrorCard(
+            onRetry: () => ref.invalidate(readingStatsSummaryProvider),
+          ),
         ),
       ),
     );
@@ -63,14 +84,31 @@ class _ReadingStatsLoadingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 180,
+      height: 164,
       decoration: BoxDecoration(
         color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(color: DudoColors.outlineVariant),
       ),
       alignment: Alignment.center,
-      child: CircularProgressIndicator(color: DudoColors.primary),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            '正在整理阅读记录…',
+            style: DudoTextStyles.sans(
+              color: DudoColors.secondary,
+              fontSize: 12.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -86,25 +124,50 @@ class _ReadingStatsErrorCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: DudoColors.outlineVariant),
       ),
       child: Column(
         children: [
-          Text(
-            '阅读统计加载失败',
-            style: DudoTextStyles.sans(
-              color: DudoColors.textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: _dangerFill,
+              borderRadius: BorderRadius.circular(26),
+            ),
+            child: const Icon(
+              LucideIcons.circleAlert,
+              color: _dangerText,
+              size: 24,
             ),
           ),
           const SizedBox(height: 12),
-          FilledButton(
+          Text(
+            '阅读记录加载失败',
+            style: DudoTextStyles.sans(
+              color: DudoColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '统计暂时不可用，请稍后重试。',
+            style: DudoTextStyles.sans(
+              color: DudoColors.secondary,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextButton(
             onPressed: onRetry,
-            style: FilledButton.styleFrom(
-              backgroundColor: DudoColors.textPrimary,
-              foregroundColor: DudoColors.surfaceHigh,
+            style: TextButton.styleFrom(
+              foregroundColor: DudoColors.primary,
+              textStyle: DudoTextStyles.sans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             child: const Text('重试'),
           ),
@@ -114,15 +177,16 @@ class _ReadingStatsErrorCard extends StatelessWidget {
   }
 }
 
-class _StatsHeader extends ConsumerWidget {
-  const _StatsHeader({required this.summary});
+class _StatsHeader extends StatelessWidget {
+  const _StatsHeader({required this.range, required this.onRangeTap});
 
-  final ReadingStatsSummary summary;
+  final ReadingStatsRange range;
+  final VoidCallback onRangeTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return DudoPageHeader(
-      title: summary.range.title,
+      title: range.title,
       height: 60,
       titleAlignment: Alignment.centerLeft,
       reserveTrailingSpace: false,
@@ -139,7 +203,7 @@ class _StatsHeader extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '阅读统计',
+              '阅读记录',
               style: DudoTextStyles.sans(
                 color: DudoColors.secondary,
                 fontSize: 12,
@@ -149,7 +213,7 @@ class _StatsHeader extends ConsumerWidget {
             ),
             const SizedBox(height: 3),
             Text(
-              summary.range.title,
+              range.title,
               style: DudoTextStyles.serif(
                 color: DudoColors.textPrimary,
                 fontSize: 28,
@@ -160,10 +224,7 @@ class _StatsHeader extends ConsumerWidget {
           ],
         ),
       ),
-      trailing: _StatsRangeButton(
-        label: summary.range.label,
-        onTap: () => _showRangeSheet(context, ref),
-      ),
+      trailing: _StatsRangeButton(label: range.label, onTap: onRangeTap),
     );
   }
 }
@@ -184,7 +245,7 @@ class _StatsRangeButton extends StatelessWidget {
         borderRadius: AppRadius.full,
         onTap: onTap,
         child: Container(
-          height: 42,
+          height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             color: DudoColors.surface,
@@ -194,7 +255,7 @@ class _StatsRangeButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-               Icon(
+              Icon(
                 LucideIcons.calendarDays,
                 color: DudoColors.secondary,
                 size: 17,
@@ -216,53 +277,130 @@ class _StatsRangeButton extends StatelessWidget {
   }
 }
 
-class _OverviewCard extends StatelessWidget {
-  const _OverviewCard({required this.summary});
+class _StatsHero extends StatelessWidget {
+  const _StatsHero({required this.summary});
 
   final ReadingStatsSummary summary;
 
   @override
   Widget build(BuildContext context) {
+    final dark = DudoColors.isDark;
+
     return Container(
-      height: summary.hasData ? 154 : 142,
+      height: 164,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: DudoColors.primaryContainer,
+        color: DudoColors.ink,
         borderRadius: BorderRadius.circular(28),
+        border: dark ? Border.all(color: DudoColors.outline) : null,
+        boxShadow: [
+          BoxShadow(
+            color: dark ? const Color(0x66000000) : const Color(0x2625251F),
+            offset: const Offset(0, 12),
+            blurRadius: 30,
+          ),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Row(
         children: [
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  summary.description,
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.onInkMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  summary.totalLabel,
+                  style: DudoTextStyles.numeric(
+                    color: DudoColors.onInk,
+                    fontSize: 34,
+                    fontWeight: FontWeight.w700,
+                    height: 1.05,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${summary.range.dayCount} 天中读了 ${summary.readingDays} 天 · '
+                  '共 ${summary.sessionCount} 次',
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.onInkMuted,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          _ReadingDayDonut(summary: summary),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReadingDayDonut extends StatelessWidget {
+  const _ReadingDayDonut({required this.summary});
+
+  final ReadingStatsSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = DudoColors.isDark;
+
+    return SizedBox(
+      width: 96,
+      height: 96,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          SizedBox(
+            width: 96,
+            height: 96,
+            child: CircularProgressIndicator(
+              value: 1,
+              strokeWidth: 11,
+              strokeCap: StrokeCap.round,
+              color: DudoColors.onInk.withValues(alpha: 0.13),
+            ),
+          ),
+          SizedBox(
+            width: 96,
+            height: 96,
+            child: CircularProgressIndicator(
+              value: summary.readingDayRatio.clamp(0.0, 1.0),
+              strokeWidth: 11,
+              strokeCap: StrokeCap.round,
+              color: dark ? DudoColors.primary : DudoColors.primaryContainer,
+            ),
+          ),
           Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                summary.totalLabel,
+                summary.readingDayRatioLabel,
                 style: DudoTextStyles.numeric(
-                  color: DudoColors.textPrimary,
-                  fontSize: 38,
-                  fontWeight: FontWeight.w800,
+                  color: DudoColors.onInk,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                   height: 1,
                 ),
               ),
-              const SizedBox(height: 7),
+              const SizedBox(height: 3),
               Text(
-                summary.description,
+                '阅读天',
                 style: DudoTextStyles.sans(
-                  color: DudoColors.primaryDark,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+                  color: DudoColors.onInkMuted,
+                  fontSize: 9.5,
                 ),
               ),
-            ],
-          ),
-          Row(
-            children: [
-              for (var i = 0; i < summary.stats.length; i++) ...[
-                Expanded(child: _MiniStat(metric: summary.stats[i])),
-                if (i != summary.stats.length - 1) const SizedBox(width: 8),
-              ],
             ],
           ),
         ],
@@ -271,18 +409,51 @@ class _OverviewCard extends StatelessWidget {
   }
 }
 
-class _MiniStat extends StatelessWidget {
-  const _MiniStat({required this.metric});
+class _QuickMetrics extends StatelessWidget {
+  const _QuickMetrics({required this.summary});
+
+  final ReadingStatsSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 72,
+      child: Row(
+        children: [
+          for (var i = 0; i < summary.stats.length; i++) ...[
+            Expanded(
+              child: _QuickMetricCard(
+                metric: summary.stats[i],
+                highlighted: i == 0,
+              ),
+            ),
+            if (i != summary.stats.length - 1) const SizedBox(width: 10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickMetricCard extends StatelessWidget {
+  const _QuickMetricCard({required this.metric, required this.highlighted});
 
   final ReadingStatMetric metric;
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 46,
+      height: 72,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0x55FFF8EA),
-        borderRadius: BorderRadius.circular(18),
+        color: highlighted ? DudoColors.primaryContainer : DudoColors.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: highlighted
+              ? DudoColors.primaryContainerStrong
+              : DudoColors.outlineVariant,
+        ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -291,7 +462,7 @@ class _MiniStat extends StatelessWidget {
             metric.value,
             style: DudoTextStyles.numeric(
               color: DudoColors.textPrimary,
-              fontSize: 16,
+              fontSize: 22,
               fontWeight: FontWeight.w700,
               height: 1,
             ),
@@ -300,9 +471,8 @@ class _MiniStat extends StatelessWidget {
           Text(
             metric.label,
             style: DudoTextStyles.sans(
-              color: DudoColors.secondaryDark,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
+              color: DudoColors.secondary,
+              fontSize: 12,
             ),
           ),
         ],
@@ -366,7 +536,7 @@ class _RhythmChart extends StatelessWidget {
                 style: DudoTextStyles.sans(
                   color: DudoColors.secondary,
                   fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -578,6 +748,125 @@ class _ReadingRhythmBarChartState extends State<_ReadingRhythmBarChart> {
   }
 }
 
+class _ReadingDetailCard extends StatelessWidget {
+  const _ReadingDetailCard({required this.summary});
+
+  final ReadingStatsSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final bestDayLabel = summary.bestDayLabel;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: DudoColors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '阅读明细',
+            style: DudoTextStyles.sans(
+              color: DudoColors.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          _DetailRow(
+            icon: LucideIcons.bookOpen,
+            label: '累计章节',
+            value: '${summary.chaptersRead} 章',
+          ),
+          const _DetailDivider(),
+          _DetailRow(
+            icon: LucideIcons.type,
+            label: '累计字数',
+            value: formatReadingWords(summary.wordsRead),
+          ),
+          const _DetailDivider(),
+          _DetailRow(
+            icon: LucideIcons.history,
+            label: '阅读次数',
+            value:
+                '${summary.sessionCount} 次 · 平均 ${formatCompactDuration(summary.averageSessionMinutes)}',
+          ),
+          const _DetailDivider(),
+          _DetailRow(
+            icon: LucideIcons.timer,
+            label: '最长单次',
+            value: formatCompactDuration(summary.longestSessionMinutes),
+          ),
+          const _DetailDivider(),
+          _DetailRow(
+            icon: LucideIcons.calendarHeart,
+            label: '最活跃的一天',
+            value: bestDayLabel == null
+                ? '—'
+                : '$bestDayLabel · ${formatCompactDuration(summary.bestDayMinutes)}',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailDivider extends StatelessWidget {
+  const _DetailDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(height: 1, color: DudoColors.outlineVariant);
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, color: DudoColors.secondary, size: 16),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              label,
+              style: DudoTextStyles.sans(
+                color: DudoColors.textPrimary,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: DudoTextStyles.numeric(
+              color: DudoColors.textPrimary,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _BookContributionCard extends StatelessWidget {
   const _BookContributionCard({required this.summary});
 
@@ -595,18 +884,33 @@ class _BookContributionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '书籍贡献',
-            style: DudoTextStyles.sans(
-              color: DudoColors.textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '书籍贡献',
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                'Top ${summary.contributions.length}',
+                style: DudoTextStyles.sans(
+                  color: DudoColors.secondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
-          for (final item in summary.contributions) ...[
-            _ContributionRow(item: item),
-            if (item != summary.contributions.last) const SizedBox(height: 13),
+          for (var i = 0; i < summary.contributions.length; i++) ...[
+            _ContributionRow(rank: i + 1, item: summary.contributions[i]),
+            if (i != summary.contributions.length - 1)
+              const SizedBox(height: 14),
           ],
         ],
       ),
@@ -615,54 +919,92 @@ class _BookContributionCard extends StatelessWidget {
 }
 
 class _ContributionRow extends StatelessWidget {
-  const _ContributionRow({required this.item});
+  const _ContributionRow({required this.rank, required this.item});
 
+  final int rank;
   final BookReadingContribution item;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final ratio = item.ratio.clamp(0.0, 1.0);
+
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
+        Container(
+          width: 24,
+          height: 24,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: DudoColors.surfaceLow,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            '$rank',
+            style: DudoTextStyles.numeric(
+              color: DudoColors.secondary,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
                 item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: DudoTextStyles.sans(
                   color: DudoColors.textPrimary,
-                  fontSize: 14,
+                  fontSize: 14.5,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: AppRadius.full,
+                child: Container(
+                  height: 6,
+                  color: DudoColors.surfaceLow,
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: ratio,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: DudoColors.primary,
+                        borderRadius: AppRadius.full,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
             Text(
               item.durationLabel,
               style: DudoTextStyles.numeric(
-                color: DudoColors.secondary,
+                color: DudoColors.textPrimary,
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ClipRRect(
-          borderRadius: AppRadius.full,
-          child: Container(
-            height: 8,
-            color: DudoColors.surfaceLow,
-            alignment: Alignment.centerLeft,
-            child: FractionallySizedBox(
-              widthFactor: item.ratio,
-              child: Container(
-                decoration:  BoxDecoration(
-                  color: DudoColors.primary,
-                  borderRadius: AppRadius.full,
-                ),
+            const SizedBox(height: 2),
+            Text(
+              '${(ratio * 100).round()}%',
+              style: DudoTextStyles.numeric(
+                color: DudoColors.secondary,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ),
+          ],
         ),
       ],
     );
@@ -670,20 +1012,20 @@ class _ContributionRow extends StatelessWidget {
 }
 
 class _EmptyRhythmCard extends StatelessWidget {
-  const _EmptyRhythmCard();
+  const _EmptyRhythmCard({required this.onRead});
+
+  final VoidCallback onRead;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 188,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: DudoColors.outlineVariant),
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
             width: 52,
@@ -692,7 +1034,7 @@ class _EmptyRhythmCard extends StatelessWidget {
               color: DudoColors.primaryContainer,
               borderRadius: BorderRadius.circular(26),
             ),
-            child:  Icon(
+            child: Icon(
               LucideIcons.bookOpen,
               color: DudoColors.primary,
               size: 24,
@@ -716,6 +1058,18 @@ class _EmptyRhythmCard extends StatelessWidget {
               fontSize: 12,
               height: 1.45,
             ),
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: onRead,
+            style: TextButton.styleFrom(
+              foregroundColor: DudoColors.primary,
+              textStyle: DudoTextStyles.sans(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            child: const Text('去书架看看'),
           ),
         ],
       ),

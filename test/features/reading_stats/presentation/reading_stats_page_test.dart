@@ -7,9 +7,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+/// The hero, chart, detail rows and contributions exceed the default surface.
+void _useTallViewport(WidgetTester tester) {
+  tester.view.physicalSize = const Size(900, 2200);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+}
+
 void main() {
   testWidgets('renders the reading stats design with daily rhythm',
       (tester) async {
+    _useTallViewport(tester);
     final range = ReadingStatsRange.weekOf(DateTime(2024, 5, 22));
     await _pumpStatsPage(
       tester,
@@ -49,24 +57,45 @@ void main() {
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(scaffold.backgroundColor, DudoColors.paperBackground);
 
-    expect(find.text('阅读统计'), findsOneWidget);
+    expect(find.text('阅读记录'), findsOneWidget);
     expect(find.text('本周节奏'), findsOneWidget);
     expect(find.text('本周'), findsOneWidget);
     expect(find.text('6h 40m'), findsOneWidget);
     expect(find.text('本周阅读总时长'), findsOneWidget);
+    expect(find.text('7 天中读了 5 天 · 共 18 次'), findsOneWidget);
+    expect(find.text('5/7'), findsOneWidget);
     expect(find.text('5天'), findsOneWidget);
     expect(find.text('57分'), findsOneWidget);
     expect(find.text('3本'), findsOneWidget);
     expect(find.text('阅读节奏'), findsOneWidget);
     expect(find.text('近7天 · 按天显示'), findsOneWidget);
     expect(find.text('峰值 82m'), findsOneWidget);
+
+    // Detail rows surface totals the chart cannot show.
+    expect(find.text('阅读明细'), findsOneWidget);
+    expect(find.text('累计章节'), findsOneWidget);
+    expect(find.text('12 章'), findsOneWidget);
+    expect(find.text('累计字数'), findsOneWidget);
+    expect(find.text('6.8 万字'), findsOneWidget);
+    expect(find.text('阅读次数'), findsOneWidget);
+    expect(find.text('18 次 · 平均 22m'), findsOneWidget);
+    expect(find.text('最长单次'), findsOneWidget);
+    expect(find.text('48m'), findsOneWidget);
+    expect(find.text('最活跃的一天'), findsOneWidget);
+    expect(find.text('周三 · 1h 22m'), findsOneWidget);
+
     expect(find.text('书籍贡献'), findsOneWidget);
+    expect(find.text('Top 3'), findsOneWidget);
     expect(find.text('三体'), findsOneWidget);
     expect(find.text('长安的荔枝'), findsOneWidget);
     expect(find.text('云边有个小卖部'), findsOneWidget);
+    expect(find.text('100%'), findsOneWidget);
+    expect(find.text('70%'), findsOneWidget);
+    expect(find.text('45%'), findsOneWidget);
   });
 
   testWidgets('renders empty state from a custom empty range', (tester) async {
+    _useTallViewport(tester);
     final range = ReadingStatsRange.custom(
       start: DateTime(2024, 5, 22),
       end: DateTime(2024, 5, 22),
@@ -98,11 +127,15 @@ void main() {
     expect(find.text('自定义'), findsOneWidget);
     expect(find.text('0m'), findsOneWidget);
     expect(find.text('这段时间还没有阅读记录'), findsOneWidget);
+    expect(find.text('1 天中读了 0 天 · 共 0 次'), findsOneWidget);
+    expect(find.text('0/1'), findsOneWidget);
     expect(find.text('0天'), findsOneWidget);
     expect(find.text('0分'), findsOneWidget);
     expect(find.text('0本'), findsOneWidget);
     expect(find.text('暂无数据'), findsOneWidget);
     expect(find.text('开始阅读后生成节奏'), findsOneWidget);
+    expect(find.text('去书架看看'), findsOneWidget);
+    expect(find.text('阅读明细'), findsNothing);
   });
 
   testWidgets('shows horizontal scroll for a 31 day daily range',
@@ -295,5 +328,13 @@ ReadingStatsSummary _summaryFor(
         : const [],
     sheetSummary: range.rhythmSubtitle,
     hasData: hasData,
+    readingDays: hasData ? 5 : 0,
+    totalMinutes: hasData ? 400 : 0,
+    chaptersRead: hasData ? 12 : 0,
+    wordsRead: hasData ? 68000 : 0,
+    sessionCount: hasData ? 18 : 0,
+    longestSessionMinutes: hasData ? 48 : 0,
+    bestDayLabel: hasData ? '周三' : null,
+    bestDayMinutes: hasData ? 82 : 0,
   );
 }
