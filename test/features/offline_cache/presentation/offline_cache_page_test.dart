@@ -8,6 +8,7 @@ import 'package:dudo/shared/messages/app_message_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 void _useTallViewport(WidgetTester tester) {
   tester.view.physicalSize = const Size(900, 2400);
@@ -81,6 +82,20 @@ void main() {
     expect(find.text('还没有离线章节'), findsOneWidget);
   });
 
+  testWidgets('opens the book detail when a cached book is tapped',
+      (tester) async {
+    _useTallViewport(tester);
+    final repository = _FakeOfflineCacheRepository(_cache());
+
+    await tester.pumpWidget(_wrapRouter(repository));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('三体 2 · 黑暗森林'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('书详情：book-darkforest'), findsOneWidget);
+  });
+
   testWidgets('shows an empty state when nothing is cached', (tester) async {
     _useTallViewport(tester);
     final repository = _FakeOfflineCacheRepository(const OfflineCache(books: []));
@@ -103,6 +118,32 @@ Widget _wrap(
       appMessageServiceProvider.overrideWithValue(messages),
     ],
     child: const MaterialApp(home: OfflineCachePage()),
+  );
+}
+
+Widget _wrapRouter(OfflineCacheRepository repository) {
+  return ProviderScope(
+    overrides: [
+      offlineCacheRepositoryProvider.overrideWithValue(repository),
+      appMessageServiceProvider.overrideWithValue(_RecordingMessageService()),
+    ],
+    child: MaterialApp.router(
+      routerConfig: GoRouter(
+        initialLocation: '/offline-cache',
+        routes: [
+          GoRoute(
+            path: '/offline-cache',
+            builder: (_, __) => const OfflineCachePage(),
+          ),
+          GoRoute(
+            path: '/books/:bookId',
+            builder: (_, state) => Scaffold(
+              body: Text('书详情：${state.pathParameters['bookId']}'),
+            ),
+          ),
+        ],
+      ),
+    ),
   );
 }
 

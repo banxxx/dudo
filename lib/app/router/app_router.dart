@@ -289,9 +289,6 @@ class AppRoutes {
   static const search = '/search';
   static const searchName = 'search';
 
-  static const sources = '/sources';
-  static const sourcesName = 'sources';
-
   static const profile = '/profile';
   static const profileName = 'profile';
 

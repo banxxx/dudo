@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../shared/theme/app_fonts.dart';
@@ -381,6 +382,17 @@ class _GoalValueCard extends StatelessWidget {
   final int goalValue;
   final ValueChanged<int> onChanged;
 
+  Future<void> _editCustom(BuildContext context) async {
+    final value = await showDialog<int>(
+      context: context,
+      builder: (_) => _CustomGoalDialog(
+        method: method,
+        initialValue: goalValue,
+      ),
+    );
+    if (value != null) onChanged(value);
+  }
+
   @override
   Widget build(BuildContext context) {
     return _EditCard(
@@ -458,9 +470,10 @@ class _GoalValueCard extends StatelessWidget {
                 ],
                 Expanded(
                   child: _PresetPill(
+                    key: const ValueKey('reading-goal-custom-pill'),
                     label: '自定义',
                     selected: !method.presets.contains(goalValue),
-                    onTap: () {},
+                    onTap: () => _editCustom(context),
                   ),
                 ),
               ],
@@ -503,6 +516,7 @@ class _StepperButton extends StatelessWidget {
 
 class _PresetPill extends StatelessWidget {
   const _PresetPill({
+    super.key,
     required this.label,
     required this.selected,
     required this.onTap,
@@ -537,6 +551,150 @@ class _PresetPill extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CustomGoalDialog extends StatefulWidget {
+  const _CustomGoalDialog({
+    required this.method,
+    required this.initialValue,
+  });
+
+  final GoalMethod method;
+  final int initialValue;
+
+  @override
+  State<_CustomGoalDialog> createState() => _CustomGoalDialogState();
+}
+
+class _CustomGoalDialogState extends State<_CustomGoalDialog> {
+  late final TextEditingController _controller =
+      TextEditingController(text: '${widget.initialValue}');
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  int? get _value {
+    final parsed = int.tryParse(_controller.text.trim());
+    if (parsed == null) return null;
+    if (parsed < widget.method.minValue ||
+        parsed > ReadingGoalPageData.maxValue) {
+      return null;
+    }
+    return parsed;
+  }
+
+  void _submit() {
+    final value = _value;
+    if (value == null) return;
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = _value;
+    return AlertDialog(
+      backgroundColor: DudoColors.surface,
+      surfaceTintColor: Colors.transparent,
+      title: Text(
+        '自定义目标',
+        style: DudoTextStyles.sans(
+          color: DudoColors.textPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '按${widget.method.unit}填写本月想完成的目标。',
+            style: DudoTextStyles.sans(
+              color: DudoColors.secondaryDark,
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            key: const ValueKey('reading-goal-custom-field'),
+            controller: _controller,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(3),
+            ],
+            textAlign: TextAlign.center,
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => _submit(),
+            style: DudoTextStyles.numeric(
+              color: DudoColors.textPrimary,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              fillColor: DudoColors.surfaceLow,
+              suffixText: widget.method.unit,
+              suffixStyle: DudoTextStyles.sans(
+                color: DudoColors.secondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: DudoColors.outlineVariant),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: DudoColors.outlineVariant),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide(color: DudoColors.primary),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            value == null
+                ? '可设置 ${widget.method.minValue}–'
+                    '${ReadingGoalPageData.maxValue} ${widget.method.unit}'
+                : '保存后目标为 $value ${widget.method.unit} / 月',
+            style: DudoTextStyles.sans(
+              color: value == null ? DudoColors.secondary : DudoColors.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: TextButton.styleFrom(
+            foregroundColor: DudoColors.secondaryDark,
+          ),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          key: const ValueKey('reading-goal-custom-confirm'),
+          onPressed: value == null ? null : _submit,
+          style: TextButton.styleFrom(
+            foregroundColor: DudoColors.primary,
+          ),
+          child: const Text('确定'),
+        ),
+      ],
     );
   }
 }

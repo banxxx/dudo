@@ -20,6 +20,7 @@ class _TypographyPanel extends StatefulWidget {
     required this.onManageFonts,
     required this.onFirstLineIndentChanged,
     required this.onTextEnhancementChanged,
+    this.onUnavailableAction,
   });
 
   final _ReaderOverlayMetrics metrics;
@@ -41,6 +42,9 @@ class _TypographyPanel extends StatefulWidget {
   final VoidCallback onManageFonts;
   final ValueChanged<bool> onFirstLineIndentChanged;
   final ValueChanged<bool> onTextEnhancementChanged;
+
+  /// Receives the label of an option that is not implemented yet.
+  final ValueChanged<String>? onUnavailableAction;
 
   @override
   State<_TypographyPanel> createState() => _TypographyPanelState();
@@ -114,6 +118,7 @@ class _TypographyPanelState extends State<_TypographyPanel> {
                 pageHorizontalMargin: widget.pageHorizontalMargin,
                 firstLineIndentEnabled: widget.firstLineIndentEnabled,
                 textEnhancementEnabled: widget.textEnhancementEnabled,
+                onUnavailableAction: widget.onUnavailableAction,
                 selectedFont: widget.fontLibraryValue.valueOrNull?.selectedFont,
                 fontLoading: widget.fontLibraryValue.isLoading,
                 selectedSpacingPreset: _selectedSpacingPreset,
@@ -274,6 +279,7 @@ class _TypographyPanelContent extends StatelessWidget {
     required this.onPageMarginPresetChanged,
     required this.onFirstLineIndentChanged,
     required this.onTextEnhancementChanged,
+    this.onUnavailableAction,
   });
 
   final _ReaderOverlayMetrics metrics;
@@ -296,6 +302,7 @@ class _TypographyPanelContent extends StatelessWidget {
   final ValueChanged<_PageMarginPreset> onPageMarginPresetChanged;
   final ValueChanged<bool> onFirstLineIndentChanged;
   final ValueChanged<bool> onTextEnhancementChanged;
+  final ValueChanged<String>? onUnavailableAction;
 
   double get _paragraphSpacingSliderValue {
     const range =
@@ -525,7 +532,7 @@ class _TypographyPanelContent extends StatelessWidget {
                         metrics: metrics,
                         label: '标点优化',
                         selected: false,
-                        onTap: () {},
+                        onTap: () => onUnavailableAction?.call('标点优化'),
                       ),
                     ),
                   ],
@@ -1030,7 +1037,8 @@ class _FontSizeStepper extends StatelessWidget {
               metrics: metrics,
               label: fontSize.round().toString(),
               selected: true,
-              onTap: () {},
+              // A readout, not a control: only A- and A+ change the size.
+              onTap: null,
             ),
           ),
           SizedBox(width: metrics.s(8)),
@@ -1055,13 +1063,15 @@ class _FontSizeSegment extends StatelessWidget {
     required this.metrics,
     required this.label,
     required this.selected,
-    required this.onTap,
+    this.onTap,
   });
 
   final _ReaderOverlayMetrics metrics;
   final String label;
   final bool selected;
-  final VoidCallback onTap;
+
+  /// `null` renders a read-only readout (the current size between A- and A+).
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

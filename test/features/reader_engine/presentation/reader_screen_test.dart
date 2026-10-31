@@ -1219,9 +1219,59 @@ void main() {
 
     expect(bookmarkCalls, 1);
   });
+
+  testWidgets('more menu routes share, feedback, and unavailable entries',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var shareCalls = 0;
+    var feedbackCalls = 0;
+    final unavailable = <String>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: [
+              _moreMenuControls(
+                onAddBookmark: () {},
+                onShareChapter: () => shareCalls++,
+                onFeedback: () => feedbackCalls++,
+                onUnavailableAction: unavailable.add,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('分享章节'));
+    await tester.pumpAndSettle();
+    expect(shareCalls, 1);
+
+    await tester.tap(find.text('内容反馈'));
+    await tester.pumpAndSettle();
+    expect(feedbackCalls, 1);
+
+    await tester.tap(find.text('划线批注'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('缓存全书'));
+    await tester.pumpAndSettle();
+
+    expect(unavailable, ['划线批注', '缓存全书']);
+  });
 }
 
-ReaderControls _moreMenuControls({required VoidCallback onAddBookmark}) {
+ReaderControls _moreMenuControls({
+  required VoidCallback onAddBookmark,
+  VoidCallback? onShareChapter,
+  VoidCallback? onFeedback,
+  ValueChanged<String>? onUnavailableAction,
+}) {
   return ReaderControls(
     mode: ReaderOverlayMode.more,
     bookTitle: '测试书',
@@ -1288,6 +1338,9 @@ ReaderControls _moreMenuControls({required VoidCallback onAddBookmark}) {
     onVolumePageTurnChanged: (_) {},
     onListeningChanged: (_) {},
     onAddBookmark: onAddBookmark,
+    onShareChapter: onShareChapter,
+    onFeedback: onFeedback,
+    onUnavailableAction: onUnavailableAction,
   );
 }
 

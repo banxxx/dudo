@@ -100,6 +100,165 @@ void main() {
     expect(find.text('暂无书签和高亮'), findsNothing);
     expect(find.text('把喜欢的句子留在这里'), findsNothing);
   });
+
+  testWidgets('filters entries by type with the chip row', (tester) async {
+    _useTallViewport(tester);
+    await tester.pumpWidget(_app(entries: _entries()));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('bookmark-filter-all')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('bookmark-filter-bookmark')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('bookmark-filter-highlight')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('bookmark-filter-note')), findsOneWidget);
+    expect(find.text('向宇宙深处望去。'), findsOneWidget);
+    expect(find.text('黑暗森林法则'), findsOneWidget);
+    expect(find.text('面壁计划'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('bookmark-filter-highlight')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('黑暗森林法则'), findsOneWidget);
+    expect(find.text('向宇宙深处望去。'), findsNothing);
+    expect(find.text('面壁计划'), findsNothing);
+    // The summary keeps counting every entry, not just the visible ones.
+    expect(find.text('共 3 条标记 · 1 本书'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('bookmark-filter-all')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('向宇宙深处望去。'), findsOneWidget);
+    expect(find.text('面壁计划'), findsOneWidget);
+  });
+
+  testWidgets('opens the options sheet to filter by type', (tester) async {
+    _useTallViewport(tester);
+    await tester.pumpWidget(_app(entries: _entries()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('bookmarks-filter-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('筛选与排序'), findsOneWidget);
+    expect(find.text('标记类型'), findsOneWidget);
+    expect(find.text('排序方式'), findsOneWidget);
+    expect(find.text('3 条'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('bookmark-option-note')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('筛选与排序'), findsNothing);
+    expect(find.text('面壁计划'), findsOneWidget);
+    expect(find.text('向宇宙深处望去。'), findsNothing);
+    expect(find.text('黑暗森林法则'), findsNothing);
+  });
+
+  testWidgets('keeps an empty active filter visible in the chip row',
+      (tester) async {
+    _useTallViewport(tester);
+    await tester.pumpWidget(_app(entries: [_entries().first]));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('bookmark-filter-highlight')),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('bookmarks-filter-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('bookmark-option-highlight')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('bookmark-filter-highlight')),
+      findsOneWidget,
+    );
+    expect(find.text('没有符合条件的标记'), findsOneWidget);
+
+    await tester.tap(find.text('清除筛选'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('向宇宙深处望去。'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('bookmark-filter-highlight')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('sorts entries by time from the options sheet', (tester) async {
+    _useTallViewport(tester);
+    await tester.pumpWidget(_app(entries: _entries()));
+    await tester.pumpAndSettle();
+
+    // Newest first by default.
+    expect(
+      tester.getTopLeft(find.text('面壁计划')).dy,
+      lessThan(tester.getTopLeft(find.text('向宇宙深处望去。')).dy),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('bookmarks-filter-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('bookmark-option-sort-oldest')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getTopLeft(find.text('向宇宙深处望去。')).dy,
+      lessThan(tester.getTopLeft(find.text('面壁计划')).dy),
+    );
+  });
+}
+
+/// Three entries of each type, oldest bookmark first.
+List<BookmarkEntry> _entries() => [
+      BookmarkEntry(
+        id: 'bookmark-1',
+        type: BookmarkEntryType.bookmark,
+        bookId: 'book-1',
+        bookTitle: '三体',
+        chapterIndex: 2,
+        chapterTitle: '第3章 黎明',
+        offset: 120,
+        preview: '向宇宙深处望去。',
+        note: null,
+        createdAt: DateTime(2024, 5, 20, 10),
+      ),
+      BookmarkEntry(
+        id: 'highlight-1',
+        type: BookmarkEntryType.highlight,
+        bookId: 'book-1',
+        bookTitle: '三体',
+        chapterIndex: 3,
+        chapterTitle: '',
+        offset: 40,
+        preview: '黑暗森林法则',
+        note: null,
+        createdAt: DateTime(2024, 5, 21, 10),
+      ),
+      BookmarkEntry(
+        id: 'note-1',
+        type: BookmarkEntryType.note,
+        bookId: 'book-1',
+        bookTitle: '三体',
+        chapterIndex: 4,
+        chapterTitle: '第5章 黑暗森林',
+        offset: 0,
+        preview: '面壁计划',
+        note: '值得回看',
+        createdAt: DateTime(2024, 5, 22, 10),
+      ),
+    ];
+
+void _useTallViewport(WidgetTester tester) {
+  tester.view.physicalSize = const Size(900, 1600);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
 }
 
 Widget _app({List<BookmarkEntry> entries = const []}) {

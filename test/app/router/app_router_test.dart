@@ -6,6 +6,9 @@ import 'package:dudo/features/reading_goal/application/reading_goal_providers.da
 import 'package:dudo/features/reading_goal/domain/reading_goal.dart';
 import 'package:dudo/features/reading_stats/application/reading_stats_provider.dart';
 import 'package:dudo/features/reading_stats/domain/reading_stats_models.dart';
+import 'package:dudo/features/settings/data_sync_settings/application/data_sync_settings_provider.dart';
+import 'package:dudo/features/settings/data_sync_settings/data/data_sync_settings_repository.dart';
+import 'package:dudo/features/settings/data_sync_settings/domain/data_sync_settings.dart';
 import 'package:dudo/shared/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -32,7 +35,10 @@ void main() {
     await pumpNavigation(tester);
   }
 
-  Future<void> pumpApp(WidgetTester tester) async {
+  Future<void> pumpApp(
+    WidgetTester tester, {
+    List<Override> overrides = const [],
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -45,6 +51,7 @@ void main() {
           readingGoalOverviewProvider.overrideWith(
             (_) async => _routerGoalOverview(),
           ),
+          ...overrides,
         ],
         child: Consumer(
           builder: (context, ref, _) {
@@ -183,6 +190,34 @@ void main() {
     expect(rail.extended, isTrue);
   });
 
+  testWidgets('opens data sync from profile tools', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(Breakpoints.medium - 1, 800);
+    addTearDown(tester.view.reset);
+
+    await pumpApp(
+      tester,
+      overrides: [
+        dataSyncSettingsRepositoryProvider.overrideWithValue(
+          _FakeDataSyncSettingsRepository(),
+        ),
+      ],
+    );
+
+    await tapBottomTab(tester, 3);
+
+    // The tool list scrolls past the 800px test viewport.
+    await tester.ensureVisible(find.text('数据同步'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('数据同步'));
+    await pumpNavigation(tester);
+
+    expect(
+      find.byKey(const ValueKey('data-sync-master-switch')),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('opens reading stats from profile tools', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(Breakpoints.medium - 1, 800);
@@ -239,6 +274,19 @@ ReadingStatsSummary _routerReadingStatsSummary() {
     bestDayLabel: '周三',
     bestDayMinutes: 82,
   );
+}
+
+class _FakeDataSyncSettingsRepository implements DataSyncSettingsRepository {
+  DataSyncSettings _settings = DataSyncSettings.defaults();
+
+  @override
+  Future<DataSyncSettings> load() async => _settings;
+
+  @override
+  Future<void> save(DataSyncSettings settings) async => _settings = settings;
+
+  @override
+  Stream<DataSyncSettings> watch() => Stream.value(_settings);
 }
 
 ReadingGoalOverview _routerGoalOverview() {

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../app/router/app_router.dart';
 import '../../../shared/messages/app_message.dart';
 import '../../../shared/messages/app_message_service.dart';
 import '../../../shared/theme/app_fonts.dart';
@@ -100,6 +102,9 @@ class _OfflineCachePageState extends ConsumerState<OfflineCachePage> {
               book: book,
               clearing: _clearingBookId == book.bookId,
               onClear: () => _confirmClearBook(book),
+              onTap: () => context.push(
+                '${AppRoutes.bookDetail}/${book.bookId}',
+              ),
             ),
             if (book != cache.books.last) const SizedBox(height: 9),
           ],
@@ -156,8 +161,7 @@ class _OfflineCachePageState extends ConsumerState<OfflineCachePage> {
 
     final confirmed = await _showClearDialog(
       title: '清除全部离线缓存？',
-      message:
-          '将删除 ${cache.chapterCount} 个已下载章节（'
+      message: '将删除 ${cache.chapterCount} 个已下载章节（'
           '${formatStorageBytes(cache.totalBytes)}），之后阅读需要重新联网。',
     );
     if (confirmed != true || !mounted) return;
@@ -333,11 +337,15 @@ class _OfflineBookRow extends StatelessWidget {
     required this.book,
     required this.clearing,
     required this.onClear,
+    required this.onTap,
   });
 
   final OfflineCacheBook book;
   final bool clearing;
   final VoidCallback onClear;
+
+  /// Opens the book, so the cached chapters are one tap away from reading.
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -347,72 +355,80 @@ class _OfflineBookRow extends StatelessWidget {
         book.author!.trim(),
     ];
 
-    return Container(
-      constraints: const BoxConstraints(minHeight: 68),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: DudoColors.surface,
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: DudoColors.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          _BookCoverTile(title: book.title),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  book.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.textPrimary,
-                    fontSize: 14.5,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 68),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: DudoColors.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: DudoColors.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              _BookCoverTile(title: book.title),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      book.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.textPrimary,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      descriptionParts.join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.secondary,
+                        fontSize: 11.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                formatStorageBytes(book.bytes),
+                style: DudoTextStyles.numeric(
+                  color: DudoColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 6),
+              TextButton(
+                key: ValueKey('offline-clear-${book.bookId}'),
+                onPressed: clearing ? null : onClear,
+                style: TextButton.styleFrom(
+                  foregroundColor: _dangerText,
+                  disabledForegroundColor: DudoColors.secondary,
+                  minimumSize: const Size(44, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  textStyle: DudoTextStyles.sans(
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  descriptionParts.join(' · '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.secondary,
-                    fontSize: 11.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            formatStorageBytes(book.bytes),
-            style: DudoTextStyles.numeric(
-              color: DudoColors.textPrimary,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(width: 6),
-          TextButton(
-            key: ValueKey('offline-clear-${book.bookId}'),
-            onPressed: clearing ? null : onClear,
-            style: TextButton.styleFrom(
-              foregroundColor: _dangerText,
-              disabledForegroundColor: DudoColors.secondary,
-              minimumSize: const Size(44, 32),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              textStyle: DudoTextStyles.sans(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                child: Text(clearing ? '清除中' : '清除'),
               ),
-            ),
-            child: Text(clearing ? '清除中' : '清除'),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -426,9 +442,7 @@ class _BookCoverTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trimmed = title.trim();
-    final label = trimmed.isEmpty
-        ? '书'
-        : trimmed.characters.first;
+    final label = trimmed.isEmpty ? '书' : trimmed.characters.first;
 
     return Container(
       width: 40,

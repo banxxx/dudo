@@ -114,6 +114,9 @@ class ReaderControls extends StatelessWidget {
     required this.onVolumePageTurnChanged,
     required this.onListeningChanged,
     this.onAddBookmark,
+    this.onShareChapter,
+    this.onFeedback,
+    this.onUnavailableAction,
   });
 
   final ReaderOverlayMode mode;
@@ -186,6 +189,15 @@ class ReaderControls extends StatelessWidget {
 
   /// Saves a bookmark at the reader's current location.
   final VoidCallback? onAddBookmark;
+
+  /// Shares the current chapter excerpt through the system share sheet.
+  final VoidCallback? onShareChapter;
+
+  /// Opens the feedback screen.
+  final VoidCallback? onFeedback;
+
+  /// Called with the menu label for entries that are not implemented yet.
+  final ValueChanged<String>? onUnavailableAction;
 
   bool get _showsBars => mode != ReaderOverlayMode.hidden;
 
@@ -295,6 +307,7 @@ class ReaderControls extends StatelessWidget {
                     onManageFonts: onManageFonts,
                     onFirstLineIndentChanged: onFirstLineIndentChanged,
                     onTextEnhancementChanged: onTextEnhancementChanged,
+                    onUnavailableAction: onUnavailableAction,
                   ),
                 );
               case ReaderOverlayMode.theme:
@@ -350,6 +363,9 @@ class ReaderControls extends StatelessWidget {
                     metrics: metrics,
                     palette: palette,
                     onAddBookmark: onAddBookmark,
+                    onShareChapter: onShareChapter,
+                    onFeedback: onFeedback,
+                    onUnavailableAction: onUnavailableAction,
                     onPageTurn: () => onModeChanged(ReaderOverlayMode.pageTurn),
                   ),
                 );

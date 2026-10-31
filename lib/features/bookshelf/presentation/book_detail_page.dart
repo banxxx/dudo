@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../app/router/app_router.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/utils/breakpoints.dart';
+import '../../../core/utils/logger.dart';
 import '../../../shared/messages/app_message.dart';
 import '../../../shared/messages/app_message_service.dart';
 import '../../../shared/theme/app_fonts.dart';
@@ -236,12 +238,46 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
       unawaited(_catalogController.refreshRemote(book));
       return;
     }
+    if (title == '分享书籍') {
+      unawaited(_shareBook(book));
+      return;
+    }
     ref.read(appMessageServiceProvider).info(
           '这个功能还在完善中',
           title: title,
           position: AppMessagePosition.top,
           dedupeKey: 'book-detail-more-$title',
         );
+  }
+
+  Future<void> _shareBook(Book book) async {
+    final buffer = StringBuffer('《${book.title}》');
+    final author = book.author?.trim();
+    if (author != null && author.isNotEmpty) {
+      buffer.write(' · $author');
+    }
+    final intro = book.intro?.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (intro != null && intro.isNotEmpty) {
+      final excerpt =
+          intro.length <= 120 ? intro : '${intro.substring(0, 120)}…';
+      buffer
+        ..write('\n\n')
+        ..write(excerpt);
+    }
+    buffer.write('\n\n—— 来自 Dudo 书房');
+
+    try {
+      await Share.share(buffer.toString());
+    } catch (error) {
+      if (!mounted) return;
+      ref.read(appMessageServiceProvider).error(
+            '分享失败，请稍后重试',
+            title: '分享书籍',
+            position: AppMessagePosition.top,
+            dedupeKey: 'book-detail-share',
+          );
+      log.w('[book-detail] share failed', error: error);
+    }
   }
 }
 
@@ -679,7 +715,7 @@ class _GeneratedBookCover extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration:  BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -1223,7 +1259,7 @@ class _ChapterListMessageTile extends StatelessWidget {
               child: Text(actionLabel!),
             ),
           ] else
-             Icon(
+            Icon(
               LucideIcons.chevronRight,
               color: DudoColors.secondary,
               size: 18,
@@ -1242,14 +1278,14 @@ class _RemainingChaptersLoadingTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 54,
-      decoration:  BoxDecoration(
+      decoration: BoxDecoration(
         color: DudoColors.surfaceLow,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
       ),
       child: Row(
         children: [
           const SizedBox(width: 14),
-           SizedBox(
+          SizedBox(
             width: 16,
             height: 16,
             child: CircularProgressIndicator(
@@ -1322,7 +1358,7 @@ class _ChapterListTile extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                     Icon(
+                    Icon(
                       LucideIcons.chevronRight,
                       color: DudoColors.secondary,
                       size: 18,
@@ -1332,7 +1368,7 @@ class _ChapterListTile extends StatelessWidget {
               ),
             ),
             if (!isLast)
-               Divider(
+              Divider(
                 height: 1,
                 indent: 14,
                 endIndent: 14,
@@ -1498,7 +1534,7 @@ class _BookDetailLoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return  DudoPageFrame(
+    return DudoPageFrame(
       children: [
         const SizedBox(height: 180),
         Center(child: CircularProgressIndicator(color: DudoColors.primary)),

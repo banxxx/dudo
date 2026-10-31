@@ -389,6 +389,7 @@ class _LibraryToolsSection extends StatelessWidget {
           icon: LucideIcons.refreshCw,
           iconFill: DudoColors.primaryContainer,
           iconColor: DudoColors.primary,
+          route: AppRoutes.dataSyncSettings,
         ),
       ];
 

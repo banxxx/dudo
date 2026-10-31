@@ -6,22 +6,35 @@ class _MoreMenuPopover extends StatelessWidget {
     required this.palette,
     required this.onPageTurn,
     this.onAddBookmark,
+    this.onShareChapter,
+    this.onFeedback,
+    this.onUnavailableAction,
   });
 
   final _ReaderOverlayMetrics metrics;
   final ReaderPalette palette;
   final VoidCallback onPageTurn;
   final VoidCallback? onAddBookmark;
+  final VoidCallback? onShareChapter;
+  final VoidCallback? onFeedback;
+
+  /// Receives the label of a menu entry that has no implementation yet, so the
+  /// reader can explain the state instead of silently swallowing the tap.
+  final ValueChanged<String>? onUnavailableAction;
+
+  VoidCallback _handlerFor(String label, VoidCallback? handler) {
+    return handler ?? () => onUnavailableAction?.call(label);
+  }
 
   @override
   Widget build(BuildContext context) {
     final items = [
       (LucideIcons.bookmarkPlus, '加入书签', onAddBookmark),
       (LucideIcons.highlighter, '划线批注', null),
-      (LucideIcons.share2, '分享章节', null),
+      (LucideIcons.share2, '分享章节', onShareChapter),
       (LucideIcons.download, '缓存全书', null),
       (LucideIcons.bookOpen, '翻页设置', onPageTurn),
-      (LucideIcons.messageCircleWarning, '内容反馈', null),
+      (LucideIcons.messageCircleWarning, '内容反馈', onFeedback),
     ];
     return Positioned(
       key: const ValueKey('reader-more-popover'),
@@ -44,7 +57,7 @@ class _MoreMenuPopover extends StatelessWidget {
                     icon: items[i].$1,
                     label: items[i].$2,
                     active: i == 0,
-                    onTap: items[i].$3 ?? () {},
+                    onTap: _handlerFor(items[i].$2, items[i].$3),
                   ),
                 ),
             ],

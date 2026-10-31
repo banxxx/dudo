@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../app/router/app_router.dart';
 import '../../../core/exceptions/app_exception.dart';
 import '../../../core/utils/logger.dart';
 import '../../reading_stats/application/reading_stats_provider.dart';
@@ -891,6 +893,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             location: location,
           ),
         ),
+        onShareChapter: () => unawaited(
+          _shareChapter(
+            bookTitle: document.title,
+            chapter: chapter,
+            location: location,
+          ),
+        ),
+        onFeedback: _openFeedback,
+        onUnavailableAction: _showUnavailableAction,
         onListeningChanged: (value) {
           unawaited(_setListening(value));
         },
@@ -1307,16 +1318,49 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _showReaderMessage('已加入书签');
   }
 
-  String _bookmarkPreview(String text, int offset) {
+  String _bookmarkPreview(String text, int offset) =>
+      _textSnippet(text, offset, maxLength: 80);
+
+  /// A single-line excerpt starting at [offset], falling back to the chapter
+  /// head when the offset sits on whitespace.
+  String _textSnippet(String text, int offset, {required int maxLength}) {
     if (text.isEmpty) return '';
     final start = offset.clamp(0, text.length);
-    final end = (start + 80).clamp(start, text.length);
+    final end = (start + maxLength).clamp(start, text.length);
     final snippet =
         text.substring(start, end).replaceAll(RegExp(r'\s+'), ' ').trim();
     if (snippet.isNotEmpty) return snippet;
 
     final head = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-    return head.length <= 80 ? head : head.substring(0, 80);
+    return head.length <= maxLength ? head : head.substring(0, maxLength);
+  }
+
+  Future<void> _shareChapter({
+    required String bookTitle,
+    required ReaderChapter chapter,
+    required ReaderLocation location,
+  }) async {
+    _setOverlayMode(ReaderOverlayMode.hidden);
+    final snippet =
+        _textSnippet(chapter.normalizedText, location.offset, maxLength: 220);
+    final header = '《$bookTitle》· ${chapter.title}';
+    final text = snippet.isEmpty ? header : '$header\n\n$snippet';
+    try {
+      await Share.share(text);
+    } catch (error) {
+      if (!mounted) return;
+      _showReaderMessage('分享失败：$error');
+    }
+  }
+
+  void _openFeedback() {
+    _setOverlayMode(ReaderOverlayMode.hidden);
+    context.push(AppRoutes.aboutFeedback);
+  }
+
+  void _showUnavailableAction(String label) {
+    _setOverlayMode(ReaderOverlayMode.hidden);
+    _showReaderMessage('$label将在后续版本提供');
   }
 
   void _showReaderMessage(String message) {

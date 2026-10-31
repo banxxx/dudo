@@ -126,6 +126,11 @@ class ReadingGoalPageData {
       '${_monthNames[date.month - 1]}月阅读目标';
 
   static const editTitle = '编辑目标';
+
+  /// Upper bound for a custom goal value; the stepper and the custom dialog
+  /// both clamp to it.
+  static const maxValue = 999;
+
   static const progressTitle = '本月目标进度';
   static const progressPercentLabel = '完成';
   static const weeklyTitle = '本周节奏';
