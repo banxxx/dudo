@@ -28,11 +28,11 @@ class ReadingStatsPage extends ConsumerWidget {
     Widget frame(ReadingStatsRange headerRange, Widget child) {
       return DudoPageFrame(
         padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+        header: _StatsHeader(
+          range: headerRange,
+          onRangeTap: () => _showRangeSheet(context, ref),
+        ),
         children: [
-          _StatsHeader(
-            range: headerRange,
-            onRangeTap: () => _showRangeSheet(context, ref),
-          ),
           const SizedBox(height: 12),
           child,
         ],
@@ -44,11 +44,11 @@ class ReadingStatsPage extends ConsumerWidget {
       body: summary.when(
         data: (summary) => DudoPageFrame(
           padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+          header: _StatsHeader(
+            range: summary.range,
+            onRangeTap: () => _showRangeSheet(context, ref),
+          ),
           children: [
-            _StatsHeader(
-              range: summary.range,
-              onRangeTap: () => _showRangeSheet(context, ref),
-            ),
             const SizedBox(height: 12),
             _StatsHero(summary: summary),
             const SizedBox(height: 10),

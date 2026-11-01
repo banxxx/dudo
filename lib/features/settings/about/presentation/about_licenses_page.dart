@@ -97,12 +97,12 @@ class _AboutLicensesPageState extends State<AboutLicensesPage> {
       body: DudoPageFrame(
         padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
         constrainWidth: false,
+        header: const SettingsDetailHeader(
+          eyebrow: '关于',
+          title: '开源许可',
+          showAction: false,
+        ),
         children: [
-          const SettingsDetailHeader(
-            eyebrow: '关于',
-            title: '开源许可',
-            showAction: false,
-          ),
           const SizedBox(height: 14),
           AboutDocIntro(
             version == null

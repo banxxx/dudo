@@ -12,12 +12,12 @@ class AboutGuidePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const SettingsDetailScaffold(
+      header: SettingsDetailHeader(
+        eyebrow: '帮助与支持',
+        title: '使用说明',
+        showAction: false,
+      ),
       children: [
-        SettingsDetailHeader(
-          eyebrow: '帮助与支持',
-          title: '使用说明',
-          showAction: false,
-        ),
         SizedBox(height: 14),
         AboutDocIntro('从导入第一本书开始，几步就能把随身书房搭起来。'),
         SizedBox(height: 14),

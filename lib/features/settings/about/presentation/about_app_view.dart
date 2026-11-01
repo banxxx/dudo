@@ -8,6 +8,7 @@ import '../../../../app/router/app_router.dart';
 import '../../../../shared/messages/app_message_service.dart';
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
+import '../../../../shared/widgets/dudo_page_frame.dart';
 import '../data/external_link_launcher.dart';
 import '../domain/about_links.dart';
 import '../domain/about_platform.dart';
@@ -72,43 +73,39 @@ class _AboutAppViewState extends ConsumerState<AboutAppView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _AboutColors.page,
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
+      body: DudoPageFrame(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
+        constrainWidth: false,
+        header: _AboutTopActions(onShare: _shareApp),
+        children: [
+          const SizedBox(height: 14),
+          const _AboutAppIdentityCard(),
+          const SizedBox(height: 14),
+          _AboutUpdateSection(
+            platform: widget.platform,
+            state: _updateState,
+            onCheckUpdates: _checkForUpdates,
+            onOpenRepository: () => _openExternal(
+              AboutLinks.repository,
+              failureTitle: '打开仓库地址失败',
+            ),
           ),
-          children: [
-            _AboutTopActions(onShare: _shareApp),
-            const SizedBox(height: 14),
-            const _AboutAppIdentityCard(),
-            const SizedBox(height: 14),
-            _AboutUpdateSection(
-              platform: widget.platform,
-              state: _updateState,
-              onCheckUpdates: _checkForUpdates,
-              onOpenRepository: () => _openExternal(
-                AboutLinks.repository,
-                failureTitle: '打开仓库地址失败',
-              ),
-            ),
-            const SizedBox(height: 14),
-            _AboutSupportSection(
-              onOpenGuide: () => context.push(AppRoutes.aboutGuide),
-              onFeedback: () => context.push(AppRoutes.aboutFeedback),
-              onShowLicenses: () => context.push(AppRoutes.aboutLicenses),
-            ),
-            const SizedBox(height: 14),
-            _AboutListRow(
-              icon: LucideIcons.shieldCheck,
-              title: '隐私政策',
-              description: '查看阅读记录、书签与高亮的数据说明',
-              onTap: () => context.push(AppRoutes.aboutPrivacy),
-            ),
-            const SizedBox(height: 14),
-            const _AboutFooter(),
-          ],
-        ),
+          const SizedBox(height: 14),
+          _AboutSupportSection(
+            onOpenGuide: () => context.push(AppRoutes.aboutGuide),
+            onFeedback: () => context.push(AppRoutes.aboutFeedback),
+            onShowLicenses: () => context.push(AppRoutes.aboutLicenses),
+          ),
+          const SizedBox(height: 14),
+          _AboutListRow(
+            icon: LucideIcons.shieldCheck,
+            title: '隐私政策',
+            description: '查看阅读记录、书签与高亮的数据说明',
+            onTap: () => context.push(AppRoutes.aboutPrivacy),
+          ),
+          const SizedBox(height: 14),
+          const _AboutFooter(),
+        ],
       ),
     );
   }

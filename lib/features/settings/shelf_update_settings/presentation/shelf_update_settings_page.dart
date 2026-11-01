@@ -57,12 +57,12 @@ class _ShelfUpdateSettingsPageState
     final onlineCount = books?.where(_isOnlineBook).length;
 
     return SettingsDetailScaffold(
+      header: const SettingsDetailHeader(
+        eyebrow: '内容与书源',
+        title: '书架更新',
+        showAction: false,
+      ),
       children: [
-        const SettingsDetailHeader(
-          eyebrow: '内容与书源',
-          title: '书架更新',
-          showAction: false,
-        ),
         const SizedBox(height: 14),
         if (settings == null)
           const SizedBox(

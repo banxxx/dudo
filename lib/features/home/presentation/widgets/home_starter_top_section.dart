@@ -61,7 +61,7 @@ class _StarterHomeHeader extends StatelessWidget {
             borderRadius: AppRadius.full,
             border: Border.all(color: DudoColors.navigationStroke),
           ),
-          child:  Icon(
+          child: Icon(
             LucideIcons.leaf,
             color: DudoColors.primary,
             size: 22,
@@ -182,7 +182,7 @@ class _StarterBookStack extends StatelessWidget {
       width: 104,
       height: double.infinity,
       padding: const EdgeInsets.all(10),
-      decoration:  BoxDecoration(
+      decoration: BoxDecoration(
         borderRadius: AppRadius.large,
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -238,7 +238,7 @@ class _StartFindingBooksButton extends StatelessWidget {
       child: Container(
         height: 32,
         padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration:  BoxDecoration(
+        decoration: BoxDecoration(
           color: DudoColors.textPrimary,
           borderRadius: AppRadius.full,
         ),
@@ -253,7 +253,7 @@ class _StartFindingBooksButton extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-             Icon(
+            Icon(
               LucideIcons.arrowRight,
               color: DudoColors.surfaceHigh,
               size: 14,

@@ -20,12 +20,12 @@ class AboutFeedbackPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return SettingsDetailScaffold(
+      header: const SettingsDetailHeader(
+        eyebrow: '帮助与支持',
+        title: '反馈与建议',
+        showAction: false,
+      ),
       children: [
-        const SettingsDetailHeader(
-          eyebrow: '帮助与支持',
-          title: '反馈与建议',
-          showAction: false,
-        ),
         const SizedBox(height: 14),
         const AboutDocIntro('遇到问题或有新的想法？可以通过下面的方式联系我们。'),
         const SizedBox(height: 14),

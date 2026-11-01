@@ -35,13 +35,13 @@ class _OfflineCachePageState extends ConsumerState<OfflineCachePage> {
     final cache = cacheAsync.valueOrNull;
 
     return SettingsDetailScaffold(
+      header: SettingsDetailHeader(
+        eyebrow: '书房工具',
+        title: '离线缓存',
+        actionIcon: cacheAsync.isLoading ? null : LucideIcons.refreshCw,
+        onActionTap: () => ref.invalidate(offlineCacheProvider),
+      ),
       children: [
-        SettingsDetailHeader(
-          eyebrow: '书房工具',
-          title: '离线缓存',
-          actionIcon: cacheAsync.isLoading ? null : LucideIcons.refreshCw,
-          onActionTap: () => ref.invalidate(offlineCacheProvider),
-        ),
         const SizedBox(height: 14),
         _OfflineHero(
           cache: cache,

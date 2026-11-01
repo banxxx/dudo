@@ -12,10 +12,14 @@ class SettingsDetailScaffold extends StatelessWidget {
   const SettingsDetailScaffold({
     super.key,
     required this.children,
+    this.header,
     this.bottomBar,
   });
 
   final List<Widget> children;
+
+  /// The page header, kept pinned above the scrolling settings content.
+  final Widget? header;
   final Widget? bottomBar;
 
   @override
@@ -26,6 +30,7 @@ class SettingsDetailScaffold extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
         constrainWidth: false,
         eager: true,
+        header: header,
         children: children,
       ),
       bottomNavigationBar: bottomBar,

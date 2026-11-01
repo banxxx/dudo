@@ -286,14 +286,14 @@ class _SourceManageSettingsPageState
               onDelete: () => _confirmDeleteSelectedSources(sources),
             )
           : null,
+      header: SettingsDetailHeader(
+        eyebrow: '内容与书源',
+        title: '书源管理',
+        actionLabel: _isManageMode ? '完成' : '编辑',
+        actionEmphasized: _isManageMode,
+        onActionTap: _toggleManageMode,
+      ),
       children: [
-        SettingsDetailHeader(
-          eyebrow: '内容与书源',
-          title: '书源管理',
-          actionLabel: _isManageMode ? '完成' : '编辑',
-          actionEmphasized: _isManageMode,
-          onActionTap: _toggleManageMode,
-        ),
         const SizedBox(height: 14),
         sourcesValue.when(
           loading: () => const _SourceSummary.loading(),

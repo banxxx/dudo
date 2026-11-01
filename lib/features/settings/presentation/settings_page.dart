@@ -51,8 +51,8 @@ class SettingsPage extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
         constrainWidth: false,
         eager: true,
+        header: const _TopActions(),
         children: [
-          const _TopActions(),
           const SizedBox(height: 14),
           const _SettingsHero(),
           const SizedBox(height: 14),

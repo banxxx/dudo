@@ -345,12 +345,12 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
   Widget build(BuildContext context) {
     final settings = _settings;
     return SettingsDetailScaffold(
+      header: const SettingsDetailHeader(
+        eyebrow: '阅读体验',
+        title: '阅读朗读',
+        actionIcon: LucideIcons.headphones,
+      ),
       children: [
-        const SettingsDetailHeader(
-          eyebrow: '阅读体验',
-          title: '阅读朗读',
-          actionIcon: LucideIcons.headphones,
-        ),
         const SizedBox(height: 14),
         if (settings == null)
           const SizedBox(

@@ -151,15 +151,15 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
       body: DudoPageFrame(
+        header: _SearchHeader(
+          controller: _controller,
+          focusNode: _focusNode,
+          active: _hasQuery,
+          onClear: _handleClearQuery,
+          onFilter: _handleOpenFilters,
+          onSubmitted: _handleSubmitSearch,
+        ),
         children: [
-          _SearchHeader(
-            controller: _controller,
-            focusNode: _focusNode,
-            active: _hasQuery,
-            onClear: _handleClearQuery,
-            onFilter: _handleOpenFilters,
-            onSubmitted: _handleSubmitSearch,
-          ),
           const SizedBox(height: 14),
           if (recentSearches.isNotEmpty) ...[
             _RecentSearchSection(
@@ -246,7 +246,7 @@ class _SearchHeader extends StatelessWidget {
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(color: DudoColors.outline),
                   ),
-                  child:  Icon(
+                  child: Icon(
                     LucideIcons.slidersHorizontal,
                     color: DudoColors.primary,
                     size: 20,
@@ -351,7 +351,7 @@ class _SearchField extends StatelessWidget {
               const SizedBox(width: 10),
               GestureDetector(
                 onTap: onClear,
-                child:  Icon(
+                child: Icon(
                   LucideIcons.x,
                   color: DudoColors.secondary,
                   size: 18,
@@ -387,7 +387,7 @@ class _SearchEmptySuggestions extends StatelessWidget {
               color: DudoColors.surface,
               borderRadius: BorderRadius.circular(32),
             ),
-            child:  Icon(
+            child: Icon(
               LucideIcons.telescope,
               color: DudoColors.primary,
               size: 30,
@@ -1118,7 +1118,7 @@ class _SearchResultCoverPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return  DecoratedBox(
+    return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,

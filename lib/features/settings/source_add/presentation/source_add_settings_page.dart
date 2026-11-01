@@ -56,12 +56,12 @@ class _SourceAddSettingsPageState extends ConsumerState<SourceAddSettingsPage> {
   @override
   Widget build(BuildContext context) {
     return SettingsDetailScaffold(
+      header: const SettingsDetailHeader(
+        eyebrow: '内容与书源',
+        title: '添加书源',
+        showAction: false,
+      ),
       children: [
-        const SettingsDetailHeader(
-          eyebrow: '内容与书源',
-          title: '添加书源',
-          showAction: false,
-        ),
         const SizedBox(height: 14),
         _LocalBookImportCard(onImport: _importLocalBook),
         const SizedBox(height: 14),

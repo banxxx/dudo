@@ -13,12 +13,12 @@ class AboutPrivacyPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const SettingsDetailScaffold(
+      header: SettingsDetailHeader(
+        eyebrow: '关于',
+        title: '隐私政策',
+        showAction: false,
+      ),
       children: [
-        SettingsDetailHeader(
-          eyebrow: '关于',
-          title: '隐私政策',
-          showAction: false,
-        ),
         SizedBox(height: 14),
         AboutDocIntro('Dudo 是一款以本地阅读为核心的应用。下面说明本应用会处理哪些数据、'
             '在什么情况下联网，以及你可以如何删除这些数据。'),

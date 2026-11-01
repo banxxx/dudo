@@ -31,12 +31,12 @@ class ThemeSettingsPage extends ConsumerWidget {
         readerPrefs.systemStatusBarHidden;
 
     return SettingsDetailScaffold(
+      header: const SettingsDetailHeader(
+        eyebrow: '阅读体验',
+        title: '主题外观',
+        actionIcon: LucideIcons.palette,
+      ),
       children: [
-        const SettingsDetailHeader(
-          eyebrow: '阅读体验',
-          title: '主题外观',
-          actionIcon: LucideIcons.palette,
-        ),
         const SizedBox(height: 14),
         _ThemePreview(settings: settings),
         const SizedBox(height: 14),

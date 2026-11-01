@@ -153,7 +153,7 @@ class _RecommendationSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-         Row(
+        Row(
           children: [
             Expanded(
               child: _RecommendedBookCard(

@@ -49,6 +49,77 @@ void main() {
     );
   });
 
+  testWidgets('keeps the header pinned while the content scrolls',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: DudoPageFrame(
+            header: SizedBox(
+              height: 56,
+              child: Text('Pinned header', key: ValueKey('pinned-header')),
+            ),
+            children: [
+              SizedBox(height: 900, child: Text('Tall content')),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final headerTop = tester.getTopLeft(find.text('Pinned header'));
+    final contentTop = tester.getTopLeft(find.text('Tall content'));
+    final listTop = tester.getTopLeft(find.byType(ListView)).dy;
+
+    expect(
+      tester.getBottomLeft(find.text('Pinned header')).dy,
+      lessThanOrEqualTo(listTop),
+    );
+
+    await tester.drag(find.byType(ListView), const Offset(0, -240));
+    await tester.pumpAndSettle();
+
+    expect(tester.getTopLeft(find.text('Pinned header')), headerTop);
+    expect(
+      tester.getTopLeft(find.text('Tall content')).dy,
+      lessThan(contentTop.dy),
+    );
+  });
+
+  testWidgets('keeps a header pinned with eager content', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: DudoPageFrame(
+            eager: true,
+            header: SizedBox(
+              height: 56,
+              child: Text('Eager header', key: ValueKey('eager-header')),
+            ),
+            children: [
+              SizedBox(height: 900, child: Text('Eager content')),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final headerTop = tester.getTopLeft(find.text('Eager header'));
+    final contentTop = tester.getTopLeft(find.text('Eager content'));
+
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -240),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.getTopLeft(find.text('Eager header')), headerTop);
+    expect(
+      tester.getTopLeft(find.text('Eager content')).dy,
+      lessThan(contentTop.dy),
+    );
+  });
+
   testWidgets('centers default content on wide viewports', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(1000, 800);

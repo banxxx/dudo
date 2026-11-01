@@ -60,13 +60,13 @@ class _DataSyncSettingsPageState extends ConsumerState<DataSyncSettingsPage> {
         0;
 
     return SettingsDetailScaffold(
+      header: const SettingsDetailHeader(
+        eyebrow: '通用',
+        title: '数据同步',
+        subtitle: '连接你的后端服务器，掌控自己的阅读数据',
+        showAction: false,
+      ),
       children: [
-        const SettingsDetailHeader(
-          eyebrow: '通用',
-          title: '数据同步',
-          subtitle: '连接你的后端服务器，掌控自己的阅读数据',
-          showAction: false,
-        ),
         const SizedBox(height: 14),
         if (!state.initialized)
           const SizedBox(

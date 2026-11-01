@@ -66,12 +66,11 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
       body: DudoPageFrame(
         padding: const EdgeInsets.fromLTRB(20, 6, 20, 12),
         bottomSafeArea: false,
+        header: _BookmarksHeader(
+          onOpenOptions: entries.isEmpty ? null : () => _openOptions(entries),
+          optionsActive: _hasActiveOptions,
+        ),
         children: [
-          _BookmarksHeader(
-            onOpenOptions:
-                entries.isEmpty ? null : () => _openOptions(entries),
-            optionsActive: _hasActiveOptions,
-          ),
           const SizedBox(height: 16),
           if (hasError)
             ErrorStateView(
@@ -426,7 +425,8 @@ class _BookmarkFilterChip extends StatelessWidget {
             color: selected ? DudoColors.textPrimary : DudoColors.surface,
             borderRadius: BorderRadius.circular(17),
             border: Border.all(
-              color: selected ? DudoColors.textPrimary : DudoColors.outlineVariant,
+              color:
+                  selected ? DudoColors.textPrimary : DudoColors.outlineVariant,
             ),
           ),
           child: Row(

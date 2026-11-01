@@ -7,6 +7,7 @@ class DudoPageFrame extends StatelessWidget {
   const DudoPageFrame({
     super.key,
     required this.children,
+    this.header,
     this.padding = const EdgeInsets.fromLTRB(20, 8, 20, 16),
     this.maxWidth,
     this.constrainWidth = true,
@@ -16,6 +17,12 @@ class DudoPageFrame extends StatelessWidget {
   });
 
   final List<Widget> children;
+
+  /// A page header that stays pinned above the scrollable [children].
+  ///
+  /// Pages whose header used to be the first scroll child can move it here so
+  /// it remains visible while the content scrolls below it.
+  final Widget? header;
   final EdgeInsets padding;
   final double? maxWidth;
   final bool constrainWidth;
@@ -32,22 +39,51 @@ class DudoPageFrame extends StatelessWidget {
         : padding;
     final effectiveMaxWidth = maxWidth ?? _maxWidthForWidth(width);
 
-    final Widget content = eager
-        ? SingleChildScrollView(
-            controller: controller,
-            physics: scrollPhysics,
-            padding: effectivePadding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final header = this.header;
+    final Widget content;
+    if (header == null) {
+      content = eager
+          ? SingleChildScrollView(
+              controller: controller,
+              physics: scrollPhysics,
+              padding: effectivePadding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: children,
+              ),
+            )
+          : ListView(
+              controller: controller,
+              physics: scrollPhysics,
+              padding: effectivePadding,
               children: children,
-            ),
-          )
-        : ListView(
-            controller: controller,
-            physics: scrollPhysics,
-            padding: effectivePadding,
-            children: children,
-          );
+            );
+    } else {
+      final body = eager
+          ? SingleChildScrollView(
+              controller: controller,
+              physics: scrollPhysics,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: children,
+              ),
+            )
+          : ListView(
+              controller: controller,
+              physics: scrollPhysics,
+              children: children,
+            );
+      content = Padding(
+        padding: effectivePadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            header,
+            Expanded(child: body),
+          ],
+        ),
+      );
+    }
 
     return SafeArea(
       bottom: bottomSafeArea,

@@ -48,12 +48,12 @@ class _TypographySettingsPageState
     final library = libraryValue.valueOrNull;
 
     return SettingsDetailScaffold(
+      header: const SettingsDetailHeader(
+        eyebrow: '阅读体验',
+        title: '字体管理',
+        showAction: false,
+      ),
       children: [
-        const SettingsDetailHeader(
-          eyebrow: '阅读体验',
-          title: '字体管理',
-          showAction: false,
-        ),
         const SizedBox(height: 14),
         _ReadingPreview(font: library?.selectedFont),
         const SizedBox(height: 14),

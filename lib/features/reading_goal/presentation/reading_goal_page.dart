@@ -101,8 +101,8 @@ class _ReadingGoalPageState extends ConsumerState<ReadingGoalPage> {
   }
 
   void _changeGoal(int value) {
-    setState(() =>
-        _goalValue = value.clamp(_method.minValue, ReadingGoalPageData.maxValue));
+    setState(() => _goalValue =
+        value.clamp(_method.minValue, ReadingGoalPageData.maxValue));
   }
 
   void _toggleRepeatDay(int index) {

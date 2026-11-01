@@ -79,13 +79,13 @@ class _BookshelfLibraryPageState extends ConsumerState<BookshelfLibraryPage> {
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
       body: DudoPageFrame(
+        header: _BookshelfHeader(
+          controller: _searchController,
+          focusNode: _searchFocusNode,
+          showSearch: items?.isNotEmpty == true,
+          onChanged: (_) => setState(() {}),
+        ),
         children: [
-          _BookshelfHeader(
-            controller: _searchController,
-            focusNode: _searchFocusNode,
-            showSearch: items?.isNotEmpty == true,
-            onChanged: (_) => setState(() {}),
-          ),
           const SizedBox(height: 20),
           if (showSubtleRefresh) const _BookshelfRefreshLine(),
           if (showSubtleRefresh) const SizedBox(height: 12),

@@ -25,8 +25,8 @@ class ProfilePage extends ConsumerWidget {
       backgroundColor: DudoColors.paperBackground,
       body: DudoPageFrame(
         padding: const EdgeInsets.fromLTRB(20, 6, 20, 10),
+        header: const _ProfileHeader(),
         children: [
-          const _ProfileHeader(),
           const SizedBox(height: 12),
           _ProfileIdentityCard(summary: summary),
           const SizedBox(height: 12),

@@ -44,13 +44,13 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
           );
 
     return SettingsDetailScaffold(
+      header: SettingsDetailHeader(
+        eyebrow: '通用',
+        title: '缓存与存储',
+        actionIcon: LucideIcons.refreshCw,
+        onActionTap: _refresh,
+      ),
       children: [
-        SettingsDetailHeader(
-          eyebrow: '通用',
-          title: '缓存与存储',
-          actionIcon: LucideIcons.refreshCw,
-          onActionTap: _refresh,
-        ),
         const SizedBox(height: 14),
         _StorageHero(
           usage: usage,
