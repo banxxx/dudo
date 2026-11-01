@@ -30,8 +30,6 @@ class ProfilePage extends ConsumerWidget {
           const SizedBox(height: 12),
           _ProfileIdentityCard(summary: summary),
           const SizedBox(height: 12),
-          _ProfileStats(summary: summary),
-          const SizedBox(height: 12),
           _MonthlyGoalCard(overview: goal),
           const SizedBox(height: 12),
           const _LibraryToolsSection(),
@@ -47,15 +45,31 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
-          child: Text(
-            '我的',
-            style: DudoTextStyles.serif(
-              color: DudoColors.textPrimary,
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '纸上旅居',
+                style: DudoTextStyles.sans(
+                  color: DudoColors.secondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '我的',
+                style: DudoTextStyles.serif(
+                  color: DudoColors.textPrimary,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ),
         Material(
@@ -94,8 +108,8 @@ class _ProfileIdentityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = DudoColors.isDark;
+    final hairline = DudoColors.onInk.withValues(alpha: 0.12);
     return Container(
-      height: 138,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: DudoColors.ink,
@@ -109,36 +123,35 @@ class _ProfileIdentityCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          Container(
-            width: 76,
-            height: 76,
-            decoration: BoxDecoration(
-              color: DudoColors.primaryContainer,
-              borderRadius: BorderRadius.circular(38),
-              border: Border.all(
-                color: dark ? DudoColors.outline : const Color(0xCCFFF8EA),
-                width: 2,
+          Row(
+            children: [
+              Container(
+                width: 76,
+                height: 76,
+                decoration: BoxDecoration(
+                  color: DudoColors.primaryContainer,
+                  borderRadius: BorderRadius.circular(38),
+                  border: Border.all(
+                    color: dark ? DudoColors.outline : const Color(0xCCFFF8EA),
+                    width: 2,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '读',
+                  style: DudoTextStyles.serif(
+                    color: DudoColors.primary,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              '读',
-              style: DudoTextStyles.serif(
-                color: DudoColors.primary,
-                fontSize: 30,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -149,9 +162,9 @@ class _ProfileIdentityCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
-                      summary.subtitle,
+                      '读过的日子，都收在这里。',
                       style: DudoTextStyles.sans(
                         color: DudoColors.onInkMuted,
                         fontSize: 12,
@@ -161,31 +174,47 @@ class _ProfileIdentityCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      LucideIcons.badgeCheck,
-                      color: DudoColors.isDark
-                          ? DudoColors.primary
-                          : DudoColors.primaryContainer,
-                      size: 15,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      '静读会员',
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.isDark
-                            ? DudoColors.primary
-                            : DudoColors.primaryContainer,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(height: 1, color: hairline),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _IdentityStat(
+                  key: const ValueKey('profile-stat-month'),
+                  icon: LucideIcons.hourglass,
+                  value: summary.monthReadingLabel,
+                  label: '本月阅读',
+                  padding: const EdgeInsets.only(right: 14),
+                  onTap: () => context.push(AppRoutes.readingStats),
                 ),
-              ],
-            ),
+              ),
+              _IdentityStatDivider(color: hairline),
+              Expanded(
+                child: _IdentityStat(
+                  key: const ValueKey('profile-stat-shelf'),
+                  icon: LucideIcons.libraryBig,
+                  value: '${summary.shelfCount}',
+                  label: '收藏',
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  onTap: () => context.go(AppRoutes.bookshelf),
+                ),
+              ),
+              _IdentityStatDivider(color: hairline),
+              Expanded(
+                child: _IdentityStat(
+                  key: const ValueKey('profile-stat-bookmarks'),
+                  icon: LucideIcons.bookmark,
+                  value: '${summary.bookmarkCount}',
+                  label: '书签',
+                  padding: const EdgeInsets.only(left: 14),
+                  onTap: () => context.push(AppRoutes.bookmarks),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -193,75 +222,84 @@ class _ProfileIdentityCard extends StatelessWidget {
   }
 }
 
-class _ProfileStats extends StatelessWidget {
-  const _ProfileStats({required this.summary});
+/// One of the three ledger columns inside the identity card. The first column
+/// drops its left inset so the numbers line up with the avatar above.
+class _IdentityStat extends StatelessWidget {
+  const _IdentityStat({
+    super.key,
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.padding,
+    required this.onTap,
+  });
 
-  final ProfileSummary summary;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 72,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: DudoColors.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _ProfileStat(
-              value: summary.monthReadingLabel,
-              label: '本月阅读',
-            ),
-          ),
-          Expanded(
-            child: _ProfileStat(value: '${summary.shelfCount}', label: '收藏'),
-          ),
-          Expanded(
-            child: _ProfileStat(
-              value: '${summary.bookmarkCount}',
-              label: '书签',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileStat extends StatelessWidget {
-  const _ProfileStat({required this.value, required this.label});
-
+  final IconData icon;
   final String value;
   final String label;
+  final EdgeInsetsGeometry padding;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          value,
-          style: DudoTextStyles.numeric(
-            color: DudoColors.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            height: 1,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: padding,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 12, color: DudoColors.onInkMuted),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.onInkMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        height: 1.1,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 5),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: DudoTextStyles.numeric(
+                  color: DudoColors.onInk,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: DudoTextStyles.sans(
-            color: DudoColors.secondary,
-            fontSize: 11,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-      ],
+      ),
     );
+  }
+}
+
+class _IdentityStatDivider extends StatelessWidget {
+  const _IdentityStatDivider({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(width: 1, height: 26, color: color);
   }
 }
 
@@ -272,75 +310,137 @@ class _MonthlyGoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final percent = overview?.progressPercent ?? 0;
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(26),
       child: InkWell(
         onTap: () => context.push(AppRoutes.readingGoal),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(26),
         child: Container(
-          padding: const EdgeInsets.all(13),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: DudoColors.primaryContainer,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(26),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
+              _GoalRing(
+                key: const ValueKey('profile-goal-ring'),
+                percent: overview?.progressPercent ?? 0,
+                percentText: overview?.progressPercentText ?? '0%',
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
                       overview?.title ?? '本月阅读目标',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: DudoTextStyles.sans(
                         color: DudoColors.textPrimary,
-                        fontSize: 17,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                  Text(
-                    overview?.progressPercentText ?? '0%',
-                    style: DudoTextStyles.numeric(
-                      color: DudoColors.primary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 9),
-              ClipRRect(
-                borderRadius: AppRadius.full,
-                child: Container(
-                  height: 8,
-                  color: DudoColors.paperBackground,
-                  alignment: Alignment.centerLeft,
-                  child: FractionallySizedBox(
-                    widthFactor: percent,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: DudoColors.primary,
-                        borderRadius: AppRadius.full,
+                    const SizedBox(height: 6),
+                    Text(
+                      overview?.remainingDescription ?? '正在计算本月进度…',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.secondaryDark,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w400,
+                        height: 1.4,
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 9),
-              Text(
-                overview?.remainingDescription ?? '正在计算本月进度…',
-                style: DudoTextStyles.sans(
-                  color: DudoColors.secondaryDark,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                ),
+              const SizedBox(width: 12),
+              Icon(
+                LucideIcons.chevronRight,
+                size: 16,
+                color: DudoColors.secondary,
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A compact echo of the reading goal page's donut: paper track, pine arc and
+/// a paper disc holding the percentage.
+class _GoalRing extends StatelessWidget {
+  const _GoalRing({
+    super.key,
+    required this.percent,
+    required this.percentText,
+  });
+
+  final double percent;
+  final String percentText;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: percent),
+      duration: AppMotion.medium,
+      curve: Curves.easeOutCubic,
+      builder: (context, value, _) {
+        return SizedBox(
+          width: 62,
+          height: 62,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 62,
+                height: 62,
+                child: CircularProgressIndicator(
+                  value: 1,
+                  strokeWidth: 6,
+                  strokeCap: StrokeCap.round,
+                  color: DudoColors.surface.withValues(alpha: 0.72),
+                ),
+              ),
+              SizedBox(
+                width: 62,
+                height: 62,
+                child: CircularProgressIndicator(
+                  value: value,
+                  strokeWidth: 6,
+                  strokeCap: StrokeCap.round,
+                  color: DudoColors.primary,
+                ),
+              ),
+              Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: DudoColors.surface,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  percentText,
+                  style: DudoTextStyles.numeric(
+                    color: DudoColors.primary,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -382,14 +482,6 @@ class _LibraryToolsSection extends StatelessWidget {
           iconFill: DudoColors.surfaceLow,
           iconColor: DudoColors.secondary,
           route: AppRoutes.bookmarks,
-        ),
-        _ToolItem(
-          title: '数据同步',
-          description: '云端保持最新',
-          icon: LucideIcons.refreshCw,
-          iconFill: DudoColors.primaryContainer,
-          iconColor: DudoColors.primary,
-          route: AppRoutes.dataSyncSettings,
         ),
       ];
 

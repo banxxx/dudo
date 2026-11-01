@@ -1,4 +1,8 @@
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -96,6 +100,7 @@ class _BookshelfLibraryPageState extends ConsumerState<BookshelfLibraryPage> {
                     selectedBookIds: _selectedBookIds,
                     onManage: () => _enterManageMode(items),
                     onToggleBook: _toggleSelection,
+                    onReorder: _reorderShelfBooks,
                   )
           else if (isColdLoading)
             const _BookshelfLoadingHint()
@@ -128,6 +133,26 @@ class _BookshelfLibraryPageState extends ConsumerState<BookshelfLibraryPage> {
     _searchController.clear();
     setState(() => _isManaging = true);
     _showManageOverlay(books);
+  }
+
+  /// Persists a drag-reordered shelf. Returns false so the shelf can fall back
+  /// to the saved order when the write fails.
+  Future<bool> _reorderShelfBooks(List<String> orderedIds) async {
+    try {
+      await ref.read(bookshelfRepositoryProvider).reorderShelfBooks(orderedIds);
+      return true;
+    } catch (_) {
+      if (mounted) {
+        ref.read(appMessageServiceProvider).error(
+              '请稍后重试',
+              title: '书架顺序保存失败',
+              position: AppMessagePosition.top,
+              dedupeKey: 'bookshelf-reorder',
+              visualStyle: AppMessageVisualStyle.paper,
+            );
+      }
+      return false;
+    }
   }
 
   Future<void> _exitManageMode() async {
@@ -337,7 +362,7 @@ class _BookshelfSearchField extends StatelessWidget {
                     controller.clear();
                     onChanged('');
                   },
-                  icon:  Icon(
+                  icon: Icon(
                     LucideIcons.x,
                     color: DudoColors.secondary,
                     size: 17,
@@ -363,7 +388,7 @@ class _BookshelfSearchField extends StatelessWidget {
   }
 }
 
-class _ShelfBooksSection extends StatelessWidget {
+class _ShelfBooksSection extends StatefulWidget {
   const _ShelfBooksSection({
     required this.books,
     required this.totalBookCount,
@@ -372,7 +397,12 @@ class _ShelfBooksSection extends StatelessWidget {
     required this.selectedBookIds,
     required this.onManage,
     required this.onToggleBook,
+    required this.onReorder,
   });
+
+  static const _columns = 3;
+  static const _gap = 14.0;
+  static const _rowGap = 26.0;
 
   final List<Book> books;
   final int totalBookCount;
@@ -382,21 +412,132 @@ class _ShelfBooksSection extends StatelessWidget {
   final VoidCallback onManage;
   final void Function(String bookId) onToggleBook;
 
+  /// Saves the new shelf order. Returns false when the write failed, so the
+  /// section can fall back to the saved order.
+  final Future<bool> Function(List<String> orderedIds) onReorder;
+
+  @override
+  State<_ShelfBooksSection> createState() => _ShelfBooksSectionState();
+}
+
+class _ShelfBooksSectionState extends State<_ShelfBooksSection> {
+  /// Local order while dragging. It stays in place until the book stream
+  /// confirms the saved order, which keeps the shelf from snapping back.
+  List<String>? _dragOrder;
+  List<String>? _initialOrder;
+  String? _draggingId;
+  String? _lastHoverId;
+
+  List<Book> get _visibleBooks {
+    final order = _dragOrder;
+    if (order == null) return widget.books;
+
+    final byId = {for (final book in widget.books) book.id: book};
+    final orderedIds = order.toSet();
+    return [
+      for (final id in order)
+        if (byId[id] != null) byId[id]!,
+      for (final book in widget.books)
+        if (!orderedIds.contains(book.id)) book,
+    ];
+  }
+
+  @override
+  void didUpdateWidget(covariant _ShelfBooksSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final order = _dragOrder;
+    if (order == null || _draggingId != null) return;
+
+    final ids = widget.books.map((book) => book.id).toList();
+    final sameOrder = listEquals(ids, order);
+    final sameBooks = setEquals(ids.toSet(), order.toSet());
+    if (sameOrder || !sameBooks) {
+      // Either the stream caught up with the drop, or the shelf changed
+      // underneath the local order (a book was added or removed).
+      _dragOrder = null;
+      _initialOrder = null;
+    }
+  }
+
+  void _handleDragStarted(String bookId) {
+    final order = _visibleBooks.map((book) => book.id).toList();
+    setState(() {
+      _dragOrder = List.of(order);
+      _initialOrder = List.of(order);
+      _draggingId = bookId;
+      _lastHoverId = null;
+    });
+    HapticFeedback.mediumImpact();
+  }
+
+  void _handleDragHover(String targetId) {
+    final draggedId = _draggingId;
+    final order = _dragOrder;
+    if (draggedId == null || order == null || targetId == draggedId) return;
+    if (_lastHoverId == targetId) return;
+    _lastHoverId = targetId;
+
+    final from = order.indexOf(draggedId);
+    final to = order.indexOf(targetId);
+    if (from < 0 || to < 0 || from == to) return;
+
+    setState(() {
+      order.removeAt(from);
+      order.insert(to, draggedId);
+    });
+    HapticFeedback.selectionClick();
+  }
+
+  Future<void> _handleDragEnded() async {
+    final order = _dragOrder;
+    final initial = _initialOrder;
+    if (order == null || initial == null) {
+      setState(() {
+        _draggingId = null;
+        _lastHoverId = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _draggingId = null;
+      _lastHoverId = null;
+    });
+
+    if (listEquals(order, initial)) {
+      setState(() {
+        _dragOrder = null;
+        _initialOrder = null;
+      });
+      return;
+    }
+
+    final saved = await widget.onReorder(List.of(order));
+    if (!mounted) return;
+    if (!saved) {
+      setState(() {
+        _dragOrder = null;
+        _initialOrder = null;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isSearching = searchQuery.isNotEmpty;
+    final isSearching = widget.searchQuery.isNotEmpty;
+    final books = _visibleBooks;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (isSearching)
-          _BookshelfSearchResultSummary(count: books.length)
+          _BookshelfSearchResultSummary(count: widget.books.length)
         else
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '已导入 $totalBookCount 本',
+                '已导入 ${widget.totalBookCount} 本',
                 style: DudoTextStyles.sans(
                   color: DudoColors.textPrimary,
                   fontSize: 19,
@@ -404,7 +545,7 @@ class _ShelfBooksSection extends StatelessWidget {
                 ),
               ),
               TextButton(
-                onPressed: isManaging ? null : onManage,
+                onPressed: widget.isManaging ? null : widget.onManage,
                 style: TextButton.styleFrom(
                   foregroundColor: DudoColors.primary,
                   disabledForegroundColor: DudoColors.secondary,
@@ -415,45 +556,57 @@ class _ShelfBooksSection extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                child: Text(isManaging ? '管理中' : '管理'),
+                child: Text(widget.isManaging ? '管理中' : '管理'),
               ),
             ],
           ),
         const SizedBox(height: 12),
         if (books.isEmpty)
-          _BookshelfSearchEmptyCard(query: searchQuery)
+          _BookshelfSearchEmptyCard(query: widget.searchQuery)
         else if (isSearching)
           _ShelfSearchResultsList(
             books: books,
-            searchQuery: searchQuery,
+            searchQuery: widget.searchQuery,
           )
         else
           LayoutBuilder(
             builder: (context, constraints) {
-              const gap = 14.0;
-              final cardWidth = (constraints.maxWidth - gap) / 2;
+              final tileWidth = (constraints.maxWidth -
+                      _ShelfBooksSection._gap *
+                          (_ShelfBooksSection._columns - 1)) /
+                  _ShelfBooksSection._columns;
+              final coverHeight = tileWidth * 4 / 3;
+              final rows = <Widget>[];
 
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: [
-                  for (var index = 0; index < books.length; index++)
-                    SizedBox(
-                      width: cardWidth,
-                      child: _ShelfBookCard(
-                        book: books[index],
-                        paletteIndex: index,
-                        isManaging: isManaging,
-                        isSelected: selectedBookIds.contains(books[index].id),
-                        onTap: isManaging
-                            ? () => onToggleBook(books[index].id)
-                            : () => context.push(
-                                  '${AppRoutes.bookDetail}/${books[index].id}',
-                                ),
-                      ),
-                    ),
-                ],
-              );
+              for (var start = 0;
+                  start < books.length;
+                  start += _ShelfBooksSection._columns) {
+                final end = math.min(
+                  start + _ShelfBooksSection._columns,
+                  books.length,
+                );
+                rows.add(
+                  _ShelfRow(
+                    books: books.sublist(start, end),
+                    startIndex: start,
+                    tileWidth: tileWidth,
+                    coverHeight: coverHeight,
+                    isManaging: widget.isManaging,
+                    selectedBookIds: widget.selectedBookIds,
+                    onToggleBook: widget.onToggleBook,
+                    onDragStarted: _handleDragStarted,
+                    onDragHover: _handleDragHover,
+                    onDragEnded: _handleDragEnded,
+                  ),
+                );
+                if (end < books.length) {
+                  rows.add(
+                    const SizedBox(height: _ShelfBooksSection._rowGap),
+                  );
+                }
+              }
+
+              return Column(children: rows);
             },
           ),
       ],
@@ -507,7 +660,6 @@ class _ShelfSearchResultsList extends StatelessWidget {
         for (var index = 0; index < books.length; index++) ...[
           _ShelfSearchResultCard(
             book: books[index],
-            paletteIndex: index,
             searchQuery: searchQuery,
             onTap: () => context.push(
               '${AppRoutes.bookDetail}/${books[index].id}',
@@ -523,19 +675,17 @@ class _ShelfSearchResultsList extends StatelessWidget {
 class _ShelfSearchResultCard extends StatelessWidget {
   const _ShelfSearchResultCard({
     required this.book,
-    required this.paletteIndex,
     required this.searchQuery,
     required this.onTap,
   });
 
   final Book book;
-  final int paletteIndex;
   final String searchQuery;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final palette = _coverPalettes[paletteIndex % _coverPalettes.length];
+    final palette = _paletteFor(book);
     final progress = _readingProgressPercent(book);
 
     return Material(
@@ -560,6 +710,7 @@ class _ShelfSearchResultCard extends StatelessWidget {
                 height: 96,
                 startColor: palette.start,
                 endColor: palette.end,
+                compactLabel: true,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -632,7 +783,7 @@ class _SearchResultProgressChip extends StatelessWidget {
     return Container(
       height: 24,
       padding: const EdgeInsets.symmetric(horizontal: 9),
-      decoration:  BoxDecoration(
+      decoration: BoxDecoration(
         color: DudoColors.primaryContainer,
         borderRadius: AppRadius.full,
       ),
@@ -1049,109 +1200,250 @@ class _ManageActionButton extends StatelessWidget {
   }
 }
 
-class _ShelfBookCard extends StatelessWidget {
-  const _ShelfBookCard({
+/// One row of books standing on a shelf ledge. The plank is drawn behind the
+/// covers, so books rest on it while the title and status sit just below, like
+/// labels on the shelf face.
+class _ShelfRow extends StatelessWidget {
+  const _ShelfRow({
+    required this.books,
+    required this.startIndex,
+    required this.tileWidth,
+    required this.coverHeight,
+    required this.isManaging,
+    required this.selectedBookIds,
+    required this.onToggleBook,
+    required this.onDragStarted,
+    required this.onDragHover,
+    required this.onDragEnded,
+  });
+
+  final List<Book> books;
+  final int startIndex;
+  final double tileWidth;
+  final double coverHeight;
+  final bool isManaging;
+  final Set<String> selectedBookIds;
+  final void Function(String bookId) onToggleBook;
+  final void Function(String bookId) onDragStarted;
+  final void Function(String bookId) onDragHover;
+  final VoidCallback onDragEnded;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          top: coverHeight + 2,
+          left: -6,
+          right: -6,
+          child: _ShelfPlank(key: ValueKey('shelf-plank-$startIndex')),
+        ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var index = 0; index < books.length; index++) ...[
+              if (index > 0) const SizedBox(width: _ShelfBooksSection._gap),
+              SizedBox(
+                width: tileWidth,
+                child: _ShelfBookTile(
+                  book: books[index],
+                  isManaging: isManaging,
+                  isSelected: selectedBookIds.contains(books[index].id),
+                  coverWidth: tileWidth,
+                  coverHeight: coverHeight,
+                  onTap: isManaging
+                      ? () => onToggleBook(books[index].id)
+                      : () => context.push(
+                            '${AppRoutes.bookDetail}/${books[index].id}',
+                          ),
+                  onDragStarted: () => onDragStarted(books[index].id),
+                  onDragHover: () => onDragHover(books[index].id),
+                  onDragEnded: onDragEnded,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ShelfPlank extends StatelessWidget {
+  const _ShelfPlank({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 9,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(5),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            DudoColors.surfaceHigh,
+            DudoColors.outlineVariant,
+            DudoColors.outline,
+          ],
+          stops: const [0, 0.62, 1],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x2E25251F),
+            offset: Offset(0, 5),
+            blurRadius: 12,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShelfBookTile extends StatelessWidget {
+  const _ShelfBookTile({
     required this.book,
-    required this.paletteIndex,
     required this.isManaging,
     required this.isSelected,
+    required this.coverWidth,
+    required this.coverHeight,
     required this.onTap,
+    required this.onDragStarted,
+    required this.onDragHover,
+    required this.onDragEnded,
   });
 
   final Book book;
-  final int paletteIndex;
   final bool isManaging;
   final bool isSelected;
+  final double coverWidth;
+  final double coverHeight;
   final VoidCallback onTap;
+  final VoidCallback onDragStarted;
+  final VoidCallback onDragHover;
+  final VoidCallback onDragEnded;
 
   @override
   Widget build(BuildContext context) {
     final isStarted = book.lastChapterIndex > 0 || book.lastReadPosition > 0;
-    final palette = _coverPalettes[paletteIndex % _coverPalettes.length];
+    final palette = _paletteFor(book);
+    final remoteCount = book.remoteChapterCount;
+    final progress = isStarted && remoteCount != null && remoteCount > 0
+        ? ((book.lastChapterIndex + 1) / remoteCount).clamp(0.0, 1.0)
+        : null;
 
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            AnimatedContainer(
+    final cover = _ShelfBookCover(
+      title: book.title,
+      startColor: palette.start,
+      endColor: palette.end,
+      progress: progress,
+      showBookmark: isStarted && !isManaging,
+    );
+
+    final tile = AspectRatio(
+      aspectRatio: 3 / 4,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: AnimatedContainer(
               duration: AppMotion.short,
-              height: 146,
-              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: DudoColors.surface,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: isSelected
-                      ? DudoColors.primary
-                      : DudoColors.outlineVariant,
-                ),
-                boxShadow: isSelected
-                    ? const [
-                        BoxShadow(
-                          color: Color(0x1F5E6F5B),
-                          offset: Offset(0, 8),
-                          blurRadius: 18,
-                        ),
-                      ]
-                    : const [],
-              ),
-              child: Row(
-                children: [
-                  _ShelfBookCover(
-                    title: book.title,
-                    startColor: palette.start,
-                    endColor: palette.end,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SizedBox(
-                      height: 102,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            book.title,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: DudoTextStyles.sans(
-                              color: DudoColors.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              height: 1.2,
-                            ),
-                          ),
-                          Text(
-                            book.author ?? '本地文件',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: DudoTextStyles.sans(
-                              color: DudoColors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                          _ReadingStateChip(isStarted: isStarted),
-                        ],
-                      ),
-                    ),
+                borderRadius: BorderRadius.circular(8),
+                border: isSelected
+                    ? Border.all(
+                        color: DudoColors.primary,
+                        width: 2,
+                      )
+                    : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: isSelected
+                        ? const Color(0x335E6F5B)
+                        : const Color(0x1F25251F),
+                    offset: const Offset(0, 8),
+                    blurRadius: isSelected ? 16 : 12,
+                    spreadRadius: -4,
                   ),
                 ],
               ),
+              child: cover,
             ),
-            if (isManaging)
-              Positioned(
-                top: 10,
-                right: 10,
-                child: _BookSelectionMark(isSelected: isSelected),
+          ),
+          if (isManaging && !isSelected)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: DudoColors.surfaceHigh.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
-          ],
-        ),
+            ),
+          if (isManaging)
+            Positioned(
+              top: 6,
+              right: 6,
+              child: _BookSelectionMark(isSelected: isSelected),
+            ),
+        ],
       ),
+    );
+
+    final tappable = Material(
+      key: ValueKey('shelf-book-${book.id}'),
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: tile,
+      ),
+    );
+
+    if (isManaging) return tappable;
+
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) {
+        if (details.data == book.id) return false;
+        onDragHover();
+        return true;
+      },
+      builder: (context, candidateData, rejectedData) {
+        return LongPressDraggable<String>(
+          data: book.id,
+          maxSimultaneousDrags: 1,
+          onDragStarted: onDragStarted,
+          onDragEnd: (_) => onDragEnded(),
+          feedback: Material(
+            color: Colors.transparent,
+            child: SizedBox(
+              width: coverWidth,
+              height: coverHeight,
+              child: Transform.scale(
+                scale: 1.04,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x4D25251F),
+                        offset: Offset(0, 16),
+                        blurRadius: 30,
+                      ),
+                    ],
+                  ),
+                  child: cover,
+                ),
+              ),
+            ),
+          ),
+          childWhenDragging: Opacity(opacity: 0.22, child: tile),
+          child: tappable,
+        );
+      },
     );
   }
 }
@@ -1176,8 +1468,7 @@ class _BookSelectionMark extends StatelessWidget {
         ),
       ),
       child: isSelected
-          ?  Icon(LucideIcons.check,
-              color: DudoColors.surfaceHigh, size: 15)
+          ? Icon(LucideIcons.check, color: DudoColors.surfaceHigh, size: 15)
           : null,
     );
   }
@@ -1188,77 +1479,157 @@ class _ShelfBookCover extends StatelessWidget {
     required this.title,
     required this.startColor,
     required this.endColor,
-    this.width = 72,
-    this.height = 102,
+    this.width,
+    this.height,
+    this.progress,
+    this.showBookmark = false,
+    this.compactLabel = false,
   });
 
   final String title;
   final Color startColor;
   final Color endColor;
-  final double width;
-  final double height;
+  final double? width;
+  final double? height;
+
+  /// Reading progress in 0–1, shown as a thin marker along the bottom edge.
+  final double? progress;
+
+  /// A small paper bookmark marks books that have been started.
+  final bool showBookmark;
+
+  /// Thumbnails only have room for a short title fragment.
+  final bool compactLabel;
+
+  static const _coverText = Color(0xFFFFF8EA);
 
   @override
   Widget build(BuildContext context) {
-    final coverTitle = title.characters.take(4).toString();
+    final cover = LayoutBuilder(
+      builder: (context, constraints) {
+        final coverWidth =
+            constraints.maxWidth.isFinite ? constraints.maxWidth : 72.0;
+        final trimmed = title.trim();
+        final label =
+            compactLabel ? trimmed.characters.take(4).toString() : trimmed;
+        final labelSize = compactLabel
+            ? (coverWidth * 0.19).clamp(11.0, 15.0)
+            : (coverWidth * 0.115).clamp(12.0, 15.5);
+        final spineWidth = (coverWidth * 0.05).clamp(4.0, 6.0);
 
-    return Container(
-      width: width,
-      height: height,
-      padding: const EdgeInsets.all(8),
-      alignment: Alignment.bottomLeft,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        gradient: LinearGradient(
-          begin: Alignment.bottomCenter,
-          end: Alignment.topCenter,
-          colors: [startColor, endColor],
-        ),
-      ),
-      child: Text(
-        coverTitle,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: DudoTextStyles.serif(
-          color: DudoColors.surfaceHigh,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          height: 1.15,
-        ),
-      ),
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [startColor, endColor],
+                  ),
+                ),
+              ),
+              // The bound edge of the book, just wide enough to catch the eye.
+              Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: spineWidth,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.16),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: spineWidth,
+                top: 0,
+                bottom: 0,
+                width: 1,
+                child: ColoredBox(
+                  color: Colors.white.withValues(alpha: 0.24),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  spineWidth + 7,
+                  coverWidth * 0.08,
+                  8,
+                  coverWidth * 0.09,
+                ),
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: Text(
+                    label,
+                    maxLines: compactLabel ? 2 : 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: DudoTextStyles.serif(
+                      color: _coverText,
+                      fontSize: labelSize,
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+              ),
+              if (showBookmark)
+                Positioned(
+                  top: 0,
+                  right: coverWidth * 0.09,
+                  child: ClipPath(
+                    clipper: const _BookmarkRibbonClipper(),
+                    child: Container(
+                      width: (coverWidth * 0.07).clamp(6.0, 9.0),
+                      height: (coverWidth * 0.17).clamp(14.0, 22.0),
+                      color: _coverText.withValues(alpha: 0.92),
+                    ),
+                  ),
+                ),
+              if (progress != null)
+                Positioned(
+                  left: spineWidth,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    height: 3,
+                    color: Colors.black.withValues(alpha: 0.18),
+                    alignment: Alignment.centerLeft,
+                    child: FractionallySizedBox(
+                      widthFactor: progress,
+                      heightFactor: 1,
+                      child: const ColoredBox(color: _coverText),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
+
+    if (width == null && height == null) return cover;
+    return SizedBox(width: width, height: height, child: cover);
   }
 }
 
-class _ReadingStateChip extends StatelessWidget {
-  const _ReadingStateChip({required this.isStarted});
-
-  final bool isStarted;
+class _BookmarkRibbonClipper extends CustomClipper<Path> {
+  const _BookmarkRibbonClipper();
 
   @override
-  Widget build(BuildContext context) {
-    final background =
-        isStarted ? DudoColors.primaryContainer : DudoColors.surfaceLow;
-    final foreground = isStarted ? DudoColors.primary : DudoColors.secondary;
-
-    return Container(
-      height: 28,
-      constraints: const BoxConstraints(minWidth: 54),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: AppRadius.full,
-      ),
-      child: Text(
-        isStarted ? '阅读中' : '未读',
-        style: DudoTextStyles.sans(
-          color: foreground,
-          fontSize: 12,
-        ),
-      ),
-    );
+  Path getClip(Size size) {
+    return Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(size.width / 2, size.height - 5)
+      ..lineTo(0, size.height)
+      ..close();
   }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
 
 class _CoverPalette {
@@ -1268,12 +1639,24 @@ class _CoverPalette {
   final Color end;
 }
 
-final _coverPalettes = [
-  _CoverPalette(const Color(0xFF6F7E68), DudoColors.primaryContainer),
-  _CoverPalette(DudoColors.secondary, DudoColors.secondaryContainer),
-  const _CoverPalette(Color(0xFF5A6B84), Color(0xFFD7E0EA)),
-  const _CoverPalette(Color(0xFF9A6D45), Color(0xFFE8C99B)),
-];
+/// A book keeps the same cover colour wherever it appears, and keeps it when
+/// the shelf is reordered. The hash is deterministic across app launches.
+_CoverPalette _paletteFor(Book book) {
+  final key = book.id.isNotEmpty ? book.id : book.title;
+  var hash = 0;
+  for (final unit in key.codeUnits) {
+    hash = (hash * 31 + unit) & 0x7fffffff;
+  }
+  return _coverPalettes[hash % _coverPalettes.length];
+}
+
+/// Resolved per build so covers follow the active light/dark palette.
+List<_CoverPalette> get _coverPalettes => [
+      _CoverPalette(const Color(0xFF6F7E68), DudoColors.primaryContainer),
+      _CoverPalette(DudoColors.secondary, DudoColors.secondaryContainer),
+      const _CoverPalette(Color(0xFF5A6B84), Color(0xFFD7E0EA)),
+      const _CoverPalette(Color(0xFF9A6D45), Color(0xFFE8C99B)),
+    ];
 
 class _BookshelfLoadingHint extends StatelessWidget {
   const _BookshelfLoadingHint();
@@ -1289,7 +1672,7 @@ class _BookshelfLoadingHint extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-           SizedBox(
+          SizedBox(
             width: 32,
             child: ClipRRect(
               borderRadius: AppRadius.full,
@@ -1320,7 +1703,7 @@ class _BookshelfRefreshLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return  ClipRRect(
+    return ClipRRect(
       borderRadius: AppRadius.full,
       child: LinearProgressIndicator(
         minHeight: 2,
@@ -1434,7 +1817,7 @@ class _EmptyShelfIllustration extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-           SizedBox(
+          SizedBox(
             height: 42,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1463,7 +1846,7 @@ class _EmptyShelfIllustration extends StatelessWidget {
           const SizedBox(height: 8),
           Container(
             height: 4,
-            decoration:  BoxDecoration(
+            decoration: BoxDecoration(
               color: DudoColors.outline,
               borderRadius: AppRadius.full,
             ),

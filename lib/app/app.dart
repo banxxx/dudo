@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../features/settings/data_sync_settings/application/data_sync_settings_provider.dart';
 import '../features/settings/theme_settings/application/theme_settings_provider.dart';
 import '../features/settings/theme_settings/domain/theme_settings.dart';
 import '../shared/l10n/app_localizations.dart';
@@ -20,6 +21,10 @@ class DudoApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
+    // Creating the controller at startup keeps the foreground auto-sync timer
+    // alive across page navigation. The constant selector means a sync status
+    // change does not rebuild the whole app.
+    ref.watch(dataSyncControllerProvider.select((_) => 0));
     final asyncThemeSettings = ref.watch(themeSettingsProvider);
     final themeSettings =
         asyncThemeSettings.valueOrNull ?? ThemeSettings.lastKnown;

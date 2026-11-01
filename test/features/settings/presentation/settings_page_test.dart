@@ -84,8 +84,8 @@ void main() {
     expect(find.text('每 3 天'), findsOneWidget);
     expect(find.text('通用'), findsOneWidget);
     expect(find.text('数据同步'), findsOneWidget);
-    expect(find.text('阅读进度、书签、高亮和设置'), findsOneWidget);
-    expect(find.text('已开启'), findsOneWidget);
+    expect(find.text('阅读进度、书签、标注与设置'), findsOneWidget);
+    expect(find.text('未连接'), findsOneWidget);
     expect(find.text('缓存与存储'), findsOneWidget);
     expect(find.text('封面缓存、语音与数据库'), findsOneWidget);
     expect(find.text('1.2GB'), findsOneWidget);
@@ -157,7 +157,7 @@ void main() {
     expect(rowValue.style?.color, DudoColors.secondary);
     expect(rowValue.style?.fontSize, 12);
 
-    final syncValue = tester.widget<Text>(find.text('已开启'));
+    final syncValue = tester.widget<Text>(find.text('未连接'));
     expect(syncValue.style?.color, DudoColors.secondary);
     expect(syncValue.style?.fontSize, 12);
   });

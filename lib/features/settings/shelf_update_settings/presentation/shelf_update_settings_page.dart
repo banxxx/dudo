@@ -276,8 +276,7 @@ class _FrequencyCard extends StatelessWidget {
         height: 76,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          color:
-              selected ? DudoColors.primaryContainer : DudoColors.surface,
+          color: selected ? DudoColors.primaryContainer : DudoColors.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: selected
@@ -305,7 +304,9 @@ class _FrequencyCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: DudoTextStyles.sans(
                 color: selected
-                    ? (dark ? DudoColors.onPrimaryContainer : DudoColors.secondary)
+                    ? (dark
+                        ? DudoColors.onPrimaryContainer
+                        : DudoColors.secondary)
                     : DudoColors.secondary,
                 fontSize: 11,
               ),

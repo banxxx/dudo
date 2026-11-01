@@ -194,6 +194,11 @@ class _FakeOfflineCacheRepository implements OfflineCacheRepository {
     clearedAll = true;
     _cache = const OfflineCache(books: []);
   }
+
+  @override
+  Future<void> clearAllAndCompact() async {
+    await clearAll();
+  }
 }
 
 class _RecordingMessageService implements AppMessageService {

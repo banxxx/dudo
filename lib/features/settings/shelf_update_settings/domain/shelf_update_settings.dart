@@ -97,9 +97,8 @@ class ShelfUpdateSettings {
     final defaults = ShelfUpdateSettings.defaults();
 
     return ShelfUpdateSettings(
-      enabled: json['enabled'] is bool
-          ? json['enabled'] as bool
-          : defaults.enabled,
+      enabled:
+          json['enabled'] is bool ? json['enabled'] as bool : defaults.enabled,
       frequency: _readFrequency(json['frequency']),
       wifiOnly: json['wifiOnly'] is bool
           ? json['wifiOnly'] as bool

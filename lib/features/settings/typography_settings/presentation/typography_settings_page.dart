@@ -82,8 +82,7 @@ class _TypographySettingsPageState
 
       final font = result.font;
       final library = ref.read(readerFontLibraryControllerProvider).valueOrNull;
-      final alreadySelected =
-          library?.selectedFamilyKey == font.familyKey;
+      final alreadySelected = library?.selectedFamilyKey == font.familyKey;
 
       if (alreadySelected) {
         _showFontSnack(
@@ -609,8 +608,8 @@ class _FontCard extends StatelessWidget {
                       description,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style:
-                          DudoTextStyles.sans(color: foreground, fontSize: 11.5),
+                      style: DudoTextStyles.sans(
+                          color: foreground, fontSize: 11.5),
                     ),
                   ],
                 ),
@@ -636,7 +635,7 @@ class _FontCard extends StatelessWidget {
                     color: DudoColors.primary,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child:  Icon(
+                  child: Icon(
                     LucideIcons.check,
                     color: DudoColors.surfaceHigh,
                     size: 15,
@@ -649,7 +648,7 @@ class _FontCard extends StatelessWidget {
                   child: InkWell(
                     onTap: deleting ? null : onDelete,
                     borderRadius: BorderRadius.circular(15),
-                    child:  SizedBox(
+                    child: SizedBox(
                       width: 30,
                       height: 30,
                       child: Icon(
@@ -824,7 +823,7 @@ class _DeleteFontSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-      decoration:  BoxDecoration(
+      decoration: BoxDecoration(
         color: DudoColors.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         border: Border(top: BorderSide(color: DudoColors.outlineVariant)),
@@ -895,7 +894,7 @@ class _DeleteFontSheet extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                   Icon(
+                  Icon(
                     LucideIcons.fileType,
                     color: DudoColors.secondary,
                     size: 18,

@@ -35,7 +35,10 @@ void main() {
   test('saves and reloads the settings', () async {
     final settings = DataSyncSettings.defaults().copyWith(
       enabled: false,
-      highlights: false,
+      annotations: false,
+      serverUrl: 'https://sync.example.com',
+      accessToken: 'token-123',
+      lastSyncedAt: DateTime(2026, 5, 20, 14, 32),
     );
 
     await repository.save(settings);

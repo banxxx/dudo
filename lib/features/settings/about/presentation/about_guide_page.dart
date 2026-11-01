@@ -70,8 +70,9 @@ class AboutGuidePage extends StatelessWidget {
         AboutDocSection(
           icon: LucideIcons.shieldCheck,
           title: '数据与隐私',
-          body: '阅读进度、书签、高亮与各项设置默认只保存在本机。'
-              '数据同步目前只保存同步偏好，尚未连接云端账号。',
+          body: '阅读进度、书签、标注与各项设置默认只保存在本机。'
+              '你也可以在「设置 → 数据同步」连接自建 Dudo Sync 服务器；'
+              '服务器地址与访问令牌只保存在本机，同步数据仅上传到你填写的服务器。',
         ),
         SizedBox(height: 14),
         AboutDocFooter('内容会随版本更新，欢迎通过「反馈与建议」补充。'),

@@ -12,9 +12,8 @@ class AboutAppPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final platform = kIsWeb
-        ? AboutPlatform.web
-        : aboutPlatformFor(defaultTargetPlatform);
+    final platform =
+        kIsWeb ? AboutPlatform.web : aboutPlatformFor(defaultTargetPlatform);
     return AboutAppView(platform: platform);
   }
 }

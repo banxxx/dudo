@@ -1195,8 +1195,7 @@ class _SourceSelectionBox extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: selected
-          ?  Icon(LucideIcons.check,
-              color: DudoColors.surfaceHigh, size: 13)
+          ? Icon(LucideIcons.check, color: DudoColors.surfaceHigh, size: 13)
           : null,
     );
   }

@@ -247,6 +247,24 @@ class BookshelfRepository {
     );
   }
 
+  /// Saves the shelf order exactly as displayed: the first book gets the
+  /// highest [Books.sortOrder], so [watchShelfBooks] keeps returning it first.
+  Future<void> reorderShelfBooks(List<String> orderedIds) async {
+    if (orderedIds.isEmpty) return;
+
+    await database.transaction(() async {
+      await database.batch((batch) {
+        for (var index = 0; index < orderedIds.length; index++) {
+          batch.update(
+            database.books,
+            BooksCompanion(sortOrder: Value(orderedIds.length - index)),
+            where: (book) => book.id.equals(orderedIds[index]),
+          );
+        }
+      });
+    });
+  }
+
   Future<void> updateReadingProgress({
     required String bookId,
     required int chapterIndex,

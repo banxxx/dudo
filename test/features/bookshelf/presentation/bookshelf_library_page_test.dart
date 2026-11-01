@@ -2,11 +2,18 @@ import 'dart:async';
 
 import 'package:dudo/core/database/app_database.dart';
 import 'package:dudo/features/bookshelf/application/bookshelf_providers.dart';
+import 'package:dudo/features/bookshelf/data/bookshelf_repository.dart';
 import 'package:dudo/features/bookshelf/presentation/bookshelf_library_page.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+void _useTallViewport(WidgetTester tester) {
+  tester.view.physicalSize = const Size(900, 1600);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.reset);
+}
 
 void main() {
   testWidgets('uses a subtle loading hint before bookshelf data resolves',
@@ -33,7 +40,7 @@ void main() {
     expect(find.text('可以从这里开始'), findsNothing);
   });
 
-  testWidgets('renders imported local books like Pencil A1 recent cards',
+  testWidgets('renders books as cover-forward tiles on shelf rows',
       (tester) async {
     final now = DateTime(2026, 6, 2);
     final books = [
@@ -77,58 +84,65 @@ void main() {
 
     expect(find.text('已导入 2 本'), findsOneWidget);
     expect(find.text('管理'), findsOneWidget);
+    // Titles live on the covers, so no caption block sits under the shelf.
     expect(find.text('云边有个小卖部'), findsOneWidget);
-    expect(find.text('张嘉佳'), findsOneWidget);
-    expect(find.text('云边有个'), findsOneWidget);
     expect(find.text('可能性的艺术'), findsOneWidget);
-    expect(find.text('刘瑜'), findsOneWidget);
-    expect(find.text('可能性的'), findsOneWidget);
-    expect(find.text('未读'), findsOneWidget);
-    expect(find.text('阅读中'), findsOneWidget);
+    expect(find.text('张嘉佳'), findsNothing);
+    expect(find.text('刘瑜'), findsNothing);
+    expect(find.text('未读'), findsNothing);
+    expect(find.text('阅读中'), findsNothing);
 
-    final firstCard = tester.widget<Container>(
+    // Each book is a tappable cover-forward tile in a three-column shelf row.
+    expect(find.byKey(const ValueKey('shelf-book-local-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shelf-book-local-2')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shelf-plank-0')), findsOneWidget);
+
+    final coverAspect = tester.widget<AspectRatio>(
       find
           .ancestor(
-            of: find.text('张嘉佳'),
-            matching: find.byType(Container),
-          )
-          .last,
-    );
-    final firstCardDecoration = firstCard.decoration! as BoxDecoration;
-    expect(firstCard.constraints?.maxHeight, 146);
-    expect(firstCard.padding, const EdgeInsets.all(12));
-    expect(firstCardDecoration.color, DudoColors.surface);
-    expect(firstCardDecoration.borderRadius, BorderRadius.circular(18));
-    expect(firstCardDecoration.border?.top.color, DudoColors.outlineVariant);
-
-    final firstCover = tester.widget<Container>(
-      find
-          .ancestor(
-            of: find.text('云边有个'),
-            matching: find.byType(Container),
+            of: find.text('云边有个小卖部'),
+            matching: find.byType(AspectRatio),
           )
           .first,
     );
-    final firstCoverDecoration = firstCover.decoration! as BoxDecoration;
-    expect(firstCover.constraints?.maxWidth, 72);
-    expect(firstCover.constraints?.maxHeight, 102);
-    expect(firstCover.padding, const EdgeInsets.all(8));
-    expect(firstCoverDecoration.borderRadius, BorderRadius.circular(10));
-    expect(firstCoverDecoration.gradient, isA<LinearGradient>());
+    expect(coverAspect.aspectRatio, 3 / 4);
 
-    final chip = tester.widget<Container>(
-      find
-          .ancestor(
-            of: find.text('未读'),
-            matching: find.byType(Container),
-          )
-          .first,
+    // The tile is exactly the cover: nothing is stacked underneath it.
+    final tileSize =
+        tester.getSize(find.byKey(const ValueKey('shelf-book-local-1')));
+    expect(tileSize.height, closeTo(tileSize.width * 4 / 3, 0.5));
+
+    final coverGradients = tester
+        .widgetList<DecoratedBox>(
+          find.descendant(
+            of: find.byType(AspectRatio),
+            matching: find.byType(DecoratedBox),
+          ),
+        )
+        .map((box) => box.decoration)
+        .whereType<BoxDecoration>()
+        .where((decoration) => decoration.gradient is LinearGradient);
+    expect(coverGradients, isNotEmpty);
+
+    final coverLabel = tester.widget<Text>(find.text('云边有个小卖部'));
+    expect(coverLabel.style?.fontFamily, isNotNull);
+    expect(coverLabel.style?.fontWeight, FontWeight.w700);
+
+    // A paper bookmark marks started books, and only started books.
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('shelf-book-local-2')),
+        matching: find.byType(ClipPath),
+      ),
+      findsOneWidget,
     );
-    final chipDecoration = chip.decoration! as BoxDecoration;
-    expect(chip.constraints?.minWidth, 54);
-    expect(chip.constraints?.maxHeight, 28);
-    expect(chipDecoration.color, DudoColors.surfaceLow);
-    expect(chipDecoration.borderRadius, AppRadius.full);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('shelf-book-local-1')),
+        matching: find.byType(ClipPath),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('enters management mode and selects local books', (tester) async {
@@ -203,7 +217,7 @@ void main() {
     expect(bottomBarTopLeft.dx, 0);
     expect(bottomBarBottomRight.dy, 600);
 
-    await tester.tap(find.text('云边有个小卖部'));
+    await tester.tap(find.byKey(const ValueKey('shelf-book-local-1')));
     await tester.pumpAndSettle();
 
     expect(find.text('已选 1 本'), findsOneWidget);
@@ -266,12 +280,105 @@ void main() {
 
     await tester.tap(find.text('管理'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('云边有个小卖部'));
+    await tester.tap(find.byKey(const ValueKey('shelf-book-local-1')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('删除 1 本'));
     await tester.pump();
 
     expect(find.text('删除本地书籍？'), findsNothing);
+  });
+
+  testWidgets('stacks books into three-column shelf rows', (tester) async {
+    _useTallViewport(tester);
+    final now = DateTime(2026, 6, 2);
+    final books = [
+      for (var index = 0; index < 7; index++)
+        Book(
+          id: 'local-$index',
+          title: '书架上的第 ${index + 1} 本书',
+          author: '作者 $index',
+          localPath: '/books/$index.txt',
+          lastChapterIndex: 0,
+          lastReadPosition: 0,
+          createdAt: now,
+          updatedAt: now,
+          inShelf: true,
+          sortOrder: index,
+        ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          shelfBooksProvider.overrideWith((ref) => Stream.value(books)),
+        ],
+        child: const MaterialApp(
+          home: BookshelfLibraryPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Seven books fill three rows: 3 + 3 + 1.
+    expect(find.byKey(const ValueKey('shelf-plank-0')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shelf-plank-3')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shelf-plank-6')), findsOneWidget);
+    expect(find.byKey(const ValueKey('shelf-plank-9')), findsNothing);
+    expect(find.byKey(const ValueKey('shelf-book-local-6')), findsOneWidget);
+  });
+
+  testWidgets('long-press drag reorders the shelf and saves the order',
+      (tester) async {
+    final now = DateTime(2026, 6, 2);
+    final books = [
+      for (var index = 0; index < 3; index++)
+        Book(
+          id: 'local-${index + 1}',
+          title: '书架第 ${index + 1} 本',
+          author: '作者 $index',
+          localPath: '/books/$index.txt',
+          lastChapterIndex: 0,
+          lastReadPosition: 0,
+          createdAt: now,
+          updatedAt: now,
+          inShelf: true,
+          sortOrder: index,
+        ),
+    ];
+    final repository = _RecordingBookshelfRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          shelfBooksProvider.overrideWith((ref) => Stream.value(books)),
+          bookshelfRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(
+          home: BookshelfLibraryPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final first = find.byKey(const ValueKey('shelf-book-local-1'));
+    final second = find.byKey(const ValueKey('shelf-book-local-2'));
+
+    final gesture = await tester.startGesture(tester.getCenter(first));
+    await tester.pump(const Duration(milliseconds: 650));
+    await gesture.moveTo(tester.getCenter(second));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(repository.orders, [
+      ['local-2', 'local-1', 'local-3'],
+    ]);
+
+    final firstX =
+        tester.getTopLeft(find.byKey(const ValueKey('shelf-book-local-1'))).dx;
+    final secondX =
+        tester.getTopLeft(find.byKey(const ValueKey('shelf-book-local-2'))).dx;
+    expect(secondX, lessThan(firstX));
   });
 
   testWidgets('renders the Pencil A2 empty bookshelf design', (tester) async {
@@ -402,4 +509,16 @@ void main() {
     expect(find.text('去搜索发现书籍'), findsNothing);
     expect(find.text('书架还是空的'), findsOneWidget);
   });
+}
+
+class _RecordingBookshelfRepository implements BookshelfRepository {
+  final orders = <List<String>>[];
+
+  @override
+  Future<void> reorderShelfBooks(List<String> orderedIds) async {
+    orders.add(List.of(orderedIds));
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

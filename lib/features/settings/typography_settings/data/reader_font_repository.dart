@@ -104,7 +104,8 @@ class DriftReaderFontRepository implements ReaderFontRepository {
     // The same file can be picked again after it was already imported; keep the
     // existing record and its metadata instead of resetting its import time.
     final existing = await (_database.select(_database.importedReaderFonts)
-          ..where((table) => table.id.equals(id) & table.isDeleted.equals(false)))
+          ..where(
+              (table) => table.id.equals(id) & table.isDeleted.equals(false)))
         .getSingleOrNull();
     if (existing != null) {
       final font = _fromImportedFont(existing);

@@ -105,7 +105,7 @@ class SettingsPage extends ConsumerWidget {
             rows: [
               _SettingRowData(
                 title: '数据同步',
-                description: '阅读进度、书签、高亮和设置',
+                description: '阅读进度、书签、标注与设置',
                 value: dataSync.entryLabel,
                 icon: LucideIcons.cloud,
                 iconFill: DudoColors.surfaceLow,

@@ -48,10 +48,10 @@ class _AboutAppViewState extends ConsumerState<AboutAppView> {
     final opened = await ref.read(externalLinkLauncherProvider).open(uri);
     if (!opened && mounted) {
       ref.read(appMessageServiceProvider).warning(
-        '无法打开浏览器，可手动访问 ${AboutLinks.display(uri)}',
-        title: failureTitle,
-        dedupeKey: 'about-external-link',
-      );
+            '无法打开浏览器，可手动访问 ${AboutLinks.display(uri)}',
+            title: failureTitle,
+            dedupeKey: 'about-external-link',
+          );
     }
   }
 
@@ -61,10 +61,10 @@ class _AboutAppViewState extends ConsumerState<AboutAppView> {
     } catch (_) {
       if (!mounted) return;
       ref.read(appMessageServiceProvider).warning(
-        '当前环境暂不支持系统分享',
-        title: '分享失败',
-        dedupeKey: 'about-share',
-      );
+            '当前环境暂不支持系统分享',
+            title: '分享失败',
+            dedupeKey: 'about-share',
+          );
     }
   }
 
@@ -870,8 +870,7 @@ class _AboutChangelogList extends StatelessWidget {
       padding: EdgeInsets.zero,
       physics: const ClampingScrollPhysics(),
       itemBuilder: (context, index) {
-        return _AboutChangelogGroupView(
-            group: _aboutChangelogGroups[index]);
+        return _AboutChangelogGroupView(group: _aboutChangelogGroups[index]);
       },
       separatorBuilder: (_, __) => const SizedBox(height: 9),
       itemCount: _aboutChangelogGroups.length,
@@ -895,7 +894,7 @@ class _AboutChangelogGroupView extends StatelessWidget {
             Container(
               width: 7,
               height: 7,
-              decoration:  BoxDecoration(
+              decoration: BoxDecoration(
                 color: DudoColors.primary,
                 shape: BoxShape.circle,
               ),

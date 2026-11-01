@@ -565,11 +565,11 @@ class _EmptyDiagnostics extends StatelessWidget {
             Container(
               width: 52,
               height: 52,
-              decoration:  BoxDecoration(
+              decoration: BoxDecoration(
                 color: DudoColors.primaryContainer,
                 shape: BoxShape.circle,
               ),
-              child:  Icon(
+              child: Icon(
                 LucideIcons.check,
                 color: DudoColors.primary,
                 size: 24,

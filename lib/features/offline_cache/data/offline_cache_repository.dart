@@ -60,6 +60,19 @@ class OfflineCacheRepository {
         .write(_clearedCompanion);
   }
 
+  /// Clears every cached chapter and then rewrites the database file so the
+  /// freed pages are actually returned to the device. Compaction is best
+  /// effort: the content is already gone if the VACUUM cannot run.
+  Future<void> clearAllAndCompact() async {
+    await clearAll();
+    try {
+      await database.customStatement('PRAGMA wal_checkpoint(TRUNCATE)');
+      await database.customStatement('VACUUM');
+    } catch (_) {
+      // The chapter content is already cleared; compaction can wait.
+    }
+  }
+
   static const _clearedCompanion = ChaptersCompanion(
     content: Value(null),
     normalizedContentLength: Value(0),

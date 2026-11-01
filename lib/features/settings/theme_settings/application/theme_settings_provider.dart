@@ -4,7 +4,8 @@ import '../../../../core/database/database_provider.dart';
 import '../data/theme_settings_repository.dart';
 import '../domain/theme_settings.dart';
 
-final themeSettingsRepositoryProvider = Provider<ThemeSettingsRepository>((ref) {
+final themeSettingsRepositoryProvider =
+    Provider<ThemeSettingsRepository>((ref) {
   return DriftThemeSettingsRepository(ref.watch(appDatabaseProvider));
 });
 

@@ -38,6 +38,7 @@ class SettingsDetailHeader extends StatelessWidget {
     super.key,
     required this.eyebrow,
     required this.title,
+    this.subtitle,
     this.actionIcon,
     this.actionLabel,
     this.actionEmphasized = false,
@@ -47,6 +48,10 @@ class SettingsDetailHeader extends StatelessWidget {
 
   final String eyebrow;
   final String title;
+
+  /// Optional one-line explanation shown under the title, used by pages that
+  /// need to explain what they connect to.
+  final String? subtitle;
   final IconData? actionIcon;
 
   /// When set, the trailing action renders as a text pill (e.g. 编辑 / 完成)
@@ -61,12 +66,11 @@ class SettingsDetailHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final actionLabel = this.actionLabel;
     final actionIcon = this.actionIcon;
-    final hasAction =
-        showAction && (actionLabel != null || actionIcon != null);
+    final hasAction = showAction && (actionLabel != null || actionIcon != null);
 
     return DudoPageHeader(
       title: title,
-      height: 60,
+      height: subtitle == null ? 60 : 76,
       titleAlignment: Alignment.centerLeft,
       reserveTrailingSpace: false,
       leading: DudoCircleIconButton(
@@ -98,6 +102,18 @@ class SettingsDetailHeader extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                subtitle!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: DudoTextStyles.sans(
+                  color: DudoColors.textSecondary,
+                  fontSize: 11.5,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -322,10 +338,21 @@ class SettingsTrailingValue extends StatelessWidget {
 }
 
 class SettingsDudoSwitch extends StatelessWidget {
-  const SettingsDudoSwitch({super.key, required this.on, this.onTap});
+  const SettingsDudoSwitch({
+    super.key,
+    required this.on,
+    this.onTap,
+    this.activeFill,
+    this.activeThumb,
+  });
 
   final bool on;
   final VoidCallback? onTap;
+
+  /// Optional overrides for switches that sit on a colored card where the
+  /// default `primaryContainer` track would blend into the background.
+  final Color? activeFill;
+  final Color? activeThumb;
 
   @override
   Widget build(BuildContext context) {
@@ -336,14 +363,15 @@ class SettingsDudoSwitch extends StatelessWidget {
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: on
-            ? DudoColors.primaryContainer
+            ? (activeFill ?? DudoColors.primaryContainer)
             : (dark ? DudoColors.surfaceLow : DudoColors.surface),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
           color: on
-              ? (dark
-                  ? DudoColors.primary.withValues(alpha: 0.55)
-                  : DudoColors.accentMuted)
+              ? (activeFill ??
+                  (dark
+                      ? DudoColors.primary.withValues(alpha: 0.55)
+                      : DudoColors.accentMuted))
               : DudoColors.outline,
         ),
       ),
@@ -353,7 +381,7 @@ class SettingsDudoSwitch extends StatelessWidget {
         height: 20,
         decoration: BoxDecoration(
           color: on
-              ? DudoColors.primary
+              ? (activeThumb ?? DudoColors.primary)
               : (dark ? DudoColors.textSecondary : DudoColors.outline),
           shape: BoxShape.circle,
           boxShadow: [

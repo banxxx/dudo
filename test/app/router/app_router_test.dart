@@ -1,5 +1,9 @@
 import 'package:dudo/app/router/app_router.dart';
+import 'package:dudo/core/database/app_database.dart';
 import 'package:dudo/core/utils/breakpoints.dart';
+import 'package:dudo/features/bookmarks/application/bookmarks_providers.dart';
+import 'package:dudo/features/bookmarks/domain/bookmark_entry.dart';
+import 'package:dudo/features/bookshelf/application/bookshelf_providers.dart';
 import 'package:dudo/features/profile/application/profile_providers.dart';
 import 'package:dudo/features/reading_goal/application/reading_goal_overview.dart';
 import 'package:dudo/features/reading_goal/application/reading_goal_providers.dart';
@@ -7,8 +11,11 @@ import 'package:dudo/features/reading_goal/domain/reading_goal.dart';
 import 'package:dudo/features/reading_stats/application/reading_stats_provider.dart';
 import 'package:dudo/features/reading_stats/domain/reading_stats_models.dart';
 import 'package:dudo/features/settings/data_sync_settings/application/data_sync_settings_provider.dart';
+import 'package:dudo/features/settings/data_sync_settings/data/data_sync_api.dart';
 import 'package:dudo/features/settings/data_sync_settings/data/data_sync_settings_repository.dart';
+import 'package:dudo/features/settings/data_sync_settings/data/sync_snapshot_repository.dart';
 import 'package:dudo/features/settings/data_sync_settings/domain/data_sync_settings.dart';
+import 'package:dudo/features/settings/data_sync_settings/domain/sync_snapshot.dart';
 import 'package:dudo/shared/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -190,7 +197,7 @@ void main() {
     expect(rail.extended, isTrue);
   });
 
-  testWidgets('opens data sync from profile tools', (tester) async {
+  testWidgets('opens data sync from the settings page', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(Breakpoints.medium - 1, 800);
     addTearDown(tester.view.reset);
@@ -201,21 +208,34 @@ void main() {
         dataSyncSettingsRepositoryProvider.overrideWithValue(
           _FakeDataSyncSettingsRepository(),
         ),
+        dataSyncApiProvider.overrideWithValue(_FakeDataSyncApi()),
+        syncSnapshotRepositoryProvider.overrideWithValue(
+          _FakeSyncSnapshots(),
+        ),
+        shelfBooksProvider.overrideWith(
+          (_) => Stream.value(const <Book>[]),
+        ),
+        bookmarkEntriesProvider.overrideWith(
+          (_) => Stream.value(const <BookmarkEntry>[]),
+        ),
       ],
     );
 
     await tapBottomTab(tester, 3);
+    await tester.tap(find.byKey(const ValueKey('profile-settings-button')));
+    await pumpNavigation(tester);
 
-    // The tool list scrolls past the 800px test viewport.
+    // The settings list scrolls past the 800px test viewport.
     await tester.ensureVisible(find.text('数据同步'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.text('数据同步'));
     await pumpNavigation(tester);
 
     expect(
-      find.byKey(const ValueKey('data-sync-master-switch')),
+      find.byKey(const ValueKey('data-sync-server-url')),
       findsOneWidget,
     );
+    expect(find.text('尚未连接服务器'), findsOneWidget);
   });
 
   testWidgets('opens reading stats from profile tools', (tester) async {
@@ -287,6 +307,32 @@ class _FakeDataSyncSettingsRepository implements DataSyncSettingsRepository {
 
   @override
   Stream<DataSyncSettings> watch() => Stream.value(_settings);
+}
+
+class _FakeDataSyncApi implements DataSyncApi {
+  @override
+  Future<void> ping({required String serverUrl, String? accessToken}) async {}
+
+  @override
+  Future<SyncSnapshot?> sync({
+    required String serverUrl,
+    String? accessToken,
+    required SyncSnapshot snapshot,
+  }) async =>
+      null;
+}
+
+class _FakeSyncSnapshots implements SyncSnapshotStore {
+  @override
+  Future<SyncSnapshot> build({
+    required bool includeBooks,
+    required bool includeAnnotations,
+    required bool includeSettings,
+  }) async =>
+      SyncSnapshot(generatedAt: DateTime.now());
+
+  @override
+  Future<void> apply(SyncSnapshot snapshot) async {}
 }
 
 ReadingGoalOverview _routerGoalOverview() {

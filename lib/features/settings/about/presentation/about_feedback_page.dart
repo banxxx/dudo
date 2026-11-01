@@ -99,17 +99,17 @@ class AboutFeedbackPage extends ConsumerWidget {
     } catch (_) {
       if (!context.mounted) return;
       ref.read(appMessageServiceProvider).warning(
-        '复制失败，可手动选择地址复制',
-        title: '复制失败',
-        dedupeKey: 'about-feedback-copy',
-      );
+            '复制失败，可手动选择地址复制',
+            title: '复制失败',
+            dedupeKey: 'about-feedback-copy',
+          );
       return;
     }
     if (!context.mounted) return;
     ref.read(appMessageServiceProvider).success(
-      message,
-      dedupeKey: 'about-feedback-copy',
-    );
+          message,
+          dedupeKey: 'about-feedback-copy',
+        );
   }
 
   Future<void> _open(BuildContext context, WidgetRef ref) async {
@@ -117,10 +117,10 @@ class AboutFeedbackPage extends ConsumerWidget {
         await ref.read(externalLinkLauncherProvider).open(AboutLinks.feedback);
     if (!opened && context.mounted) {
       ref.read(appMessageServiceProvider).warning(
-        '无法打开浏览器，可复制链接后手动访问',
-        title: '打开失败',
-        dedupeKey: 'about-feedback-open',
-      );
+            '无法打开浏览器，可复制链接后手动访问',
+            title: '打开失败',
+            dedupeKey: 'about-feedback-open',
+          );
     }
   }
 }
@@ -227,8 +227,7 @@ class _ContactAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground =
-        filled ? DudoColors.primary : DudoColors.secondaryDark;
+    final foreground = filled ? DudoColors.primary : DudoColors.secondaryDark;
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(999),
