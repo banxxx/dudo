@@ -6,6 +6,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   battery_plus
   charset_converter
   dynamic_color
+  file_selector_windows
   flutter_js
   flutter_tts
   permission_handler_windows

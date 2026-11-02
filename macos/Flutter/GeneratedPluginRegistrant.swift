@@ -10,6 +10,7 @@ import audio_session
 import battery_plus
 import device_info_plus
 import dynamic_color
+import file_selector_macos
 import flutter_js
 import flutter_tts
 import just_audio
@@ -26,6 +27,7 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   BatteryPlusMacosPlugin.register(with: registry.registrar(forPlugin: "BatteryPlusMacosPlugin"))
   DeviceInfoPlusMacosPlugin.register(with: registry.registrar(forPlugin: "DeviceInfoPlusMacosPlugin"))
   DynamicColorPlugin.register(with: registry.registrar(forPlugin: "DynamicColorPlugin"))
+  FileSelectorPlugin.register(with: registry.registrar(forPlugin: "FileSelectorPlugin"))
   FlutterJsPlugin.register(with: registry.registrar(forPlugin: "FlutterJsPlugin"))
   FlutterTtsPlugin.register(with: registry.registrar(forPlugin: "FlutterTtsPlugin"))
   JustAudioPlugin.register(with: registry.registrar(forPlugin: "JustAudioPlugin"))

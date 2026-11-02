@@ -234,6 +234,36 @@ class BookshelfRepository {
     }
   }
 
+  /// Saves the editable book profile in one write so the detail page, shelf and
+  /// reader pick up the new title, author, intro and cover together.
+  Future<void> updateBookProfile({
+    required String bookId,
+    required String title,
+    required String? author,
+    required String? intro,
+    required String? customCoverPath,
+    required String? customWrapPath,
+    required int? coverSpineColor,
+    required String? coverSpineWidth,
+    required String? coverBackStyle,
+  }) async {
+    await (database.update(database.books)
+          ..where((book) => book.id.equals(bookId)))
+        .write(
+      BooksCompanion(
+        title: Value(title),
+        author: Value(author),
+        intro: Value(intro),
+        customCoverPath: Value(customCoverPath),
+        customWrapPath: Value(customWrapPath),
+        coverSpineColor: Value(coverSpineColor),
+        coverSpineWidth: Value(coverSpineWidth),
+        coverBackStyle: Value(coverBackStyle),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   Future<void> addBookToShelf(String bookId) async {
     final now = DateTime.now();
     await (database.update(database.books)

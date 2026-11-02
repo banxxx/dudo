@@ -30,6 +30,20 @@ class Books extends Table {
   IntColumn get remoteChapterCount => integer().nullable()();
   TextColumn get remoteNextTocUrl => text().nullable()();
 
+  /// Locally cropped front cover. When set it takes precedence over
+  /// [coverUrl] so the user's own artwork is shown on the shelf and detail
+  /// page.
+  TextColumn get customCoverPath => text().nullable()();
+
+  /// Full wrap artwork (back + spine + front) when the user imports a complete
+  /// cover. Stored so the spine and back stay in sync with the front.
+  TextColumn get customWrapPath => text().nullable()();
+
+  /// ARGB value sampled from the cover, used for the shelf spine strip.
+  IntColumn get coverSpineColor => integer().nullable()();
+  TextColumn get coverSpineWidth => text().nullable()();
+  TextColumn get coverBackStyle => text().nullable()();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -175,7 +189,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -227,6 +241,13 @@ class AppDatabase extends _$AppDatabase {
               readingSessions,
               readingSessions.chaptersRead,
             );
+          }
+          if (from < 10) {
+            await m.addColumn(books, books.customCoverPath);
+            await m.addColumn(books, books.customWrapPath);
+            await m.addColumn(books, books.coverSpineColor);
+            await m.addColumn(books, books.coverSpineWidth);
+            await m.addColumn(books, books.coverBackStyle);
           }
         },
       );

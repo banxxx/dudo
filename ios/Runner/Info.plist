@@ -76,5 +76,9 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>选择一张图片作为书籍封面。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>拍摄一张图片作为书籍封面。</string>
 </dict>
 </plist>

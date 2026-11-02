@@ -6,6 +6,7 @@ import '../../core/database/app_database.dart';
 import '../../features/bookmarks/presentation/bookmarks_page.dart';
 import '../../features/bookshelf/application/bookshelf_providers.dart';
 import '../../features/bookshelf/presentation/book_detail_page.dart';
+import '../../features/bookshelf/presentation/book_edit_page.dart';
 import '../../features/bookshelf/presentation/bookshelf_library_page.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/offline_cache/presentation/offline_cache_page.dart';
@@ -205,6 +206,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return _themed(BookDetailPage(bookId: bookId));
         },
       ),
+      GoRoute(
+        path: '${AppRoutes.bookDetail}/:bookId/edit',
+        name: AppRoutes.bookEditName,
+        builder: (context, state) {
+          final bookId = state.pathParameters['bookId']!;
+          return _themed(BookEditPage(bookId: bookId));
+        },
+      ),
       // Reader is a fullscreen route outside the shell.
       GoRoute(
         path: '${AppRoutes.reader}/:bookId',
@@ -342,6 +351,8 @@ class AppRoutes {
 
   static const bookDetail = '/books';
   static const bookDetailName = 'book-detail';
+
+  static const bookEditName = 'book-edit';
 
   static const reader = '/reader';
   static const readerName = 'reader';

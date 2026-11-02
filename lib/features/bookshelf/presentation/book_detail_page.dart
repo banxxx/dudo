@@ -16,8 +16,11 @@ import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../../../shared/widgets/error_state_view.dart';
+import '../../offline_cache/application/offline_cache_download_controller.dart';
+import '../../offline_cache/application/offline_cache_download_provider.dart';
 import '../application/bookshelf_providers.dart';
 import 'catalog/book_detail_catalog_controller.dart';
+import 'widgets/book_cover_artwork.dart';
 
 class BookDetailPage extends ConsumerStatefulWidget {
   const BookDetailPage({super.key, required this.bookId});
@@ -242,12 +245,59 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
       unawaited(_shareBook(book));
       return;
     }
+    if (title == '编辑书籍资料') {
+      context.push('${AppRoutes.bookDetail}/${book.id}/edit');
+      return;
+    }
+    if (title == '缓存全书') {
+      unawaited(_startOfflineCache(book));
+      return;
+    }
     ref.read(appMessageServiceProvider).info(
           '这个功能还在完善中',
           title: title,
           position: AppMessagePosition.top,
           dedupeKey: 'book-detail-more-$title',
         );
+  }
+
+  Future<void> _startOfflineCache(Book book) async {
+    final result = await ref
+        .read(offlineCacheDownloadControllerProvider.notifier)
+        .startBook(book);
+    if (!mounted) return;
+
+    final messages = ref.read(appMessageServiceProvider);
+    switch (result) {
+      case OfflineCacheStartResult.started:
+        messages.success(
+          '正在后台缓存《${book.title}》',
+          title: '已开始缓存',
+          position: AppMessagePosition.top,
+          dedupeKey: 'book-detail-cache',
+        );
+      case OfflineCacheStartResult.alreadyRunning:
+        messages.info(
+          '这本书正在缓存中，可在离线缓存页查看进度',
+          title: '缓存任务进行中',
+          position: AppMessagePosition.top,
+          dedupeKey: 'book-detail-cache',
+        );
+      case OfflineCacheStartResult.localBook:
+        messages.info(
+          '本地书籍的正文已经在设备上，无需再次缓存',
+          title: '无法缓存',
+          position: AppMessagePosition.top,
+          dedupeKey: 'book-detail-cache',
+        );
+      case OfflineCacheStartResult.notRemote:
+        messages.info(
+          '这本书还没有可用的书源，暂时无法缓存',
+          title: '无法缓存',
+          position: AppMessagePosition.top,
+          dedupeKey: 'book-detail-cache',
+        );
+    }
   }
 
   Future<void> _shareBook(Book book) async {
@@ -390,12 +440,16 @@ class _BookDetailScrollView extends StatelessWidget {
                         return const _RemainingChaptersLoadingTile();
                       }
                       final chapter = chapters[index];
+                      final hasStarted = book.lastChapterIndex > 0 ||
+                          book.lastReadPosition > 0;
                       return _ChapterListTile(
                         chapter: chapter,
                         isFirst: index == 0,
                         isLast: index == chapters.length - 1 &&
                             !loadingMoreChapters &&
                             !hasMoreChapters,
+                        isCurrent: hasStarted &&
+                            chapter.chapterIndex == book.lastChapterIndex,
                         onTap: () => onChapterTap(chapter.chapterIndex),
                       );
                     },
@@ -668,11 +722,6 @@ class _BookCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = book.title.trim().isEmpty ? '书' : book.title.trim();
-    final author =
-        book.author?.trim().isEmpty == false ? book.author!.trim() : 'Dudo';
-    final coverUrl = book.coverUrl?.trim();
-
     return Container(
       width: width,
       height: height,
@@ -688,85 +737,14 @@ class _BookCover extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipRRect(
+      child: BookCoverArtwork(
+        title: book.title,
+        author: book.author,
+        coverUrl: book.coverUrl,
+        customCoverPath: book.customCoverPath,
         borderRadius: BorderRadius.circular(14),
-        child: coverUrl == null || coverUrl.isEmpty
-            ? _GeneratedBookCover(title: title, author: author)
-            : Image.network(
-                coverUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _GeneratedBookCover(
-                  title: title,
-                  author: author,
-                ),
-              ),
       ),
     );
-  }
-}
-
-class _GeneratedBookCover extends StatelessWidget {
-  const _GeneratedBookCover({required this.title, required this.author});
-
-  final String title;
-  final String author;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            DudoColors.textPrimary,
-            DudoColors.primary,
-            DudoColors.accentSoft,
-          ],
-          stops: const [0, 0.58, 1],
-        ),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            '阅读收藏',
-            style: DudoTextStyles.sans(
-              color: DudoColors.surfaceHigh,
-              fontSize: 12,
-            ),
-          ),
-          Text(
-            _compactCoverTitle(title),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: DudoTextStyles.serif(
-              color: DudoColors.surfaceHigh,
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              height: 1.05,
-            ),
-          ),
-          Text(
-            author,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: DudoTextStyles.sans(
-              color: const Color(0xFFE8E4D8),
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _compactCoverTitle(String title) {
-    final characters = title.runes.toList();
-    if (characters.length <= 4) return title;
-    return String.fromCharCodes(characters.take(4));
   }
 }
 
@@ -1316,12 +1294,14 @@ class _ChapterListTile extends StatelessWidget {
     required this.chapter,
     required this.isFirst,
     required this.isLast,
+    required this.isCurrent,
     required this.onTap,
   });
 
   final Chapter chapter;
   final bool isFirst;
   final bool isLast;
+  final bool isCurrent;
   final VoidCallback onTap;
 
   @override
@@ -1344,7 +1324,6 @@ class _ChapterListTile extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
                       child: Text(
@@ -1352,16 +1331,49 @@ class _ChapterListTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: DudoTextStyles.sans(
-                          color: DudoColors.textPrimary,
+                          color: isCurrent
+                              ? DudoColors.onPrimaryContainer
+                              : DudoColors.textPrimary,
                           fontSize: 14,
+                          fontWeight:
+                              isCurrent ? FontWeight.w600 : FontWeight.w400,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Icon(
-                      LucideIcons.chevronRight,
-                      color: DudoColors.secondary,
-                      size: 18,
+                    SizedBox(
+                      height: 20,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isCurrent) ...[
+                            Container(
+                              width: 36,
+                              height: 20,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: DudoColors.primaryContainerStrong,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '在读',
+                                style: DudoTextStyles.sans(
+                                  color: DudoColors.onPrimaryContainer,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Icon(
+                            LucideIcons.chevronRight,
+                            color: DudoColors.secondary,
+                            size: 18,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1453,8 +1465,14 @@ class _BookMoreMenu extends StatelessWidget {
           _BookMoreMenuItem(
             icon: LucideIcons.share2,
             title: '分享书籍',
-            description: '生成书籍卡片',
+            description: '分享书籍信息',
             onTap: () => onAction('分享书籍'),
+          ),
+          _BookMoreMenuItem(
+            icon: LucideIcons.squarePen,
+            title: '编辑书籍资料',
+            description: '修改书名、作者与封面',
+            onTap: () => onAction('编辑书籍资料'),
           ),
         ],
       ),

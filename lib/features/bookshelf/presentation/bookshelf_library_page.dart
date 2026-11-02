@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -15,6 +16,7 @@ import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../application/bookshelf_providers.dart';
+import '../domain/book_cover_style.dart';
 
 class BookshelfLibraryPage extends ConsumerStatefulWidget {
   const BookshelfLibraryPage({super.key});
@@ -711,6 +713,11 @@ class _ShelfSearchResultCard extends StatelessWidget {
                 startColor: palette.start,
                 endColor: palette.end,
                 compactLabel: true,
+                customCoverPath: book.customCoverPath,
+                spineColor: book.coverSpineColor == null
+                    ? null
+                    : Color(book.coverSpineColor!),
+                spineWidth: CoverSpineWidth.fromStorage(book.coverSpineWidth),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1339,6 +1346,10 @@ class _ShelfBookTile extends StatelessWidget {
       endColor: palette.end,
       progress: progress,
       showBookmark: isStarted && !isManaging,
+      customCoverPath: book.customCoverPath,
+      spineColor:
+          book.coverSpineColor == null ? null : Color(book.coverSpineColor!),
+      spineWidth: CoverSpineWidth.fromStorage(book.coverSpineWidth),
     );
 
     final tile = AspectRatio(
@@ -1484,6 +1495,9 @@ class _ShelfBookCover extends StatelessWidget {
     this.progress,
     this.showBookmark = false,
     this.compactLabel = false,
+    this.customCoverPath,
+    this.spineColor,
+    this.spineWidth = CoverSpineWidth.standard,
   });
 
   final String title;
@@ -1491,6 +1505,9 @@ class _ShelfBookCover extends StatelessWidget {
   final Color endColor;
   final double? width;
   final double? height;
+  final String? customCoverPath;
+  final Color? spineColor;
+  final CoverSpineWidth spineWidth;
 
   /// Reading progress in 0–1, shown as a thin marker along the bottom edge.
   final double? progress;
@@ -1515,36 +1532,49 @@ class _ShelfBookCover extends StatelessWidget {
         final labelSize = compactLabel
             ? (coverWidth * 0.19).clamp(11.0, 15.0)
             : (coverWidth * 0.115).clamp(12.0, 15.5);
-        final spineWidth = (coverWidth * 0.05).clamp(4.0, 6.0);
+        final spineWidthPx =
+            (coverWidth * spineWidth.shelfFraction).clamp(3.0, 8.0);
+        final customCover = customCoverPath?.trim();
+        final hasCustomCover =
+            customCover != null && customCover.isNotEmpty;
+        final generated = DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [startColor, endColor],
+            ),
+          ),
+        );
 
         return ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Stack(
             fit: StackFit.expand,
             children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [startColor, endColor],
-                  ),
-                ),
-              ),
+              if (hasCustomCover)
+                Image.file(
+                  File(customCover),
+                  fit: BoxFit.cover,
+                  gaplessPlayback: true,
+                  errorBuilder: (_, __, ___) => generated,
+                )
+              else
+                generated,
               // The bound edge of the book, just wide enough to catch the eye.
               Positioned(
                 left: 0,
                 top: 0,
                 bottom: 0,
-                width: spineWidth,
+                width: spineWidthPx,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.16),
+                    color: spineColor ?? Colors.black.withValues(alpha: 0.16),
                   ),
                 ),
               ),
               Positioned(
-                left: spineWidth,
+                left: spineWidthPx,
                 top: 0,
                 bottom: 0,
                 width: 1,
@@ -1552,28 +1582,29 @@ class _ShelfBookCover extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.24),
                 ),
               ),
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  spineWidth + 7,
-                  coverWidth * 0.08,
-                  8,
-                  coverWidth * 0.09,
-                ),
-                child: Align(
-                  alignment: Alignment.bottomLeft,
-                  child: Text(
-                    label,
-                    maxLines: compactLabel ? 2 : 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: DudoTextStyles.serif(
-                      color: _coverText,
-                      fontSize: labelSize,
-                      fontWeight: FontWeight.w700,
-                      height: 1.2,
+              if (!hasCustomCover)
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    spineWidthPx + 7,
+                    coverWidth * 0.08,
+                    8,
+                    coverWidth * 0.09,
+                  ),
+                  child: Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Text(
+                      label,
+                      maxLines: compactLabel ? 2 : 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.serif(
+                        color: _coverText,
+                        fontSize: labelSize,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
                     ),
                   ),
                 ),
-              ),
               if (showBookmark)
                 Positioned(
                   top: 0,
@@ -1589,7 +1620,7 @@ class _ShelfBookCover extends StatelessWidget {
                 ),
               if (progress != null)
                 Positioned(
-                  left: spineWidth,
+                  left: spineWidthPx,
                   right: 0,
                   bottom: 0,
                   child: Container(

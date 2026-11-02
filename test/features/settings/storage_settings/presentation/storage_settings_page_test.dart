@@ -317,6 +317,9 @@ class _FakeOfflineCacheRepository implements OfflineCacheRepository {
   Future<void> clearAll() async {}
 
   @override
+  Future<void> clearBooksAndCompact(Iterable<String> bookIds) async {}
+
+  @override
   Future<void> clearAllAndCompact() async {
     clearAllCalls++;
     onCleared();

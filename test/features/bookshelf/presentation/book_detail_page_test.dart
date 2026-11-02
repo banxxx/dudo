@@ -3,6 +3,9 @@ import 'package:dudo/features/bookshelf/application/bookshelf_providers.dart';
 import 'package:dudo/features/bookshelf/data/bookshelf_repository.dart';
 import 'package:dudo/features/bookshelf/data/remote_book_import_service.dart';
 import 'package:dudo/features/bookshelf/presentation/book_detail_page.dart';
+import 'package:dudo/features/offline_cache/application/offline_cache_download_controller.dart';
+import 'package:dudo/features/offline_cache/application/offline_cache_download_provider.dart';
+import 'package:dudo/shared/messages/app_message.dart';
 import 'package:dudo/shared/messages/app_message_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -81,6 +84,13 @@ void main() {
     expect(find.text('59%'), findsOneWidget);
     expect(find.text('简介'), findsOneWidget);
     expect(find.textContaining('红岸工程'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('在读'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('在读'), findsOneWidget);
   });
   testWidgets('renders not-started state without progress card',
       (tester) async {
@@ -296,6 +306,83 @@ void main() {
 
     expect(remoteImportService.importCount, 1);
   });
+
+  testWidgets('starts an offline cache task from the more menu',
+      (tester) async {
+    final now = DateTime(2026, 6, 3);
+    final book = Book(
+      id: 'cache-book',
+      title: '远程书',
+      author: '作者',
+      intro: '在线书源详情',
+      sourceId: 'mock-source',
+      sourceBookUrl: 'https://mock.example/book/cache',
+      lastChapterIndex: 0,
+      lastReadPosition: 0,
+      createdAt: now,
+      updatedAt: now,
+      inShelf: false,
+      sortOrder: 0,
+    );
+    final chapters = [
+      const Chapter(
+        id: 'cache-book:0',
+        bookId: 'cache-book',
+        chapterIndex: 0,
+        title: '第一章',
+        normalizedContentLength: 0,
+        isCached: false,
+      ),
+    ];
+    final repository = _FakeBookshelfRepository(chapters, book: book);
+    final messages = _FakeAppMessageService();
+    final controller = OfflineCacheDownloadController(
+      documentSource: () => throw UnimplementedError(),
+      concurrency: () => 1,
+      onCacheChanged: () {},
+      messageService: messages,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          bookshelfRepositoryProvider.overrideWithValue(repository),
+          appMessageServiceProvider.overrideWithValue(messages),
+          offlineCacheDownloadControllerProvider
+              .overrideWith((ref) => controller),
+          bookByIdProvider('cache-book')
+              .overrideWith((ref) => Stream.value(book)),
+          bookChapterCountProvider('cache-book')
+              .overrideWith((ref) => Stream.value(chapters.length)),
+          currentBookChapterMetaProvider(
+            const CurrentBookChapterKey(
+              bookId: 'cache-book',
+              chapterIndex: 0,
+            ),
+          ).overrideWith((ref) => Stream.value(chapters[0])),
+          initialBookChapterMetasProvider('cache-book')
+              .overrideWith((ref) => Stream.value(chapters)),
+          bookChapterMetasProvider('cache-book')
+              .overrideWith((ref) => Stream.value(chapters)),
+        ],
+        child: const MaterialApp(
+          home: BookDetailPage(bookId: 'cache-book'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('book-detail-more-button')));
+    // The pinned top bar also listens for double taps, so give its gesture
+    // recognizer time to release the single tap before checking the menu.
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(find.text('编辑书籍资料'), findsOneWidget);
+    await tester.tap(find.text('缓存全书'));
+    await tester.pumpAndSettle();
+
+    expect(messages.successes, contains('正在后台缓存《远程书》'));
+  });
 }
 
 class _FakeBookshelfRepository implements BookshelfRepository {
@@ -332,6 +419,35 @@ class _FakeBookshelfRepository implements BookshelfRepository {
 }
 
 class _FakeAppMessageService implements AppMessageService {
+  final successes = <String>[];
+  final errors = <String>[];
+
+  @override
+  void success(
+    String message, {
+    String? title,
+    AppMessagePosition position = AppMessagePosition.bottom,
+    String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
+  }) {
+    successes.add(message);
+  }
+
+  @override
+  void error(
+    String message, {
+    String? title,
+    AppMessagePosition position = AppMessagePosition.top,
+    String? dedupeKey,
+    AppMessageVisualStyle visualStyle = AppMessageVisualStyle.paper,
+    String? actionLabel,
+    void Function()? onAction,
+  }) {
+    errors.add(message);
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
 }
