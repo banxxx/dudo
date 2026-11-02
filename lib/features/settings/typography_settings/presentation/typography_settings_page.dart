@@ -807,7 +807,7 @@ Future<bool> _showDeleteFontSheet(BuildContext context, ReaderFont font) async {
   final result = await showModalBottomSheet<bool>(
     context: context,
     backgroundColor: Colors.transparent,
-    barrierColor: DudoColors.textPrimary.withValues(alpha: 0.2),
+    barrierColor: const Color(0x6625251F),
     isScrollControlled: true,
     builder: (context) => _DeleteFontSheet(font: font),
   );

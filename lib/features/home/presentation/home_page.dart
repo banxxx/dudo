@@ -209,7 +209,7 @@ class _RecommendedBookCard extends StatelessWidget {
         AspectRatio(
           aspectRatio: 0.68,
           child: ClipRRect(
-            borderRadius: AppRadius.large,
+            borderRadius: BorderRadius.zero,
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(

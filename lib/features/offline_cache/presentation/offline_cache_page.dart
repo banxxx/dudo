@@ -1557,7 +1557,7 @@ class _BookCoverTile extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: [start, end],
         ),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.zero,
       ),
       child: Text(
         label,

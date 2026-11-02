@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -11,20 +12,17 @@ import '../../domain/book_cover_style.dart';
 import 'book_wrap_preview.dart';
 import 'cover_flow_chrome.dart';
 import 'cover_flow_models.dart';
-import 'full_wrap_crop_page.dart';
 
 class CoverStylePage extends StatefulWidget {
   const CoverStylePage({
     super.key,
     required this.book,
     required this.frontBytes,
-    required this.sourceImageBytes,
     this.initialStyle,
   });
 
   final Book book;
   final Uint8List frontBytes;
-  final Uint8List sourceImageBytes;
   final BookCoverStyle? initialStyle;
 
   @override
@@ -81,24 +79,11 @@ class _CoverStylePageState extends State<CoverStylePage> {
       barrierColor: const Color(0x6625251F),
       builder: (_) => _ColorPickerSheet(
         selected: _spineColor ?? DudoColors.primary,
-        sampled: _spineColor,
+        sampled: _autoColor,
       ),
     );
     if (color == null || !mounted) return;
     setState(() => _spineColor = color);
-  }
-
-  Future<void> _importFullWrap() async {
-    final result = await Navigator.of(context).push<CoverFlowResult>(
-      MaterialPageRoute(
-        builder: (_) => FullWrapCropPage(
-          book: widget.book,
-          imageBytes: widget.sourceImageBytes,
-        ),
-      ),
-    );
-    if (!mounted) return;
-    if (result != null) Navigator.of(context).pop(result);
   }
 
   void _apply() {
@@ -122,63 +107,112 @@ class _CoverStylePageState extends State<CoverStylePage> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 18),
+                padding: const EdgeInsets.fromLTRB(20, 6, 20, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '让封面立起来',
-                      style: DudoTextStyles.serif(
-                        color: DudoColors.textPrimary,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '自动从封面取色，也可以手动调整书脊与封底。',
+                      '整本书封预览；书脊和封底会自动生成。',
                       style: DudoTextStyles.sans(
                         color: DudoColors.textSecondary,
                         fontSize: 12,
-                        height: 1.45,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     _PreviewCard(
                       child: Column(
                         children: [
-                          BookWrapPreview(
-                            frontBytes: widget.frontBytes,
-                            title: widget.book.title,
-                            author: widget.book.author,
-                            intro: widget.book.intro,
-                            style: _style,
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '书封展开预览',
+                              style: DudoTextStyles.sans(
+                                color: DudoColors.secondary,
+                                fontSize: 10,
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 11),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              for (var index = 0; index < 3; index++) ...[
-                                if (index > 0)
-                                  Container(
-                                    width: 3,
-                                    height: 3,
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 7,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: DudoColors.outline,
-                                      shape: BoxShape.circle,
+                          const SizedBox(height: 12),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final height = math.min(
+                                195.0,
+                                constraints.maxWidth / fullWrapAspect,
+                              );
+                              final width = height * fullWrapAspect;
+                              return Column(
+                                children: [
+                                  BookWrapPreview(
+                                    frontBytes: widget.frontBytes,
+                                    title: widget.book.title,
+                                    author: widget.book.author,
+                                    intro: widget.book.intro,
+                                    style: _style,
+                                    height: height,
+                                  ),
+                                  const SizedBox(height: 15),
+                                  SizedBox(
+                                    width: width,
+                                    child: const FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: _WrapLegend(),
                                     ),
                                   ),
-                                Text(
-                                  const ['封底', '书脊', '封面'][index],
-                                  style: DudoTextStyles.sans(
-                                    color: DudoColors.textSecondary,
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.w500,
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _SectionCard(
+                      title: '书脊',
+                      note: _sampling ? '取色中…' : '默认从封面取色',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              for (final color in coverSpinePresets) ...[
+                                _ColorSwatch(
+                                  color: color,
+                                  selected: _sameColor(_spineColor, color),
+                                  onTap: () =>
+                                      setState(() => _spineColor = color),
+                                ),
+                                const SizedBox(width: 10),
+                              ],
+                              const Spacer(),
+                              _PickColorChip(onTap: _openColorPicker),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Text(
+                                '宽度',
+                                style: DudoTextStyles.sans(
+                                  color: DudoColors.secondary,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              for (final width in CoverSpineWidth.values) ...[
+                                SizedBox(
+                                  width: 56,
+                                  child: CoverFlowChip(
+                                    label: width.label,
+                                    selected: _spineWidth == width,
+                                    height: 26,
+                                    radius: 13,
+                                    fontSize: 11,
+                                    onTap: () =>
+                                        setState(() => _spineWidth = width),
                                   ),
                                 ),
+                                const SizedBox(width: 6),
                               ],
                             ],
                           ),
@@ -187,147 +221,62 @@ class _CoverStylePageState extends State<CoverStylePage> {
                     ),
                     const SizedBox(height: 12),
                     _SectionCard(
-                      title: '书脊',
-                      trailing: _sampling
-                          ? Text(
-                              '取色中…',
-                              style: DudoTextStyles.sans(
-                                color: DudoColors.textSecondary,
-                                fontSize: 10,
-                              ),
-                            )
-                          : null,
+                      title: '封底',
+                      note: '用于书封展开预览',
+                      contentGap: 8,
+                      bottomPadding: 16,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              _ColorSwatch(
-                                color: _autoColor ?? DudoColors.primary,
-                                selected: _sameColor(
-                                  _spineColor,
-                                  _autoColor ?? DudoColors.primary,
-                                ),
-                                label: '自动',
-                                onTap: () {
-                                  if (_autoColor != null) {
-                                    setState(() => _spineColor = _autoColor);
-                                  }
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              for (final color in coverSpinePresets)
-                                Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: _ColorSwatch(
-                                    color: color,
-                                    selected: _sameColor(
-                                      _spineColor,
-                                      color,
+                              for (var index = 0;
+                                  index < CoverBackStyle.values.length;
+                                  index++) ...[
+                                if (index > 0) const SizedBox(width: 8),
+                                Expanded(
+                                  child: CoverFlowChip(
+                                    label: CoverBackStyle.values[index].label,
+                                    selected:
+                                        _backStyle == CoverBackStyle.values[index],
+                                    onTap: () => setState(
+                                      () => _backStyle =
+                                          CoverBackStyle.values[index],
                                     ),
-                                    onTap: () =>
-                                        setState(() => _spineColor = color),
                                   ),
                                 ),
-                              const Spacer(),
-                              CoverFlowChip(
-                                label: '取色',
-                                selected: false,
-                                icon: LucideIcons.pipette,
-                                onTap: _openColorPicker,
-                              ),
+                              ],
                             ],
                           ),
-                          const SizedBox(height: 14),
+                          const SizedBox(height: 8),
                           Text(
-                            '书脊宽度',
+                            '封底不会出现在书架封面中。',
                             style: DudoTextStyles.sans(
-                              color: DudoColors.textSecondary,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w600,
+                              color: DudoColors.secondary,
+                              fontSize: 10,
                             ),
-                          ),
-                          const SizedBox(height: 7),
-                          Wrap(
-                            spacing: 8,
-                            children: [
-                              for (final width in CoverSpineWidth.values)
-                                CoverFlowChip(
-                                  label: width.label,
-                                  selected: _spineWidth == width,
-                                  onTap: () =>
-                                      setState(() => _spineWidth = width),
-                                ),
-                            ],
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _SectionCard(
-                      title: '封底样式',
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final style in CoverBackStyle.values)
-                            CoverFlowChip(
-                              label: style.label,
-                              selected: _backStyle == style,
-                              onTap: () => setState(() => _backStyle = style),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Material(
-                      color: DudoColors.surfaceHigh,
-                      borderRadius: BorderRadius.circular(14),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: _importFullWrap,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 13,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: DudoColors.outlineVariant,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                LucideIcons.panelsTopLeft,
-                                color: DudoColors.secondary,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 9),
-                              Expanded(
-                                child: Text(
-                                  '已有整幅书封图片？导入完整书封',
-                                  style: DudoTextStyles.sans(
-                                    color: DudoColors.textSecondary,
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                              Icon(
-                                LucideIcons.chevronRight,
-                                color: DudoColors.secondary,
-                                size: 16,
-                              ),
-                            ],
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 112,
+                          child: _BackActionButton(
+                            onTap: () => Navigator.of(context).maybePop(),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const CoverFlowHint(
-                      text: '书脊和封底会用于书封展开预览；书架与详情页显示正面封面。',
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: CoverFlowPrimaryButton(
+                            label: '应用封面',
+                            icon: LucideIcons.check,
+                            onPressed: _apply,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -336,52 +285,34 @@ class _CoverStylePageState extends State<CoverStylePage> {
           ],
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-          child: Row(
-            children: [
-              SizedBox(
-                height: 52,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: DudoColors.textPrimary,
-                    side: BorderSide(color: DudoColors.outline),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                  ),
-                  child: Text(
-                    '上一步',
-                    style: DudoTextStyles.sans(
-                      color: DudoColors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: CoverFlowPrimaryButton(
-                  label: '应用封面',
-                  icon: LucideIcons.check,
-                  onPressed: _apply,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
   bool _sameColor(Color? first, Color second) {
     if (first == null) return false;
     return first.toARGB32() == second.toARGB32();
+  }
+}
+
+class _WrapLegend extends StatelessWidget {
+  const _WrapLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    final style = DudoTextStyles.sans(
+      color: DudoColors.secondary,
+      fontSize: 9.5,
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('封底 · 自动生成', style: style),
+        const SizedBox(width: 12),
+        Text('书脊 · 自动取色', style: style),
+        const SizedBox(width: 12),
+        Text('封面 · 已裁剪', style: style),
+      ],
+    );
   }
 }
 
@@ -394,20 +325,12 @@ class _PreviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 16, 14, 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
       decoration: BoxDecoration(
         color: DudoColors.surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: DudoColors.outlineVariant),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1A25251F),
-            offset: Offset(0, 10),
-            blurRadius: 24,
-          ),
-        ],
       ),
-      child: Center(child: child),
+      child: child,
     );
   }
 }
@@ -416,22 +339,25 @@ class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.title,
     required this.child,
-    this.trailing,
+    this.note,
+    this.contentGap = 10,
+    this.bottomPadding = 14,
   });
 
   final String title;
   final Widget child;
-  final Widget? trailing;
+  final String? note;
+  final double contentGap;
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.fromLTRB(12, 12, 12, bottomPadding),
       decoration: BoxDecoration(
         color: DudoColors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: DudoColors.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -442,15 +368,23 @@ class _SectionCard extends StatelessWidget {
                 title,
                 style: DudoTextStyles.sans(
                   color: DudoColors.textPrimary,
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.w600,
+                  height: 1.45,
                 ),
               ),
               const Spacer(),
-              if (trailing != null) trailing!,
+              if (note != null)
+                Text(
+                  note!,
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.secondary,
+                    fontSize: 10,
+                  ),
+                ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: contentGap),
           child,
         ],
       ),
@@ -463,58 +397,106 @@ class _ColorSwatch extends StatelessWidget {
     required this.color,
     required this.selected,
     required this.onTap,
-    this.label,
   });
 
   final Color color;
   final bool selected;
   final VoidCallback onTap;
-  final String? label;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: selected ? DudoColors.textPrimary : DudoColors.surface,
-                width: selected ? 2 : 1,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x1F25251F),
-                  offset: Offset(0, 3),
-                  blurRadius: 6,
-                ),
-              ],
-            ),
-            child: selected
-                ? Icon(
-                    LucideIcons.check,
-                    color: readableOn(color),
-                    size: 14,
-                  )
-                : null,
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: selected ? DudoColors.textPrimary : Colors.transparent,
+            width: 2,
           ),
-          if (label != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              label!,
-              style: DudoTextStyles.sans(
-                color: DudoColors.textSecondary,
-                fontSize: 8.5,
+        ),
+        child: selected
+            ? Icon(
+                LucideIcons.check,
+                color: readableOn(color),
+                size: 14,
+              )
+            : null,
+      ),
+    );
+  }
+}
+
+class _PickColorChip extends StatelessWidget {
+  const _PickColorChip({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: DudoColors.primaryContainer,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: SizedBox(
+          width: 72,
+          height: 28,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(LucideIcons.pipette, color: DudoColors.primary, size: 14),
+              const SizedBox(width: 4),
+              Text(
+                '取色',
+                style: DudoTextStyles.sans(
+                  color: DudoColors.primary,
+                  fontSize: 11,
+                ),
               ),
-            ),
-          ],
-        ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BackActionButton extends StatelessWidget {
+  const _BackActionButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: DudoColors.surface,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: SizedBox(
+          height: 52,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(LucideIcons.arrowLeft, color: DudoColors.primary, size: 18),
+              const SizedBox(width: 6),
+              Text(
+                '上一步',
+                style: DudoTextStyles.sans(
+                  color: DudoColors.primary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

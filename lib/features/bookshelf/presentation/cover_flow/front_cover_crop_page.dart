@@ -48,7 +48,6 @@ class _FrontCoverCropPageState extends State<FrontCoverCropPage> {
           builder: (_) => CoverStylePage(
             book: widget.book,
             frontBytes: frontBytes,
-            sourceImageBytes: widget.imageBytes,
           ),
         ),
       );
@@ -92,109 +91,84 @@ class _FrontCoverCropPageState extends State<FrontCoverCropPage> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 18),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '裁切你的封面',
-                      style: DudoTextStyles.serif(
-                        color: DudoColors.textPrimary,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '拖动图片调整位置，双指缩放。框内就是书架上的封面。',
+                      '拖动图片调整位置，双指缩放',
                       style: DudoTextStyles.sans(
                         color: DudoColors.textSecondary,
                         fontSize: 12,
-                        height: 1.45,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    CoverFlowStage(
+                    const SizedBox(height: 10),
+                    CoverFlowCropStage(
+                      bytes: widget.imageBytes,
                       aspectRatio: _aspect.ratio,
-                      child: CoverCropView(
-                        key: ValueKey(_aspect),
-                        bytes: widget.imageBytes,
-                        aspectRatio: _aspect.ratio,
-                        controller: _controller,
-                        overlayBuilder: (_) => const _CropGridOverlay(),
-                      ),
+                      controller: _controller,
+                      overlayBuilder: (_) => const _CropGridOverlay(),
                     ),
-                    const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final aspect in CoverCropAspect.values)
-                          CoverFlowChip(
-                            label: aspect.label,
-                            selected: _aspect == aspect,
-                            onTap: () => setState(() => _aspect = aspect),
-                          ),
-                        CoverFlowChip(
-                          label: '整幅书封',
-                          selected: false,
-                          icon: LucideIcons.panelsTopLeft,
-                          onTap: _openFullWrap,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    CoverZoomRow(controller: _controller),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Row(
                       children: [
-                        CoverSmallAction(
-                          icon: LucideIcons.rotateCw,
-                          label: '旋转',
-                          onTap: _controller.rotate,
-                        ),
-                        const SizedBox(width: 8),
-                        CoverSmallAction(
-                          icon: LucideIcons.rotateCcw,
-                          label: '重置位置',
-                          onTap: _controller.resetPosition,
-                        ),
-                        const Spacer(),
-                        Text(
-                          '高级：可裁整幅书封',
-                          style: DudoTextStyles.sans(
-                            color: DudoColors.secondary,
-                            fontSize: 10.5,
+                        for (final aspect in CoverCropAspect.values) ...[
+                          Expanded(
+                            child: CoverFlowChip(
+                              label: aspect.label,
+                              selected: _aspect == aspect,
+                              onTap: () => setState(() => _aspect = aspect),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Expanded(
+                          child: CoverFlowChip(
+                            label: '整幅书封',
+                            selected: false,
+                            onTap: _openFullWrap,
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    CoverZoomRow(controller: _controller),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CoverSmallAction(
+                            icon: LucideIcons.rotateCw,
+                            label: '旋转 90°',
+                            onTap: _controller.rotate,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: CoverSmallAction(
+                            icon: LucideIcons.rotateCcw,
+                            label: '重置位置',
+                            onTap: _controller.resetPosition,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    const CoverFlowHint(
+                      text: '书脊会自动从封面左侧取色，封底默认使用同图模糊。下一步可调整。',
+                    ),
+                    const SizedBox(height: 10),
+                    CoverFlowPrimaryButton(
+                      label: '下一步：书脊与封底',
+                      icon: LucideIcons.arrowRight,
+                      loading: _capturing,
+                      onPressed: _next,
                     ),
                   ],
                 ),
               ),
             ),
           ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CoverFlowHint(
-                text: '下一步可以设置书脊颜色、宽度和封底样式。',
-              ),
-              const SizedBox(height: 10),
-              CoverFlowPrimaryButton(
-                label: '下一步：书脊与封底',
-                icon: LucideIcons.arrowRight,
-                loading: _capturing,
-                onPressed: _next,
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -223,24 +197,12 @@ class _CropGridPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), line);
     }
 
-    final border = Paint()
-      ..color = Colors.white.withValues(alpha: 0.55)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Offset.zero & size,
-        const Radius.circular(15),
-      ),
-      border,
-    );
-
     final handle = Paint()
-      ..color = DudoColors.accentSoft
+      ..color = const Color(0xFFFFF8EA)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4
-      ..strokeCap = StrokeCap.round;
-    const length = 17.0;
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.square;
+    const length = 16.0;
     const inset = 7.0;
     final corners = [
       const (Offset(inset, inset), Offset(1, 1)),

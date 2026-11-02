@@ -204,7 +204,7 @@ class _HeroBookCover extends StatelessWidget {
       height: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        borderRadius: AppRadius.large,
+        borderRadius: BorderRadius.zero,
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,

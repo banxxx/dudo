@@ -39,99 +39,109 @@ class _CoverSourceSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-        padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
-        decoration: BoxDecoration(
-          color: DudoColors.surface,
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: DudoColors.outlineVariant),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x3325251F),
-              offset: Offset(0, 18),
-              blurRadius: 42,
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: DudoColors.outline,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + bottomInset),
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 10),
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: DudoColors.outline,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              '更换封面',
-              style: DudoTextStyles.serif(
-                color: DudoColors.textPrimary,
-                fontSize: 21,
-                fontWeight: FontWeight.w700,
-              ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '更换封面',
+            style: DudoTextStyles.sans(
+              color: DudoColors.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              height: 1.45,
             ),
-            const SizedBox(height: 4),
-            Text(
-              '选择一张图片作为这本书的封面。',
-              style: DudoTextStyles.sans(
-                color: DudoColors.textSecondary,
-                fontSize: 12,
-              ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            '选择封面来源，选图后进入裁剪。',
+            style: DudoTextStyles.sans(
+              color: DudoColors.secondary,
+              fontSize: 11,
+              height: 1.45,
             ),
-            const SizedBox(height: 12),
-            _SourceRow(
-              icon: LucideIcons.image,
-              title: '从相册选择',
-              description: '从手机照片中选择一张',
-              onTap: () => Navigator.of(context).pop(CoverSourceAction.gallery),
-            ),
-            const SizedBox(height: 8),
-            _SourceRow(
-              icon: LucideIcons.camera,
-              title: '拍一张',
-              description: '用相机拍摄封面',
-              onTap: () => Navigator.of(context).pop(CoverSourceAction.camera),
-            ),
-            const SizedBox(height: 8),
-            _SourceRow(
-              icon: LucideIcons.rotateCcw,
-              title: '恢复默认封面',
-              description: '回到自动生成的封面',
-              onTap: () => Navigator.of(context).pop(CoverSourceAction.restore),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 46,
-              child: TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: TextButton.styleFrom(
-                  foregroundColor: DudoColors.textSecondary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: Text(
-                  '取消',
-                  style: DudoTextStyles.sans(
-                    color: DudoColors.textSecondary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+          ),
+          const SizedBox(height: 12),
+          _SourceRow(
+            icon: LucideIcons.image,
+            title: '从相册选择',
+            description: '支持 JPG / PNG，建议 2:3 竖图',
+            onTap: () => Navigator.of(context).pop(CoverSourceAction.gallery),
+          ),
+          const _SourceDivider(),
+          _SourceRow(
+            icon: LucideIcons.camera,
+            title: '拍一张',
+            description: '拍摄后进入裁剪',
+            onTap: () => Navigator.of(context).pop(CoverSourceAction.camera),
+          ),
+          const _SourceDivider(),
+          _SourceRow(
+            icon: LucideIcons.rotateCcw,
+            title: '恢复默认封面',
+            description: '移除当前自定义封面',
+            destructive: true,
+            onTap: () => Navigator.of(context).pop(CoverSourceAction.restore),
+          ),
+          const SizedBox(height: 28),
+          Material(
+            color: DudoColors.surfaceLow,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => Navigator.of(context).pop(),
+              child: SizedBox(
+                height: 44,
+                child: Center(
+                  child: Text(
+                    '取消',
+                    style: DudoTextStyles.sans(
+                      color: DudoColors.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SourceDivider extends StatelessWidget {
+  const _SourceDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3.5),
+      child: Divider(
+        height: 1,
+        thickness: 1,
+        color: DudoColors.outlineVariant,
       ),
     );
   }
@@ -143,70 +153,77 @@ class _SourceRow extends StatelessWidget {
     required this.title,
     required this.description,
     required this.onTap,
+    this.destructive = false,
   });
 
   final IconData icon;
   final String title;
   final String description;
   final VoidCallback onTap;
+  final bool destructive;
 
   @override
   Widget build(BuildContext context) {
+    final accent = destructive ? const Color(0xFFA5503F) : DudoColors.primary;
     return Material(
-      color: DudoColors.surfaceLow,
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: SizedBox(
-          height: 58,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: DudoColors.surface,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Icon(icon, color: DudoColors.primary, size: 18),
+          height: 56,
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: destructive
+                      ? const Color(0xFFF4D6CE)
+                      : DudoColors.primaryContainer,
+                  borderRadius: BorderRadius.circular(18),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: DudoTextStyles.sans(
-                          color: DudoColors.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+                child: Icon(icon, color: accent, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: DudoTextStyles.sans(
+                        color: destructive
+                            ? const Color(0xFFA5503F)
+                            : DudoColors.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.45,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        description,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: DudoTextStyles.sans(
-                          color: DudoColors.textSecondary,
-                          fontSize: 11,
-                        ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
+                        color: destructive
+                            ? const Color(0xCCA5503F)
+                            : DudoColors.secondary,
+                        fontSize: 10,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                Icon(
-                  LucideIcons.chevronRight,
-                  color: DudoColors.secondary,
-                  size: 18,
-                ),
-              ],
-            ),
+              ),
+              Icon(
+                LucideIcons.chevronRight,
+                color: destructive
+                    ? const Color(0xFFA5503F)
+                    : DudoColors.secondary,
+                size: 16,
+              ),
+            ],
           ),
         ),
       ),
@@ -220,81 +237,41 @@ class _RestoreCoverDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _DialogCard(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const _DialogIcon(
-            icon: LucideIcons.triangleAlert,
+            icon: LucideIcons.rotateCcw,
             color: Color(0xFFA5503F),
-            background: Color(0xFFF4E2D8),
+            background: Color(0xFFF4D6CE),
           ),
-          const SizedBox(height: 14),
-          Text(
-            '恢复默认封面？',
-            style: DudoTextStyles.serif(
-              color: DudoColors.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '当前自定义封面会被移除，回到自动生成的封面。',
-            textAlign: TextAlign.center,
-            style: DudoTextStyles.sans(
-              color: DudoColors.textSecondary,
-              fontSize: 12.5,
-              height: 1.5,
-            ),
+          const SizedBox(height: 12),
+          const _DialogTitle('恢复默认封面？'),
+          const SizedBox(height: 5),
+          const _DialogBody(
+            '当前自定义封面会被移除，书架和详情页将恢复为系统生成的封面。',
           ),
           const SizedBox(height: 20),
           Row(
             children: [
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: DudoColors.textPrimary,
-                      side: BorderSide(color: DudoColors.outline),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                    ),
-                    child: Text(
-                      '取消',
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+              SizedBox(
+                width: 120,
+                child: _DialogActionButton(
+                  label: '取消',
+                  foregroundColor: DudoColors.textSecondary,
+                  backgroundColor: DudoColors.surface,
+                  onTap: () => Navigator.of(context).pop(false),
                 ),
               ),
               const SizedBox(width: 10),
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: FilledButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFFA5503F),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                    ),
-                    child: Text(
-                      '恢复默认',
-                      style: DudoTextStyles.sans(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+              SizedBox(
+                width: 140,
+                child: _DialogActionButton(
+                  label: '恢复默认',
+                  foregroundColor: DudoColors.onInk,
+                  backgroundColor: const Color(0xFFA5503F),
+                  onTap: () => Navigator.of(context).pop(true),
                 ),
               ),
             ],
@@ -311,91 +288,49 @@ class _UnsavedLeaveDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _DialogCard(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const _DialogIcon(
             icon: LucideIcons.triangleAlert,
-            color: Color(0xFFA5503F),
-            background: Color(0xFFF4E2D8),
+            color: Color(0xFFB98242),
+            background: Color(0xFFF3E7D2),
           ),
-          const SizedBox(height: 14),
-          Text(
-            '离开编辑？',
-            style: DudoTextStyles.serif(
-              color: DudoColors.textPrimary,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
+          const SizedBox(height: 12),
+          const _DialogTitle('离开编辑？'),
+          const SizedBox(height: 5),
+          const _DialogBody(
             '当前修改还没有保存。直接离开会丢失这次修改。',
-            textAlign: TextAlign.center,
-            style: DudoTextStyles.sans(
-              color: DudoColors.textSecondary,
-              fontSize: 12.5,
-              height: 1.5,
-            ),
           ),
           const SizedBox(height: 20),
           Row(
             children: [
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: OutlinedButton(
-                    onPressed: () =>
-                        Navigator.of(context).pop(LeaveEditAction.discard),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFA5503F),
-                      side: const BorderSide(color: Color(0xFFA5503F)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                    ),
-                    child: Text(
-                      '直接离开',
-                      style: DudoTextStyles.sans(
-                        color: const Color(0xFFA5503F),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+              SizedBox(
+                width: 120,
+                child: _DialogActionButton(
+                  label: '直接离开',
+                  foregroundColor: const Color(0xFFA5503F),
+                  backgroundColor: DudoColors.surface,
+                  onTap: () =>
+                      Navigator.of(context).pop(LeaveEditAction.discard),
                 ),
               ),
               const SizedBox(width: 10),
-              Expanded(
-                child: SizedBox(
-                  height: 44,
-                  child: FilledButton(
-                    onPressed: () =>
-                        Navigator.of(context).pop(LeaveEditAction.save),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: DudoColors.ink,
-                      foregroundColor: DudoColors.onInk,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                    ),
-                    child: Text(
-                      '保存并离开',
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.onInk,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+              SizedBox(
+                width: 140,
+                child: _DialogActionButton(
+                  label: '保存并离开',
+                  foregroundColor: DudoColors.onInk,
+                  backgroundColor: DudoColors.ink,
+                  onTap: () => Navigator.of(context).pop(LeaveEditAction.save),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           SizedBox(
-            width: double.infinity,
-            height: 40,
+            height: 36,
             child: TextButton(
               onPressed: () =>
                   Navigator.of(context).pop(LeaveEditAction.stay),
@@ -406,7 +341,7 @@ class _UnsavedLeaveDialog extends StatelessWidget {
                 '继续编辑',
                 style: DudoTextStyles.sans(
                   color: DudoColors.textSecondary,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -419,31 +354,103 @@ class _UnsavedLeaveDialog extends StatelessWidget {
 }
 
 class _DialogCard extends StatelessWidget {
-  const _DialogCard({required this.child});
+  const _DialogCard({required this.child, required this.padding});
 
   final Widget child;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 30),
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
       child: Container(
         width: 310,
-        padding: const EdgeInsets.fromLTRB(22, 22, 22, 16),
+        padding: padding,
         decoration: BoxDecoration(
-          color: DudoColors.surfaceHigh,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x3325251F),
-              offset: Offset(0, 22),
-              blurRadius: 46,
-            ),
-          ],
+          color: DudoColors.surface,
+          borderRadius: BorderRadius.circular(22),
         ),
         child: child,
+      ),
+    );
+  }
+}
+
+class _DialogTitle extends StatelessWidget {
+  const _DialogTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      textAlign: TextAlign.center,
+      style: DudoTextStyles.sans(
+        color: DudoColors.textPrimary,
+        fontSize: 17,
+        fontWeight: FontWeight.w600,
+        height: 1.45,
+      ),
+    );
+  }
+}
+
+class _DialogBody extends StatelessWidget {
+  const _DialogBody(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      textAlign: TextAlign.center,
+      style: DudoTextStyles.sans(
+        color: DudoColors.textSecondary,
+        fontSize: 12,
+        height: 1.5,
+      ),
+    );
+  }
+}
+
+class _DialogActionButton extends StatelessWidget {
+  const _DialogActionButton({
+    required this.label,
+    required this.foregroundColor,
+    required this.backgroundColor,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color foregroundColor;
+  final Color backgroundColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: backgroundColor,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: SizedBox(
+          height: 44,
+          child: Center(
+            child: Text(
+              label,
+              style: DudoTextStyles.sans(
+                color: foregroundColor,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -463,10 +470,10 @@ class _DialogIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 50,
-      height: 50,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(color: background, shape: BoxShape.circle),
-      child: Icon(icon, color: color, size: 23),
+      child: Icon(icon, color: color, size: 22),
     );
   }
 }

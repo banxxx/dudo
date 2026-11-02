@@ -75,13 +75,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('三体'), findsWidgets);
-    expect(find.text('刘慈欣 · 本地文件'), findsOneWidget);
+    expect(find.text('刘慈欣 · 本地书库'), findsOneWidget);
     expect(find.text('继续阅读'), findsOneWidget);
     expect(find.text('已在书架'), findsOneWidget);
     expect(find.text('上次阅读'), findsOneWidget);
-    expect(find.text('已读到 第 2 章 · 射手和农场主'), findsOneWidget);
-    expect(find.text('17%'), findsOneWidget);
-    expect(find.text('59%'), findsOneWidget);
+    expect(find.text('已读到第 2 章'), findsOneWidget);
+    expect(find.text('17%'), findsNothing);
+    expect(find.text('59%'), findsNWidgets(2));
     expect(find.text('简介'), findsOneWidget);
     expect(find.textContaining('红岸工程'), findsOneWidget);
 
@@ -146,7 +146,7 @@ void main() {
 
     expect(find.text('开始阅读'), findsOneWidget);
     expect(find.text('已在书架'), findsOneWidget);
-    expect(find.text('还未开始阅读'), findsOneWidget);
+    expect(find.text('未开始'), findsOneWidget);
     expect(find.text('上次阅读'), findsNothing);
     expect(find.text('已读到 全文'), findsNothing);
     await tester.scrollUntilVisible(find.text('全文'), 300);

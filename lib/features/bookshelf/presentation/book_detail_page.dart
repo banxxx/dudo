@@ -36,6 +36,7 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   late final BookDetailCatalogController _catalogController;
   bool _showMoreMenu = false;
   bool _isAddingToShelf = false;
+  bool _showAllChapters = false;
   bool _backfillStarted = false;
   Timer? _backfillTimer;
 
@@ -111,6 +112,10 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
                 remoteCatalogRefreshing: _catalogController.isRefreshingRemote,
                 remoteCatalogError: _catalogController.remoteError,
                 isAddingToShelf: _isAddingToShelf,
+                showAllChapters: _showAllChapters,
+                onToggleChapters: () {
+                  setState(() => _showAllChapters = !_showAllChapters);
+                },
                 onRead: () => _openReader(book, loadedChapterCount),
                 onAddToShelf: () => _addToShelf(book),
                 onRefreshRemoteCatalog: () {
@@ -345,6 +350,8 @@ class _BookDetailScrollView extends StatelessWidget {
     required this.remoteCatalogRefreshing,
     required this.remoteCatalogError,
     required this.isAddingToShelf,
+    required this.showAllChapters,
+    required this.onToggleChapters,
     required this.onRead,
     required this.onAddToShelf,
     required this.onRefreshRemoteCatalog,
@@ -363,6 +370,8 @@ class _BookDetailScrollView extends StatelessWidget {
   final bool remoteCatalogRefreshing;
   final String? remoteCatalogError;
   final bool isAddingToShelf;
+  final bool showAllChapters;
+  final VoidCallback onToggleChapters;
   final VoidCallback onRead;
   final VoidCallback onAddToShelf;
   final VoidCallback onRefreshRemoteCatalog;
@@ -373,6 +382,8 @@ class _BookDetailScrollView extends StatelessWidget {
     final width = MediaQuery.sizeOf(context).width;
     final horizontalPadding = _horizontalPaddingForWidth(width);
     final maxWidth = _maxWidthForWidth(width);
+    final hasStarted = book.lastChapterIndex > 0 || book.lastReadPosition > 0;
+    final previewChapter = _previewChapter(hasStarted);
 
     return SafeArea(
       child: Center(
@@ -384,7 +395,11 @@ class _BookDetailScrollView extends StatelessWidget {
             slivers: [
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(
-                    horizontalPadding, 64, horizontalPadding, 10),
+                  horizontalPadding,
+                  64,
+                  horizontalPadding,
+                  hasStarted ? 10 : 14,
+                ),
                 sliver: SliverToBoxAdapter(
                   child: _BookDetailHeaderContent(
                     book: book,
@@ -402,8 +417,9 @@ class _BookDetailScrollView extends StatelessWidget {
                 padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                 sliver: SliverToBoxAdapter(
                   child: _ChapterListHeader(
-                    chapterCount: chapterCount,
-                    loadingMoreChapters: loadingMoreChapters,
+                    showAll: showAllChapters,
+                    canToggle: chapters.isNotEmpty,
+                    onToggle: onToggleChapters,
                   ),
                 ),
               ),
@@ -429,6 +445,19 @@ class _BookDetailScrollView extends StatelessWidget {
                         : const _ChapterListMessageTile(message: '章节计算中'),
                   ),
                 )
+              else if (!showAllChapters && previewChapter != null)
+                SliverPadding(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  sliver: SliverToBoxAdapter(
+                    child: _ChapterListTile(
+                      chapter: previewChapter,
+                      isFirst: true,
+                      isLast: true,
+                      isCurrent: hasStarted,
+                      onTap: () => onChapterTap(previewChapter.chapterIndex),
+                    ),
+                  ),
+                )
               else
                 SliverPadding(
                   padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -440,8 +469,6 @@ class _BookDetailScrollView extends StatelessWidget {
                         return const _RemainingChaptersLoadingTile();
                       }
                       final chapter = chapters[index];
-                      final hasStarted = book.lastChapterIndex > 0 ||
-                          book.lastReadPosition > 0;
                       return _ChapterListTile(
                         chapter: chapter,
                         isFirst: index == 0,
@@ -461,6 +488,15 @@ class _BookDetailScrollView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Chapter? _previewChapter(bool hasStarted) {
+    if (!hasStarted) return chapters.isEmpty ? null : chapters.first;
+    if (currentChapter != null) return currentChapter;
+    for (final chapter in chapters) {
+      if (chapter.chapterIndex == book.lastChapterIndex) return chapter;
+    }
+    return chapters.isEmpty ? null : chapters.first;
   }
 
   double _horizontalPaddingForWidth(double width) {
@@ -506,17 +542,17 @@ class _BookDetailHeaderContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasStarted = book.lastChapterIndex > 0 || book.lastReadPosition > 0;
     final showProgress = hasStarted;
-    final chapterProgress = _chapterProgressPercent(book, currentChapter);
     final bookProgress =
         _bookProgressPercent(book, chapterCount, currentChapter);
 
+    final gap = showProgress ? 10.0 : 14.0;
     return Column(
       children: [
         _BookHeroSection(
           book: book,
           compact: showProgress,
         ),
-        const SizedBox(height: 14),
+        SizedBox(height: gap),
         _BookActionRow(
           inShelf: book.inShelf,
           hasStarted: hasStarted,
@@ -525,34 +561,24 @@ class _BookDetailHeaderContent extends StatelessWidget {
           onAddToShelf: onAddToShelf,
         ),
         if (showProgress) ...[
-          const SizedBox(height: 10),
+          SizedBox(height: gap),
           _BookProgressCard(
-            progress: chapterProgress,
+            progress: bookProgress,
             currentChapterTitle: currentChapter?.title,
             chapterIndex: book.lastChapterIndex,
           ),
         ],
-        const SizedBox(height: 10),
+        SizedBox(height: gap),
         _BookStatsRow(
+          started: showProgress,
           progress: bookProgress,
           chapterCount: chapterCount,
           chaptersLoading: chaptersLoading,
-          progressLabel: showProgress ? '已读' : '进度',
         ),
-        const SizedBox(height: 10),
-        _BookIntroSection(intro: book.intro),
+        SizedBox(height: gap),
+        _BookIntroSection(intro: book.intro, compact: showProgress),
       ],
     );
-  }
-
-  int _chapterProgressPercent(Book book, Chapter? currentChapter) {
-    if (book.lastChapterIndex <= 0 && book.lastReadPosition <= 0) return 0;
-    final contentLength = currentChapter?.normalizedContentLength ?? 0;
-    if (contentLength <= 0) return 0;
-    return ((book.lastReadPosition.clamp(0, contentLength) / contentLength) *
-            100)
-        .round()
-        .clamp(0, 100);
   }
 
   int _bookProgressPercent(
@@ -597,7 +623,7 @@ class _PinnedBookDetailTopBar extends StatelessWidget {
         behavior: HitTestBehavior.translucent,
         onDoubleTap: onDoubleTap,
         child: Container(
-          padding: EdgeInsets.fromLTRB(20, topPadding + 6, 20, 8),
+          padding: EdgeInsets.fromLTRB(20, topPadding + 6, 20, 0),
           color: DudoColors.paperBackground,
           child: _BookDetailTopBar(onBack: onBack, onMore: onMore),
         ),
@@ -617,10 +643,15 @@ class _BookDetailTopBar extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _RoundActionButton(icon: LucideIcons.chevronLeft, onTap: onBack),
+        _RoundActionButton(
+          icon: LucideIcons.chevronLeft,
+          foreground: DudoColors.textPrimary,
+          onTap: onBack,
+        ),
         _RoundActionButton(
           key: const ValueKey('book-detail-more-button'),
           icon: LucideIcons.ellipsis,
+          foreground: DudoColors.secondary,
           onTap: onMore,
         ),
       ],
@@ -633,10 +664,12 @@ class _RoundActionButton extends StatelessWidget {
     super.key,
     required this.icon,
     required this.onTap,
+    this.foreground,
   });
 
   final IconData icon;
   final VoidCallback onTap;
+  final Color? foreground;
 
   @override
   Widget build(BuildContext context) {
@@ -652,9 +685,12 @@ class _RoundActionButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: DudoColors.surface,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: DudoColors.outline),
           ),
-          child: Icon(icon, color: DudoColors.secondary, size: 22),
+          child: Icon(
+            icon,
+            color: foreground ?? DudoColors.secondary,
+            size: 22,
+          ),
         ),
       ),
     );
@@ -686,10 +722,10 @@ class _BookHeroSection extends StatelessWidget {
             color: DudoColors.textPrimary,
             fontSize: 28,
             fontWeight: FontWeight.w700,
-            height: 1.16,
+            height: 1.45,
           ),
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: compact ? 5 : 8),
         Text(
           _bookMeta(book),
           maxLines: 1,
@@ -707,7 +743,7 @@ class _BookHeroSection extends StatelessWidget {
   String _bookMeta(Book book) {
     final author =
         book.author?.trim().isEmpty == false ? book.author!.trim() : '未知作者';
-    final source = book.localPath == null ? '在线书源' : '本地文件';
+    final source = book.localPath == null ? '在线书源' : '本地书库';
     return '$author · $source';
   }
 }
@@ -725,11 +761,8 @@ class _BookCover extends StatelessWidget {
     return Container(
       width: width,
       height: height,
-      padding: const EdgeInsets.all(9),
-      decoration: BoxDecoration(
-        color: DudoColors.secondaryContainer,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
+      decoration: const BoxDecoration(
+        boxShadow: [
           BoxShadow(
             color: Color(0x338A735A),
             offset: Offset(0, 18),
@@ -742,7 +775,7 @@ class _BookCover extends StatelessWidget {
         author: book.author,
         coverUrl: book.coverUrl,
         customCoverPath: book.customCoverPath,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.zero,
       ),
     );
   }
@@ -775,6 +808,7 @@ class _BookActionRow extends StatelessWidget {
               icon: LucideIcons.bookOpen,
               backgroundColor: DudoColors.textPrimary,
               foregroundColor: DudoColors.surfaceHigh,
+              fontSize: 15,
               onTap: onRead,
             ),
           ),
@@ -786,7 +820,7 @@ class _BookActionRow extends StatelessWidget {
               icon: inShelf ? LucideIcons.check : LucideIcons.plus,
               backgroundColor: DudoColors.primaryContainer,
               foregroundColor: DudoColors.primary,
-              borderColor: inShelf ? DudoColors.primaryContainerStrong : null,
+              iconSize: 18,
               isLoading: isAddingToShelf,
               onTap: inShelf ? null : onAddToShelf,
             ),
@@ -804,16 +838,18 @@ class _PillActionButton extends StatelessWidget {
     required this.backgroundColor,
     required this.foregroundColor,
     required this.onTap,
-    this.borderColor,
     this.isLoading = false,
+    this.fontSize = 14,
+    this.iconSize = 19,
   });
 
   final String label;
   final IconData icon;
   final Color backgroundColor;
   final Color foregroundColor;
-  final Color? borderColor;
   final bool isLoading;
+  final double fontSize;
+  final double iconSize;
   final VoidCallback? onTap;
 
   @override
@@ -829,8 +865,6 @@ class _PillActionButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(20),
-            border:
-                borderColor == null ? null : Border.all(color: borderColor!),
           ),
           child: Center(
             child: isLoading
@@ -845,13 +879,13 @@ class _PillActionButton extends StatelessWidget {
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(icon, color: foregroundColor, size: 19),
+                      Icon(icon, color: foregroundColor, size: iconSize),
                       const SizedBox(width: 8),
                       Text(
                         label,
                         style: DudoTextStyles.sans(
                           color: foregroundColor,
-                          fontSize: 14,
+                          fontSize: fontSize,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -885,7 +919,6 @@ class _BookProgressCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: DudoColors.primaryContainer,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: DudoColors.primaryContainerStrong),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -906,7 +939,7 @@ class _BookProgressCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '已读到 $chapterName',
+                    '已读到第 ${chapterIndex + 1} 章',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: DudoTextStyles.sans(
@@ -939,7 +972,7 @@ class _BookProgressCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '继续从「$chapterName」开始，保留上次阅读的位置。',
+            '继续阅读「$chapterName」，会保留上次阅读的位置，不用重新找章节。',
             style: DudoTextStyles.sans(
               color: DudoColors.primaryDark,
               fontSize: 12,
@@ -954,34 +987,38 @@ class _BookProgressCard extends StatelessWidget {
 
 class _BookStatsRow extends StatelessWidget {
   const _BookStatsRow({
+    required this.started,
     required this.progress,
     required this.chapterCount,
     required this.chaptersLoading,
-    required this.progressLabel,
   });
 
+  final bool started;
   final int progress;
   final int chapterCount;
   final bool chaptersLoading;
-  final String progressLabel;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 74,
+      height: 78,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: DudoColors.surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: DudoColors.outlineVariant),
       ),
       child: Row(
         children: [
-          const Expanded(child: _BookStatItem(value: '8.9', label: '评分')),
           Expanded(
             child: _BookStatItem(
-              value: progress == 0 ? '还未开始阅读' : '$progress%',
-              label: progressLabel,
+              value: started ? '在读' : '未读',
+              label: '状态',
+            ),
+          ),
+          Expanded(
+            child: _BookStatItem(
+              value: started ? '$progress%' : '未开始',
+              label: started ? '已读' : '进度',
             ),
           ),
           Expanded(
@@ -1017,12 +1054,9 @@ class _BookStatItem extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: DudoTextStyles.serif(
             color: DudoColors.textPrimary,
-            fontSize: value.length > 5
-                ? 13
-                : value.length > 3
-                    ? 20
-                    : 22,
+            fontSize: 22,
             fontWeight: FontWeight.w700,
+            height: 1.45,
           ),
         ),
         const SizedBox(height: 4),
@@ -1039,9 +1073,10 @@ class _BookStatItem extends StatelessWidget {
 }
 
 class _BookIntroSection extends StatefulWidget {
-  const _BookIntroSection({required this.intro});
+  const _BookIntroSection({required this.intro, required this.compact});
 
   final String? intro;
+  final bool compact;
 
   @override
   State<_BookIntroSection> createState() => _BookIntroSectionState();
@@ -1061,11 +1096,10 @@ class _BookIntroSectionState extends State<_BookIntroSection> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(widget.compact ? 14 : 16),
       decoration: BoxDecoration(
         color: DudoColors.surface,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: DudoColors.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1076,9 +1110,10 @@ class _BookIntroSectionState extends State<_BookIntroSection> {
               color: DudoColors.textPrimary,
               fontSize: 18,
               fontWeight: FontWeight.w600,
+              height: 1.45,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: widget.compact ? 7 : 8),
           Text(
             text,
             maxLines: canToggle && !_expanded ? _collapsedMaxLines : null,
@@ -1087,8 +1122,8 @@ class _BookIntroSectionState extends State<_BookIntroSection> {
                 : TextOverflow.visible,
             style: DudoTextStyles.sans(
               color: DudoColors.textSecondary,
-              fontSize: 14,
-              height: 1.55,
+              fontSize: widget.compact ? 13 : 14,
+              height: widget.compact ? 1.45 : 1.55,
             ),
           ),
           if (canToggle) ...[
@@ -1153,16 +1188,17 @@ class _IntroToggleButton extends StatelessWidget {
 
 class _ChapterListHeader extends StatelessWidget {
   const _ChapterListHeader({
-    required this.chapterCount,
-    required this.loadingMoreChapters,
+    required this.showAll,
+    required this.canToggle,
+    required this.onToggle,
   });
 
-  final int chapterCount;
-  final bool loadingMoreChapters;
+  final bool showAll;
+  final bool canToggle;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
-    final label = chapterCount <= 0 ? '' : '共 $chapterCount 章';
     return Column(
       children: [
         Row(
@@ -1176,13 +1212,24 @@ class _ChapterListHeader extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            Text(
-              loadingMoreChapters && label.isEmpty ? '加载中' : label,
-              style: DudoTextStyles.sans(
-                color: DudoColors.primary,
-                fontSize: 13,
+            if (canToggle)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onToggle,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 2,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    showAll ? '收起' : '查看全部',
+                    style: DudoTextStyles.sans(
+                      color: DudoColors.primary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -1312,8 +1359,10 @@ class _ChapterListTile extends StatelessWidget {
     );
 
     return Material(
-      color: DudoColors.surfaceLow,
-      borderRadius: borderRadius,
+      color: isCurrent ? DudoColors.primaryContainer : DudoColors.surfaceLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: borderRadius,
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -1369,7 +1418,9 @@ class _ChapterListTile extends StatelessWidget {
                           ],
                           Icon(
                             LucideIcons.chevronRight,
-                            color: DudoColors.secondary,
+                            color: isCurrent
+                                ? DudoColors.primary
+                                : DudoColors.secondary,
                             size: 18,
                           ),
                         ],
@@ -1401,14 +1452,14 @@ class _BookMoreOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.paddingOf(context).top + 76;
+    final top = MediaQuery.paddingOf(context).top + 60;
 
     return Positioned.fill(
       child: Stack(
         children: [
           GestureDetector(
             onTap: onDismiss,
-            child: Container(color: const Color(0x2225251F)),
+            child: Container(color: const Color(0x6625251F)),
           ),
           Positioned(
             top: top,
@@ -1456,22 +1507,26 @@ class _BookMoreMenu extends StatelessWidget {
             description: '离线保留章节内容',
             onTap: () => onAction('缓存全书'),
           ),
+          const SizedBox(height: 6),
           _BookMoreMenuItem(
             icon: LucideIcons.refreshCw,
             title: '更新目录',
             description: '同步最新章节',
             onTap: () => onAction('更新目录'),
           ),
+          const SizedBox(height: 6),
           _BookMoreMenuItem(
             icon: LucideIcons.share2,
             title: '分享书籍',
             description: '分享书籍信息',
             onTap: () => onAction('分享书籍'),
           ),
+          const SizedBox(height: 6),
           _BookMoreMenuItem(
             icon: LucideIcons.squarePen,
             title: '编辑书籍资料',
-            description: '修改书名、作者与封面',
+            description: '修改封面、作者与简介',
+            highlight: true,
             onTap: () => onAction('编辑书籍资料'),
           ),
         ],
@@ -1486,12 +1541,14 @@ class _BookMoreMenuItem extends StatelessWidget {
     required this.title,
     required this.description,
     required this.onTap,
+    this.highlight = false,
   });
 
   final IconData icon;
   final String title;
   final String description;
   final VoidCallback onTap;
+  final bool highlight;
 
   @override
   Widget build(BuildContext context) {
@@ -1509,10 +1566,16 @@ class _BookMoreMenuItem extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: DudoColors.surfaceLow,
+                  color: highlight
+                      ? DudoColors.primaryContainer
+                      : DudoColors.surfaceLow,
                   borderRadius: BorderRadius.circular(17),
                 ),
-                child: Icon(icon, color: DudoColors.secondary, size: 17),
+                child: Icon(
+                  icon,
+                  color: highlight ? DudoColors.primary : DudoColors.secondary,
+                  size: 17,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1532,7 +1595,9 @@ class _BookMoreMenuItem extends StatelessWidget {
                     Text(
                       description,
                       style: DudoTextStyles.sans(
-                        color: DudoColors.secondary,
+                        color: highlight
+                            ? DudoColors.primary
+                            : DudoColors.secondary,
                         fontSize: 10,
                       ),
                     ),

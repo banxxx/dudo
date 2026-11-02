@@ -1361,7 +1361,7 @@ class _ShelfBookTile extends StatelessWidget {
             child: AnimatedContainer(
               duration: AppMotion.short,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.zero,
                 border: isSelected
                     ? Border.all(
                         color: DudoColors.primary,
@@ -1388,7 +1388,7 @@ class _ShelfBookTile extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: DudoColors.surfaceHigh.withValues(alpha: 0.35),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.zero,
                   ),
                 ),
               ),
@@ -1436,9 +1436,9 @@ class _ShelfBookTile extends StatelessWidget {
               child: Transform.scale(
                 scale: 1.04,
                 child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: const [
+                  decoration: const BoxDecoration(
+                    borderRadius: BorderRadius.zero,
+                    boxShadow: [
                       BoxShadow(
                         color: Color(0x4D25251F),
                         offset: Offset(0, 16),
@@ -1535,8 +1535,7 @@ class _ShelfBookCover extends StatelessWidget {
         final spineWidthPx =
             (coverWidth * spineWidth.shelfFraction).clamp(3.0, 8.0);
         final customCover = customCoverPath?.trim();
-        final hasCustomCover =
-            customCover != null && customCover.isNotEmpty;
+        final hasCustomCover = customCover != null && customCover.isNotEmpty;
         final generated = DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -1548,7 +1547,7 @@ class _ShelfBookCover extends StatelessWidget {
         );
 
         return ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.zero,
           child: Stack(
             fit: StackFit.expand,
             children: [

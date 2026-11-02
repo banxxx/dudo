@@ -94,105 +94,106 @@ class _FullWrapCropPageState extends State<FullWrapCropPage> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 18),
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '整幅书封',
-                      style: DudoTextStyles.serif(
-                        color: DudoColors.textPrimary,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      '一张图同时包含封底、书脊和封面。拖动与缩放对齐分区。',
+                      '拖动整幅书封，参考线对应封底 / 书脊 / 封面。',
                       style: DudoTextStyles.sans(
                         color: DudoColors.textSecondary,
                         fontSize: 12,
-                        height: 1.45,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    CoverFlowStage(
+                    const SizedBox(height: 10),
+                    CoverFlowCropStage(
+                      bytes: widget.imageBytes,
                       aspectRatio: fullWrapAspect,
-                      child: CoverCropView(
-                        bytes: widget.imageBytes,
-                        aspectRatio: fullWrapAspect,
-                        controller: _controller,
-                        overlayBuilder: (_) => _WrapGuides(
-                          spineWidth: _spineWidth,
-                        ),
+                      controller: _controller,
+                      stageHeightFactor: 400 / 350,
+                      frameWidthFactor: 320 / 350,
+                      overlayBuilder: (_) => _WrapGuides(
+                        spineWidth: _spineWidth,
+                      ),
+                      stageOverlayBuilder: (_, frame) => _ZoneLabels(
+                        frame: frame,
+                        spineWidth: _spineWidth,
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    Text(
-                      '书脊宽度',
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 7),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        for (final width in CoverSpineWidth.values)
-                          CoverFlowChip(
-                            label: width.label,
-                            selected: _spineWidth == width,
-                            onTap: () =>
-                                setState(() => _spineWidth = width),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    CoverZoomRow(controller: _controller),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Row(
                       children: [
-                        CoverSmallAction(
-                          icon: LucideIcons.rotateCw,
-                          label: '旋转',
-                          onTap: _controller.rotate,
+                        Text(
+                          '书脊宽度',
+                          style: DudoTextStyles.sans(
+                            color: DudoColors.secondary,
+                            fontSize: 11,
+                          ),
                         ),
-                        const SizedBox(width: 8),
-                        CoverSmallAction(
-                          icon: LucideIcons.rotateCcw,
-                          label: '重置位置',
-                          onTap: _controller.resetPosition,
+                        const SizedBox(width: 10),
+                        for (final width in CoverSpineWidth.values) ...[
+                          SizedBox(
+                            width: 56,
+                            child: CoverFlowChip(
+                              label: width.label,
+                              selected: _spineWidth == width,
+                              height: 28,
+                              radius: 14,
+                              fontSize: 11,
+                              onTap: () =>
+                                  setState(() => _spineWidth = width),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        const Spacer(),
+                        Text(
+                          '参考线随之移动',
+                          style: DudoTextStyles.sans(
+                            color: DudoColors.secondary,
+                            fontSize: 9,
+                          ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    CoverZoomRow(controller: _controller),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CoverSmallAction(
+                            icon: LucideIcons.rotateCw,
+                            label: '旋转 90°',
+                            onTap: _controller.rotate,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: CoverSmallAction(
+                            icon: LucideIcons.rotateCcw,
+                            label: '重置位置',
+                            onTap: _controller.resetPosition,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    const CoverFlowHint(
+                      text: '整幅书封会同时作为封面、书脊和封底；应用后不再单独调整。',
+                    ),
+                    const SizedBox(height: 10),
+                    CoverFlowPrimaryButton(
+                      label: '应用封面',
+                      icon: LucideIcons.check,
+                      loading: _applying,
+                      onPressed: _apply,
                     ),
                   ],
                 ),
               ),
             ),
           ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CoverFlowHint(
-                text: '整幅书封会同时作为封面、书脊和封底；应用后不再单独调整。',
-              ),
-              const SizedBox(height: 10),
-              CoverFlowPrimaryButton(
-                label: '应用封面',
-                icon: LucideIcons.check,
-                loading: _applying,
-                onPressed: _apply,
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -212,34 +213,55 @@ class _WrapGuides extends StatelessWidget {
         final back = width * fullWrapBackFraction;
         final spine = width * spineWidth.wrapFraction;
         final front = back + spine;
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            CustomPaint(
-              painter: _WrapGuidesPainter(
-                back: back,
-                front: front,
-                height: constraints.maxHeight,
-              ),
+        return Positioned.fill(
+          child: CustomPaint(
+            painter: _WrapGuidesPainter(
+              back: back,
+              front: front,
+              height: constraints.maxHeight,
             ),
-            const Positioned(
-              top: 8,
-              left: 8,
-              child: _ZoneLabel('封底'),
-            ),
-            Positioned(
-              top: 8,
-              left: (back + spine / 2 - 13).clamp(0.0, width - 26),
-              child: const _ZoneLabel('书脊'),
-            ),
-            const Positioned(
-              top: 8,
-              right: 8,
-              child: _ZoneLabel('封面'),
-            ),
-          ],
+          ),
         );
       },
+    );
+  }
+}
+
+class _ZoneLabels extends StatelessWidget {
+  const _ZoneLabels({
+    required this.frame,
+    required this.spineWidth,
+  });
+
+  final Rect frame;
+  final CoverSpineWidth spineWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = frame.top - 28;
+    final spineCenter =
+        frame.left + frame.width * (fullWrapBackFraction + spineWidth.wrapFraction / 2);
+    final frontStart = fullWrapFrontStart(spineWidth);
+    final frontCenter =
+        frame.left + frame.width * (frontStart + (1 - frontStart) / 2);
+    return Stack(
+      children: [
+        Positioned(
+          top: top,
+          left: frame.left,
+          child: const _ZoneLabel('封底'),
+        ),
+        Positioned(
+          top: top,
+          left: spineCenter - 20,
+          child: const _ZoneLabel('书脊'),
+        ),
+        Positioned(
+          top: top,
+          left: frontCenter - 20,
+          child: const _ZoneLabel('封面'),
+        ),
+      ],
     );
   }
 }
@@ -252,18 +274,18 @@ class _ZoneLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      width: 40,
+      height: 18,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: const Color(0xA625251F),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.28)),
+        color: const Color(0xCC25251F),
+        borderRadius: BorderRadius.circular(9),
       ),
       child: Text(
         label,
         style: DudoTextStyles.sans(
-          color: const Color(0xFFFFF8EA),
-          fontSize: 8.5,
-          fontWeight: FontWeight.w600,
+          color: const Color(0xCCFFF8EA),
+          fontSize: 8,
         ),
       ),
     );
@@ -291,18 +313,6 @@ class _WrapGuidesPainter extends CustomPainter {
       ..strokeWidth = 1.2;
     canvas.drawLine(Offset(back, 0), Offset(back, height), line);
     canvas.drawLine(Offset(front, 0), Offset(front, height), line);
-
-    final border = Paint()
-      ..color = Colors.white.withValues(alpha: 0.42)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Offset.zero & size,
-        const Radius.circular(15),
-      ),
-      border,
-    );
   }
 
   @override

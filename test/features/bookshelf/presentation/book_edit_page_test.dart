@@ -37,6 +37,8 @@ void main() {
     await tester.enterText(fields.at(1), '新作者');
     await tester.enterText(fields.at(2), '新的简介');
     await tester.pump();
+    await tester.ensureVisible(find.text('保存修改'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('保存修改'));
     await tester.pumpAndSettle();
 
@@ -67,15 +69,21 @@ void main() {
     await tester.pumpWidget(_wrap(book));
     await tester.pumpAndSettle();
 
-    expect(find.text('恢复默认'), findsOneWidget);
-    await tester.tap(find.text('恢复默认'));
+    expect(find.text('恢复默认'), findsNothing);
+    await tester.tap(find.text('更换封面'));
+    await tester.pumpAndSettle();
+    expect(find.text('恢复默认封面'), findsOneWidget);
+    await tester.tap(find.text('恢复默认封面'));
     await tester.pumpAndSettle();
 
     expect(find.text('恢复默认封面？'), findsOneWidget);
-    await tester.tap(find.text('恢复默认').last);
+    await tester.tap(find.text('恢复默认'));
     await tester.pumpAndSettle();
 
-    expect(find.text('使用书源封面或自动生成的封面。'), findsOneWidget);
+    expect(
+      find.text('建议使用竖版封面，系统会同步用于书架卡片与阅读页顶部。'),
+      findsOneWidget,
+    );
     expect(find.text('恢复默认'), findsNothing);
   });
 }

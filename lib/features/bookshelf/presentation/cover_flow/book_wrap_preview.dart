@@ -17,7 +17,7 @@ class BookWrapPreview extends StatelessWidget {
     required this.style,
     this.author,
     this.intro,
-    this.height = 188,
+    this.height = 195,
   });
 
   final Uint8List frontBytes;
@@ -41,49 +41,38 @@ class BookWrapPreview extends StatelessWidget {
     return SizedBox(
       width: width,
       height: height,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x4025251F),
-              offset: Offset(0, 12),
-              blurRadius: 24,
+      child: ClipRect(
+        child: Row(
+          children: [
+            SizedBox(
+              width: backWidth,
+              height: height,
+              child: _BackCover(
+                frontBytes: frontBytes,
+                style: style,
+                text: backText,
+                textColor: onBack,
+              ),
+            ),
+            SizedBox(
+              width: spineWidth,
+              height: height,
+              child: _Spine(
+                title: title,
+                author: author,
+                color: style.spineColor,
+              ),
+            ),
+            SizedBox(
+              width: frontWidth,
+              height: height,
+              child: _FrontCover(
+                frontBytes: frontBytes,
+                title: title,
+                author: author,
+              ),
             ),
           ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Row(
-            children: [
-              SizedBox(
-                width: backWidth,
-                height: height,
-                child: _BackCover(
-                  frontBytes: frontBytes,
-                  style: style,
-                  text: backText,
-                  title: title,
-                  author: author,
-                  textColor: onBack,
-                ),
-              ),
-              SizedBox(
-                width: spineWidth,
-                height: height,
-                child: _Spine(title: title, color: style.spineColor),
-              ),
-              SizedBox(
-                width: frontWidth,
-                height: height,
-                child: Image.memory(
-                  frontBytes,
-                  fit: BoxFit.cover,
-                  gaplessPlayback: true,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -103,22 +92,18 @@ class _BackCover extends StatelessWidget {
     required this.frontBytes,
     required this.style,
     required this.text,
-    required this.title,
-    required this.author,
     required this.textColor,
   });
 
   final Uint8List frontBytes;
   final BookCoverStyle style;
   final String text;
-  final String title;
-  final String? author;
   final Color textColor;
 
   @override
   Widget build(BuildContext context) {
     final content = Padding(
-      padding: const EdgeInsets.fromLTRB(10, 13, 10, 10),
+      padding: const EdgeInsets.fromLTRB(12, 20, 12, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -127,32 +112,25 @@ class _BackCover extends StatelessWidget {
             maxLines: 6,
             overflow: TextOverflow.ellipsis,
             style: DudoTextStyles.serif(
-              color: textColor,
-              fontSize: 7.2,
-              height: 1.55,
+              color: textColor.withValues(alpha: 0.8),
+              fontSize: 8.5,
+              height: 1.5,
             ),
           ),
           const Spacer(),
+          Container(
+            width: 60,
+            height: 1,
+            color: textColor.withValues(alpha: 0.3),
+          ),
+          const SizedBox(height: 4),
           Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            'DUDO',
             style: DudoTextStyles.sans(
-              color: textColor.withValues(alpha: 0.9),
-              fontSize: 6.5,
-              fontWeight: FontWeight.w600,
+              color: textColor.withValues(alpha: 0.6),
+              fontSize: 8,
             ),
           ),
-          if (author?.trim().isNotEmpty == true)
-            Text(
-              author!.trim(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: DudoTextStyles.sans(
-                color: textColor.withValues(alpha: 0.7),
-                fontSize: 5.8,
-              ),
-            ),
         ],
       ),
     );
@@ -188,16 +166,81 @@ class _BackCover extends StatelessWidget {
   }
 }
 
+class _FrontCover extends StatelessWidget {
+  const _FrontCover({
+    required this.frontBytes,
+    required this.title,
+    this.author,
+  });
+
+  final Uint8List frontBytes;
+  final String title;
+  final String? author;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.memory(
+          frontBytes,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          child: Column(
+            children: [
+              Text(
+                '阅读收藏',
+                style: DudoTextStyles.sans(
+                  color: const Color(0xCCFFF8EA),
+                  fontSize: 8,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: DudoTextStyles.serif(
+                  color: const Color(0xFFFFF8EA),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                author?.trim().isNotEmpty == true ? author!.trim() : '',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: DudoTextStyles.sans(
+                  color: const Color(0xCCFFF8EA),
+                  fontSize: 8,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _Spine extends StatelessWidget {
-  const _Spine({required this.title, required this.color});
+  const _Spine({required this.title, required this.color, this.author});
 
   final String title;
+  final String? author;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
     final textColor = readableOn(color);
-    final characters = title.trim().characters.take(6).toList();
+    final titleCharacters = title.trim().characters.take(6).toList();
+    final authorCharacters =
+        (author?.trim() ?? '').characters.take(6).toList();
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -210,20 +253,32 @@ class _Spine extends StatelessWidget {
           ],
         ),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (final character in characters)
-            Text(
-              character,
-              style: DudoTextStyles.serif(
-                color: textColor,
-                fontSize: 8,
-                height: 1.05,
-                fontWeight: FontWeight.w600,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        child: Column(
+          children: [
+            for (final character in titleCharacters)
+              Text(
+                character,
+                style: DudoTextStyles.serif(
+                  color: textColor,
+                  fontSize: 10,
+                  height: 1.1,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-        ],
+            const Spacer(),
+            for (final character in authorCharacters)
+              Text(
+                character,
+                style: DudoTextStyles.serif(
+                  color: textColor.withValues(alpha: 0.8),
+                  fontSize: 8,
+                  height: 1.2,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

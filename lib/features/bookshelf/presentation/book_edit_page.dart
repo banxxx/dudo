@@ -354,6 +354,8 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
     final previewTitle =
         _titleController.text.trim().isEmpty ? '书' : _titleController.text;
     final previewAuthor = _authorController.text.trim();
+    final chapterCount =
+        ref.watch(bookChapterCountProvider(widget.bookId)).valueOrNull;
 
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
@@ -361,17 +363,18 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
         bottom: false,
         child: Column(
           children: [
-            _EditTopBar(
-              saving: _saving,
-              onBack: _requestLeave,
-              onSave: () => unawaited(_save()),
-            ),
+            _EditTopBar(onBack: _requestLeave),
             Expanded(
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 720),
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      6,
+                      20,
+                      18 + MediaQuery.paddingOf(context).bottom,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -379,30 +382,32 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
                           'BOOK PROFILE',
                           style: DudoTextStyles.sans(
                             color: DudoColors.secondary,
-                            fontSize: 10.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 7),
-                        Text(
-                          '编辑书籍资料',
-                          style: DudoTextStyles.serif(
-                            color: DudoColors.textPrimary,
-                            fontSize: 26,
-                            fontWeight: FontWeight.w700,
-                            height: 1.15,
+                            height: 1.45,
                           ),
                         ),
                         const SizedBox(height: 5),
                         Text(
-                          '更新书名、作者、简介与封面。',
-                          style: DudoTextStyles.sans(
-                            color: DudoColors.textSecondary,
-                            fontSize: 12,
+                          '编辑书籍资料',
+                          style: DudoTextStyles.serif(
+                            color: DudoColors.textPrimary,
+                            fontSize: 27,
+                            fontWeight: FontWeight.w700,
+                            height: 1.45,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 5),
+                        Text(
+                          '整理书名、作者、封面与简介，让书架中的信息保持准确。',
+                          style: DudoTextStyles.sans(
+                            color: DudoColors.textSecondary,
+                            fontSize: 13,
+                            height: 1.45,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         _CoverCard(
                           preview: BookCoverArtwork(
                             title: previewTitle,
@@ -410,19 +415,16 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
                                 ? book.author
                                 : previewAuthor,
                             coverUrl: book.coverUrl,
-                            customCoverPath: _clearCustomCover
-                                ? null
-                                : book.customCoverPath,
+                            customCoverPath:
+                                _clearCustomCover ? null : book.customCoverPath,
                             pendingBytes: _pendingFrontBytes,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.zero,
                           ),
-                          hasCustomCover: _hasCustomCover,
                           onChangeCover: _changeCover,
-                          onRestore: _restoreDefaultCover,
                         ),
                         const SizedBox(height: 12),
                         _EditFieldCard(
-                          icon: LucideIcons.type,
+                          icon: LucideIcons.bookOpen,
                           label: '书名',
                           child: TextField(
                             controller: _titleController,
@@ -431,49 +433,79 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
                               color: DudoColors.textPrimary,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
+                              height: 1.5,
                             ),
                             cursorColor: DudoColors.primary,
                             decoration: _fieldDecoration('输入书名'),
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         _EditFieldCard(
-                          icon: LucideIcons.userRound,
+                          icon: LucideIcons.userPen,
                           label: '作者',
                           child: TextField(
                             controller: _authorController,
                             maxLines: 1,
                             style: DudoTextStyles.sans(
                               color: DudoColors.textPrimary,
-                              fontSize: 14,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.5,
                             ),
                             cursorColor: DudoColors.primary,
                             decoration: _fieldDecoration('未知作者'),
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _EditInfoField(
+                                icon: LucideIcons.database,
+                                label: '来源',
+                                value: book.localPath == null ? '在线书源' : '本地书库',
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _EditInfoField(
+                                icon: LucideIcons.chartNoAxesColumn,
+                                label: '阅读状态',
+                                value: _readingStatus(book, chapterCount),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
                         _EditFieldCard(
-                          icon: LucideIcons.alignLeft,
+                          icon: LucideIcons.notebookText,
                           label: '简介',
+                          verticalPadding: 12,
                           child: TextField(
                             controller: _introController,
                             minLines: 3,
-                            maxLines: 6,
+                            maxLines: 3,
                             keyboardType: TextInputType.multiline,
                             style: DudoTextStyles.sans(
                               color: DudoColors.textPrimary,
-                              fontSize: 13.5,
-                              height: 1.6,
+                              fontSize: 13,
+                              height: 1.5,
                             ),
                             cursorColor: DudoColors.primary,
                             decoration: _fieldDecoration('还没有简介'),
                           ),
                         ),
                         const SizedBox(height: 12),
-                        _BookInfoCard(book: book),
+                        const _EditSyncHint(),
                         const SizedBox(height: 12),
-                        const CoverFlowHint(
-                          text: '保存后将同步到书架与书籍详情页封面。',
+                        CoverFlowPrimaryButton(
+                          label: '保存修改',
+                          icon: LucideIcons.check,
+                          loading: _saving,
+                          radius: 22,
+                          labelSize: 15,
+                          labelWeight: FontWeight.w700,
+                          onPressed: () => unawaited(_save()),
                         ),
                       ],
                     ),
@@ -484,25 +516,17 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
           ],
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Center(
-          heightFactor: 1,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-              child: CoverFlowPrimaryButton(
-                label: '保存修改',
-                icon: LucideIcons.check,
-                loading: _saving,
-                onPressed: () => unawaited(_save()),
-              ),
-            ),
-          ),
-        ),
-      ),
     );
+  }
+
+  String _readingStatus(Book book, int? chapterCount) {
+    final started = book.lastChapterIndex > 0 || book.lastReadPosition > 0;
+    if (!started) return '未开始';
+    if (chapterCount == null || chapterCount <= 0) return '阅读中';
+    final progress = (((book.lastChapterIndex + 1) / chapterCount) * 100)
+        .round()
+        .clamp(1, 100);
+    return '阅读中 $progress%';
   }
 
   InputDecoration _fieldDecoration(String hint) {
@@ -520,22 +544,16 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
 }
 
 class _EditTopBar extends StatelessWidget {
-  const _EditTopBar({
-    required this.saving,
-    required this.onBack,
-    required this.onSave,
-  });
+  const _EditTopBar({required this.onBack});
 
-  final bool saving;
   final VoidCallback onBack;
-  final VoidCallback onSave;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 56,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Row(
           children: [
             _TopCircleButton(
@@ -543,14 +561,7 @@ class _EditTopBar extends StatelessWidget {
               onTap: onBack,
               background: DudoColors.surface,
               foreground: DudoColors.textPrimary,
-            ),
-            const Spacer(),
-            _TopCircleButton(
-              icon: LucideIcons.check,
-              onTap: onSave,
-              background: DudoColors.primaryContainer,
-              foreground: DudoColors.primaryDark,
-              loading: saving,
+              borderColor: Colors.transparent,
             ),
           ],
         ),
@@ -565,35 +576,31 @@ class _TopCircleButton extends StatelessWidget {
     required this.onTap,
     required this.background,
     required this.foreground,
-    this.loading = false,
+    required this.borderColor,
   });
 
   final IconData icon;
   final VoidCallback onTap;
   final Color background;
   final Color foreground;
-  final bool loading;
+  final Color borderColor;
 
   @override
   Widget build(BuildContext context) {
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(22),
+      side: BorderSide(color: borderColor),
+    );
     return Material(
       color: background,
-      shape: const CircleBorder(),
+      shape: shape,
       child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: loading ? null : onTap,
+        customBorder: shape,
+        onTap: onTap,
         child: SizedBox(
-          width: 40,
-          height: 40,
-          child: loading
-              ? Padding(
-                  padding: const EdgeInsets.all(11),
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: foreground,
-                  ),
-                )
-              : Icon(icon, color: foreground, size: 19),
+          width: 44,
+          height: 44,
+          child: Icon(icon, color: foreground, size: 22),
         ),
       ),
     );
@@ -603,124 +610,82 @@ class _TopCircleButton extends StatelessWidget {
 class _CoverCard extends StatelessWidget {
   const _CoverCard({
     required this.preview,
-    required this.hasCustomCover,
     required this.onChangeCover,
-    required this.onRestore,
   });
 
   final Widget preview;
-  final bool hasCustomCover;
   final VoidCallback onChangeCover;
-  final VoidCallback onRestore;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      height: 176,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: DudoColors.outlineVariant),
+        borderRadius: BorderRadius.circular(24),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 108,
-            height: 148,
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: DudoColors.surfaceLow,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: preview,
-          ),
+          SizedBox(width: 108, height: 148, child: preview),
           const SizedBox(width: 14),
           Expanded(
             child: SizedBox(
               height: 148,
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     '书籍封面',
                     style: DudoTextStyles.sans(
                       color: DudoColors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    hasCustomCover
-                        ? '正在使用自定义封面，会同步到书架和书籍详情页。'
-                        : '使用书源封面或自动生成的封面。',
-                    style: DudoTextStyles.sans(
-                      color: DudoColors.textSecondary,
-                      fontSize: 11,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
                       height: 1.45,
                     ),
                   ),
-                  const Spacer(),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      Material(
-                        color: DudoColors.ink,
-                        borderRadius: BorderRadius.circular(12),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: onChangeCover,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 9,
+                  const SizedBox(height: 9),
+                  Text(
+                    '建议使用竖版封面，系统会同步用于书架卡片与阅读页顶部。',
+                    style: DudoTextStyles.sans(
+                      color: DudoColors.textSecondary,
+                      fontSize: 12,
+                      height: 1.45,
+                    ),
+                  ),
+                  const SizedBox(height: 9),
+                  Material(
+                    color: DudoColors.ink,
+                    borderRadius: BorderRadius.circular(19),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(19),
+                      onTap: onChangeCover,
+                      child: Container(
+                        height: 38,
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              LucideIcons.imagePlus,
+                              color: DudoColors.onInk,
+                              size: 15,
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  LucideIcons.imagePlus,
-                                  color: DudoColors.onInk,
-                                  size: 14,
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  '更换封面',
-                                  style: DudoTextStyles.sans(
-                                    color: DudoColors.onInk,
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
+                            const SizedBox(width: 7),
+                            Text(
+                              '更换封面',
+                              style: DudoTextStyles.sans(
+                                color: DudoColors.onInk,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
-                      if (hasCustomCover)
-                        TextButton(
-                          onPressed: onRestore,
-                          style: TextButton.styleFrom(
-                            foregroundColor: DudoColors.textSecondary,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                            ),
-                            minimumSize: const Size(0, 34),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          child: Text(
-                            '恢复默认',
-                            style: DudoTextStyles.sans(
-                              color: DudoColors.textSecondary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -737,40 +702,44 @@ class _EditFieldCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.child,
+    this.verticalPadding = 11,
   });
 
   final IconData icon;
   final String label;
   final Widget child;
+  final double verticalPadding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 11, 14, 13),
+      padding: EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: verticalPadding,
+      ),
       decoration: BoxDecoration(
         color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: DudoColors.outlineVariant),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: DudoColors.secondary, size: 13),
-              const SizedBox(width: 6),
+              Icon(icon, color: DudoColors.secondary, size: 15),
+              const SizedBox(width: 7),
               Text(
                 label,
                 style: DudoTextStyles.sans(
-                  color: DudoColors.textSecondary,
-                  fontSize: 10.5,
+                  color: DudoColors.secondary,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 7),
+          const SizedBox(height: 9),
           child,
         ],
       ),
@@ -778,64 +747,114 @@ class _EditFieldCard extends StatelessWidget {
   }
 }
 
-class _BookInfoCard extends StatelessWidget {
-  const _BookInfoCard({required this.book});
+class _EditInfoField extends StatelessWidget {
+  const _EditInfoField({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
-  final Book book;
+  final IconData icon;
+  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
-    final source = book.localPath == null ? '在线书源' : '本地文件';
-    final started = book.lastChapterIndex > 0 || book.lastReadPosition > 0;
-    final progress = !started
-        ? '还未开始'
-        : '已读第 ${book.lastChapterIndex + 1} 章';
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: DudoColors.outlineVariant),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _InfoRow(label: '来源', value: source),
+          Row(
+            children: [
+              Icon(icon, color: DudoColors.secondary, size: 15),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: DudoTextStyles.sans(
+                  color: DudoColors.secondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 9),
-          _InfoRow(label: '阅读进度', value: progress),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: DudoTextStyles.sans(
+              color: DudoColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              height: 1.5,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
+class _EditSyncHint extends StatelessWidget {
+  const _EditSyncHint();
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          label,
-          style: DudoTextStyles.sans(
-            color: DudoColors.textSecondary,
-            fontSize: 11,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: DudoColors.primaryContainer,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: DudoColors.primaryContainerMuted,
+              borderRadius: BorderRadius.circular(17),
+            ),
+            child: Icon(
+              LucideIcons.sparkles,
+              color: DudoColors.primaryDark,
+              size: 16,
+            ),
           ),
-        ),
-        const Spacer(),
-        Text(
-          value,
-          style: DudoTextStyles.sans(
-            color: DudoColors.textPrimary,
-            fontSize: 11.5,
-            fontWeight: FontWeight.w500,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '保存后立即同步',
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '书架、详情页和阅读进度中的书籍基础信息会一起更新。',
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.primaryDark,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -856,11 +875,7 @@ class _EditMessageScaffold extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            _EditTopBar(
-              saving: false,
-              onBack: onBack,
-              onSave: () {},
-            ),
+            _EditTopBar(onBack: onBack),
             Expanded(
               child: Center(
                 child: Text(
