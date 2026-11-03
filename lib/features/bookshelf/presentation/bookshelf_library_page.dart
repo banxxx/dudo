@@ -17,6 +17,7 @@ import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../application/bookshelf_providers.dart';
 import '../domain/book_cover_style.dart';
+import 'widgets/cover_title_overlay.dart';
 
 class BookshelfLibraryPage extends ConsumerStatefulWidget {
   const BookshelfLibraryPage({super.key});
@@ -708,11 +709,13 @@ class _ShelfSearchResultCard extends StatelessWidget {
             children: [
               _ShelfBookCover(
                 title: book.title,
+                author: book.author,
                 width: 68,
                 height: 96,
                 startColor: palette.start,
                 endColor: palette.end,
                 compactLabel: true,
+                showTitleOverlay: book.coverShowText,
                 customCoverPath: book.customCoverPath,
                 spineColor: book.coverSpineColor == null
                     ? null
@@ -1342,10 +1345,12 @@ class _ShelfBookTile extends StatelessWidget {
 
     final cover = _ShelfBookCover(
       title: book.title,
+      author: book.author,
       startColor: palette.start,
       endColor: palette.end,
       progress: progress,
       showBookmark: isStarted && !isManaging,
+      showTitleOverlay: book.coverShowText,
       customCoverPath: book.customCoverPath,
       spineColor:
           book.coverSpineColor == null ? null : Color(book.coverSpineColor!),
@@ -1490,17 +1495,20 @@ class _ShelfBookCover extends StatelessWidget {
     required this.title,
     required this.startColor,
     required this.endColor,
+    this.author,
     this.width,
     this.height,
     this.progress,
     this.showBookmark = false,
     this.compactLabel = false,
+    this.showTitleOverlay = false,
     this.customCoverPath,
     this.spineColor,
     this.spineWidth = CoverSpineWidth.standard,
   });
 
   final String title;
+  final String? author;
   final Color startColor;
   final Color endColor;
   final double? width;
@@ -1508,6 +1516,10 @@ class _ShelfBookCover extends StatelessWidget {
   final String? customCoverPath;
   final Color? spineColor;
   final CoverSpineWidth spineWidth;
+
+  /// Prints the title lockup over user supplied artwork. Compact thumbnails
+  /// already sit next to the book title, so they stay clean.
+  final bool showTitleOverlay;
 
   /// Reading progress in 0–1, shown as a thin marker along the bottom edge.
   final double? progress;
@@ -1581,6 +1593,10 @@ class _ShelfBookCover extends StatelessWidget {
                   color: Colors.white.withValues(alpha: 0.24),
                 ),
               ),
+              if (hasCustomCover && showTitleOverlay && !compactLabel)
+                Positioned.fill(
+                  child: CoverTitleOverlay(title: title, author: author),
+                ),
               if (!hasCustomCover)
                 Padding(
                   padding: EdgeInsets.fromLTRB(

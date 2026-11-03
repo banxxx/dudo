@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -153,13 +154,57 @@ class CoverFlowChip extends StatelessWidget {
               Text(
                 label,
                 style: DudoTextStyles.sans(
-                  color:
-                      selected ? DudoColors.onInk : DudoColors.textSecondary,
+                  color: selected ? DudoColors.onInk : DudoColors.textSecondary,
                   fontSize: fontSize,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CoverFlowSwitch extends StatelessWidget {
+  const CoverFlowSwitch({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: AppMotion.short,
+        width: 46,
+        height: 28,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: value ? DudoColors.textPrimary : DudoColors.surfaceLow,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: value ? DudoColors.textPrimary : DudoColors.outlineVariant,
+          ),
+        ),
+        child: AnimatedAlign(
+          duration: AppMotion.short,
+          curve: AppMotion.emphasized,
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: value ? DudoColors.surfaceHigh : DudoColors.surface,
+              shape: BoxShape.circle,
+            ),
           ),
         ),
       ),
@@ -215,6 +260,7 @@ class CoverFlowPrimaryButton extends StatelessWidget {
     this.radius = 20,
     this.labelSize = 14,
     this.labelWeight = FontWeight.w600,
+    this.enableFeedback = true,
   });
 
   final String label;
@@ -224,6 +270,10 @@ class CoverFlowPrimaryButton extends StatelessWidget {
   final double radius;
   final double labelSize;
   final FontWeight labelWeight;
+
+  /// The platform tap sound/haptics. Turn it off when the action plays its own
+  /// single feedback, so one tap can never sound like several.
+  final bool enableFeedback;
 
   @override
   Widget build(BuildContext context) {
@@ -236,6 +286,7 @@ class CoverFlowPrimaryButton extends StatelessWidget {
           backgroundColor: DudoColors.ink,
           foregroundColor: DudoColors.onInk,
           disabledBackgroundColor: DudoColors.ink.withValues(alpha: 0.45),
+          enableFeedback: enableFeedback,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radius),
           ),
@@ -431,12 +482,26 @@ class CoverFlowCropStage extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.memory(
-                bytes,
-                fit: BoxFit.cover,
-                gaplessPlayback: true,
+              // Frosted backdrop: the source blurred past recognition and
+              // veiled with the page colour, so the crop frame is the only
+              // sharp thing on the stage and the eye stays on it.
+              Positioned.fill(
+                child: ImageFiltered(
+                  imageFilter: ui.ImageFilter.blur(
+                    sigmaX: 20,
+                    sigmaY: 20,
+                    tileMode: ui.TileMode.clamp,
+                  ),
+                  child: Image.memory(
+                    bytes,
+                    fit: BoxFit.cover,
+                    gaplessPlayback: true,
+                  ),
+                ),
               ),
-              const ColoredBox(color: Color(0x8025251F)),
+              ColoredBox(
+                color: DudoColors.paperBackground.withValues(alpha: 0.7),
+              ),
               Center(
                 child: SizedBox(
                   width: frameWidth,

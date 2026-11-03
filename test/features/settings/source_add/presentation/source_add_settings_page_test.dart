@@ -129,6 +129,7 @@ Book _book({required String id, required String title}) {
   final now = DateTime(2026, 6, 2);
   return Book(
     id: id,
+    coverShowText: true,
     title: title,
     author: '本地文件',
     localPath: '/books/$id/book.txt',

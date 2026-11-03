@@ -301,6 +301,7 @@ List<Book> _books() {
   return [
     Book(
       id: 'book-1',
+      coverShowText: true,
       title: '云边有个小卖部',
       author: '张嘉佳',
       localPath: '/books/cloud.txt',
@@ -313,6 +314,7 @@ List<Book> _books() {
     ),
     Book(
       id: 'book-2',
+      coverShowText: true,
       title: '未开始的书',
       author: '作者',
       localPath: '/books/idle.txt',

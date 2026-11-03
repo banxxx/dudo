@@ -166,6 +166,7 @@ Book _book(
   final now = DateTime(2026, 11, 1);
   return Book(
     id: id,
+    coverShowText: true,
     title: '三体',
     author: '刘慈欣',
     intro: '简介',

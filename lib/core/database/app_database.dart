@@ -44,6 +44,10 @@ class Books extends Table {
   TextColumn get coverSpineWidth => text().nullable()();
   TextColumn get coverBackStyle => text().nullable()();
 
+  /// Whether the title and author are printed over the user's artwork. Some
+  /// covers already carry their own lettering, so this can be switched off.
+  BoolColumn get coverShowText => boolean().withDefault(const Constant(true))();
+
   @override
   Set<Column<Object>> get primaryKey => {id};
 }
@@ -189,7 +193,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -248,6 +252,9 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(books, books.coverSpineColor);
             await m.addColumn(books, books.coverSpineWidth);
             await m.addColumn(books, books.coverBackStyle);
+          }
+          if (from < 11) {
+            await m.addColumn(books, books.coverShowText);
           }
         },
       );

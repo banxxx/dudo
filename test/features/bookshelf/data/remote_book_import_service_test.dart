@@ -150,6 +150,7 @@ class _FakeBookshelfRepository implements BookshelfRepository {
   Book _bookFromCompanion(BooksCompanion companion) {
     return Book(
       id: companion.id.value,
+      coverShowText: true,
       title: companion.title.value,
       author: _valueOr<String?>(companion.author, null),
       coverUrl: _valueOr<String?>(companion.coverUrl, null),

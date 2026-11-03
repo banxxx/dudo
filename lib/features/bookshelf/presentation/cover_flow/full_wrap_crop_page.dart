@@ -66,6 +66,8 @@ class _FullWrapCropPageState extends State<FullWrapCropPage> {
             spineColor: spineColor,
             spineWidth: _spineWidth,
             backStyle: CoverBackStyle.blur,
+            // A full wrap is already a finished layout with its own lettering.
+            showText: false,
           ),
         ),
       );
@@ -112,10 +114,7 @@ class _FullWrapCropPageState extends State<FullWrapCropPage> {
                       controller: _controller,
                       stageHeightFactor: 400 / 350,
                       frameWidthFactor: 320 / 350,
-                      overlayBuilder: (_) => _WrapGuides(
-                        spineWidth: _spineWidth,
-                      ),
-                      stageOverlayBuilder: (_, frame) => _ZoneLabels(
+                      stageOverlayBuilder: (_, frame) => _WrapOverlay(
                         frame: frame,
                         spineWidth: _spineWidth,
                       ),
@@ -200,35 +199,8 @@ class _FullWrapCropPageState extends State<FullWrapCropPage> {
   }
 }
 
-class _WrapGuides extends StatelessWidget {
-  const _WrapGuides({required this.spineWidth});
-
-  final CoverSpineWidth spineWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final back = width * fullWrapBackFraction;
-        final spine = width * spineWidth.wrapFraction;
-        final front = back + spine;
-        return Positioned.fill(
-          child: CustomPaint(
-            painter: _WrapGuidesPainter(
-              back: back,
-              front: front,
-              height: constraints.maxHeight,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ZoneLabels extends StatelessWidget {
-  const _ZoneLabels({
+class _WrapOverlay extends StatelessWidget {
+  const _WrapOverlay({
     required this.frame,
     required this.spineWidth,
   });
@@ -238,26 +210,43 @@ class _ZoneLabels extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final top = frame.top - 28;
-    final spineCenter =
-        frame.left + frame.width * (fullWrapBackFraction + spineWidth.wrapFraction / 2);
+    final back = frame.width * fullWrapBackFraction;
+    final front = back + frame.width * spineWidth.wrapFraction;
+    final labelTop = frame.top - 28;
+    final spineCenter = frame.left + (back + front) / 2;
     final frontStart = fullWrapFrontStart(spineWidth);
     final frontCenter =
         frame.left + frame.width * (frontStart + (1 - frontStart) / 2);
     return Stack(
+      clipBehavior: Clip.none,
       children: [
         Positioned(
-          top: top,
+          left: frame.left,
+          top: frame.top,
+          width: frame.width,
+          height: frame.height,
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: _WrapGuidesPainter(
+                back: back,
+                front: front,
+                height: frame.height,
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: labelTop,
           left: frame.left,
           child: const _ZoneLabel('封底'),
         ),
         Positioned(
-          top: top,
+          top: labelTop,
           left: spineCenter - 20,
           child: const _ZoneLabel('书脊'),
         ),
         Positioned(
-          top: top,
+          top: labelTop,
           left: frontCenter - 20,
           child: const _ZoneLabel('封面'),
         ),

@@ -56,21 +56,28 @@ class BookCoverStyle {
     required this.spineColor,
     this.spineWidth = CoverSpineWidth.standard,
     this.backStyle = CoverBackStyle.blur,
+    this.showText = true,
   });
 
   final Color spineColor;
   final CoverSpineWidth spineWidth;
   final CoverBackStyle backStyle;
 
+  /// Whether the title and author are printed over the artwork and on the
+  /// spine. Turn this off for covers that already contain their own lettering.
+  final bool showText;
+
   BookCoverStyle copyWith({
     Color? spineColor,
     CoverSpineWidth? spineWidth,
     CoverBackStyle? backStyle,
+    bool? showText,
   }) {
     return BookCoverStyle(
       spineColor: spineColor ?? this.spineColor,
       spineWidth: spineWidth ?? this.spineWidth,
       backStyle: backStyle ?? this.backStyle,
+      showText: showText ?? this.showText,
     );
   }
 
@@ -78,11 +85,13 @@ class BookCoverStyle {
     int? spineColor,
     String? spineWidth,
     String? backStyle,
+    bool showText = true,
   }) {
     return BookCoverStyle(
       spineColor: spineColor == null ? const Color(0xFF5E6F5B) : Color(spineColor),
       spineWidth: CoverSpineWidth.fromStorage(spineWidth),
       backStyle: CoverBackStyle.fromStorage(backStyle),
+      showText: showText,
     );
   }
 }

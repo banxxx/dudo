@@ -17,10 +17,15 @@ class FrontCoverCropPage extends StatefulWidget {
     super.key,
     required this.book,
     required this.imageBytes,
+    this.showText = true,
   });
 
   final Book book;
   final Uint8List imageBytes;
+
+  /// Carries the current cover-text preference into the style step so its
+  /// preview and switch start from what the user sees today.
+  final bool showText;
 
   @override
   State<FrontCoverCropPage> createState() => _FrontCoverCropPageState();
@@ -48,6 +53,7 @@ class _FrontCoverCropPageState extends State<FrontCoverCropPage> {
           builder: (_) => CoverStylePage(
             book: widget.book,
             frontBytes: frontBytes,
+            initialShowText: widget.showText,
           ),
         ),
       );

@@ -246,6 +246,7 @@ class BookshelfRepository {
     required int? coverSpineColor,
     required String? coverSpineWidth,
     required String? coverBackStyle,
+    required bool coverShowText,
   }) async {
     await (database.update(database.books)
           ..where((book) => book.id.equals(bookId)))
@@ -259,6 +260,7 @@ class BookshelfRepository {
         coverSpineColor: Value(coverSpineColor),
         coverSpineWidth: Value(coverSpineWidth),
         coverBackStyle: Value(coverBackStyle),
+        coverShowText: Value(coverShowText),
         updatedAt: Value(DateTime.now()),
       ),
     );

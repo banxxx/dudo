@@ -109,6 +109,7 @@ Book _book({String? customCoverPath}) {
   final now = DateTime(2026, 11, 1);
   return Book(
     id: 'book-edit',
+    coverShowText: true,
     title: '野生的人生赢家',
     author: '二点就且歌且行',
     intro: '一只野生的人生赢家的快乐。',
@@ -138,6 +139,7 @@ class _FakeBookshelfRepository implements BookshelfRepository {
     required int? coverSpineColor,
     required String? coverSpineWidth,
     required String? coverBackStyle,
+    required bool coverShowText,
   }) async {
     savedTitle = title;
     savedAuthor = author;

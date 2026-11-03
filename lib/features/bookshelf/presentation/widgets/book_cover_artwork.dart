@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
+import 'cover_title_overlay.dart';
 
 /// Renders a book cover from the best available source: the pending crop in
 /// the editor, the user's saved local cover, the remote cover, or the generated
@@ -20,6 +21,7 @@ class BookCoverArtwork extends StatelessWidget {
     this.fit = BoxFit.cover,
     this.borderRadius = BorderRadius.zero,
     this.compactGeneratedTitle = true,
+    this.showTitleOverlay = false,
   });
 
   final String title;
@@ -31,10 +33,16 @@ class BookCoverArtwork extends StatelessWidget {
   final BorderRadius borderRadius;
   final bool compactGeneratedTitle;
 
+  /// Prints the Dudo title lockup over user supplied artwork. Covers that come
+  /// from the network or that are generated already carry their own lettering.
+  final bool showTitleOverlay;
+
   @override
   Widget build(BuildContext context) {
     final Widget artwork;
+    var userArtwork = false;
     if (pendingBytes != null) {
+      userArtwork = true;
       artwork = Image.memory(
         pendingBytes!,
         fit: fit,
@@ -42,6 +50,7 @@ class BookCoverArtwork extends StatelessWidget {
         errorBuilder: (_, __, ___) => _remoteOrGenerated(),
       );
     } else if (customCoverPath != null && customCoverPath!.isNotEmpty) {
+      userArtwork = true;
       artwork = Image.file(
         File(customCoverPath!),
         fit: fit,
@@ -52,7 +61,17 @@ class BookCoverArtwork extends StatelessWidget {
       artwork = _remoteOrGenerated();
     }
 
-    return ClipRRect(borderRadius: borderRadius, child: artwork);
+    final content = showTitleOverlay && userArtwork
+        ? Stack(
+            fit: StackFit.expand,
+            children: [
+              artwork,
+              CoverTitleOverlay(title: title, author: author),
+            ],
+          )
+        : artwork;
+
+    return ClipRRect(borderRadius: borderRadius, child: content);
   }
 
   Widget _remoteOrGenerated() {

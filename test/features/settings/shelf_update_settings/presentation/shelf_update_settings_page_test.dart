@@ -111,6 +111,7 @@ List<Book> _books(int onlineCount) {
     for (var index = 0; index < onlineCount; index++)
       Book(
         id: 'online-$index',
+        coverShowText: true,
         title: '在线书 $index',
         author: '作者',
         sourceId: 'source-1',
@@ -124,6 +125,7 @@ List<Book> _books(int onlineCount) {
       ),
     Book(
       id: 'local-1',
+      coverShowText: true,
       title: '本地书',
       author: '作者',
       localPath: '/books/local.txt',

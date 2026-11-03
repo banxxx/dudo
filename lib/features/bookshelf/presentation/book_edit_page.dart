@@ -20,7 +20,9 @@ import 'cover_flow/cover_flow_chrome.dart';
 import 'cover_flow/cover_flow_dialogs.dart';
 import 'cover_flow/cover_flow_models.dart';
 import 'cover_flow/front_cover_crop_page.dart';
+import 'widgets/book_3d_artwork.dart';
 import 'widgets/book_cover_artwork.dart';
+import 'widgets/photoreal_book_artwork.dart';
 
 class BookEditPage extends ConsumerStatefulWidget {
   const BookEditPage({super.key, required this.bookId});
@@ -43,6 +45,8 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
   String _baselineTitle = '';
   String _baselineAuthor = '';
   String _baselineIntro = '';
+  bool _baselineShowCoverText = true;
+  bool _showCoverText = true;
 
   Uint8List? _pendingFrontBytes;
   Uint8List? _pendingWrapBytes;
@@ -80,6 +84,8 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
     _baselineTitle = book.title.trim();
     _baselineAuthor = book.author?.trim() ?? '';
     _baselineIntro = book.intro?.trim() ?? '';
+    _baselineShowCoverText = book.coverShowText;
+    _showCoverText = book.coverShowText;
     _suppressDirty = true;
     _titleController.text = book.title;
     _authorController.text = book.author ?? '';
@@ -92,6 +98,7 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
     return _titleController.text.trim() != _baselineTitle ||
         _authorController.text.trim() != _baselineAuthor ||
         _introController.text.trim() != _baselineIntro ||
+        _showCoverText != _baselineShowCoverText ||
         _pendingFrontBytes != null ||
         _clearCustomCover;
   }
@@ -134,6 +141,7 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
           builder: (_) => FrontCoverCropPage(
             book: book,
             imageBytes: bytes,
+            showText: _showCoverText,
           ),
         ),
       );
@@ -142,6 +150,7 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
         _pendingFrontBytes = result.frontBytes;
         _pendingWrapBytes = result.wrapBytes;
         _pendingStyle = result.style;
+        _showCoverText = result.style.showText;
         _clearCustomCover = false;
       });
     } on PlatformException {
@@ -179,6 +188,7 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
       _pendingFrontBytes = null;
       _pendingWrapBytes = null;
       _pendingStyle = null;
+      _showCoverText = true;
       _clearCustomCover = true;
     });
   }
@@ -205,6 +215,7 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
       var spineColor = book.coverSpineColor;
       var spineWidth = book.coverSpineWidth;
       var backStyle = book.coverBackStyle;
+      var showCoverText = _showCoverText;
 
       if (_clearCustomCover) {
         await storage.deleteBookCovers(book.id);
@@ -213,6 +224,7 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
         spineColor = null;
         spineWidth = null;
         backStyle = null;
+        showCoverText = true;
       } else if (_pendingFrontBytes != null) {
         await storage.deleteBookCovers(book.id);
         customCoverPath =
@@ -240,6 +252,7 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
             coverSpineColor: spineColor,
             coverSpineWidth: spineWidth,
             coverBackStyle: backStyle,
+            coverShowText: showCoverText,
           );
       if (!mounted) return true;
 
@@ -247,6 +260,8 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
         _baselineTitle = title;
         _baselineAuthor = author;
         _baselineIntro = intro;
+        _baselineShowCoverText = showCoverText;
+        _showCoverText = showCoverText;
         _pendingFrontBytes = null;
         _pendingWrapBytes = null;
         _pendingStyle = null;
@@ -350,6 +365,47 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
     );
   }
 
+  Widget _previewArtwork(
+    Book book, {
+    required String title,
+    required String author,
+  }) {
+    final customCover = _clearCustomCover ? null : book.customCoverPath;
+    final fallback = Book3DArtwork(
+      width: 108,
+      height: 148,
+      spineColor: _coverSpineColor(book),
+      spineTitle: title,
+      spineAuthor: author,
+      showSpineText: _showCoverText,
+      child: BookCoverArtwork(
+        title: title,
+        author: author,
+        coverUrl: book.coverUrl,
+        customCoverPath: customCover,
+        pendingBytes: _pendingFrontBytes,
+        borderRadius: BorderRadius.zero,
+        showTitleOverlay: _showCoverText,
+      ),
+    );
+    final hasUserCover = _pendingFrontBytes != null ||
+        (customCover != null && customCover.isNotEmpty);
+    return PhotorealBookArtwork(
+      width: 108,
+      height: 148,
+      title: title,
+      author: author,
+      coverPath: customCover,
+      coverUrl: book.coverUrl,
+      pendingBytes: _pendingFrontBytes,
+      spineColor: _coverSpineColor(book),
+      spineWidth: _coverSpineWidth(book),
+      showSpineText: _showCoverText,
+      showCoverType: hasUserCover && _showCoverText,
+      fallback: fallback,
+    );
+  }
+
   Widget _buildEditor(Book book) {
     final previewTitle =
         _titleController.text.trim().isEmpty ? '书' : _titleController.text;
@@ -409,19 +465,23 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
                         ),
                         const SizedBox(height: 12),
                         _CoverCard(
-                          preview: BookCoverArtwork(
+                          preview: _previewArtwork(
+                            book,
                             title: previewTitle,
                             author: previewAuthor.isEmpty
-                                ? book.author
+                                ? (book.author ?? '')
                                 : previewAuthor,
-                            coverUrl: book.coverUrl,
-                            customCoverPath:
-                                _clearCustomCover ? null : book.customCoverPath,
-                            pendingBytes: _pendingFrontBytes,
-                            borderRadius: BorderRadius.zero,
                           ),
                           onChangeCover: _changeCover,
                         ),
+                        if (_hasCustomCover) ...[
+                          const SizedBox(height: 10),
+                          _CoverTextToggle(
+                            value: _showCoverText,
+                            onChanged: (value) =>
+                                setState(() => _showCoverText = value),
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         _EditFieldCard(
                           icon: LucideIcons.bookOpen,
@@ -505,7 +565,16 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
                           radius: 22,
                           labelSize: 15,
                           labelWeight: FontWeight.w700,
-                          onPressed: () => unawaited(_save()),
+                          // The button's own InkWell feedback is off and the
+                          // action plays one click, so a save can never sound
+                          // like it ran several times.
+                          enableFeedback: false,
+                          onPressed: () {
+                            unawaited(
+                              SystemSound.play(SystemSoundType.click),
+                            );
+                            unawaited(_save());
+                          },
                         ),
                       ],
                     ),
@@ -517,6 +586,18 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
         ),
       ),
     );
+  }
+
+  Color _coverSpineColor(Book book) {
+    final pending = _pendingStyle?.spineColor;
+    if (pending != null) return pending;
+    final stored = book.coverSpineColor;
+    return stored == null ? DudoColors.primary : Color(stored);
+  }
+
+  CoverSpineWidth _coverSpineWidth(Book book) {
+    return _pendingStyle?.spineWidth ??
+        CoverSpineWidth.fromStorage(book.coverSpineWidth);
   }
 
   String _readingStatus(Book book, int? chapterCount) {
@@ -691,6 +772,58 @@ class _CoverCard extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoverTextToggle extends StatelessWidget {
+  const _CoverTextToggle({required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Icon(LucideIcons.type, size: 17, color: DudoColors.secondary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '封面文字',
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '在封面和书脊上显示书名与作者；图片自带文字时可关闭。',
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.textSecondary,
+                    fontSize: 10.5,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          CoverFlowSwitch(value: value, onChanged: onChanged),
         ],
       ),
     );

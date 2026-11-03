@@ -19,8 +19,11 @@ import '../../../shared/widgets/error_state_view.dart';
 import '../../offline_cache/application/offline_cache_download_controller.dart';
 import '../../offline_cache/application/offline_cache_download_provider.dart';
 import '../application/bookshelf_providers.dart';
+import '../domain/book_cover_style.dart';
 import 'catalog/book_detail_catalog_controller.dart';
+import 'widgets/book_3d_artwork.dart';
 import 'widgets/book_cover_artwork.dart';
+import 'widgets/photoreal_book_artwork.dart';
 
 class BookDetailPage extends ConsumerStatefulWidget {
   const BookDetailPage({super.key, required this.bookId});
@@ -30,6 +33,23 @@ class BookDetailPage extends ConsumerStatefulWidget {
   @override
   ConsumerState<BookDetailPage> createState() => _BookDetailPageState();
 }
+
+/// How many chapter rows the collapsed catalogue shows before "查看全部".
+const int _chapterPreviewLimit = 4;
+
+/// A short catalogue window starting at the reader's current chapter.
+///
+/// The open catalogue pages from chapter 1, so a book read far in has no
+/// loaded rows around the reading position. This reads just those few rows
+/// from the database instead of paging the whole catalogue up to them.
+final _chapterPreviewWindowProvider =
+    FutureProvider.family<List<Chapter>, (String, int)>((ref, key) {
+  return ref.watch(bookshelfRepositoryProvider).fetchChapterMetasPage(
+        bookId: key.$1,
+        offset: key.$2,
+        limit: _chapterPreviewLimit,
+      );
+});
 
 class _BookDetailPageState extends ConsumerState<BookDetailPage> {
   final ScrollController _scrollController = ScrollController();
@@ -96,6 +116,11 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
           );
           final currentChapter = currentChapterValue.valueOrNull;
           if (loadedChapterCount > 0) _scheduleLengthBackfill();
+          final previewChapters = _collapsedChapterPreview(
+            book: book,
+            loadedChapters: _catalogController.chapters,
+            currentChapter: currentChapter,
+          );
 
           return Stack(
             children: [
@@ -103,6 +128,7 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
                 controller: _scrollController,
                 book: book,
                 chapters: _catalogController.chapters,
+                previewChapters: previewChapters,
                 chapterCount: displayChapterCount,
                 currentChapter: currentChapter,
                 chaptersLoading: chaptersLoading,
@@ -120,6 +146,11 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
                 onAddToShelf: () => _addToShelf(book),
                 onRefreshRemoteCatalog: () {
                   unawaited(_catalogController.refreshRemote(book));
+                  ref.invalidate(
+                    _chapterPreviewWindowProvider(
+                      (widget.bookId, book.lastChapterIndex),
+                    ),
+                  );
                 },
                 onChapterTap: (chapterIndex) => _openReader(
                   book,
@@ -151,6 +182,38 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
         ),
       ),
     );
+  }
+
+  /// Rows shown under "目录" while the catalogue is collapsed: the chapter the
+  /// reader is in plus the ones right after it, so the section is useful
+  /// without opening the full catalogue.
+  List<Chapter> _collapsedChapterPreview({
+    required Book book,
+    required List<Chapter> loadedChapters,
+    required Chapter? currentChapter,
+  }) {
+    if (_showAllChapters) return const [];
+    final started = book.lastChapterIndex > 0 || book.lastReadPosition > 0;
+    if (!started) {
+      return loadedChapters.take(_chapterPreviewLimit).toList();
+    }
+    final start = loadedChapters
+        .indexWhere((c) => c.chapterIndex == book.lastChapterIndex);
+    if (start >= 0) {
+      return loadedChapters.skip(start).take(_chapterPreviewLimit).toList();
+    }
+    // The reading position is past the first loaded page; read the small
+    // window around it directly instead of paging the whole catalogue.
+    final window = ref
+        .watch(
+          _chapterPreviewWindowProvider(
+            (widget.bookId, book.lastChapterIndex),
+          ),
+        )
+        .valueOrNull;
+    if (window != null && window.isNotEmpty) return window;
+    if (currentChapter != null) return [currentChapter];
+    return loadedChapters.take(_chapterPreviewLimit).toList();
   }
 
   void _goBack() {
@@ -341,6 +404,7 @@ class _BookDetailScrollView extends StatelessWidget {
     required this.controller,
     required this.book,
     required this.chapters,
+    required this.previewChapters,
     required this.chapterCount,
     required this.currentChapter,
     required this.chaptersLoading,
@@ -361,6 +425,9 @@ class _BookDetailScrollView extends StatelessWidget {
   final ScrollController controller;
   final Book book;
   final List<Chapter> chapters;
+
+  /// The short list shown while the catalogue is collapsed.
+  final List<Chapter> previewChapters;
   final int chapterCount;
   final Chapter? currentChapter;
   final bool chaptersLoading;
@@ -383,7 +450,6 @@ class _BookDetailScrollView extends StatelessWidget {
     final horizontalPadding = _horizontalPaddingForWidth(width);
     final maxWidth = _maxWidthForWidth(width);
     final hasStarted = book.lastChapterIndex > 0 || book.lastReadPosition > 0;
-    final previewChapter = _previewChapter(hasStarted);
 
     return SafeArea(
       child: Center(
@@ -445,17 +511,22 @@ class _BookDetailScrollView extends StatelessWidget {
                         : const _ChapterListMessageTile(message: '章节计算中'),
                   ),
                 )
-              else if (!showAllChapters && previewChapter != null)
+              else if (!showAllChapters && previewChapters.isNotEmpty)
                 SliverPadding(
                   padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                  sliver: SliverToBoxAdapter(
-                    child: _ChapterListTile(
-                      chapter: previewChapter,
-                      isFirst: true,
-                      isLast: true,
-                      isCurrent: hasStarted,
-                      onTap: () => onChapterTap(previewChapter.chapterIndex),
-                    ),
+                  sliver: SliverList.builder(
+                    itemCount: previewChapters.length,
+                    itemBuilder: (context, index) {
+                      final chapter = previewChapters[index];
+                      return _ChapterListTile(
+                        chapter: chapter,
+                        isFirst: index == 0,
+                        isLast: index == previewChapters.length - 1,
+                        isCurrent: hasStarted &&
+                            chapter.chapterIndex == book.lastChapterIndex,
+                        onTap: () => onChapterTap(chapter.chapterIndex),
+                      );
+                    },
                   ),
                 )
               else
@@ -488,15 +559,6 @@ class _BookDetailScrollView extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Chapter? _previewChapter(bool hasStarted) {
-    if (!hasStarted) return chapters.isEmpty ? null : chapters.first;
-    if (currentChapter != null) return currentChapter;
-    for (final chapter in chapters) {
-      if (chapter.chapterIndex == book.lastChapterIndex) return chapter;
-    }
-    return chapters.isEmpty ? null : chapters.first;
   }
 
   double _horizontalPaddingForWidth(double width) {
@@ -709,8 +771,8 @@ class _BookHeroSection extends StatelessWidget {
       children: [
         _BookCover(
           book: book,
-          width: compact ? 128 : 150,
-          height: compact ? 168 : 198,
+          width: compact ? 170 : 190,
+          height: compact ? 224 : 250,
         ),
         SizedBox(height: compact ? 10 : 14),
         Text(
@@ -758,25 +820,44 @@ class _BookCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final spineColor = book.coverSpineColor == null
+        ? DudoColors.primary
+        : Color(book.coverSpineColor!);
+    final artwork = Book3DArtwork(
       width: width,
       height: height,
-      decoration: const BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x338A735A),
-            offset: Offset(0, 18),
-            blurRadius: 34,
-          ),
-        ],
-      ),
+      spineColor: spineColor,
+      spineTitle: book.title,
+      spineAuthor: book.author,
+      showSpineText: book.coverShowText,
       child: BookCoverArtwork(
         title: book.title,
         author: book.author,
         coverUrl: book.coverUrl,
         customCoverPath: book.customCoverPath,
         borderRadius: BorderRadius.zero,
+        showTitleOverlay: book.coverShowText,
       ),
+    );
+    final customCover = book.customCoverPath;
+    final hasCustomCover = customCover != null && customCover.isNotEmpty;
+    final coverUrl = book.coverUrl?.trim();
+    return PhotorealBookArtwork(
+      width: width,
+      height: height,
+      title: book.title,
+      author: book.author,
+      coverPath: hasCustomCover ? customCover : null,
+      coverUrl: hasCustomCover || coverUrl == null || coverUrl.isEmpty
+          ? null
+          : coverUrl,
+      spineColor: spineColor,
+      spineWidth: CoverSpineWidth.fromStorage(book.coverSpineWidth),
+      showSpineText: book.coverShowText,
+      // Line art from the network, and the generated paper cover, already
+      // carry their own lettering; only user artwork gets the printed lockup.
+      showCoverType: hasCustomCover && book.coverShowText,
+      fallback: artwork,
     );
   }
 }
@@ -961,14 +1042,15 @@ class _BookProgressCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: AppRadius.full,
-            child: LinearProgressIndicator(
-              value: progress / 100,
-              minHeight: 8,
-              backgroundColor: DudoColors.primaryContainerMuted,
-              color: DudoColors.primary,
-            ),
+          // Round both caps of the track and of the fill: clipping the whole
+          // indicator only rounds the track, leaving the filled segment with a
+          // square right edge (visible whenever progress is small).
+          LinearProgressIndicator(
+            value: progress / 100,
+            minHeight: 8,
+            borderRadius: const BorderRadius.all(Radius.circular(4)),
+            backgroundColor: DudoColors.primaryContainerMuted,
+            color: DudoColors.primary,
           ),
           const SizedBox(height: 8),
           Text(

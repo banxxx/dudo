@@ -46,6 +46,7 @@ void main() {
     final books = [
       Book(
         id: 'local-1',
+        coverShowText: true,
         title: '云边有个小卖部',
         author: '张嘉佳',
         localPath: '/books/cloud.txt',
@@ -58,6 +59,7 @@ void main() {
       ),
       Book(
         id: 'local-2',
+        coverShowText: true,
         title: '可能性的艺术',
         author: '刘瑜',
         localPath: '/books/art.txt',
@@ -150,6 +152,7 @@ void main() {
     final books = [
       Book(
         id: 'local-1',
+        coverShowText: true,
         title: '云边有个小卖部',
         author: '张嘉佳',
         localPath: '/books/cloud.txt',
@@ -162,6 +165,7 @@ void main() {
       ),
       Book(
         id: 'local-2',
+        coverShowText: true,
         title: '可能性的艺术',
         author: '刘瑜',
         localPath: '/books/art.txt',
@@ -254,6 +258,7 @@ void main() {
     final books = [
       Book(
         id: 'local-1',
+        coverShowText: true,
         title: '云边有个小卖部',
         author: '张嘉佳',
         localPath: '/books/cloud.txt',
@@ -295,6 +300,7 @@ void main() {
       for (var index = 0; index < 7; index++)
         Book(
           id: 'local-$index',
+          coverShowText: true,
           title: '书架上的第 ${index + 1} 本书',
           author: '作者 $index',
           localPath: '/books/$index.txt',
@@ -334,6 +340,7 @@ void main() {
       for (var index = 0; index < 3; index++)
         Book(
           id: 'local-${index + 1}',
+          coverShowText: true,
           title: '书架第 ${index + 1} 本',
           author: '作者 $index',
           localPath: '/books/$index.txt',

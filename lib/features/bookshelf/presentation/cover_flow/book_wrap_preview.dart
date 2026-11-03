@@ -17,6 +17,7 @@ class BookWrapPreview extends StatelessWidget {
     required this.style,
     this.author,
     this.intro,
+    this.showText = true,
     this.height = 195,
   });
 
@@ -25,6 +26,7 @@ class BookWrapPreview extends StatelessWidget {
   final String? author;
   final String? intro;
   final BookCoverStyle style;
+  final bool showText;
   final double height;
 
   @override
@@ -61,6 +63,7 @@ class BookWrapPreview extends StatelessWidget {
                 title: title,
                 author: author,
                 color: style.spineColor,
+                showText: showText,
               ),
             ),
             SizedBox(
@@ -70,6 +73,7 @@ class BookWrapPreview extends StatelessWidget {
                 frontBytes: frontBytes,
                 title: title,
                 author: author,
+                showText: showText,
               ),
             ),
           ],
@@ -171,11 +175,13 @@ class _FrontCover extends StatelessWidget {
     required this.frontBytes,
     required this.title,
     this.author,
+    this.showText = true,
   });
 
   final Uint8List frontBytes;
   final String title;
   final String? author;
+  final bool showText;
 
   @override
   Widget build(BuildContext context) {
@@ -187,53 +193,60 @@ class _FrontCover extends StatelessWidget {
           fit: BoxFit.cover,
           gaplessPlayback: true,
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-          child: Column(
-            children: [
-              Text(
-                '阅读收藏',
-                style: DudoTextStyles.sans(
-                  color: const Color(0xCCFFF8EA),
-                  fontSize: 8,
+        if (showText)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            child: Column(
+              children: [
+                Text(
+                  '阅读收藏',
+                  style: DudoTextStyles.sans(
+                    color: const Color(0xCCFFF8EA),
+                    fontSize: 8,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              Text(
-                title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: DudoTextStyles.serif(
-                  color: const Color(0xFFFFF8EA),
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
+                const Spacer(),
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: DudoTextStyles.serif(
+                    color: const Color(0xFFFFF8EA),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              Text(
-                author?.trim().isNotEmpty == true ? author!.trim() : '',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: DudoTextStyles.sans(
-                  color: const Color(0xCCFFF8EA),
-                  fontSize: 8,
+                const Spacer(),
+                Text(
+                  author?.trim().isNotEmpty == true ? author!.trim() : '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: DudoTextStyles.sans(
+                    color: const Color(0xCCFFF8EA),
+                    fontSize: 8,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
 }
 
 class _Spine extends StatelessWidget {
-  const _Spine({required this.title, required this.color, this.author});
+  const _Spine({
+    required this.title,
+    required this.color,
+    this.author,
+    this.showText = true,
+  });
 
   final String title;
   final String? author;
   final Color color;
+  final bool showText;
 
   @override
   Widget build(BuildContext context) {
@@ -253,33 +266,35 @@ class _Spine extends StatelessWidget {
           ],
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        child: Column(
-          children: [
-            for (final character in titleCharacters)
-              Text(
-                character,
-                style: DudoTextStyles.serif(
-                  color: textColor,
-                  fontSize: 10,
-                  height: 1.1,
-                  fontWeight: FontWeight.w700,
-                ),
+      child: showText
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Column(
+                children: [
+                  for (final character in titleCharacters)
+                    Text(
+                      character,
+                      style: DudoTextStyles.serif(
+                        color: textColor,
+                        fontSize: 10,
+                        height: 1.1,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  const Spacer(),
+                  for (final character in authorCharacters)
+                    Text(
+                      character,
+                      style: DudoTextStyles.serif(
+                        color: textColor.withValues(alpha: 0.8),
+                        fontSize: 8,
+                        height: 1.2,
+                      ),
+                    ),
+                ],
               ),
-            const Spacer(),
-            for (final character in authorCharacters)
-              Text(
-                character,
-                style: DudoTextStyles.serif(
-                  color: textColor.withValues(alpha: 0.8),
-                  fontSize: 8,
-                  height: 1.2,
-                ),
-              ),
-          ],
-        ),
-      ),
+            )
+          : null,
     );
   }
 }

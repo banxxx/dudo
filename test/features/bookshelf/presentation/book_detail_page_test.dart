@@ -17,6 +17,7 @@ void main() {
     final now = DateTime(2026, 6, 3);
     final book = Book(
       id: 'book-1',
+      coverShowText: true,
       title: '三体',
       author: '刘慈欣',
       intro: '文化大革命如火如荼进行的同时，红岸工程取得突破。',
@@ -97,6 +98,7 @@ void main() {
     final now = DateTime(2026, 6, 3);
     final book = Book(
       id: 'book-2',
+      coverShowText: true,
       title: '本地书',
       author: '作者',
       intro: '一本尚未开始阅读的书。',
@@ -162,6 +164,7 @@ void main() {
     ).join();
     final book = Book(
       id: 'remote-book',
+      coverShowText: true,
       title: '远程书',
       author: '作者',
       intro: longIntro,
@@ -245,6 +248,7 @@ void main() {
     final now = DateTime(2026, 6, 3);
     final book = Book(
       id: 'remote-empty',
+      coverShowText: true,
       title: '远程空目录',
       author: '作者',
       intro: '在线书源详情',
@@ -312,6 +316,7 @@ void main() {
     final now = DateTime(2026, 6, 3);
     final book = Book(
       id: 'cache-book',
+      coverShowText: true,
       title: '远程书',
       author: '作者',
       intro: '在线书源详情',

@@ -19,11 +19,13 @@ class CoverStylePage extends StatefulWidget {
     required this.book,
     required this.frontBytes,
     this.initialStyle,
+    this.initialShowText = true,
   });
 
   final Book book;
   final Uint8List frontBytes;
   final BookCoverStyle? initialStyle;
+  final bool initialShowText;
 
   @override
   State<CoverStylePage> createState() => _CoverStylePageState();
@@ -32,6 +34,7 @@ class CoverStylePage extends StatefulWidget {
 class _CoverStylePageState extends State<CoverStylePage> {
   late CoverSpineWidth _spineWidth;
   late CoverBackStyle _backStyle;
+  late bool _showText;
   Color? _spineColor;
   Color? _autoColor;
   bool _sampling = true;
@@ -41,6 +44,7 @@ class _CoverStylePageState extends State<CoverStylePage> {
     super.initState();
     _spineWidth = widget.initialStyle?.spineWidth ?? CoverSpineWidth.standard;
     _backStyle = widget.initialStyle?.backStyle ?? CoverBackStyle.blur;
+    _showText = widget.initialStyle?.showText ?? widget.initialShowText;
     _spineColor = widget.initialStyle?.spineColor;
     _sampleColor();
   }
@@ -69,6 +73,7 @@ class _CoverStylePageState extends State<CoverStylePage> {
         spineColor: _spineColor ?? DudoColors.primary,
         spineWidth: _spineWidth,
         backStyle: _backStyle,
+        showText: _showText,
       );
 
   Future<void> _openColorPicker() async {
@@ -148,6 +153,7 @@ class _CoverStylePageState extends State<CoverStylePage> {
                                     author: widget.book.author,
                                     intro: widget.book.intro,
                                     style: _style,
+                                    showText: _showText,
                                     height: height,
                                   ),
                                   const SizedBox(height: 15),
@@ -162,6 +168,39 @@ class _CoverStylePageState extends State<CoverStylePage> {
                                 ],
                               );
                             },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _SectionCard(
+                      title: '封面文字',
+                      note: '图片自带文字时可关闭',
+                      contentGap: 8,
+                      bottomPadding: 12,
+                      child: Row(
+                        children: [
+                          Icon(
+                            LucideIcons.type,
+                            size: 16,
+                            color: DudoColors.secondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '在封面与书脊上显示书名、作者。',
+                              style: DudoTextStyles.sans(
+                                color: DudoColors.textSecondary,
+                                fontSize: 11.5,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          CoverFlowSwitch(
+                            value: _showText,
+                            onChanged: (value) =>
+                                setState(() => _showText = value),
                           ),
                         ],
                       ),

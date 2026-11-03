@@ -179,6 +179,7 @@ Book _book({
   final timestamp = updatedAt ?? DateTime(2026, 5, 20, 10);
   return Book(
     id: id,
+    coverShowText: true,
     title: title,
     author: author,
     intro: intro,

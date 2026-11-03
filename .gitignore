@@ -15,6 +15,7 @@ build/
 *.freezed.dart
 *.config.dart
 *.mocks.dart
+__pycache__/
 
 # Environment / local
 .env
@@ -36,3 +37,5 @@ docs/
 
 # Local scratch files (screenshots, DB dumps, one-off scripts)
 .tmp/
+# Blender renders and verification screenshots written by tools/blender/*
+pencil/
