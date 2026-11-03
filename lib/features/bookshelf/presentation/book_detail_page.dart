@@ -19,9 +19,9 @@ import '../../../shared/widgets/error_state_view.dart';
 import '../../offline_cache/application/offline_cache_download_controller.dart';
 import '../../offline_cache/application/offline_cache_download_provider.dart';
 import '../application/bookshelf_providers.dart';
-import '../domain/book_cover_style.dart';
 import 'catalog/book_detail_catalog_controller.dart';
 import 'widgets/book_3d_artwork.dart';
+import 'widgets/book_artwork_renderer.dart';
 import 'widgets/book_cover_artwork.dart';
 import 'widgets/photoreal_book_artwork.dart';
 
@@ -820,13 +820,16 @@ class _BookCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final spineColor = book.coverSpineColor == null
-        ? DudoColors.primary
-        : Color(book.coverSpineColor!);
+    final spec = BookArtworkSpec.bookDetail(
+      book,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      width: width,
+      height: height,
+    );
     final artwork = Book3DArtwork(
       width: width,
       height: height,
-      spineColor: spineColor,
+      spineColor: spec.spineColor ?? DudoColors.primary,
       spineTitle: book.title,
       spineAuthor: book.author,
       showSpineText: book.coverShowText,
@@ -839,26 +842,11 @@ class _BookCover extends StatelessWidget {
         showTitleOverlay: book.coverShowText,
       ),
     );
-    final customCover = book.customCoverPath;
-    final hasCustomCover = customCover != null && customCover.isNotEmpty;
-    final coverUrl = book.coverUrl?.trim();
-    return PhotorealBookArtwork(
-      width: width,
-      height: height,
-      title: book.title,
-      author: book.author,
-      coverPath: hasCustomCover ? customCover : null,
-      coverUrl: hasCustomCover || coverUrl == null || coverUrl.isEmpty
-          ? null
-          : coverUrl,
-      spineColor: spineColor,
-      spineWidth: CoverSpineWidth.fromStorage(book.coverSpineWidth),
-      showSpineText: book.coverShowText,
-      // Line art from the network, and the generated paper cover, already
-      // carry their own lettering; only user artwork gets the printed lockup.
-      showCoverType: hasCustomCover && book.coverShowText,
-      fallback: artwork,
-    );
+    // Line art from the network, and the generated paper cover, already carry
+    // their own lettering; only user artwork gets the printed lockup. The
+    // spine is left to the renderer: when the reader has not picked a colour
+    // it samples the dominant one from this cover.
+    return PhotorealBookArtwork(spec: spec, fallback: artwork);
   }
 }
 

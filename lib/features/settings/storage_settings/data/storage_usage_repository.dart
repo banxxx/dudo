@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../../../bookshelf/data/book_mockup_cache.dart';
 import '../domain/storage_usage.dart';
 
 /// Measures and reclaims the storage the app owns on this device.
@@ -76,6 +77,11 @@ class FileSystemStorageUsageRepository implements StorageUsageRepository {
     final before = await _measurePaths(paths);
     for (final path in paths) {
       await _deletePath(path);
+    }
+    // Composited covers live in memory, but they are part of the same bucket
+    // from the reader's point of view: clearing cover cache frees them too.
+    if (category == StorageCategory.coverCache) {
+      BookMockupCache.clear();
     }
     return before.bytes;
   }

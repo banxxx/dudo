@@ -21,6 +21,7 @@ import 'cover_flow/cover_flow_dialogs.dart';
 import 'cover_flow/cover_flow_models.dart';
 import 'cover_flow/front_cover_crop_page.dart';
 import 'widgets/book_3d_artwork.dart';
+import 'widgets/book_artwork_renderer.dart';
 import 'widgets/book_cover_artwork.dart';
 import 'widgets/photoreal_book_artwork.dart';
 
@@ -371,10 +372,11 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
     required String author,
   }) {
     final customCover = _clearCustomCover ? null : book.customCoverPath;
+    final spineColor = _coverSpineColor(book);
     final fallback = Book3DArtwork(
       width: 108,
       height: 148,
-      spineColor: _coverSpineColor(book),
+      spineColor: spineColor ?? DudoColors.primary,
       spineTitle: title,
       spineAuthor: author,
       showSpineText: _showCoverText,
@@ -391,17 +393,20 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
     final hasUserCover = _pendingFrontBytes != null ||
         (customCover != null && customCover.isNotEmpty);
     return PhotorealBookArtwork(
-      width: 108,
-      height: 148,
-      title: title,
-      author: author,
-      coverPath: customCover,
-      coverUrl: book.coverUrl,
-      pendingBytes: _pendingFrontBytes,
-      spineColor: _coverSpineColor(book),
-      spineWidth: _coverSpineWidth(book),
-      showSpineText: _showCoverText,
-      showCoverType: hasUserCover && _showCoverText,
+      spec: BookArtworkSpec(
+        width: 108,
+        height: 148,
+        devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+        title: title,
+        author: author,
+        coverPath: customCover,
+        coverUrl: book.coverUrl,
+        pendingBytes: _pendingFrontBytes,
+        spineColor: spineColor,
+        spineWidth: _coverSpineWidth(book),
+        showSpineText: _showCoverText,
+        showCoverType: hasUserCover && _showCoverText,
+      ),
       fallback: fallback,
     );
   }
@@ -588,11 +593,13 @@ class _BookEditPageState extends ConsumerState<BookEditPage> {
     );
   }
 
-  Color _coverSpineColor(Book book) {
+  /// Null means the spine is sampled from the cover, exactly like the detail
+  /// page, so the preview and the book it returns to stay in step.
+  Color? _coverSpineColor(Book book) {
     final pending = _pendingStyle?.spineColor;
     if (pending != null) return pending;
     final stored = book.coverSpineColor;
-    return stored == null ? DudoColors.primary : Color(stored);
+    return stored == null ? null : Color(stored);
   }
 
   CoverSpineWidth _coverSpineWidth(Book book) {

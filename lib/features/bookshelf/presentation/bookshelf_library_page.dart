@@ -17,7 +17,21 @@ import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../application/bookshelf_providers.dart';
 import '../domain/book_cover_style.dart';
+import 'widgets/book_artwork_renderer.dart';
+import 'widgets/book_cover_palette.dart';
 import 'widgets/cover_title_overlay.dart';
+
+/// Starts compositing the detail hero the moment a book is tapped. The route
+/// transition hides the work, so the hero can paint the finished bitmap on its
+/// first frame instead of showing a placeholder that changes colour.
+void _prewarmDetailCover(BuildContext context, Book book) {
+  BookArtworkRenderer.prewarm(
+    BookArtworkSpec.bookDetail(
+      book,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    ),
+  );
+}
 
 class BookshelfLibraryPage extends ConsumerStatefulWidget {
   const BookshelfLibraryPage({super.key});
@@ -664,9 +678,10 @@ class _ShelfSearchResultsList extends StatelessWidget {
           _ShelfSearchResultCard(
             book: books[index],
             searchQuery: searchQuery,
-            onTap: () => context.push(
-              '${AppRoutes.bookDetail}/${books[index].id}',
-            ),
+            onTap: () {
+              _prewarmDetailCover(context, books[index]);
+              context.push('${AppRoutes.bookDetail}/${books[index].id}');
+            },
           ),
           if (index != books.length - 1) const SizedBox(height: 8),
         ],
@@ -688,7 +703,7 @@ class _ShelfSearchResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = _paletteFor(book);
+    final palette = bookCoverPaletteFor(book);
     final progress = _readingProgressPercent(book);
 
     return Material(
@@ -1264,9 +1279,12 @@ class _ShelfRow extends StatelessWidget {
                   coverHeight: coverHeight,
                   onTap: isManaging
                       ? () => onToggleBook(books[index].id)
-                      : () => context.push(
+                      : () {
+                          _prewarmDetailCover(context, books[index]);
+                          context.push(
                             '${AppRoutes.bookDetail}/${books[index].id}',
-                          ),
+                          );
+                        },
                   onDragStarted: () => onDragStarted(books[index].id),
                   onDragHover: () => onDragHover(books[index].id),
                   onDragEnded: onDragEnded,
@@ -1337,7 +1355,7 @@ class _ShelfBookTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isStarted = book.lastChapterIndex > 0 || book.lastReadPosition > 0;
-    final palette = _paletteFor(book);
+    final palette = bookCoverPaletteFor(book);
     final remoteCount = book.remoteChapterCount;
     final progress = isStarted && remoteCount != null && remoteCount > 0
         ? ((book.lastChapterIndex + 1) / remoteCount).clamp(0.0, 1.0)
@@ -1677,32 +1695,6 @@ class _BookmarkRibbonClipper extends CustomClipper<Path> {
   @override
   bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
-
-class _CoverPalette {
-  const _CoverPalette(this.start, this.end);
-
-  final Color start;
-  final Color end;
-}
-
-/// A book keeps the same cover colour wherever it appears, and keeps it when
-/// the shelf is reordered. The hash is deterministic across app launches.
-_CoverPalette _paletteFor(Book book) {
-  final key = book.id.isNotEmpty ? book.id : book.title;
-  var hash = 0;
-  for (final unit in key.codeUnits) {
-    hash = (hash * 31 + unit) & 0x7fffffff;
-  }
-  return _coverPalettes[hash % _coverPalettes.length];
-}
-
-/// Resolved per build so covers follow the active light/dark palette.
-List<_CoverPalette> get _coverPalettes => [
-      _CoverPalette(const Color(0xFF6F7E68), DudoColors.primaryContainer),
-      _CoverPalette(DudoColors.secondary, DudoColors.secondaryContainer),
-      const _CoverPalette(Color(0xFF5A6B84), Color(0xFFD7E0EA)),
-      const _CoverPalette(Color(0xFF9A6D45), Color(0xFFE8C99B)),
-    ];
 
 class _BookshelfLoadingHint extends StatelessWidget {
   const _BookshelfLoadingHint();

@@ -315,7 +315,7 @@ class BookMockupComposer {
     if (cover != null) {
       canvas.drawImageRect(
         cover,
-        _coverSourceRect(cover, layout),
+        coverSourceRect(cover, layout),
         coverRect,
         Paint()..filterQuality = FilterQuality.high,
       );
@@ -449,7 +449,7 @@ class BookMockupComposer {
         image.height.toDouble(),
       );
 
-  static Rect _coverSourceRect(ui.Image image, Size target) {
+  static Rect coverSourceRect(ui.Image image, Size target) {
     final imageSize = Size(image.width.toDouble(), image.height.toDouble());
     final targetRatio = target.width / target.height;
     final imageRatio = imageSize.width / imageSize.height;
@@ -880,23 +880,3 @@ class BookMockupSpineTypePainter extends CustomPainter {
 
 /// Small LRU cache for composed book images. Each entry is a few megabytes,
 /// so the shelf never accumulates a whole library of them.
-class BookMockupCache {
-  const BookMockupCache._();
-
-  // One detail hero composite is ~570×750 px at dpr 3, about 1.7 MB decoded.
-  // Eight of them keep a whole screen of books resident, so reopening a book
-  // never pays for the composite twice.
-  static const int _maxEntries = 8;
-  static final Map<String, ui.Image> _images = {};
-
-  static ui.Image? get(String key) => _images[key];
-
-  static void put(String key, ui.Image image) {
-    _images.remove(key)?.dispose();
-    _images[key] = image;
-    while (_images.length > _maxEntries) {
-      final oldest = _images.keys.first;
-      _images.remove(oldest)?.dispose();
-    }
-  }
-}

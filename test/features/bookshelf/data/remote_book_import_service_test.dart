@@ -49,7 +49,7 @@ void main() {
 
     final bookId = await service.importRemoteBook(
       sourceId: 'mock-source',
-      bookUrl: 'https://mock.example/androidapi/chapterList?novelId=1&whole=1',
+      bookUrl: 'https://mock.example/androidapi/chapterList?novelId=1',
       fallbackName: 'Remote Book',
       fallbackAuthor: 'Author',
     );
@@ -80,6 +80,37 @@ void main() {
     );
 
     expect(loadedMore, isTrue);
+    expect(book?.remoteChapterCount, 4);
+    expect(book?.remoteNextTocUrl, isNull);
+    expect(chapters.map((chapter) => chapter.title), [
+      'Chapter 1',
+      'Chapter 2',
+      'Chapter 3',
+      'Chapter 4',
+    ]);
+  });
+
+  test('keeps an explicit whole-list TOC request on one page', () async {
+    final service = RemoteBookImportService(
+      bookshelfRepository: bookshelfRepository,
+      sourceRepository: sourceRepository,
+      ruleEngine: RuleEngine.create(executor: const _PagedTocExecutor()),
+    );
+
+    final bookId = await service.importRemoteBook(
+      sourceId: 'mock-source',
+      bookUrl: 'https://mock.example/androidapi/chapterList?novelId=1&whole=1',
+      fallbackName: 'Remote Book',
+      fallbackAuthor: 'Author',
+    );
+
+    final book = await bookshelfRepository.findBookById(bookId);
+    final chapters = await bookshelfRepository.fetchChapterMetasPage(
+      bookId: bookId,
+      offset: 0,
+      limit: 10,
+    );
+
     expect(book?.remoteChapterCount, 4);
     expect(book?.remoteNextTocUrl, isNull);
     expect(chapters.map((chapter) => chapter.title), [
@@ -210,16 +241,24 @@ class _PagedTocExecutor implements LegadoRequestExecutor {
   @override
   Future<LegadoHttpResponse> execute(LegadoRequest request) async {
     final uri = Uri.parse(request.url);
+    final whole = uri.queryParameters['whole'] == '1';
     final offset = int.tryParse(uri.queryParameters['more'] ?? '0') ?? 0;
-    final page = offset <= 0
+    final page = whole
         ? [
             _chapter(1, 'Chapter 1'),
             _chapter(2, 'Chapter 2'),
-          ]
-        : [
             _chapter(3, 'Chapter 3'),
             _chapter(4, 'Chapter 4'),
-          ];
+          ]
+        : offset <= 0
+            ? [
+                _chapter(1, 'Chapter 1'),
+                _chapter(2, 'Chapter 2'),
+              ]
+            : [
+                _chapter(3, 'Chapter 3'),
+                _chapter(4, 'Chapter 4'),
+              ];
     return LegadoHttpResponse(
       bytes: utf8.encode(jsonEncode({
         'totalCount': 4,
