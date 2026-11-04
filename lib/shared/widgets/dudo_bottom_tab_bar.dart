@@ -74,7 +74,7 @@ class DudoBottomTabBar extends StatelessWidget {
                       return Stack(
                         children: [
                           AnimatedPositioned(
-                            duration: AppMotion.medium,
+                            duration: AppMotion.base,
                             curve: AppMotion.emphasized,
                             left: indicatorLeft,
                             top: 0,
@@ -164,7 +164,7 @@ class _DudoBottomTabItem extends StatelessWidget {
         onTap: onTap,
         child: TweenAnimationBuilder<double>(
           tween: Tween<double>(end: selected ? 1 : 0),
-          duration: AppMotion.medium,
+          duration: AppMotion.base,
           curve: AppMotion.emphasized,
           builder: (context, value, child) {
             final foreground = Color.lerp(

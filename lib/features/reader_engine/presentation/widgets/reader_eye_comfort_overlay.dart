@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/theme/app_tokens.dart';
 import '../../domain/reader_theme.dart';
 
 class ReaderEyeComfortOverlay extends StatelessWidget {
@@ -21,7 +22,7 @@ class ReaderEyeComfortOverlay extends StatelessWidget {
       child: IgnorePointer(
         child: AnimatedContainer(
           key: const ValueKey('reader-eye-comfort-overlay'),
-          duration: const Duration(milliseconds: 140),
+          duration: AppMotion.fast,
           color: color.withValues(alpha: alpha),
         ),
       ),

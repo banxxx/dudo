@@ -909,7 +909,7 @@ class _BookshelfManageOverlayState extends State<_BookshelfManageOverlay> {
   Future<void> close() async {
     if (!_visible) return;
     if (mounted) setState(() => _visible = false);
-    await Future<void>.delayed(AppMotion.medium);
+    await Future<void>.delayed(AppMotion.base);
   }
 
   @override
@@ -926,12 +926,12 @@ class _BookshelfManageOverlayState extends State<_BookshelfManageOverlay> {
             right: 20,
             child: AnimatedOpacity(
               opacity: _visible ? 1 : 0,
-              duration: AppMotion.medium,
-              curve: Curves.easeOutCubic,
+              duration: AppMotion.base,
+              curve: AppMotion.standard,
               child: AnimatedSlide(
                 offset: _visible ? Offset.zero : const Offset(0, -1.35),
-                duration: AppMotion.medium,
-                curve: Curves.easeOutCubic,
+                duration: AppMotion.base,
+                curve: AppMotion.standard,
                 child: _BookshelfManageBar(
                   selectedCount: widget.selectedBookIds.length,
                   allSelected:
@@ -948,12 +948,12 @@ class _BookshelfManageOverlayState extends State<_BookshelfManageOverlay> {
             bottom: 0,
             child: AnimatedOpacity(
               opacity: _visible ? 1 : 0,
-              duration: AppMotion.medium,
-              curve: Curves.easeOutCubic,
+              duration: AppMotion.base,
+              curve: AppMotion.standard,
               child: AnimatedSlide(
                 offset: _visible ? Offset.zero : const Offset(0, 1.2),
-                duration: AppMotion.medium,
-                curve: Curves.easeOutCubic,
+                duration: AppMotion.base,
+                curve: AppMotion.standard,
                 child: _BookshelfManageBottomBar(
                   selectedCount: widget.selectedBookIds.length,
                   isDeleting: widget.isDeleting,
@@ -1382,7 +1382,7 @@ class _ShelfBookTile extends StatelessWidget {
         children: [
           Positioned.fill(
             child: AnimatedContainer(
-              duration: AppMotion.short,
+              duration: AppMotion.fast,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.zero,
                 border: isSelected
@@ -1490,7 +1490,7 @@ class _BookSelectionMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: AppMotion.short,
+      duration: AppMotion.fast,
       width: 26,
       height: 26,
       decoration: BoxDecoration(

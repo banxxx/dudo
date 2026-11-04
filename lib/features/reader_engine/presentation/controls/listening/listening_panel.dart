@@ -89,7 +89,7 @@ class _ListeningPanel extends StatelessWidget {
                 for (var i = 0; i < bars.length; i++) ...[
                   if (i > 0) SizedBox(width: metrics.s(6)),
                   AnimatedContainer(
-                    duration: AppMotion.medium,
+                    duration: AppMotion.base,
                     width: metrics.s(8),
                     height: metrics.s(
                       isListening ? bars[i] : (16 + i % 3 * 6).toDouble(),

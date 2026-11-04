@@ -4,8 +4,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../shared/messages/app_message.dart';
 import '../../../../shared/messages/app_message_service.dart';
+import '../../../../shared/motion/dudo_animated_switcher.dart';
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
+import '../../../../shared/widgets/dudo_skeleton.dart';
 import '../application/reader_font_providers.dart';
 import '../data/reader_font_repository.dart';
 import '../domain/reader_font.dart';
@@ -366,7 +368,7 @@ class _FontSourceTabs extends StatelessWidget {
           return Stack(
             children: [
               AnimatedPositionedDirectional(
-                duration: AppMotion.short,
+                duration: AppMotion.fast,
                 curve: AppMotion.emphasized,
                 start: indicatorLeft,
                 top: 0,
@@ -504,8 +506,8 @@ class _ImportFontEntry extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              AnimatedSwitcher(
-                duration: AppMotion.short,
+              DudoAnimatedSwitcher(
+                duration: AppMotion.fast,
                 child: loading
                     ? const SizedBox(
                         key: ValueKey('font-import-loading'),
@@ -679,15 +681,12 @@ class _FontLibraryLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
-      height: 68,
-      child: Center(
-        child: SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      ),
+    return const Column(
+      children: [
+        DudoSkeletonListTile(),
+        SizedBox(height: 10),
+        DudoSkeletonListTile(),
+      ],
     );
   }
 }

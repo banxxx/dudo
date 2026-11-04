@@ -119,14 +119,51 @@ class DudoLayout {
   static const double pinnedHeaderGap = 12;
 }
 
-/// Custom motion tokens following M3 emphasized easing.
+/// The app-wide motion tokens.
+///
+/// Every animation in the app draws its duration and curve from here so that
+/// taps, panels and route changes share one rhythm. The scale is intentionally
+/// short: the app is a quiet paper surface, and motion should acknowledge an
+/// action without making the reader wait.
 class AppMotion {
   AppMotion._();
-  static const Duration short = Duration(milliseconds: 200);
-  static const Duration medium = Duration(milliseconds: 350);
-  static const Duration long = Duration(milliseconds: 500);
+
+  /// Press, toggle and selection feedback that should feel immediate.
+  static const Duration instant = Duration(milliseconds: 90);
+
+  /// Small state changes: icons, chips, check marks, inline swaps.
+  static const Duration fast = Duration(milliseconds: 150);
+
+  /// The default for implicit state changes, panels and bottom sheets.
+  static const Duration base = Duration(milliseconds: 220);
+
+  /// Larger surfaces: reorder, charts, page-level content changes.
+  static const Duration slow = Duration(milliseconds: 320);
+
+  /// Route transitions.
+  static const Duration page = Duration(milliseconds: 380);
+
+  /// Delay between sibling items in a staggered entrance.
+  static const Duration stagger = Duration(milliseconds: 45);
+
+  /// The house easing: quick to start, soft landing.
+  static const Curve standard = Curves.easeOutCubic;
+
+  /// Movement into the screen or into view.
+  static const Curve enter = Cubic(0.05, 0.7, 0.1, 1.0);
+
+  /// Movement out of the screen or out of view.
+  static const Curve exit = Cubic(0.3, 0.0, 0.8, 0.15);
 
   static const Curve emphasized = Cubic(0.2, 0.0, 0, 1.0);
-  static const Curve emphasizedAccelerate = Cubic(0.3, 0.0, 0.8, 0.15);
-  static const Curve emphasizedDecelerate = Cubic(0.05, 0.7, 0.1, 1.0);
+  static const Curve emphasizedAccelerate = exit;
+  static const Curve emphasizedDecelerate = enter;
+
+  /// Whether the platform asks for reduced motion.
+  static bool reduced(BuildContext context) =>
+      MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+
+  /// Collapses a duration to zero when reduced motion is enabled.
+  static Duration effective(BuildContext context, Duration duration) =>
+      reduced(context) ? Duration.zero : duration;
 }

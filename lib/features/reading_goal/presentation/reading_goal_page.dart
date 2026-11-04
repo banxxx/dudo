@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/utils/logger.dart';
 import '../../../shared/theme/app_tokens.dart';
+import '../../../shared/widgets/dudo_skeleton.dart';
 import '../../../shared/widgets/error_state_view.dart';
 import '../../reading_stats/application/reading_stats_provider.dart';
 import '../application/reading_goal_overview.dart';
@@ -250,12 +251,12 @@ class _ReadingGoalPageState extends ConsumerState<ReadingGoalPage> {
               // loading frame between the edit view and the overview.
               skipLoadingOnReload: true,
               data: (overview) => overview == null
-                  ? const _GoalLoadingView()
+                  ? const _GoalSkeleton()
                   : ReadingGoalOverviewView(
                       overview: overview,
                       onEdit: _openEdit,
                     ),
-              loading: () => const _GoalLoadingView(),
+              loading: () => const _GoalSkeleton(),
               error: (error, stackTrace) => _GoalErrorView(
                 onRetry: () => ref.invalidate(readingGoalOverviewProvider),
               ),
@@ -264,16 +265,67 @@ class _ReadingGoalPageState extends ConsumerState<ReadingGoalPage> {
   }
 }
 
-class _GoalLoadingView extends StatelessWidget {
-  const _GoalLoadingView();
+/// The overview's own shape: header, hero, metrics, weekly pace, settings and
+/// the suggestion strip.
+class _GoalSkeleton extends StatelessWidget {
+  const _GoalSkeleton();
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: SizedBox(
-        width: 28,
-        height: 28,
-        child: CircularProgressIndicator(strokeWidth: 3),
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+        child: DudoSkeleton(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Row(
+                children: [
+                  DudoSkeletonBox(
+                    width: 44,
+                    height: 44,
+                    shape: BoxShape.circle,
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DudoSkeletonLine(widthFactor: 0.35, height: 11),
+                        SizedBox(height: 6),
+                        DudoSkeletonLine(widthFactor: 0.6, height: 24),
+                      ],
+                    ),
+                  ),
+                  DudoSkeletonBox(
+                    width: 44,
+                    height: 44,
+                    shape: BoxShape.circle,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const DudoSkeletonBox(height: 164, radius: 26),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  for (var i = 0; i < 3; i++) ...[
+                    if (i > 0) const SizedBox(width: 10),
+                    const Expanded(
+                      child: DudoSkeletonBox(height: 72, radius: 20),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 10),
+              const DudoSkeletonBox(height: 142, radius: 22),
+              const SizedBox(height: 10),
+              const DudoSkeletonBox(height: 160, radius: 22),
+              const SizedBox(height: 10),
+              const DudoSkeletonBox(height: 72, radius: 22),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -453,8 +453,8 @@ class _CustomModeChip extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOutCubic,
+            duration: AppMotion.fast,
+            curve: AppMotion.standard,
             decoration: BoxDecoration(
               color: selected ? picker.ink : picker.paper,
               borderRadius: BorderRadius.circular(metrics.s(17)),
@@ -946,8 +946,8 @@ class _FocusCell extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            curve: Curves.easeOutCubic,
+            duration: AppMotion.fast,
+            curve: AppMotion.standard,
             decoration: BoxDecoration(
               color: selected ? picker.green : picker.paper,
               borderRadius: BorderRadius.circular(metrics.s(8)),
@@ -988,8 +988,8 @@ class _CustomAreaChip extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            curve: Curves.easeOutCubic,
+            duration: AppMotion.fast,
+            curve: AppMotion.standard,
             decoration: BoxDecoration(
               color: selected ? picker.greenSoft : picker.paper,
               borderRadius: BorderRadius.circular(metrics.s(14)),

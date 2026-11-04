@@ -183,7 +183,7 @@ class CoverFlowSwitch extends StatelessWidget {
       onTap: () => onChanged(!value),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: AppMotion.short,
+        duration: AppMotion.fast,
         width: 46,
         height: 28,
         padding: const EdgeInsets.all(3),
@@ -195,7 +195,7 @@ class CoverFlowSwitch extends StatelessWidget {
           ),
         ),
         child: AnimatedAlign(
-          duration: AppMotion.short,
+          duration: AppMotion.fast,
           curve: AppMotion.emphasized,
           alignment: value ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(

@@ -245,7 +245,7 @@ void main() {
 
     expect(find.text('管理书架'), findsOneWidget);
 
-    await tester.pump(AppMotion.medium);
+    await tester.pump(AppMotion.base);
     await tester.pump();
 
     expect(find.text('管理书架'), findsNothing);

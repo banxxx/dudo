@@ -22,8 +22,8 @@ class _ReaderTopControlsSlot extends StatelessWidget {
       child: IgnorePointer(
         ignoring: !visible,
         child: AnimatedSwitcher(
-          duration: AppMotion.medium,
-          reverseDuration: AppMotion.medium,
+          duration: AppMotion.base,
+          reverseDuration: AppMotion.base,
           switchInCurve: AppMotion.emphasizedDecelerate,
           switchOutCurve: AppMotion.emphasizedAccelerate,
           transitionBuilder: (child, animation) {

@@ -175,7 +175,7 @@ class _HeaderTextAction extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(22),
         child: AnimatedContainer(
-          duration: AppMotion.short,
+          duration: AppMotion.fast,
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 18),
           alignment: Alignment.center,

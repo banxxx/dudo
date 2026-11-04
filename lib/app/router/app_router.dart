@@ -31,6 +31,7 @@ import '../../features/settings/theme_settings/application/theme_settings_provid
 import '../../features/settings/theme_settings/presentation/theme_settings_page.dart';
 import '../../features/settings/typography_settings/presentation/typography_settings_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
+import '../../shared/motion/dudo_page_transition.dart';
 import '../../shared/theme/app_tokens.dart';
 import '../../shared/widgets/error_state_view.dart';
 import '../../shared/widgets/home_scaffold.dart';
@@ -69,12 +70,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.bookmarks,
         name: AppRoutes.bookmarksName,
-        builder: (_, __) => _themed(const BookmarksPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const BookmarksPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.offlineCache,
         name: AppRoutes.offlineCacheName,
-        builder: (_, __) => _themed(const OfflineCachePage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const OfflineCachePage()),
+        ),
       ),
       // Main scaffold with bottom navigation.
       StatefulShellRoute.indexedStack(
@@ -122,118 +129,178 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.settings,
         name: AppRoutes.settingsName,
-        builder: (_, __) => _themed(const SettingsPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const SettingsPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.aboutApp,
         name: AppRoutes.aboutAppName,
-        builder: (_, __) => _themed(const AboutAppPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const AboutAppPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.aboutGuide,
         name: AppRoutes.aboutGuideName,
-        builder: (_, __) => _themed(const AboutGuidePage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const AboutGuidePage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.aboutFeedback,
         name: AppRoutes.aboutFeedbackName,
-        builder: (_, __) => _themed(const AboutFeedbackPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const AboutFeedbackPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.aboutLicenses,
         name: AppRoutes.aboutLicensesName,
-        builder: (_, __) => _themed(const AboutLicensesPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const AboutLicensesPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.aboutPrivacy,
         name: AppRoutes.aboutPrivacyName,
-        builder: (_, __) => _themed(const AboutPrivacyPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const AboutPrivacyPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.readingStats,
         name: AppRoutes.readingStatsName,
-        builder: (_, __) => _themed(const ReadingStatsPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const ReadingStatsPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.readingHistory,
         name: AppRoutes.readingHistoryName,
-        builder: (_, __) => _themed(const ReadingHistoryPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const ReadingHistoryPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.readingGoal,
         name: AppRoutes.readingGoalName,
-        builder: (_, __) => _themed(const ReadingGoalPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const ReadingGoalPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.sourceSettings,
         name: AppRoutes.sourceSettingsName,
-        builder: (_, __) => _themed(const SourceManageSettingsPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const SourceManageSettingsPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.sourceAdd,
         name: AppRoutes.sourceAddName,
-        builder: (_, __) => _themed(const SourceAddSettingsPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const SourceAddSettingsPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.themeSettings,
         name: AppRoutes.themeSettingsName,
-        builder: (_, __) => _themed(const ThemeSettingsPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const ThemeSettingsPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.typographySettings,
         name: AppRoutes.typographySettingsName,
-        builder: (_, __) => _themed(const TypographySettingsPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const TypographySettingsPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.readAloudSettings,
         name: AppRoutes.readAloudSettingsName,
-        builder: (_, __) => _themed(const ReadAloudSettingsPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const ReadAloudSettingsPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.storageSettings,
         name: AppRoutes.storageSettingsName,
-        builder: (_, __) => _themed(const StorageSettingsPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const StorageSettingsPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.shelfUpdateSettings,
         name: AppRoutes.shelfUpdateSettingsName,
-        builder: (_, __) => _themed(const ShelfUpdateSettingsPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const ShelfUpdateSettingsPage()),
+        ),
       ),
       GoRoute(
         path: AppRoutes.dataSyncSettings,
         name: AppRoutes.dataSyncSettingsName,
-        builder: (_, __) => _themed(const DataSyncSettingsPage()),
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const DataSyncSettingsPage()),
+        ),
       ),
       GoRoute(
         path: '${AppRoutes.bookDetail}/:bookId',
         name: AppRoutes.bookDetailName,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final bookId = state.pathParameters['bookId']!;
-          return _themed(BookDetailPage(bookId: bookId));
+          return DudoPageTransition(
+            key: state.pageKey,
+            child: _themed(BookDetailPage(bookId: bookId)),
+          );
         },
       ),
       GoRoute(
         path: '${AppRoutes.bookDetail}/:bookId/edit',
         name: AppRoutes.bookEditName,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final bookId = state.pathParameters['bookId']!;
-          return _themed(BookEditPage(bookId: bookId));
+          return DudoPageTransition(
+            key: state.pageKey,
+            child: _themed(BookEditPage(bookId: bookId)),
+          );
         },
       ),
       // Reader is a fullscreen route outside the shell.
       GoRoute(
         path: '${AppRoutes.reader}/:bookId',
         name: AppRoutes.readerName,
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final bookId = state.pathParameters['bookId']!;
           final chapterIndex =
               int.tryParse(state.uri.queryParameters['chapter'] ?? '0') ?? 0;
           final offset =
               int.tryParse(state.uri.queryParameters['offset'] ?? '0') ?? 0;
-          return ReaderScreen(
-            bookId: bookId,
-            initialChapterIndex: chapterIndex,
-            initialOffset: offset,
+          return DudoPageTransition(
+            key: state.pageKey,
+            child: ReaderScreen(
+              bookId: bookId,
+              initialChapterIndex: chapterIndex,
+              initialOffset: offset,
+            ),
           );
         },
       ),

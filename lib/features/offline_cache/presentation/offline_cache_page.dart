@@ -8,6 +8,7 @@ import '../../../shared/messages/app_message.dart';
 import '../../../shared/messages/app_message_service.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
+import '../../../shared/widgets/dudo_skeleton.dart';
 import '../../settings/shared/widgets/settings_detail_scaffold.dart';
 import '../../settings/storage_settings/domain/storage_usage.dart';
 import '../application/offline_cache_download_provider.dart';
@@ -162,10 +163,12 @@ class _OfflineCachePageState extends ConsumerState<OfflineCachePage> {
           ],
           if (cache == null) ...[
             const SizedBox(height: 14),
-            _UnavailableCard(
-              failed: cacheAsync.hasError,
-              onRetry: () => ref.invalidate(offlineCacheProvider),
-            ),
+            if (cacheAsync.hasError)
+              _UnavailableCard(
+                onRetry: () => ref.invalidate(offlineCacheProvider),
+              )
+            else
+              const _CachedBooksSkeleton(),
           ] else if (visibleBooks.isNotEmpty) ...[
             const SizedBox(height: 14),
             _CachedBooksSection(
@@ -750,7 +753,7 @@ class _ManageBookRow extends StatelessWidget {
           child: Row(
             children: [
               AnimatedContainer(
-                duration: AppMotion.short,
+                duration: AppMotion.fast,
                 width: 26,
                 height: 26,
                 decoration: BoxDecoration(
@@ -1572,9 +1575,8 @@ class _BookCoverTile extends StatelessWidget {
 }
 
 class _UnavailableCard extends StatelessWidget {
-  const _UnavailableCard({required this.failed, required this.onRetry});
+  const _UnavailableCard({required this.onRetry});
 
-  final bool failed;
   final VoidCallback onRetry;
 
   @override
@@ -1589,45 +1591,79 @@ class _UnavailableCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (failed)
-            Icon(
-              LucideIcons.triangleAlert,
-              color: _dangerColor,
-              size: 22,
-            )
-          else
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: DudoColors.secondary,
-              ),
-            ),
+          Icon(
+            LucideIcons.triangleAlert,
+            color: _dangerColor,
+            size: 22,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              failed ? '无法读取离线缓存' : '正在统计已下载章节…',
+              '无法读取离线缓存',
               style: DudoTextStyles.sans(
                 color: DudoColors.textSecondary,
                 fontSize: 13,
               ),
             ),
           ),
-          if (failed)
-            TextButton(
-              onPressed: onRetry,
-              style: TextButton.styleFrom(
-                foregroundColor: DudoColors.primary,
-                textStyle: DudoTextStyles.sans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              foregroundColor: DudoColors.primary,
+              textStyle: DudoTextStyles.sans(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
-              child: const Text('重试'),
             ),
+            child: const Text('重试'),
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// Cached book rows, with the same 48x68 cover the real list uses.
+class _CachedBooksSkeleton extends StatelessWidget {
+  const _CachedBooksSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const DudoSkeleton(
+          child: DudoSkeletonLine(widthFactor: 0.32, height: 15),
+        ),
+        const SizedBox(height: 8),
+        for (var i = 0; i < 3; i++) ...[
+          if (i > 0) const SizedBox(height: 9),
+          const DudoSkeletonCard(
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              children: [
+                DudoSkeletonBox(width: 48, height: 68, radius: 4),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DudoSkeletonLine(widthFactor: 0.55, height: 13),
+                      SizedBox(height: 7),
+                      DudoSkeletonLine(widthFactor: 0.35, height: 10),
+                      SizedBox(height: 8),
+                      DudoSkeletonLine(widthFactor: 0.7, height: 9),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 10),
+                DudoSkeletonBox(width: 16, height: 16, radius: 4),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -55,7 +55,7 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
     }
     _dragController = AnimationController.unbounded(
       vsync: this,
-      duration: const Duration(milliseconds: 220),
+      duration: AppMotion.base,
     )..addListener(() {
         setState(() => _dragOffset = _dragController.value);
       });
@@ -145,8 +145,8 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
     _dragController.value = _dragOffset;
     _dragController.animateTo(
       0,
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
+      duration: AppMotion.fast,
+      curve: AppMotion.standard,
     );
   }
 
@@ -165,7 +165,7 @@ class _CatalogBottomSheetState extends State<_CatalogBottomSheet>
         .animateTo(
       sheetHeight,
       duration: Duration(milliseconds: durationMs),
-      curve: Curves.easeOutCubic,
+      curve: AppMotion.standard,
     )
         .whenComplete(() {
       if (mounted) widget.onClose();

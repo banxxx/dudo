@@ -10,6 +10,7 @@ import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/calendar_range_selector/calendar_range_sheet.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../../../shared/widgets/dudo_page_header.dart';
+import '../../../shared/widgets/dudo_skeleton.dart';
 import '../application/reading_stats_provider.dart';
 import '../data/reading_stats_repository.dart';
 import '../domain/reading_stats_models.dart';
@@ -66,7 +67,7 @@ class ReadingStatsPage extends ConsumerWidget {
               ),
           ],
         ),
-        loading: () => frame(range, const _ReadingStatsLoadingCard()),
+        loading: () => frame(range, const _ReadingStatsSkeleton()),
         error: (_, __) => frame(
           range,
           _ReadingStatsErrorCard(
@@ -78,35 +79,33 @@ class ReadingStatsPage extends ConsumerWidget {
   }
 }
 
-class _ReadingStatsLoadingCard extends StatelessWidget {
-  const _ReadingStatsLoadingCard();
+/// Mirrors the summary's stack: hero, the three quick metrics, the rhythm
+/// chart and the detail cards.
+class _ReadingStatsSkeleton extends StatelessWidget {
+  const _ReadingStatsSkeleton();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 164,
-      decoration: BoxDecoration(
-        color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: DudoColors.outlineVariant),
-      ),
-      alignment: Alignment.center,
+    return DudoSkeleton(
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2),
+          const DudoSkeletonBox(height: 164, radius: 26),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                const Expanded(child: DudoSkeletonBox(height: 72, radius: 20)),
+              ],
+            ],
           ),
-          const SizedBox(height: 14),
-          Text(
-            '正在整理阅读记录…',
-            style: DudoTextStyles.sans(
-              color: DudoColors.secondary,
-              fontSize: 12.5,
-            ),
-          ),
+          const SizedBox(height: 12),
+          const DudoSkeletonBox(height: 232, radius: 24),
+          const SizedBox(height: 12),
+          const DudoSkeletonBox(height: 176, radius: 24),
+          const SizedBox(height: 12),
+          const DudoSkeletonBox(height: 132, radius: 24),
         ],
       ),
     );
@@ -694,7 +693,7 @@ class _ReadingRhythmBarChartState extends State<_ReadingRhythmBarChart> {
               ),
           ],
         ),
-        duration: AppMotion.long,
+        duration: AppMotion.slow,
         curve: AppMotion.emphasizedDecelerate,
       ),
     );

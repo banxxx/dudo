@@ -7,6 +7,7 @@ import '../../../../app/router/app_router.dart';
 import '../../../../shared/messages/app_message_service.dart';
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
+import '../../../../shared/widgets/dudo_skeleton.dart';
 import '../../../offline_cache/application/offline_cache_provider.dart';
 import '../../../offline_cache/domain/offline_cache.dart';
 import '../../shared/widgets/settings_detail_scaffold.dart';
@@ -61,10 +62,10 @@ class _StorageSettingsPageState extends ConsumerState<StorageSettingsPage> {
         const SettingsSectionTitle('占用明细'),
         const SizedBox(height: 8),
         if (usage == null)
-          _UnavailableCard(
-            failed: usageAsync.hasError,
-            onRetry: _refresh,
-          )
+          if (usageAsync.hasError)
+            _UnavailableCard(onRetry: _refresh)
+          else
+            const _StorageRowsSkeleton()
         else
           for (final row in rows) ...[
             _StorageRow(
@@ -703,10 +704,48 @@ class _StoragePill extends StatelessWidget {
   }
 }
 
-class _UnavailableCard extends StatelessWidget {
-  const _UnavailableCard({required this.failed, required this.onRetry});
+class _StorageRowsSkeleton extends StatelessWidget {
+  const _StorageRowsSkeleton();
 
-  final bool failed;
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var i = 0; i < 4; i++) ...[
+          if (i > 0) const SizedBox(height: 9),
+          const DudoSkeletonCard(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            radius: 20,
+            child: Row(
+              children: [
+                DudoSkeletonBox(width: 40, height: 40, shape: BoxShape.circle),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DudoSkeletonLine(widthFactor: 0.35, height: 12),
+                      SizedBox(height: 7),
+                      DudoSkeletonLine(widthFactor: 0.62, height: 9),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 8),
+                DudoSkeletonBox(width: 52, height: 11, radius: 5),
+                SizedBox(width: 8),
+                DudoSkeletonBox(width: 44, height: 28, radius: 14),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _UnavailableCard extends StatelessWidget {
+  const _UnavailableCard({required this.onRetry});
+
   final VoidCallback onRetry;
 
   @override
@@ -722,32 +761,31 @@ class _UnavailableCard extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            failed ? LucideIcons.triangleAlert : LucideIcons.loaderCircle,
+            LucideIcons.triangleAlert,
             color: DudoColors.secondary,
             size: 22,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              failed ? '无法读取存储信息' : '正在统计占用…',
+              '无法读取存储信息',
               style: DudoTextStyles.sans(
                 color: DudoColors.textSecondary,
                 fontSize: 13,
               ),
             ),
           ),
-          if (failed)
-            TextButton(
-              onPressed: onRetry,
-              style: TextButton.styleFrom(
-                foregroundColor: DudoColors.primary,
-                textStyle: DudoTextStyles.sans(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              foregroundColor: DudoColors.primary,
+              textStyle: DudoTextStyles.sans(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
-              child: const Text('重试'),
             ),
+            child: const Text('重试'),
+          ),
         ],
       ),
     );

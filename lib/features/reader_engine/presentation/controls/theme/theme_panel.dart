@@ -94,10 +94,10 @@ class _ThemePanelState extends State<_ThemePanel> {
       height: _panelHeight,
       palette: widget.palette,
       padding: EdgeInsets.all(widget.metrics.s(16)),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 180),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeOutCubic,
+      child: DudoAnimatedSwitcher(
+        duration: AppMotion.fast,
+        switchInCurve: AppMotion.standard,
+        switchOutCurve: AppMotion.standard,
         child: _showCustomBackgroundPage
             ? _CustomBackgroundSettingsPage(
                 key: const ValueKey('reader-custom-background-settings-page'),

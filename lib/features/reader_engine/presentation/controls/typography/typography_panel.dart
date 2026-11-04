@@ -79,7 +79,7 @@ class _TypographyPanelState extends State<_TypographyPanel> {
       palette: widget.palette,
       padding: EdgeInsets.all(widget.metrics.s(16)),
       child: AnimatedSwitcher(
-        duration: AppMotion.medium,
+        duration: AppMotion.base,
         switchInCurve: AppMotion.emphasizedDecelerate,
         switchOutCurve: AppMotion.emphasizedAccelerate,
         transitionBuilder: (child, animation) {

@@ -8,6 +8,7 @@ import '../domain/reader_overlay_mode.dart';
 import '../domain/reader_settings.dart';
 import '../domain/reader_turn_mode.dart';
 import '../../settings/typography_settings/domain/reader_font.dart';
+import '../../../shared/motion/dudo_animated_switcher.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../domain/reader_theme.dart';
 import '../../../shared/theme/app_tokens.dart';

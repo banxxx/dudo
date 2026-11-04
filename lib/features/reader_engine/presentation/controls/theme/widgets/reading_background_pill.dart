@@ -31,8 +31,8 @@ class _ReadingBackgroundTile extends StatelessWidget {
           borderRadius: radius,
           onTap: onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOutCubic,
+            duration: AppMotion.fast,
+            curve: AppMotion.standard,
             key: ValueKey('reader-background-${preference.id}'),
             decoration: BoxDecoration(
               borderRadius: radius,

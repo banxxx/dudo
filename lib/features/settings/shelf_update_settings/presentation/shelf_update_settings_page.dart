@@ -7,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../../core/database/app_database.dart';
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
+import '../../../../shared/widgets/dudo_skeleton.dart';
 import '../../../bookshelf/application/bookshelf_providers.dart';
 import '../../shared/widgets/settings_detail_scaffold.dart';
 import '../application/shelf_update_settings_provider.dart';
@@ -65,10 +66,7 @@ class _ShelfUpdateSettingsPageState
       children: [
         const SizedBox(height: 14),
         if (settings == null)
-          const SizedBox(
-            height: 260,
-            child: Center(child: CircularProgressIndicator()),
-          )
+          const _ShelfUpdateSkeleton()
         else ...[
           _UpdateHero(settings: settings, onlineBookCount: onlineCount),
           const SizedBox(height: 14),
@@ -314,6 +312,53 @@ class _FrequencyCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ShelfUpdateSkeleton extends StatelessWidget {
+  const _ShelfUpdateSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const DudoSkeleton(
+          child: DudoSkeletonBox(height: 132, radius: 26),
+        ),
+        const SizedBox(height: 14),
+        const DudoSkeleton(
+          child: DudoSkeletonLine(widthFactor: 0.3, height: 15),
+        ),
+        const SizedBox(height: 10),
+        const DudoSkeletonListTile(trailingWidth: 40),
+        const SizedBox(height: 14),
+        const DudoSkeleton(
+          child: DudoSkeletonLine(widthFactor: 0.3, height: 15),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            for (var i = 0; i < 3; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              const Expanded(
+                child: DudoSkeleton(
+                  child: DudoSkeletonBox(height: 84, radius: 18),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 14),
+        const DudoSkeleton(
+          child: DudoSkeletonLine(widthFactor: 0.3, height: 15),
+        ),
+        const SizedBox(height: 10),
+        const DudoSkeletonListTile(trailingWidth: 40),
+        const SizedBox(height: 9),
+        const DudoSkeletonListTile(trailingWidth: 40),
+      ],
     );
   }
 }

@@ -31,7 +31,7 @@ class ToastificationAppMessageService implements AppMessageService {
     late final ToastificationItem item;
     item = toastification.showCustom(
       alignment: _alignment(request.position),
-      animationDuration: AppMotion.medium,
+      animationDuration: AppMotion.base,
       autoCloseDuration: request.effectiveDuration,
       callbacks: ToastificationCallbacks(
         onAutoCompleteCompleted: (_) =>

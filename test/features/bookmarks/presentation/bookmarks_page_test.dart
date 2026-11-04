@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:dudo/core/database/app_database.dart';
 import 'package:dudo/features/bookmarks/application/bookmarks_providers.dart';
 import 'package:dudo/features/bookmarks/data/bookmarks_repository.dart';
 import 'package:dudo/features/bookmarks/domain/bookmark_entry.dart';
 import 'package:dudo/features/bookmarks/presentation/bookmarks_page.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
+import 'package:dudo/shared/widgets/dudo_skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -59,6 +62,20 @@ void main() {
     expect(emptyDecoration.color, DudoColors.surface);
     expect(emptyDecoration.borderRadius, BorderRadius.circular(26));
     expect(emptyDecoration.border?.top.color, DudoColors.outlineVariant);
+  });
+
+  testWidgets('shows a skeleton instead of the empty state while loading',
+      (tester) async {
+    final pending = StreamController<List<BookmarkEntry>>();
+    addTearDown(pending.close);
+
+    await tester.pumpWidget(_appWithStream(pending.stream));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.byType(DudoSkeleton), findsWidgets);
+    expect(find.text('暂无书签和高亮'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
   testWidgets('lists stored bookmarks, highlights, and notes', (tester) async {
@@ -399,6 +416,15 @@ Widget _app({
       bookmarkEntriesProvider.overrideWith((ref) => Stream.value(entries)),
       if (repository != null)
         bookmarksRepositoryProvider.overrideWithValue(repository),
+    ],
+    child: const MaterialApp(home: BookmarksPage()),
+  );
+}
+
+Widget _appWithStream(Stream<List<BookmarkEntry>> entries) {
+  return ProviderScope(
+    overrides: [
+      bookmarkEntriesProvider.overrideWith((ref) => entries),
     ],
     child: const MaterialApp(home: BookmarksPage()),
   );

@@ -141,7 +141,14 @@ void main() {
     tester.view.physicalSize = const Size(Breakpoints.medium - 1, 800);
     addTearDown(tester.view.reset);
 
-    await pumpApp(tester);
+    await pumpApp(
+      tester,
+      overrides: [
+        bookmarkEntriesProvider.overrideWith(
+          (_) => Stream.value(const <BookmarkEntry>[]),
+        ),
+      ],
+    );
 
     await tester.tap(find.text('找书'));
     await pumpNavigation(tester);

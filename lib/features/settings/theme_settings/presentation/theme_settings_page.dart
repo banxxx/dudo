@@ -379,7 +379,7 @@ class _AccentChip extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: AppMotion.short,
+        duration: AppMotion.fast,
         curve: AppMotion.emphasized,
         decoration: BoxDecoration(
           color: selected

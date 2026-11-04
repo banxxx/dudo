@@ -10,6 +10,7 @@ import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../../../shared/widgets/dudo_page_header.dart';
+import '../../../shared/widgets/dudo_skeleton.dart';
 import '../../../shared/widgets/error_state_view.dart';
 import '../application/bookmarks_providers.dart';
 import '../domain/bookmark_entry.dart';
@@ -174,7 +175,9 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
                   optionsActive: _hasActiveOptions,
                 ),
           children: [
-            if (hasError)
+            if (entriesAsync.isLoading && !entriesAsync.hasValue)
+              const _BookmarksSkeleton()
+            else if (hasError)
               ErrorStateView(
                 title: '书签加载失败',
                 message: '${entriesAsync.error}',
@@ -591,6 +594,64 @@ class _BulkActionButton extends StatelessWidget {
   }
 }
 
+/// Page-entry placeholder: the summary card, the filter chips and a few
+/// entry cards, sized like the real ones so nothing jumps on load.
+class _BookmarksSkeleton extends StatelessWidget {
+  const _BookmarksSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const DudoSkeleton(
+          child: DudoSkeletonBox(height: _summaryHeight, radius: 24),
+        ),
+        const SizedBox(height: _contentGap),
+        Row(
+          children: [
+            for (var i = 0; i < 4; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
+              const Expanded(
+                child: DudoSkeleton(
+                  child: DudoSkeletonBox(height: _chipHeight, radius: 18),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: _contentGap),
+        for (var i = 0; i < 3; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          const DudoSkeletonCard(
+            padding: EdgeInsets.all(12),
+            child: Row(
+              children: [
+                DudoSkeletonBox(width: 42, height: 42, shape: BoxShape.circle),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DudoSkeletonLine(widthFactor: 0.55, height: 12),
+                      SizedBox(height: 8),
+                      DudoSkeletonLine(height: 12),
+                      SizedBox(height: 6),
+                      DudoSkeletonLine(widthFactor: 0.75, height: 12),
+                      SizedBox(height: 8),
+                      DudoSkeletonLine(widthFactor: 0.3, height: 9),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _BookmarkSummary extends StatelessWidget {
   const _BookmarkSummary({required this.entries});
 
@@ -706,7 +767,7 @@ class _BookmarkFilterChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(18),
         child: AnimatedContainer(
-          duration: AppMotion.short,
+          duration: AppMotion.fast,
           height: _chipHeight,
           alignment: Alignment.center,
           decoration: BoxDecoration(
@@ -944,7 +1005,7 @@ class _SelectionIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: AppMotion.short,
+      duration: AppMotion.fast,
       width: 26,
       height: 26,
       decoration: BoxDecoration(

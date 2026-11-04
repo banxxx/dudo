@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/theme/app_tokens.dart';
+
 class ReaderBrightnessOverlay extends StatelessWidget {
   const ReaderBrightnessOverlay({
     super.key,
@@ -15,7 +17,7 @@ class ReaderBrightnessOverlay extends StatelessWidget {
       child: IgnorePointer(
         child: AnimatedContainer(
           key: const ValueKey('reader-brightness-overlay'),
-          duration: const Duration(milliseconds: 120),
+          duration: AppMotion.fast,
           color: Colors.black.withValues(alpha: alpha),
         ),
       ),

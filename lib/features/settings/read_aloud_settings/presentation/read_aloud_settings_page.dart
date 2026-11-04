@@ -9,6 +9,7 @@ import '../../../../core/tts/system_tts_settings.dart';
 import '../../../../core/tts/tts_models.dart';
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
+import '../../../../shared/widgets/dudo_skeleton.dart';
 import '../../shared/widgets/settings_detail_scaffold.dart';
 import '../application/read_aloud_player.dart';
 import '../application/read_aloud_settings_provider.dart';
@@ -382,10 +383,7 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
       children: [
         const SizedBox(height: 14),
         if (settings == null)
-          const SizedBox(
-            height: 260,
-            child: Center(child: CircularProgressIndicator()),
-          )
+          const _ReadAloudSkeleton()
         else ...[
           _VoicePreviewPlayer(
             title: _previewTitle,
@@ -1531,6 +1529,32 @@ class _VoicePreviewPlayer extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReadAloudSkeleton extends StatelessWidget {
+  const _ReadAloudSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DudoSkeleton(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DudoSkeletonBox(height: 188, radius: 26),
+          SizedBox(height: 16),
+          DudoSkeletonLine(widthFactor: 0.3, height: 15),
+          SizedBox(height: 10),
+          DudoSkeletonBox(height: 76, radius: 18),
+          SizedBox(height: 10),
+          DudoSkeletonBox(height: 76, radius: 18),
+          SizedBox(height: 16),
+          DudoSkeletonLine(widthFactor: 0.3, height: 15),
+          SizedBox(height: 10),
+          DudoSkeletonBox(height: 120, radius: 20),
         ],
       ),
     );

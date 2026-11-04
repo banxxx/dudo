@@ -250,7 +250,7 @@ class _VolumePageTurnSwitch extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
+        duration: AppMotion.fast,
         width: metrics.s(54),
         height: metrics.s(30),
         padding: EdgeInsets.all(metrics.s(3)),
@@ -261,8 +261,8 @@ class _VolumePageTurnSwitch extends StatelessWidget {
           borderRadius: BorderRadius.circular(metrics.s(15)),
         ),
         child: AnimatedAlign(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOutCubic,
+          duration: AppMotion.fast,
+          curve: AppMotion.standard,
           alignment: enabled ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(
             width: metrics.s(24),

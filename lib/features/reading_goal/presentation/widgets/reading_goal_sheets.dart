@@ -759,7 +759,7 @@ class _ReminderStatusCard extends StatelessWidget {
           GestureDetector(
             onTap: onToggle,
             child: AnimatedContainer(
-              duration: AppMotion.short,
+              duration: AppMotion.fast,
               width: 48,
               height: 28,
               padding: const EdgeInsets.all(3),
@@ -771,7 +771,7 @@ class _ReminderStatusCard extends StatelessWidget {
                 ),
               ),
               child: AnimatedAlign(
-                duration: AppMotion.short,
+                duration: AppMotion.fast,
                 curve: AppMotion.emphasized,
                 alignment:
                     enabled ? Alignment.centerRight : Alignment.centerLeft,

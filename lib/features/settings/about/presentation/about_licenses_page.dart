@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
 import '../../../../shared/widgets/dudo_page_frame.dart';
+import '../../../../shared/widgets/dudo_skeleton.dart';
 import '../../shared/widgets/settings_detail_scaffold.dart';
 import 'widgets/about_doc_widgets.dart';
 
@@ -270,9 +271,32 @@ class _LicensesLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
-      height: 220,
-      child: Center(child: CircularProgressIndicator()),
+    return Column(
+      children: [
+        for (var i = 0; i < 5; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          const DudoSkeletonCard(
+            radius: 18,
+            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DudoSkeletonLine(widthFactor: 0.4, height: 12),
+                      SizedBox(height: 6),
+                      DudoSkeletonLine(widthFactor: 0.28, height: 9),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 10),
+                DudoSkeletonBox(width: 18, height: 18, radius: 4),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

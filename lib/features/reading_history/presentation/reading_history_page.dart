@@ -8,6 +8,7 @@ import '../../../shared/messages/app_message.dart';
 import '../../../shared/messages/app_message_service.dart';
 import '../../../shared/theme/app_fonts.dart';
 import '../../../shared/theme/app_tokens.dart';
+import '../../../shared/widgets/dudo_skeleton.dart';
 import '../../bookshelf/presentation/widgets/book_cover_palette.dart';
 import '../../settings/shared/widgets/settings_detail_scaffold.dart';
 import '../application/reading_history_provider.dart';
@@ -63,7 +64,7 @@ class _ReadingHistoryPageState extends ConsumerState<ReadingHistoryPage> {
     DateTime now,
   ) {
     if (history.isLoading && !history.hasValue) {
-      return const [_HistoryLoadingCard()];
+      return const [_HistorySkeleton()];
     }
     if (history.hasError) {
       return [
@@ -210,7 +211,7 @@ class _HistoryFilters extends StatelessWidget {
                 onTap: () => onChanged(value),
                 behavior: HitTestBehavior.opaque,
                 child: AnimatedContainer(
-                  duration: AppMotion.short,
+                  duration: AppMotion.fast,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: value == filter
@@ -507,37 +508,81 @@ class _ContinueButton extends StatelessWidget {
   }
 }
 
-class _HistoryLoadingCard extends StatelessWidget {
-  const _HistoryLoadingCard();
+/// Two cards shaped like the real rows, so the page does not jump when the
+/// history resolves.
+class _HistorySkeleton extends StatelessWidget {
+  const _HistorySkeleton();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 164,
-      decoration: BoxDecoration(
-        color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: DudoColors.outlineVariant),
-      ),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            '正在整理阅读记录…',
-            style: DudoTextStyles.sans(
-              color: DudoColors.secondary,
-              fontSize: 12.5,
+    return Column(
+      children: [
+        for (var i = 0; i < 2; i++) ...[
+          const DudoSkeletonCard(
+            padding: EdgeInsets.all(13),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DudoSkeletonBox(
+                      width: 52,
+                      height: 72,
+                      radius: 4,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DudoSkeletonLine(
+                                  widthFactor: 0.72,
+                                  height: 15,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              DudoSkeletonBox(
+                                width: 38,
+                                height: 24,
+                                radius: 12,
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 8),
+                          DudoSkeletonLine(
+                            widthFactor: 0.32,
+                            height: 11,
+                          ),
+                          SizedBox(height: 8),
+                          DudoSkeletonLine(
+                            widthFactor: 0.82,
+                            height: 10,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                DudoSkeletonBox(height: 6, radius: 3),
+                SizedBox(height: 12),
+                Row(
+                  children: [
+                    DudoSkeletonBox(width: 48, height: 11, radius: 5),
+                    Spacer(),
+                    DudoSkeletonBox(width: 78, height: 30, radius: 15),
+                  ],
+                ),
+              ],
             ),
           ),
+          if (i == 0) const SizedBox(height: 10),
         ],
-      ),
+      ],
     );
   }
 }

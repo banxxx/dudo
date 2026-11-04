@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
+import '../../../../shared/widgets/dudo_skeleton.dart';
 import '../../../bookmarks/application/bookmarks_providers.dart';
 import '../../../bookmarks/domain/bookmark_entry.dart';
 import '../../../bookshelf/application/bookshelf_providers.dart';
@@ -69,10 +70,7 @@ class _DataSyncSettingsPageState extends ConsumerState<DataSyncSettingsPage> {
       children: [
         const SizedBox(height: 14),
         if (!state.initialized)
-          const SizedBox(
-            height: 260,
-            child: Center(child: CircularProgressIndicator()),
-          )
+          const _DataSyncSkeleton()
         else ...[
           _SyncHero(
             connected: state.settings.isConfigured,
@@ -826,6 +824,30 @@ class _ScopeCard extends StatelessWidget {
             on: settings,
             onChanged: onSettings,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataSyncSkeleton extends StatelessWidget {
+  const _DataSyncSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DudoSkeleton(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DudoSkeletonBox(height: 160, radius: 26),
+          SizedBox(height: 14),
+          DudoSkeletonBox(height: 292, radius: 24),
+          SizedBox(height: 14),
+          DudoSkeletonBox(height: 168, radius: 24),
+          SizedBox(height: 14),
+          DudoSkeletonBox(height: 84, radius: 24),
+          SizedBox(height: 14),
+          DudoSkeletonBox(height: 132, radius: 24),
         ],
       ),
     );

@@ -228,8 +228,8 @@ class _BookDetailPageState extends ConsumerState<BookDetailPage> {
     if (!_scrollController.hasClients) return;
     _scrollController.animateTo(
       0,
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
+      duration: AppMotion.base,
+      curve: AppMotion.standard,
     );
   }
 
@@ -1543,7 +1543,7 @@ class _BookMoreOverlay extends StatelessWidget {
             right: 20,
             child: AnimatedScale(
               scale: 1,
-              duration: AppMotion.short,
+              duration: AppMotion.fast,
               curve: AppMotion.emphasizedDecelerate,
               child: _BookMoreMenu(onAction: onAction),
             ),

@@ -477,8 +477,8 @@ class _GoalRing extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: percent),
-      duration: AppMotion.medium,
-      curve: Curves.easeOutCubic,
+      duration: AppMotion.base,
+      curve: AppMotion.standard,
       builder: (context, value, _) {
         return SizedBox(
           width: 62,

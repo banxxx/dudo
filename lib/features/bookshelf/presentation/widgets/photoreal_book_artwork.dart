@@ -199,8 +199,8 @@ class _PhotorealBookArtworkState extends State<PhotorealBookArtwork> {
                 ? artwork
                 : TweenAnimationBuilder<double>(
                     tween: Tween(begin: 0, end: 1),
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOut,
+                    duration: AppMotion.fast,
+                    curve: AppMotion.standard,
                     onEnd: () {
                       if (!mounted || _revealed) return;
                       setState(() => _revealed = true);

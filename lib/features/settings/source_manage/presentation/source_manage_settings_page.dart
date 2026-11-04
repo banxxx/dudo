@@ -10,6 +10,7 @@ import '../../../../shared/messages/app_message.dart';
 import '../../../../shared/messages/app_message_service.dart';
 import '../../../../shared/theme/app_fonts.dart';
 import '../../../../shared/theme/app_tokens.dart';
+import '../../../../shared/widgets/dudo_skeleton.dart';
 import '../../../../shared/widgets/empty_state_view.dart';
 import '../../shared/widgets/settings_detail_scaffold.dart';
 import 'source_diagnostics_sheet.dart';
@@ -310,7 +311,7 @@ class _SourceManageSettingsPageState
         ),
         const SizedBox(height: 14),
         sourcesValue.when(
-          loading: () => const _LoadingSourcesCard(),
+          loading: () => const _SourceListSkeleton(),
           error: (error, _) => _SourceErrorCard(
             onRetry: () => ref.invalidate(sourcesProvider),
           ),
@@ -913,16 +914,27 @@ class _LoadMoreSourcesButton extends StatelessWidget {
   }
 }
 
-class _LoadingSourcesCard extends StatelessWidget {
-  const _LoadingSourcesCard();
+/// The search field and a few source rows, so the list settles in place.
+class _SourceListSkeleton extends StatelessWidget {
+  const _SourceListSkeleton();
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 28),
-        child: CircularProgressIndicator(),
-      ),
+    return Column(
+      children: [
+        const DudoSkeleton(
+          child: DudoSkeletonBox(height: 48, radius: 16),
+        ),
+        const SizedBox(height: 12),
+        for (var i = 0; i < 3; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          const DudoSkeletonListTile(
+            leadingSize: 40,
+            titleWidthFactor: 0.42,
+            subtitleWidthFactor: 0.72,
+          ),
+        ],
+      ],
     );
   }
 }
@@ -1066,7 +1078,7 @@ class _SourceRow extends StatelessWidget {
         onTap: isManageMode ? onToggleSelected : null,
         borderRadius: BorderRadius.circular(20),
         child: AnimatedContainer(
-          duration: AppMotion.short,
+          duration: AppMotion.fast,
           constraints: const BoxConstraints(minHeight: 68),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
