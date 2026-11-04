@@ -8,6 +8,8 @@ import 'package:dudo/features/profile/application/profile_providers.dart';
 import 'package:dudo/features/reading_goal/application/reading_goal_overview.dart';
 import 'package:dudo/features/reading_goal/application/reading_goal_providers.dart';
 import 'package:dudo/features/reading_goal/domain/reading_goal.dart';
+import 'package:dudo/features/reading_history/application/reading_history_provider.dart';
+import 'package:dudo/features/reading_history/domain/reading_history_entry.dart';
 import 'package:dudo/features/reading_stats/application/reading_stats_provider.dart';
 import 'package:dudo/features/reading_stats/domain/reading_stats_models.dart';
 import 'package:dudo/features/settings/data_sync_settings/application/data_sync_settings_provider.dart';
@@ -90,6 +92,7 @@ void main() {
     expect(AppRoutes.profile, '/profile');
     expect(AppRoutes.settings, '/settings');
     expect(AppRoutes.readingStats, '/reading-stats');
+    expect(AppRoutes.readingHistory, '/reading-history');
   });
 
   testWidgets('router starts on home and exposes the designed bottom tabs',
@@ -238,12 +241,19 @@ void main() {
     expect(find.text('尚未连接服务器'), findsOneWidget);
   });
 
-  testWidgets('opens reading stats from profile tools', (tester) async {
+  testWidgets('opens reading history from profile tools', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(Breakpoints.medium - 1, 800);
     addTearDown(tester.view.reset);
 
-    await pumpApp(tester);
+    await pumpApp(
+      tester,
+      overrides: [
+        readingHistoryProvider.overrideWith(
+          (_) async => [_routerHistoryEntry()],
+        ),
+      ],
+    );
 
     await tapBottomTab(tester, 3);
 
@@ -251,8 +261,32 @@ void main() {
     await pumpNavigation(tester);
 
     expect(find.text('阅读记录'), findsWidgets);
-    expect(find.text('6h 40m'), findsOneWidget);
+    expect(find.text('云边有个小卖部'), findsOneWidget);
+    expect(find.text('继续读'), findsOneWidget);
+    // The weekly rhythm stays behind home → 统计, not this entry.
+    expect(find.text('本周节奏'), findsNothing);
   });
+}
+
+ReadingHistoryEntry _routerHistoryEntry() {
+  final now = DateTime(2024, 5, 22, 9, 30);
+  return ReadingHistoryEntry(
+    book: Book(
+      id: 'history-book',
+      title: '云边有个小卖部',
+      author: '张嘉佳',
+      lastChapterIndex: 11,
+      lastReadPosition: 120,
+      createdAt: now,
+      updatedAt: now,
+      inShelf: true,
+      sortOrder: 0,
+      coverShowText: true,
+    ),
+    chapterCount: 24,
+    chapterTitle: '海边的风',
+    percent: 36,
+  );
 }
 
 ReadingStatsSummary _routerReadingStatsSummary() {

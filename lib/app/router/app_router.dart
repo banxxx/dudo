@@ -13,6 +13,7 @@ import '../../features/offline_cache/presentation/offline_cache_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../../features/reader_engine/presentation/reader_screen.dart';
 import '../../features/reading_goal/presentation/reading_goal_page.dart';
+import '../../features/reading_history/presentation/reading_history_page.dart';
 import '../../features/reading_stats/presentation/reading_stats_page.dart';
 import '../../features/search/presentation/search_page.dart';
 import '../../features/settings/about/presentation/about_app_page.dart';
@@ -152,6 +153,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.readingStats,
         name: AppRoutes.readingStatsName,
         builder: (_, __) => _themed(const ReadingStatsPage()),
+      ),
+      GoRoute(
+        path: AppRoutes.readingHistory,
+        name: AppRoutes.readingHistoryName,
+        builder: (_, __) => _themed(const ReadingHistoryPage()),
       ),
       GoRoute(
         path: AppRoutes.readingGoal,
@@ -321,6 +327,9 @@ class AppRoutes {
 
   static const readingStats = '/reading-stats';
   static const readingStatsName = 'reading-stats';
+
+  static const readingHistory = '/reading-history';
+  static const readingHistoryName = 'reading-history';
 
   static const readingGoal = '/reading-goal';
   static const readingGoalName = 'reading-goal';

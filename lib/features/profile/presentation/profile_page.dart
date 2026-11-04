@@ -548,11 +548,11 @@ class _LibraryToolsSection extends StatelessWidget {
         ),
         _ToolItem(
           title: '阅读记录',
-          description: '查看每日阅读曲线',
+          description: '最近打开的书与阅读位置',
           icon: LucideIcons.timer,
           iconFill: DudoColors.surfaceLow,
           iconColor: DudoColors.secondary,
-          route: AppRoutes.readingStats,
+          route: AppRoutes.readingHistory,
         ),
         _ToolItem(
           title: '离线缓存',

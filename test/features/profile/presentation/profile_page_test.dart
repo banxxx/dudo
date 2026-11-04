@@ -56,7 +56,7 @@ void main() {
     expect(find.text('距离 20 小时目标还差 4 小时 24 分钟。'), findsOneWidget);
     expect(find.text('书房工具'), findsOneWidget);
     expect(find.text('阅读记录'), findsOneWidget);
-    expect(find.text('查看每日阅读曲线'), findsOneWidget);
+    expect(find.text('最近打开的书与阅读位置'), findsOneWidget);
     expect(find.text('离线缓存'), findsOneWidget);
     expect(find.text('管理已下载章节'), findsOneWidget);
     expect(find.text('笔记摘录'), findsOneWidget);
@@ -201,7 +201,8 @@ void main() {
     expect(toolTitle.style?.fontSize, 14.5);
     expect(toolTitle.style?.fontWeight, FontWeight.w600);
 
-    final toolDescription = tester.widget<Text>(find.text('查看每日阅读曲线'));
+    final toolDescription =
+        tester.widget<Text>(find.text('最近打开的书与阅读位置'));
     expect(toolDescription.style?.color, DudoColors.secondary);
     expect(toolDescription.style?.fontSize, 11.5);
   });
