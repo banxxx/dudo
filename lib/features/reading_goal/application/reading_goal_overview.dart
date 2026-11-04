@@ -112,14 +112,20 @@ class ReadingGoalOverview {
       weeklyBars: _weeklyBars(weekRhythm),
       settings: [
         ReadingGoalSettingLineData(
-          icon: LucideIcons.target,
-          label: '月度目标',
+          icon: LucideIcons.flag,
+          label: switch (goal.method) {
+            GoalMethod.duration => '月度时长',
+            GoalMethod.chapters => '月度章节',
+            GoalMethod.pages => '月度页数',
+          },
           value: _targetLabel(goal),
         ),
         ReadingGoalSettingLineData(
           icon: LucideIcons.bell,
           label: '阅读提醒',
-          value: goal.reminderEnabled ? '已开启' : '已关闭',
+          value: goal.reminderEnabled
+              ? ReadingGoalPageData.formatReminderTime(goal.reminderMinutes)
+              : '已关闭',
         ),
         ReadingGoalSettingLineData(
           icon: LucideIcons.calendarCheck,

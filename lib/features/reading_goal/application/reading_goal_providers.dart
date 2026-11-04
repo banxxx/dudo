@@ -10,14 +10,18 @@ final readingGoalRepositoryProvider = Provider<ReadingGoalRepository>((ref) {
   return ReadingGoalRepository(ref.watch(appDatabaseProvider));
 });
 
-final readingGoalProvider = StreamProvider<ReadingGoal>((ref) {
+/// The saved goal, or `null` when the user has not set one.
+final readingGoalProvider = StreamProvider<ReadingGoal?>((ref) {
   return ref.watch(readingGoalRepositoryProvider).watchGoal();
 });
 
-/// The saved goal combined with this month's reading activity.
+/// The saved goal combined with this month's reading activity, or `null` when
+/// the user has not set a goal.
 final readingGoalOverviewProvider =
-    FutureProvider<ReadingGoalOverview>((ref) async {
+    FutureProvider<ReadingGoalOverview?>((ref) async {
   final goal = await ref.watch(readingGoalProvider.future);
+  if (goal == null) return null;
+
   final stats = await ref.watch(readingMonthStatsProvider.future);
   final weekRhythm = await ref.watch(readingWeekRhythmProvider.future);
 

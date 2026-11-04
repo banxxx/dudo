@@ -6,8 +6,10 @@ class ReadingGoal {
     required this.method,
     required this.value,
     required this.reminderEnabled,
+    required this.reminderMinutes,
     required this.repeatDays,
     required this.rules,
+    this.enabled = true,
   });
 
   factory ReadingGoal.defaults() {
@@ -15,6 +17,7 @@ class ReadingGoal {
       method: GoalMethod.duration,
       value: 20,
       reminderEnabled: true,
+      reminderMinutes: 21 * 60 + 30,
       repeatDays: {0, 1, 2, 3, 4, 5},
       rules: [true, true, true],
     );
@@ -31,6 +34,7 @@ class ReadingGoal {
       orElse: () => defaults.method,
     );
     final value = json['value'];
+    final reminderMinutes = json['reminderMinutes'];
     final repeatDays = json['repeatDays'];
     final rules = json['rules'];
 
@@ -40,6 +44,11 @@ class ReadingGoal {
       reminderEnabled: json['reminderEnabled'] is bool
           ? json['reminderEnabled'] as bool
           : defaults.reminderEnabled,
+      reminderMinutes: reminderMinutes is int &&
+              reminderMinutes >= 0 &&
+              reminderMinutes < 24 * 60
+          ? reminderMinutes
+          : defaults.reminderMinutes,
       repeatDays: repeatDays is List
           ? repeatDays
               .whereType<int>()
@@ -49,6 +58,7 @@ class ReadingGoal {
       rules: rules is List
           ? rules.map((rule) => rule == true).toList()
           : defaults.rules,
+      enabled: json['enabled'] is bool ? json['enabled'] as bool : true,
     );
   }
 
@@ -60,23 +70,35 @@ class ReadingGoal {
   final int value;
   final bool reminderEnabled;
 
+  /// Reminder time as minutes since midnight (0–1439).
+  final int reminderMinutes;
+
   /// Weekdays the reminder repeats on, 0 = Monday.
   final Set<int> repeatDays;
   final List<bool> rules;
+
+  /// Whether the goal is currently active. Closing a goal only flips this
+  /// flag: the plan, reminder and rules stay saved so re-opening restores the
+  /// user's setup instead of starting from the defaults.
+  final bool enabled;
 
   ReadingGoal copyWith({
     GoalMethod? method,
     int? value,
     bool? reminderEnabled,
+    int? reminderMinutes,
     Set<int>? repeatDays,
     List<bool>? rules,
+    bool? enabled,
   }) {
     return ReadingGoal(
       method: method ?? this.method,
       value: value ?? this.value,
       reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      reminderMinutes: reminderMinutes ?? this.reminderMinutes,
       repeatDays: repeatDays ?? this.repeatDays,
       rules: rules ?? this.rules,
+      enabled: enabled ?? this.enabled,
     );
   }
 
@@ -86,8 +108,10 @@ class ReadingGoal {
       'method': method.name,
       'value': value,
       'reminderEnabled': reminderEnabled,
+      'reminderMinutes': reminderMinutes,
       'repeatDays': days,
       'rules': rules,
+      'enabled': enabled,
     };
   }
 }

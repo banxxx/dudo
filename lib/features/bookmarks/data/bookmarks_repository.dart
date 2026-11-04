@@ -39,15 +39,31 @@ class BookmarksRepository {
   }
 
   Future<void> deleteEntry(BookmarkEntry entry) async {
-    if (entry.type == BookmarkEntryType.bookmark) {
-      await (database.delete(database.bookmarks)
-            ..where((bookmark) => bookmark.id.equals(entry.id)))
-          .go();
-      return;
+    await deleteEntries([entry]);
+  }
+
+  /// Deletes bookmarks and notes in two batched statements so a bulk delete
+  /// stays a single database round-trip per table.
+  Future<void> deleteEntries(Iterable<BookmarkEntry> entries) async {
+    final bookmarkIds = <String>[];
+    final noteIds = <String>[];
+    for (final entry in entries) {
+      if (entry.type == BookmarkEntryType.bookmark) {
+        bookmarkIds.add(entry.id);
+      } else {
+        noteIds.add(entry.id);
+      }
     }
-    await (database.delete(database.notes)
-          ..where((note) => note.id.equals(entry.id)))
-        .go();
+    if (bookmarkIds.isNotEmpty) {
+      await (database.delete(database.bookmarks)
+            ..where((bookmark) => bookmark.id.isIn(bookmarkIds)))
+          .go();
+    }
+    if (noteIds.isNotEmpty) {
+      await (database.delete(database.notes)
+            ..where((note) => note.id.isIn(noteIds)))
+          .go();
+    }
   }
 
   BookmarkEntryType _typeFor(String kind) {

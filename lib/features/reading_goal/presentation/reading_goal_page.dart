@@ -5,12 +5,14 @@ import '../../../core/utils/logger.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/error_state_view.dart';
 import '../../reading_stats/application/reading_stats_provider.dart';
+import '../application/reading_goal_overview.dart';
 import '../application/reading_goal_providers.dart';
 import '../domain/reading_goal.dart';
 import '../domain/reading_goal_method.dart';
 import '../reading_goal_page_data.dart';
 import 'widgets/reading_goal_edit_view.dart';
 import 'widgets/reading_goal_overview_view.dart';
+import 'widgets/reading_goal_sheets.dart';
 
 class ReadingGoalPage extends ConsumerStatefulWidget {
   const ReadingGoalPage({super.key});
@@ -20,61 +22,88 @@ class ReadingGoalPage extends ConsumerStatefulWidget {
 }
 
 class _ReadingGoalPageState extends ConsumerState<ReadingGoalPage> {
+  /// The saved goal, or `null` before the user has set one. A missing goal
+  /// opens the page straight in the edit flow.
+  ReadingGoal? _goal;
   bool _isEditing = false;
-  ReadingGoal _goal = ReadingGoal.defaults();
 
   // Draft state for the edit view; committed to [_goal] on save.
   GoalMethod _method = GoalMethod.duration;
   int _goalValue = GoalMethod.duration.defaultValue;
   bool _reminderEnabled = true;
+  int _reminderMinutes = ReadingGoal.defaults().reminderMinutes;
   Set<int> _repeatDays = Set<int>.from(ReadingGoalPageData.defaultRepeatDays);
   List<bool> _rules = List<bool>.from(ReadingGoalPageData.defaultRules);
 
   @override
   void initState() {
     super.initState();
-    _applyGoal(_goal);
     _loadSavedGoal();
   }
 
   Future<void> _loadSavedGoal() async {
     final goal = await ref.read(readingGoalProvider.future);
-    if (!mounted || _isEditing) return;
-    setState(() => _applyGoal(goal));
+    if (!mounted) return;
+    setState(() {
+      _goal = goal;
+      // Keep a draft the user has already started untouched.
+      if (_isEditing) return;
+      if (goal == null) {
+        _applyGoal(ReadingGoal.defaults());
+        _isEditing = true;
+      } else {
+        _applyGoal(goal);
+        // A closed goal keeps its plan, so open the edit view seeded with the
+        // saved settings and let the footer re-open it.
+        _isEditing = !goal.enabled;
+      }
+    });
   }
 
   void _applyGoal(ReadingGoal goal) {
-    _goal = goal;
     _method = goal.method;
     _goalValue = goal.value;
     _reminderEnabled = goal.reminderEnabled;
+    _reminderMinutes = goal.reminderMinutes;
     _repeatDays = Set<int>.from(goal.repeatDays);
     _rules = List<bool>.from(goal.rules);
   }
 
-  void _openEdit() => setState(() => _isEditing = true);
+  Future<void> _openEdit() async {
+    // The overview can paint from its cached value before the goal stream has
+    // emitted, so wait for the saved goal before seeding the draft.
+    final saved = _goal ?? await ref.read(readingGoalProvider.future);
+    if (!mounted) return;
+    setState(() {
+      _applyGoal(saved ?? ReadingGoal.defaults());
+      _isEditing = true;
+    });
+  }
 
-  void _closeEdit() => setState(() => _isEditing = false);
+  void _cancelEdit() {
+    final goal = _goal;
+    if (goal == null || !goal.enabled) {
+      if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+      return;
+    }
+    setState(() {
+      _applyGoal(goal);
+      _isEditing = false;
+    });
+  }
 
   Future<void> _saveEdit() async {
     final goal = ReadingGoal(
       method: _method,
       value: _goalValue,
       reminderEnabled: _reminderEnabled,
+      reminderMinutes: _reminderMinutes,
       repeatDays: Set<int>.from(_repeatDays),
       rules: List<bool>.from(_rules),
+      enabled: true,
     );
-    setState(() {
-      _goal = goal;
-      _isEditing = false;
-    });
-
     try {
       await ref.read(readingGoalRepositoryProvider).saveGoal(goal);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('阅读目标已保存')),
-      );
     } catch (error, stackTrace) {
       log.w(
         '[reading-goal] failed to save goal',
@@ -85,7 +114,26 @@ class _ReadingGoalPageState extends ConsumerState<ReadingGoalPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('阅读目标保存失败，请稍后重试')),
       );
+      return;
     }
+
+    // Saving makes the goal stream emit, which reloads the overview. Wait for
+    // the refreshed overview before leaving the edit view so the hand-over
+    // never lands on the loading placeholder and flashes a blank page.
+    try {
+      await ref.read(readingGoalOverviewProvider.future);
+    } catch (_) {
+      // A failed overview load renders its own error view.
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _goal = goal;
+      _isEditing = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('阅读目标已保存')),
+    );
   }
 
   void _resetEdit() {
@@ -105,22 +153,62 @@ class _ReadingGoalPageState extends ConsumerState<ReadingGoalPage> {
         value.clamp(_method.minValue, ReadingGoalPageData.maxValue));
   }
 
-  void _toggleRepeatDay(int index) {
+  void _changeReminder(ReadingGoalReminderDraft draft) {
     setState(() {
-      final days = Set<int>.from(_repeatDays);
-      days.contains(index) ? days.remove(index) : days.add(index);
-      _repeatDays = days;
+      _reminderEnabled = draft.enabled;
+      _reminderMinutes = draft.minutes;
+      _repeatDays = Set<int>.from(draft.repeatDays);
     });
   }
 
-  void _toggleRule(int index) {
-    setState(() => _rules[index] = !_rules[index]);
+  void _changeRules(List<bool> rules) {
+    setState(() => _rules = List<bool>.from(rules));
+  }
+
+  /// The preview disc mirrors the saved method's progress: a percentage for
+  /// time, the counted chapters or pages otherwise.
+  String _previewProgress(ReadingGoalOverview? overview) {
+    if (_method == GoalMethod.duration) {
+      return overview?.progressPercentText ?? '0%';
+    }
+    return overview?.methodProgress[_method] ?? '0';
+  }
+
+  Future<void> _requestCloseGoal() async {
+    final goal = _goal;
+    if (goal == null) return;
+    final overview = ref.read(readingGoalOverviewProvider).valueOrNull;
+    final confirmed = await showReadingGoalCloseSheet(
+      context,
+      targetLabel: '${goal.value} ${goal.method.unit}',
+      progressText: overview?.progressPercentText ?? '0%',
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref.read(readingGoalRepositoryProvider).setEnabled(false);
+    } catch (error, stackTrace) {
+      log.w(
+        '[reading-goal] failed to close goal',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('关闭目标失败，请稍后重试')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    if (Navigator.of(context).canPop()) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     final overviewAsync = ref.watch(readingGoalOverviewProvider);
     final overview = overviewAsync.valueOrNull;
+    final today = ref.watch(readingStatsTodayProvider);
 
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
@@ -128,35 +216,45 @@ class _ReadingGoalPageState extends ConsumerState<ReadingGoalPage> {
           ? PopScope(
               canPop: false,
               onPopInvokedWithResult: (didPop, _) {
-                if (!didPop) _closeEdit();
+                if (!didPop) _cancelEdit();
               },
               child: ReadingGoalEditView(
-                title: ReadingGoalPageData.titleFor(
-                  ref.watch(readingStatsTodayProvider),
-                ),
+                title: ReadingGoalPageData.titleFor(today),
                 method: _method,
                 goalValue: _goalValue,
-                methodProgress: overview?.methodProgress ?? const {},
+                progressText: _previewProgress(overview),
+                daysInMonth: ReadingGoalPageData.daysInMonth(today),
                 reminderEnabled: _reminderEnabled,
+                reminderMinutes: _reminderMinutes,
                 repeatDays: _repeatDays,
                 rules: _rules,
-                onCancel: _closeEdit,
+                onCancel: _cancelEdit,
                 onSave: _saveEdit,
                 onReset: _resetEdit,
+                onGoalAction: _goal == null
+                    ? null
+                    : _goal!.enabled
+                        ? _requestCloseGoal
+                        : _saveEdit,
+                goalActionLabel:
+                    _goal != null && !_goal!.enabled ? '开启目标' : '关闭目标',
                 onMethodChanged: _changeMethod,
                 onGoalChanged: _changeGoal,
-                onReminderChanged: (value) {
-                  setState(() => _reminderEnabled = value);
-                },
-                onRepeatDayToggled: _toggleRepeatDay,
-                onRuleToggled: _toggleRule,
+                onReminderChanged: _changeReminder,
+                onRulesChanged: _changeRules,
               ),
             )
           : overviewAsync.when(
-              data: (overview) => ReadingGoalOverviewView(
-                overview: overview,
-                onEdit: _openEdit,
-              ),
+              // A save reloads the overview through the goal stream. Keeping
+              // the last overview on screen during that reload avoids a blank
+              // loading frame between the edit view and the overview.
+              skipLoadingOnReload: true,
+              data: (overview) => overview == null
+                  ? const _GoalLoadingView()
+                  : ReadingGoalOverviewView(
+                      overview: overview,
+                      onEdit: _openEdit,
+                    ),
               loading: () => const _GoalLoadingView(),
               error: (error, stackTrace) => _GoalErrorView(
                 onRetry: () => ref.invalidate(readingGoalOverviewProvider),

@@ -7,9 +7,18 @@ import 'package:dudo/features/sources/data/source_repository.dart';
 import 'package:dudo/features/sources/domain/source_import_models.dart';
 import 'package:dudo/shared/messages/app_message.dart';
 import 'package:dudo/shared/messages/app_message_service.dart';
+import 'package:dudo/shared/widgets/dudo_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+/// The header action is an icon button; scope the lookup to the pinned header
+/// so the selection checkboxes and bulk-bar icons cannot match it.
+Finder _headerAction(IconData icon) => find.descendant(
+      of: find.byType(DudoPageHeader),
+      matching: find.byIcon(icon),
+    );
 
 void main() {
   testWidgets('renders F3 baseline without design hint text', (tester) async {
@@ -46,14 +55,14 @@ void main() {
     final harness = await _pumpSourceManageSettings(tester);
     addTearDown(harness.dispose);
 
-    expect(find.text('编辑'), findsOneWidget);
-    expect(find.text('完成'), findsNothing);
+    expect(_headerAction(LucideIcons.pencil), findsOneWidget);
+    expect(_headerAction(LucideIcons.check), findsNothing);
 
-    await tester.tap(find.text('编辑'));
+    await tester.tap(_headerAction(LucideIcons.pencil));
     await tester.pump();
 
-    expect(find.text('完成'), findsOneWidget);
-    expect(find.text('编辑'), findsNothing);
+    expect(_headerAction(LucideIcons.check), findsOneWidget);
+    expect(_headerAction(LucideIcons.pencil), findsNothing);
     expect(find.text('全选'), findsOneWidget);
     expect(find.text('已选 0 / 2'), findsOneWidget);
     expect(find.text('启用'), findsOneWidget);
@@ -67,10 +76,10 @@ void main() {
       expect(tester.getSize(ink.first).height, 60, reason: label);
     }
 
-    await tester.tap(find.text('完成'));
+    await tester.tap(_headerAction(LucideIcons.check));
     await tester.pump();
 
-    expect(find.text('编辑'), findsOneWidget);
+    expect(_headerAction(LucideIcons.pencil), findsOneWidget);
     expect(find.text('全选'), findsNothing);
     expect(find.text('已选 0 / 2'), findsNothing);
     expect(find.text('启用'), findsNothing);
@@ -83,7 +92,7 @@ void main() {
     final harness = await _pumpSourceManageSettings(tester);
     addTearDown(harness.dispose);
 
-    await tester.tap(find.text('编辑'));
+    await tester.tap(_headerAction(LucideIcons.pencil));
     await tester.pump();
     await tester.tap(find.text('番茄小说'));
     await tester.pump();
@@ -114,7 +123,7 @@ void main() {
     final harness = await _pumpSourceManageSettings(tester);
     addTearDown(harness.dispose);
 
-    await tester.tap(find.text('编辑'));
+    await tester.tap(_headerAction(LucideIcons.pencil));
     await tester.pump();
     await tester.tap(find.text('番茄小说'));
     await tester.pump();
@@ -146,7 +155,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), '番茄');
     await tester.pump();
-    await tester.tap(find.text('编辑'));
+    await tester.tap(_headerAction(LucideIcons.pencil));
     await tester.pump();
 
     expect(find.text('搜索结果 · 1 / 2 个'), findsOneWidget);
@@ -172,7 +181,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField), '起点');
     await tester.pump();
-    await tester.tap(find.text('编辑'));
+    await tester.tap(_headerAction(LucideIcons.pencil));
     await tester.pump();
 
     expect(find.text('搜索结果 · 1 / 2 个'), findsOneWidget);
@@ -195,7 +204,7 @@ void main() {
     final harness = await _pumpSourceManageSettings(tester);
     addTearDown(harness.dispose);
 
-    await tester.tap(find.text('编辑'));
+    await tester.tap(_headerAction(LucideIcons.pencil));
     await tester.pump();
     await tester.tap(find.text('全选'));
     await tester.pump();
@@ -219,7 +228,7 @@ void main() {
     final harness = await _pumpSourceManageSettings(tester);
     addTearDown(harness.dispose);
 
-    await tester.tap(find.text('编辑'));
+    await tester.tap(_headerAction(LucideIcons.pencil));
     await tester.pump();
 
     expect(find.text('全选'), findsOneWidget);

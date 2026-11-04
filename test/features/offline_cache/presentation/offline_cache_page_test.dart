@@ -13,16 +13,25 @@ import 'package:dudo/shared/messages/app_message.dart';
 import 'package:dudo/shared/messages/app_message_service.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
 import 'package:dudo/shared/theme/dudo_palette.dart';
+import 'package:dudo/shared/widgets/dudo_page_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 void _useTallViewport(WidgetTester tester) {
   tester.view.physicalSize = const Size(900, 2400);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
 }
+
+/// The header action is an icon button; scope the lookup to the pinned header
+/// so the selection checkboxes elsewhere on the page cannot match it.
+Finder _headerAction(IconData icon) => find.descendant(
+      of: find.byType(DudoPageHeader),
+      matching: find.byIcon(icon),
+    );
 
 void main() {
   testWidgets('renders download settings and cached books', (tester) async {
@@ -45,7 +54,7 @@ void main() {
     expect(find.text('三体 2 · 黑暗森林'), findsOneWidget);
     expect(find.text('2 章 · 6MB'), findsOneWidget);
     expect(find.text('1 章 · 5MB'), findsOneWidget);
-    expect(find.text('管理'), findsOneWidget);
+    expect(_headerAction(LucideIcons.listChecks), findsOneWidget);
     expect(find.textContaining('清除缓存只删除已下载的章节正文'), findsOneWidget);
   });
 
@@ -82,7 +91,7 @@ void main() {
     await tester.pumpWidget(_wrap(repository, messages));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('管理'));
+    await tester.tap(_headerAction(LucideIcons.listChecks));
     await tester.pumpAndSettle();
 
     expect(find.text('管理离线缓存'), findsOneWidget);
@@ -111,7 +120,7 @@ void main() {
     expect(messages.successes, ['已清除「三体」的缓存']);
     expect(find.text('三体'), findsNothing);
     expect(find.text('三体 2 · 黑暗森林'), findsOneWidget);
-    expect(find.text('管理'), findsOneWidget);
+    expect(_headerAction(LucideIcons.listChecks), findsOneWidget);
   });
 
   testWidgets('selects all cached books and clears them together',
@@ -123,7 +132,7 @@ void main() {
     await tester.pumpWidget(_wrap(repository, messages));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('管理'));
+    await tester.tap(_headerAction(LucideIcons.listChecks));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('offline-select-all')));
     await tester.pump();
@@ -176,7 +185,7 @@ void main() {
     expect(find.text('只存正文'), findsOneWidget);
     expect(find.text('随时清除'), findsOneWidget);
     expect(find.text('同时下载数量'), findsOneWidget);
-    expect(find.text('管理'), findsNothing);
+    expect(_headerAction(LucideIcons.listChecks), findsNothing);
     expect(find.text('全部清除'), findsNothing);
   });
 
@@ -351,7 +360,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('管理'));
+    await tester.tap(_headerAction(LucideIcons.listChecks));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });

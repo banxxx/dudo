@@ -10,6 +10,7 @@ class DudoFixedPageFrame extends StatelessWidget {
     this.header,
     this.footer,
     this.padding = const EdgeInsets.fromLTRB(20, 8, 20, 16),
+    this.headerGap = DudoLayout.pinnedHeaderGap,
     this.maxWidth,
     this.constrainWidth = true,
     this.bottomSafeArea = true,
@@ -20,6 +21,10 @@ class DudoFixedPageFrame extends StatelessWidget {
   final Widget? footer;
   final List<Widget> children;
   final EdgeInsets padding;
+
+  /// Gap between the pinned header and the scrolling content. Pages that pin
+  /// a denser header (e.g. the reading-goal screens) pass a tighter value.
+  final double headerGap;
   final double? maxWidth;
   final bool constrainWidth;
   final bool bottomSafeArea;
@@ -37,7 +42,10 @@ class DudoFixedPageFrame extends StatelessWidget {
       padding: effectivePadding,
       child: Column(
         children: [
-          if (header != null) header!,
+          if (header != null) ...[
+            header!,
+            SizedBox(height: headerGap),
+          ],
           Expanded(
             child: SingleChildScrollView(
               controller: controller,

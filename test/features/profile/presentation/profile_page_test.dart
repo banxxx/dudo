@@ -24,6 +24,9 @@ void main() {
               bookmarkCount: 7,
             ),
           ),
+          readingGoalProvider.overrideWith(
+            (_) => Stream<ReadingGoal?>.value(ReadingGoal.defaults()),
+          ),
           readingGoalOverviewProvider.overrideWith((_) async => _overview()),
         ],
         child: const MaterialApp(
@@ -203,6 +206,75 @@ void main() {
     expect(toolDescription.style?.fontSize, 11.5);
   });
 
+  testWidgets('renders the F1-1 empty goal card without a saved goal',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileSummaryProvider.overrideWith(
+            (_) async => const ProfileSummary(
+              monthReadingLabel: '12h',
+              shelfCount: 38,
+              bookmarkCount: 7,
+            ),
+          ),
+          readingGoalProvider.overrideWith(
+            (_) => Stream<ReadingGoal?>.value(null),
+          ),
+          readingGoalOverviewProvider.overrideWith((_) async => null),
+        ],
+        child: const MaterialApp(home: ProfilePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('还没有阅读目标'), findsOneWidget);
+    expect(find.text('设定每月目标，让阅读有迹可循'), findsOneWidget);
+    expect(find.byKey(const ValueKey('profile-goal-ring')), findsNothing);
+
+    final emptyCard = tester.widget<Container>(
+      find.byKey(const ValueKey('profile-goal-empty-card')),
+    );
+    final decoration = emptyCard.decoration! as BoxDecoration;
+    expect(emptyCard.padding, const EdgeInsets.all(14));
+    expect(decoration.color, DudoColors.surface);
+    expect(decoration.borderRadius, BorderRadius.circular(26));
+    expect(decoration.border?.top.color, DudoColors.outlineVariant);
+    expect(find.byIcon(LucideIcons.flag), findsOneWidget);
+  });
+
+  testWidgets('shows the empty card when the saved goal is closed',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          profileSummaryProvider.overrideWith(
+            (_) async => const ProfileSummary(
+              monthReadingLabel: '12h',
+              shelfCount: 38,
+              bookmarkCount: 7,
+            ),
+          ),
+          readingGoalProvider.overrideWith(
+            (_) => Stream<ReadingGoal?>.value(
+              ReadingGoal.defaults().copyWith(enabled: false),
+            ),
+          ),
+          readingGoalOverviewProvider.overrideWith((_) async => _overview()),
+        ],
+        child: const MaterialApp(home: ProfilePage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('还没有阅读目标'), findsOneWidget);
+    expect(find.byKey(const ValueKey('profile-goal-empty-card')), findsOneWidget);
+    expect(find.byKey(const ValueKey('profile-goal-ring')), findsNothing);
+    // The profile card is only an entry point; opening/closing lives in the
+    // goal page header, so no enable button appears here.
+    expect(find.text('开启目标'), findsNothing);
+  });
+
   testWidgets('stat cells open their destinations', (tester) async {
     final router = GoRouter(
       initialLocation: '/profile',
@@ -228,6 +300,9 @@ void main() {
               shelfCount: 38,
               bookmarkCount: 7,
             ),
+          ),
+          readingGoalProvider.overrideWith(
+            (_) => Stream<ReadingGoal?>.value(ReadingGoal.defaults()),
           ),
           readingGoalOverviewProvider.overrideWith((_) async => _overview()),
         ],

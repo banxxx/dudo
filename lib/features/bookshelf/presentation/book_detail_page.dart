@@ -462,7 +462,7 @@ class _BookDetailScrollView extends StatelessWidget {
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(
                   horizontalPadding,
-                  64,
+                  64 + DudoLayout.pinnedHeaderGap,
                   horizontalPadding,
                   hasStarted ? 10 : 14,
                 ),
@@ -685,7 +685,14 @@ class _PinnedBookDetailTopBar extends StatelessWidget {
         behavior: HitTestBehavior.translucent,
         onDoubleTap: onDoubleTap,
         child: Container(
-          padding: EdgeInsets.fromLTRB(20, topPadding + 6, 20, 0),
+          // The extra bottom padding keeps the scroll content from being cut
+          // flush against the buttons: it disappears under a strip of paper.
+          padding: EdgeInsets.fromLTRB(
+            20,
+            topPadding + 6,
+            20,
+            DudoLayout.pinnedHeaderGap,
+          ),
           color: DudoColors.paperBackground,
           child: _BookDetailTopBar(onBack: onBack, onMore: onMore),
         ),

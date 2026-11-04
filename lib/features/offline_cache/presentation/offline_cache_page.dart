@@ -93,14 +93,14 @@ class _OfflineCachePageState extends ConsumerState<OfflineCachePage> {
             : tasks.isNotEmpty
                 ? '正在缓存与已缓存书籍'
                 : '管理已缓存章节与下载设置',
-        actionLabel: isManage
-            ? '完成'
+        actionIcon: isManage
+            ? LucideIcons.check
             : visibleBooks.isNotEmpty
-                ? '管理'
-                : null,
-        actionIcon: isManage || visibleBooks.isNotEmpty || !showEmpty
-            ? null
-            : LucideIcons.refreshCw,
+                ? LucideIcons.listChecks
+                : showEmpty
+                    ? LucideIcons.refreshCw
+                    : null,
+        actionEmphasized: isManage,
         onActionTap: isManage
             ? _exitManage
             : visibleBooks.isNotEmpty

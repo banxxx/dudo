@@ -348,7 +348,6 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
       header: const SettingsDetailHeader(
         eyebrow: '阅读体验',
         title: '阅读朗读',
-        actionIcon: LucideIcons.headphones,
       ),
       children: [
         const SizedBox(height: 14),

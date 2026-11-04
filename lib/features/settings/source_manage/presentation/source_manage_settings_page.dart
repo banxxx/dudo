@@ -289,7 +289,7 @@ class _SourceManageSettingsPageState
       header: SettingsDetailHeader(
         eyebrow: '内容与书源',
         title: '书源管理',
-        actionLabel: _isManageMode ? '完成' : '编辑',
+        actionIcon: _isManageMode ? LucideIcons.check : LucideIcons.pencil,
         actionEmphasized: _isManageMode,
         onActionTap: _toggleManageMode,
       ),
@@ -384,7 +384,7 @@ class _SourceSummary extends StatelessWidget {
         (totalCount == 0
             ? '先导入 Legado JSON 规则文件，再进入管理模式启用或删除。'
             : disabledCount > 0
-                ? '启用后才会参与搜索与章节更新，点击右上角「编辑」可批量管理。'
+                ? '启用后才会参与搜索与章节更新，点击右上角的编辑图标可批量管理。'
                 : '共导入 $totalCount 个书源，可进入管理模式查看或删除。');
 
     return Container(

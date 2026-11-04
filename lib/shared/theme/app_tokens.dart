@@ -109,6 +109,14 @@ class DudoLayout {
   static const double bottomTabBarHeight = 68;
   static const double bottomTabHorizontalInset = 18;
   static const double bottomTabTopInset = 10;
+
+  /// Breathing room between a pinned page header and the scrolling content.
+  ///
+  /// Content that scrolls up is clipped at the top of the scroll viewport. A
+  /// gap keeps that clip line below the header, so rows disappear with a strip
+  /// of paper between them and the header instead of being cut flush against
+  /// its bottom edge.
+  static const double pinnedHeaderGap = 12;
 }
 
 /// Custom motion tokens following M3 emphasized easing.

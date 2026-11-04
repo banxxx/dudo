@@ -71,7 +71,11 @@ class SettingsDetailHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final actionLabel = this.actionLabel;
     final actionIcon = this.actionIcon;
-    final hasAction = showAction && (actionLabel != null || actionIcon != null);
+    // An action without a handler is decoration, not a control: never render
+    // a tappable-looking button that does nothing.
+    final hasAction = showAction &&
+        onActionTap != null &&
+        (actionLabel != null || actionIcon != null);
 
     return DudoPageHeader(
       title: title,
@@ -134,6 +138,16 @@ class SettingsDetailHeader extends StatelessWidget {
                   : DudoCircleIconButton(
                       icon: actionIcon!,
                       iconSize: 20,
+                      // Keep the "finish editing" state emphasised now that
+                      // every header action is an icon.
+                      backgroundColor: actionEmphasized
+                          ? DudoColors.primaryContainer
+                          : null,
+                      iconColor:
+                          actionEmphasized ? DudoColors.primaryDark : null,
+                      borderColor: actionEmphasized
+                          ? DudoColors.primaryContainerStrong
+                          : null,
                       onTap: onActionTap ?? () {},
                     ),
             )

@@ -1,4 +1,6 @@
+import 'package:dudo/core/database/app_database.dart';
 import 'package:dudo/features/bookmarks/application/bookmarks_providers.dart';
+import 'package:dudo/features/bookmarks/data/bookmarks_repository.dart';
 import 'package:dudo/features/bookmarks/domain/bookmark_entry.dart';
 import 'package:dudo/features/bookmarks/presentation/bookmarks_page.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
@@ -17,6 +19,9 @@ void main() {
     expect(find.text('阅读标记'), findsOneWidget);
     expect(find.text('书签'), findsOneWidget);
     expect(find.byKey(const ValueKey('bookmarks-back-button')), findsOneWidget);
+    // G1 keeps the filter control visible even with an empty list.
+    expect(
+        find.byKey(const ValueKey('bookmarks-filter-button')), findsOneWidget);
     expect(find.text('暂无书签和高亮'), findsOneWidget);
     expect(find.text('阅读时点击书签或划线，高亮摘录会自动收集在这里。'), findsOneWidget);
     expect(find.text('把喜欢的句子留在这里'), findsOneWidget);
@@ -57,6 +62,7 @@ void main() {
   });
 
   testWidgets('lists stored bookmarks, highlights, and notes', (tester) async {
+    final now = DateTime.now();
     await tester.pumpWidget(
       _app(
         entries: [
@@ -70,7 +76,7 @@ void main() {
             offset: 120,
             preview: '向宇宙深处望去。',
             note: null,
-            createdAt: DateTime.now(),
+            createdAt: now,
           ),
           BookmarkEntry(
             id: 'note-1',
@@ -82,23 +88,43 @@ void main() {
             offset: 0,
             preview: '黑暗森林法则',
             note: '值得回看',
-            createdAt: DateTime.now(),
+            // Keep both entries in "today" so the label assertion does not
+            // depend on the wall-clock time the test runs at.
+            createdAt: now,
           ),
         ],
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('共 2 条标记 · 1 本书'), findsOneWidget);
-    expect(find.text('书签 1 · 笔记 1'), findsOneWidget);
+    expect(find.text('2 条标记 · 1 本书'), findsOneWidget);
+    expect(find.text('最近摘录来自《三体》，适合继续整理笔记。'), findsOneWidget);
     expect(find.text('三体 · 第3章 黎明'), findsOneWidget);
     expect(find.text('三体 · 第 5 章'), findsOneWidget);
     expect(find.text('向宇宙深处望去。'), findsOneWidget);
     expect(find.text('笔记：值得回看'), findsOneWidget);
-    expect(find.byKey(const ValueKey('bookmark-delete-bookmark-1')),
-        findsOneWidget);
+    expect(find.textContaining('今天 '), findsNWidgets(2));
+    // The card no longer carries a per-entry trash button; deletion moved to
+    // the G3 bulk-selection flow.
+    expect(
+        find.byKey(const ValueKey('bookmark-delete-bookmark-1')), findsNothing);
     expect(find.text('暂无书签和高亮'), findsNothing);
     expect(find.text('把喜欢的句子留在这里'), findsNothing);
+  });
+
+  testWidgets('centers the type mark vertically in the entry card',
+      (tester) async {
+    _useTallViewport(tester);
+    await tester.pumpWidget(_app(entries: _entries()));
+    await tester.pumpAndSettle();
+
+    final card = tester.getRect(
+      find.byKey(const ValueKey('bookmark-entry-note-1')),
+    );
+    final mark = tester.getRect(
+      find.byKey(const ValueKey('bookmark-mark-note-1')),
+    );
+    expect((mark.center.dy - card.center.dy).abs(), lessThan(1));
   });
 
   testWidgets('filters entries by type with the chip row', (tester) async {
@@ -106,16 +132,14 @@ void main() {
     await tester.pumpWidget(_app(entries: _entries()));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('bookmark-filter-all')), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('bookmark-filter-bookmark')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('bookmark-filter-highlight')),
-      findsOneWidget,
-    );
-    expect(find.byKey(const ValueKey('bookmark-filter-note')), findsOneWidget);
+    for (final key in [
+      'bookmark-filter-all',
+      'bookmark-filter-bookmark',
+      'bookmark-filter-highlight',
+      'bookmark-filter-note',
+    ]) {
+      expect(find.byKey(ValueKey(key)), findsOneWidget);
+    }
     expect(find.text('向宇宙深处望去。'), findsOneWidget);
     expect(find.text('黑暗森林法则'), findsOneWidget);
     expect(find.text('面壁计划'), findsOneWidget);
@@ -127,7 +151,7 @@ void main() {
     expect(find.text('向宇宙深处望去。'), findsNothing);
     expect(find.text('面壁计划'), findsNothing);
     // The summary keeps counting every entry, not just the visible ones.
-    expect(find.text('共 3 条标记 · 1 本书'), findsOneWidget);
+    expect(find.text('3 条标记 · 1 本书'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('bookmark-filter-all')));
     await tester.pumpAndSettle();
@@ -136,61 +160,59 @@ void main() {
     expect(find.text('面壁计划'), findsOneWidget);
   });
 
-  testWidgets('opens the options sheet to filter by type', (tester) async {
-    _useTallViewport(tester);
-    await tester.pumpWidget(_app(entries: _entries()));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('bookmarks-filter-button')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('筛选与排序'), findsOneWidget);
-    expect(find.text('标记类型'), findsOneWidget);
-    expect(find.text('排序方式'), findsOneWidget);
-    expect(find.text('3 条'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('bookmark-option-note')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('筛选与排序'), findsNothing);
-    expect(find.text('面壁计划'), findsOneWidget);
-    expect(find.text('向宇宙深处望去。'), findsNothing);
-    expect(find.text('黑暗森林法则'), findsNothing);
-  });
-
-  testWidgets('keeps an empty active filter visible in the chip row',
+  testWidgets('shows an empty filtered state when a type has no entries',
       (tester) async {
     _useTallViewport(tester);
     await tester.pumpWidget(_app(entries: [_entries().first]));
     await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey('bookmark-filter-highlight')),
-      findsNothing,
-    );
-
-    await tester.tap(find.byKey(const ValueKey('bookmarks-filter-button')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('bookmark-option-highlight')));
-    await tester.pumpAndSettle();
-
+    // Every chip stays available so an empty type is still discoverable.
     expect(
       find.byKey(const ValueKey('bookmark-filter-highlight')),
       findsOneWidget,
     );
-    expect(find.text('没有符合条件的标记'), findsOneWidget);
 
-    await tester.tap(find.text('清除筛选'));
+    await tester.tap(find.byKey(const ValueKey('bookmark-filter-highlight')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('没有符合条件的标记'), findsOneWidget);
+    expect(find.text('「高亮」下还没有标记，换个类型看看。'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('bookmarks-filtered-empty')),
+      findsOneWidget,
+    );
+    // The G4 empty state fills the space under the chips instead of sitting in
+    // a short bordered card.
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('bookmarks-filtered-empty')))
+          .height,
+      greaterThan(300),
+    );
+    expect(find.text('查看全部标记'), findsNothing);
+
+    // The chips are the way back to the full list.
+    await tester.tap(find.byKey(const ValueKey('bookmark-filter-all')));
     await tester.pumpAndSettle();
 
     expect(find.text('向宇宙深处望去。'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('bookmark-filter-highlight')),
-      findsNothing,
-    );
+    expect(find.text('没有符合条件的标记'), findsNothing);
   });
 
-  testWidgets('sorts entries by time from the options sheet', (tester) async {
+  testWidgets('renders entry text without bold weights', (tester) async {
+    _useTallViewport(tester);
+    await tester.pumpWidget(_app(entries: _entries()));
+    await tester.pumpAndSettle();
+
+    final source = tester.widget<Text>(
+      find.text('三体 · 第5章 黑暗森林'),
+    );
+    final quote = tester.widget<Text>(find.text('面壁计划'));
+    expect(source.style?.fontWeight ?? FontWeight.normal, FontWeight.normal);
+    expect(quote.style?.fontWeight ?? FontWeight.normal, FontWeight.normal);
+  });
+
+  testWidgets('sorts entries from the options sheet', (tester) async {
     _useTallViewport(tester);
     await tester.pumpWidget(_app(entries: _entries()));
     await tester.pumpAndSettle();
@@ -203,6 +225,10 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('bookmarks-filter-button')));
     await tester.pumpAndSettle();
+    expect(find.text('排序与整理'), findsOneWidget);
+    expect(find.text('排序方式'), findsOneWidget);
+    expect(find.text('批量管理'), findsOneWidget);
+
     await tester.tap(
       find.byKey(const ValueKey('bookmark-option-sort-oldest')),
     );
@@ -212,6 +238,109 @@ void main() {
       tester.getTopLeft(find.text('向宇宙深处望去。')).dy,
       lessThan(tester.getTopLeft(find.text('面壁计划')).dy),
     );
+  });
+
+  testWidgets('opens bulk selection from the options sheet', (tester) async {
+    _useTallViewport(tester);
+    await tester.pumpWidget(_app(entries: _entries()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('bookmarks-filter-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('bookmark-option-manage')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('批量选择'), findsOneWidget);
+    expect(find.text('已选 0 项'), findsOneWidget);
+    expect(find.text('删除 0 项'), findsOneWidget);
+    expect(find.text('全选'), findsOneWidget);
+  });
+
+  testWidgets('long press starts bulk selection and deletes the selection',
+      (tester) async {
+    _useTallViewport(tester);
+    final repository = _FakeBookmarksRepository();
+    await tester.pumpWidget(
+      _app(entries: _entries(), repository: repository),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('面壁计划'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('批量选择'), findsOneWidget);
+    expect(find.text('已选 1 项'), findsOneWidget);
+    expect(find.text('删除 1 项'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('bookmark-select-bookmark-1')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const ValueKey('bookmarks-select-all')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已选 3 项'), findsOneWidget);
+    expect(find.text('取消全选'), findsOneWidget);
+    expect(find.text('删除 3 项'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('bookmarks-selection-delete')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('删除 3 条标记？'), findsOneWidget);
+
+    await tester.tap(find.text('删除'));
+    await tester.pumpAndSettle();
+
+    expect(repository.deleteCalls, hasLength(1));
+    expect(
+      repository.deleteCalls.single,
+      {'bookmark-1', 'highlight-1', 'note-1'},
+    );
+    expect(find.text('批量选择'), findsNothing);
+    expect(find.byKey(const ValueKey('bookmarks-bulk-bar')), findsNothing);
+  });
+
+  testWidgets('bulk selection fits a compact screen', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 720);
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_app(entries: _entries()));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('面壁计划'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('批量选择'), findsOneWidget);
+    expect(find.text('已选 1 项'), findsOneWidget);
+    expect(find.text('删除 1 项'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('exit and cancel leave the selection without deleting',
+      (tester) async {
+    _useTallViewport(tester);
+    final repository = _FakeBookmarksRepository();
+    await tester.pumpWidget(
+      _app(entries: _entries(), repository: repository),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('面壁计划'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('bookmarks-selection-exit')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('bookmarks-bulk-bar')), findsNothing);
+    expect(repository.deleteCalls, isEmpty);
+
+    await tester.longPress(find.text('面壁计划'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('bookmarks-selection-cancel')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('bookmarks-bulk-bar')), findsNothing);
+    expect(repository.deleteCalls, isEmpty);
   });
 }
 
@@ -261,11 +390,36 @@ void _useTallViewport(WidgetTester tester) {
   addTearDown(tester.view.reset);
 }
 
-Widget _app({List<BookmarkEntry> entries = const []}) {
+Widget _app({
+  List<BookmarkEntry> entries = const [],
+  BookmarksRepository? repository,
+}) {
   return ProviderScope(
     overrides: [
       bookmarkEntriesProvider.overrideWith((ref) => Stream.value(entries)),
+      if (repository != null)
+        bookmarksRepositoryProvider.overrideWithValue(repository),
     ],
     child: const MaterialApp(home: BookmarksPage()),
   );
+}
+
+class _FakeBookmarksRepository implements BookmarksRepository {
+  final List<Set<String>> deleteCalls = [];
+
+  @override
+  AppDatabase get database => throw UnimplementedError();
+
+  @override
+  Stream<List<BookmarkEntry>> watchEntries() => const Stream.empty();
+
+  @override
+  Future<void> deleteEntry(BookmarkEntry entry) async {
+    await deleteEntries([entry]);
+  }
+
+  @override
+  Future<void> deleteEntries(Iterable<BookmarkEntry> entries) async {
+    deleteCalls.add(entries.map((entry) => entry.id).toSet());
+  }
 }

@@ -142,4 +142,12 @@ void main() {
     final remaining = await repository.watchEntries().first;
     expect(remaining.map((entry) => entry.id), ['highlight-1']);
   });
+
+  test('deletes a mixed batch of bookmarks and notes', () async {
+    final entries = await repository.watchEntries().first;
+
+    await repository.deleteEntries(entries);
+
+    expect(await repository.watchEntries().first, isEmpty);
+  });
 }

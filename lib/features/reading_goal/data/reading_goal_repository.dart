@@ -12,13 +12,14 @@ class ReadingGoalRepository {
 
   final AppDatabase _database;
 
-  Stream<ReadingGoal> watchGoal() {
+  /// Emits `null` while the user has not set a goal yet.
+  Stream<ReadingGoal?> watchGoal() {
     final query = _database.select(_database.appPreferences)
       ..where((table) => table.key.equals(ReadingGoal.preferenceKey));
     return query.watchSingleOrNull().map((row) => _decode(row?.value));
   }
 
-  Future<ReadingGoal> loadGoal() async {
+  Future<ReadingGoal?> loadGoal() async {
     final row = await (_database.select(_database.appPreferences)
           ..where((table) => table.key.equals(ReadingGoal.preferenceKey)))
         .getSingleOrNull();
@@ -35,12 +36,20 @@ class ReadingGoalRepository {
         );
   }
 
-  ReadingGoal _decode(String? value) {
-    if (value == null || value.trim().isEmpty) return ReadingGoal.defaults();
+  /// Closes or re-opens the saved goal. Closing keeps the plan, reminder,
+  /// rules and the month's reading progress; only the active flag changes.
+  Future<void> setEnabled(bool enabled) async {
+    final goal = await loadGoal();
+    if (goal == null) return;
+    await saveGoal(goal.copyWith(enabled: enabled));
+  }
+
+  ReadingGoal? _decode(String? value) {
+    if (value == null || value.trim().isEmpty) return null;
     try {
       return ReadingGoal.fromJson(jsonDecode(value));
     } catch (_) {
-      return ReadingGoal.defaults();
+      return null;
     }
   }
 }

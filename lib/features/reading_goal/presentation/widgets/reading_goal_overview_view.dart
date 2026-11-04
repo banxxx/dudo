@@ -23,10 +23,10 @@ class ReadingGoalOverviewView extends StatelessWidget {
   Widget build(BuildContext context) {
     return DudoFixedPageFrame(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+      headerGap: 10,
       constrainWidth: false,
       header: _GoalHeader(title: overview.title, onEdit: onEdit),
       children: [
-        const SizedBox(height: 10),
         _GoalHeroCard(overview: overview),
         const SizedBox(height: 10),
         _QuickMetrics(metrics: overview.metrics),
@@ -410,7 +410,6 @@ class _GoalSettingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _PlainCard(
-      height: 170,
       children: [
         const _CardTitle(ReadingGoalPageData.settingsTitle),
         const SizedBox(height: 6),
@@ -439,15 +438,13 @@ class _SettingsLines extends StatelessWidget {
 }
 
 class _PlainCard extends StatelessWidget {
-  const _PlainCard({required this.height, required this.children});
+  const _PlainCard({required this.children});
 
-  final double height;
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: height,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: DudoColors.surface,
@@ -486,17 +483,17 @@ class _SettingLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 34,
+      height: 44,
       child: Row(
         children: [
           Container(
-            width: 28,
-            height: 28,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               color: DudoColors.surfaceLow,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(setting.icon, color: DudoColors.secondary, size: 16),
+            child: Icon(setting.icon, color: DudoColors.secondary, size: 17),
           ),
           const SizedBox(width: 10),
           Text(

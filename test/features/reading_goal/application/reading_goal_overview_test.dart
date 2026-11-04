@@ -4,6 +4,7 @@ import 'package:dudo/features/reading_goal/domain/reading_goal_method.dart';
 import 'package:dudo/features/reading_stats/domain/reading_stats_models.dart';
 import 'package:dudo/shared/theme/app_tokens.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 void main() {
   final now = DateTime(2026, 5, 20);
@@ -53,7 +54,9 @@ void main() {
     expect(overview.heroBadges.last.text, '节奏正常');
     expect(overview.metrics.first.value, '23/31');
     expect(overview.metrics.last.value, '6天');
+    expect(overview.settings[0].icon, LucideIcons.flag);
     expect(overview.settings[0].value, '20 小时');
+    expect(overview.settings[1].value, '21:30');
     expect(overview.settings[2].value, '阅读时长');
     expect(overview.suggestionTitle, '每天再读 22 分钟即可达成');
   });
@@ -119,6 +122,14 @@ void main() {
     expect(overview.metrics.first.value, '0/31');
     expect(overview.suggestionTitle, '每天再读 100 分钟即可达成');
     expect(overview.suggestionDescription, '今天读一点，本月的目标就开始推进了。');
+  });
+
+  test('a disabled reminder reports 已关闭', () {
+    final overview = build(
+      goal: ReadingGoal.defaults().copyWith(reminderEnabled: false),
+    );
+
+    expect(overview.settings[1].value, '已关闭');
   });
 
   test('weekly bars scale to the busiest day', () {

@@ -56,6 +56,7 @@ void main() {
         home: Scaffold(
           body: DudoPageFrame(
             header: SizedBox(
+              key: ValueKey('pinned-header-box'),
               height: 56,
               child: Text('Pinned header', key: ValueKey('pinned-header')),
             ),
@@ -74,6 +75,14 @@ void main() {
     expect(
       tester.getBottomLeft(find.text('Pinned header')).dy,
       lessThanOrEqualTo(listTop),
+    );
+    // The scroll viewport starts a gap below the header, so scrolled content
+    // is clipped under a strip of paper instead of against the header.
+    expect(
+      listTop -
+          tester.getBottomLeft(find.byKey(const ValueKey('pinned-header-box')))
+              .dy,
+      DudoLayout.pinnedHeaderGap,
     );
 
     await tester.drag(find.byType(ListView), const Offset(0, -240));

@@ -10,6 +10,7 @@ import '../../../shared/widgets/dudo_entry_row.dart';
 import '../../../shared/widgets/dudo_page_frame.dart';
 import '../../reading_goal/application/reading_goal_overview.dart';
 import '../../reading_goal/application/reading_goal_providers.dart';
+import '../../reading_goal/domain/reading_goal.dart';
 import '../application/profile_providers.dart';
 
 class ProfilePage extends ConsumerWidget {
@@ -19,7 +20,8 @@ class ProfilePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final summary =
         ref.watch(profileSummaryProvider).valueOrNull ?? ProfileSummary.empty;
-    final goal = ref.watch(readingGoalOverviewProvider).valueOrNull;
+    final goalState = ref.watch(readingGoalProvider);
+    final overviewState = ref.watch(readingGoalOverviewProvider);
 
     return Scaffold(
       backgroundColor: DudoColors.paperBackground,
@@ -30,7 +32,11 @@ class ProfilePage extends ConsumerWidget {
           const SizedBox(height: 12),
           _ProfileIdentityCard(summary: summary),
           const SizedBox(height: 12),
-          _MonthlyGoalCard(overview: goal),
+          _MonthlyGoalCard(
+            goal: goalState.valueOrNull,
+            overview: overviewState.valueOrNull,
+            loading: goalState.isLoading && !goalState.hasValue,
+          ),
           const SizedBox(height: 12),
           const _LibraryToolsSection(),
         ],
@@ -304,74 +310,155 @@ class _IdentityStatDivider extends StatelessWidget {
 }
 
 class _MonthlyGoalCard extends StatelessWidget {
-  const _MonthlyGoalCard({required this.overview});
+  const _MonthlyGoalCard({
+    required this.goal,
+    required this.overview,
+    required this.loading,
+  });
 
+  final ReadingGoal? goal;
   final ReadingGoalOverview? overview;
+
+  /// True while the saved goal is still loading; a settled goal that is
+  /// missing or closed shows the empty card.
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
+    final hasGoal = loading || (goal?.enabled ?? false);
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(26),
       child: InkWell(
         onTap: () => context.push(AppRoutes.readingGoal),
         borderRadius: BorderRadius.circular(26),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: DudoColors.primaryContainer,
-            borderRadius: BorderRadius.circular(26),
-          ),
-          child: Row(
-            children: [
-              _GoalRing(
-                key: const ValueKey('profile-goal-ring'),
-                percent: overview?.progressPercent ?? 0,
-                percentText: overview?.progressPercentText ?? '0%',
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      overview?.title ?? '本月阅读目标',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      overview?.remainingDescription ?? '正在计算本月进度…',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: DudoTextStyles.sans(
-                        color: DudoColors.secondaryDark,
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w400,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Icon(
-                LucideIcons.chevronRight,
-                size: 16,
-                color: DudoColors.secondary,
-              ),
-            ],
-          ),
-        ),
+        child: hasGoal ? _buildProgressCard() : _buildEmptyCard(),
       ),
     );
   }
+
+  Widget _buildProgressCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: DudoColors.primaryContainer,
+        borderRadius: BorderRadius.circular(26),
+      ),
+      child: Row(
+        children: [
+          _GoalRing(
+            key: const ValueKey('profile-goal-ring'),
+            percent: overview?.progressPercent ?? 0,
+            percentText: overview?.progressPercentText ?? '0%',
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  overview?.title ?? '本月阅读目标',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  overview?.remainingDescription ?? '正在计算本月进度…',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.secondaryDark,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w400,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Icon(
+            LucideIcons.chevronRight,
+            size: 16,
+            color: DudoColors.secondary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyCard() {
+    return Container(
+      key: const ValueKey('profile-goal-empty-card'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: DudoColors.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              color: DudoColors.surfaceLow,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              LucideIcons.flag,
+              size: 26,
+              color: DudoColors.secondary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '还没有阅读目标',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '设定每月目标，让阅读有迹可循',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: DudoTextStyles.sans(
+                    color: DudoColors.secondaryDark,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w400,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Icon(
+            LucideIcons.chevronRight,
+            size: 16,
+            color: DudoColors.secondary,
+          ),
+        ],
+      ),
+    );
+  }
+
 }
 
 /// A compact echo of the reading goal page's donut: paper track, pine arc and

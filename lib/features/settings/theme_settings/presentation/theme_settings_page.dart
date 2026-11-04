@@ -34,7 +34,6 @@ class ThemeSettingsPage extends ConsumerWidget {
       header: const SettingsDetailHeader(
         eyebrow: '阅读体验',
         title: '主题外观',
-        actionIcon: LucideIcons.palette,
       ),
       children: [
         const SizedBox(height: 14),

@@ -79,6 +79,7 @@ class DudoPageFrame extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             header,
+            const SizedBox(height: DudoLayout.pinnedHeaderGap),
             Expanded(child: body),
           ],
         ),
