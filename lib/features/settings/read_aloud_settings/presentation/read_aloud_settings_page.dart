@@ -31,6 +31,7 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
   List<TtsVoice> _voices = const [];
   bool _loadingVoices = true;
   bool _voicesRequestInFlight = false;
+  bool _voiceListExpanded = false;
   bool _previewing = false;
   double? _previewProgress;
   String? _previewError;
@@ -321,6 +322,34 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
     );
   }
 
+  TtsVoice? _selectedVoice(String? name) {
+    if (name == null) return null;
+    for (final voice in _voices) {
+      if (voice.name == name) return voice;
+    }
+    return null;
+  }
+
+  String get _previewTitle {
+    final settings = _settings;
+    if (settings == null) return '系统默认';
+    if (settings.engine == ReadAloudEngine.online) return '在线音色';
+    final voice = _selectedVoice(settings.voiceName);
+    if (voice != null) return voice.displayName;
+    if (settings.voiceName == null) return '系统默认';
+    return settings.voiceLocale ?? '系统语音';
+  }
+
+  String get _previewSource {
+    final settings = _settings;
+    if (settings == null) return '系统语音 · 跟随系统设置';
+    if (settings.engine == ReadAloudEngine.online) return '接口实时合成 · 需联网';
+    final voice = _selectedVoice(settings.voiceName);
+    if (voice != null) return voice.voiceMeta;
+    if (settings.voiceName == null) return '系统语音 · 跟随系统设置';
+    return '系统语音 · ${settings.voiceLocale ?? '跟随系统设置'}';
+  }
+
   Future<void> _openSystemTtsSettings() async {
     final opened = await ref.read(systemTtsSettingsProvider).open();
     if (!mounted) return;
@@ -332,22 +361,23 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
     );
   }
 
-  void _cycleTimerMinutes() {
-    final settings = _settings;
-    if (settings == null) return;
-    const options = [15, 30, 60];
-    final index = options.indexOf(settings.timerMinutes);
-    final next = options[(index + 1) % options.length];
-    _update(settings.copyWith(timerMinutes: next));
-  }
-
   @override
   Widget build(BuildContext context) {
     final settings = _settings;
+    final isOnline = settings?.engine == ReadAloudEngine.online;
+    final rateAdjustable = settings == null ||
+        settings.engine != ReadAloudEngine.online ||
+        settings.onlineFormat == OnlineTtsFormat.json;
+    final subtitle = isOnline
+        ? '接入返回音频的在线接口'
+        : _voiceListExpanded
+            ? '从系统语音中选择朗读声音'
+            : '选择声音并调整朗读体验';
     return SettingsDetailScaffold(
-      header: const SettingsDetailHeader(
+      header: SettingsDetailHeader(
         eyebrow: '阅读体验',
         title: '阅读朗读',
+        subtitle: subtitle,
       ),
       children: [
         const SizedBox(height: 14),
@@ -358,6 +388,8 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
           )
         else ...[
           _VoicePreviewPlayer(
+            title: _previewTitle,
+            source: _previewSource,
             playing: _previewing,
             progress: _previewProgress,
             enabled: _canPreview(settings),
@@ -367,13 +399,14 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
           ),
           const SizedBox(height: 14),
           const SettingsSectionTitle('朗读引擎'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
                 child: _EngineChoice(
                   label: '系统语音',
                   state: '离线 · 设备音色',
+                  icon: LucideIcons.smartphone,
                   selected: settings.engine == ReadAloudEngine.system,
                   onTap: () {
                     _update(
@@ -386,7 +419,8 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
               Expanded(
                 child: _EngineChoice(
                   label: '在线引擎',
-                  state: '更自然的音色',
+                  state: '接口合成 · 需联网',
+                  icon: LucideIcons.cloud,
                   selected: settings.engine == ReadAloudEngine.online,
                   onTap: () {
                     _update(
@@ -400,26 +434,24 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
           const SizedBox(height: 14),
           if (settings.engine == ReadAloudEngine.system) ...[
             const SettingsSectionTitle('声音'),
-            const SizedBox(height: 8),
-            _VoiceGrid(
+            const SizedBox(height: 10),
+            _VoiceSection(
               voices: _voices,
               loading: _loadingVoices,
               selectedName: settings.voiceName,
+              expanded: _voiceListExpanded,
+              onToggle: () => setState(
+                () => _voiceListExpanded = !_voiceListExpanded,
+              ),
               onSelect: _selectVoice,
             ),
-            if (!_loadingVoices && _voices.isEmpty) ...[
-              const SizedBox(height: 8),
-              SettingsTrailingValue(
-                '当前设备没有可用的系统语音，请先在系统设置的“文字转语音”中安装中文语音数据。',
-                color: DudoColors.secondary,
-              ),
-            ],
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             GestureDetector(
               key: const ValueKey('read-aloud-system-tts-settings'),
               onTap: _openSystemTtsSettings,
               behavior: HitTestBehavior.opaque,
               child: SettingsOptionRow(
+                icon: LucideIcons.settings,
                 title: '系统语音设置',
                 description: '安装或管理设备的中文语音数据',
                 trailing: Icon(
@@ -468,23 +500,35 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
           const SizedBox(height: 14),
           SettingsMeterControl(
             label: '语速',
-            value: _rateLabel(settings.speechRate),
-            color: DudoColors.primary,
+            icon: LucideIcons.gauge,
+            value: rateAdjustable ? _rateLabel(settings.speechRate) : '文本模式不发送',
+            color: rateAdjustable ? DudoColors.primary : DudoColors.secondary,
             fraction: (settings.speechRate - 0.5) / 1.5,
             minValue: 0.5,
             maxValue: 2.0,
-            onChanged: (value) {
-              _update(settings.copyWith(speechRate: _roundToStep(value, 0.1)));
-            },
+            onChanged: rateAdjustable
+                ? (value) {
+                    _update(
+                      settings.copyWith(
+                        speechRate: _roundToStep(value, 0.1),
+                      ),
+                    );
+                  }
+                : null,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           SettingsMeterControl(
             label: '音调',
+            icon: LucideIcons.music2,
             value: settings.engine == ReadAloudEngine.online
                 ? '由服务端决定'
                 : _pitchLabel(settings.pitch),
-            color: DudoColors.accent,
-            fraction: (settings.pitch - 0.5) / 1.5,
+            color: settings.engine == ReadAloudEngine.online
+                ? DudoColors.secondary
+                : DudoColors.accent,
+            fraction: settings.engine == ReadAloudEngine.online
+                ? 0
+                : (settings.pitch - 0.5) / 1.5,
             minValue: 0.5,
             maxValue: 2.0,
             // The HTTP contract only carries text/voice/rate; a pitch slider
@@ -495,16 +539,10 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
                     _update(settings.copyWith(pitch: _roundToStep(value, 0.1)));
                   },
           ),
-          if (settings.engine == ReadAloudEngine.online) ...[
-            const SizedBox(height: 6),
-            SettingsTrailingValue(
-              '在线音色的音调由接口服务端决定，此设置仅对系统语音生效。',
-              color: DudoColors.secondary,
-            ),
-          ],
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           SettingsMeterControl(
             label: '音量',
+            icon: LucideIcons.volume2,
             value: '${(settings.volume * 100).round()}%',
             color: DudoColors.secondary,
             fraction: settings.volume,
@@ -514,30 +552,7 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
           ),
           const SizedBox(height: 14),
           SettingsOptionRow(
-            title: '定时停止',
-            description: '开始朗读后按设定时间自动停止',
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _TimeChip(
-                  minutes: settings.timerMinutes,
-                  onTap: _cycleTimerMinutes,
-                ),
-                const SizedBox(width: 12),
-                SettingsDudoSwitch(
-                  on: settings.timerEnabled,
-                  onTap: () {
-                    _update(
-                      settings.copyWith(timerEnabled: !settings.timerEnabled),
-                    );
-                  },
-                ),
-              ],
-            ),
-            height: 68,
-          ),
-          const SizedBox(height: 9),
-          SettingsOptionRow(
+            icon: LucideIcons.smartphone,
             title: '后台朗读',
             description: '锁屏或切到后台后继续播放',
             trailing: SettingsDudoSwitch(
@@ -552,8 +567,9 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
             ),
             height: 68,
           ),
-          const SizedBox(height: 9),
+          const SizedBox(height: 10),
           SettingsOptionRow(
+            icon: LucideIcons.listIndentIncrease,
             title: '段落跟读',
             description: '朗读时页面自动跟随当前段落',
             trailing: SettingsDudoSwitch(
@@ -568,6 +584,7 @@ class _ReadAloudSettingsPageState extends ConsumerState<ReadAloudSettingsPage>
             ),
             height: 68,
           ),
+          const SizedBox(height: 14),
         ],
       ],
     );
@@ -589,12 +606,14 @@ class _EngineChoice extends StatelessWidget {
   const _EngineChoice({
     required this.label,
     required this.state,
+    required this.icon,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
   final String state;
+  final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
@@ -604,13 +623,13 @@ class _EngineChoice extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 72,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        height: 76,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: DudoColors.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: selected ? DudoColors.secondary : DudoColors.outlineVariant,
+            color: selected ? DudoColors.primary : DudoColors.outlineVariant,
           ),
         ),
         child: Column(
@@ -620,19 +639,37 @@ class _EngineChoice extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  selected ? LucideIcons.check : LucideIcons.server,
+                  icon,
                   color: selected ? DudoColors.primary : DudoColors.secondary,
-                  size: 16,
+                  size: 17,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 7),
                 Text(
                   label,
                   style: DudoTextStyles.sans(
                     color: DudoColors.textPrimary,
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+                const Spacer(),
+                if (selected)
+                  Container(
+                    width: 18,
+                    height: 18,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: DudoColors.primaryContainer,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Icon(
+                      LucideIcons.check,
+                      color: DudoColors.primary,
+                      size: 12,
+                    ),
+                  )
+                else
+                  const SizedBox(width: 18, height: 18),
               ],
             ),
             const SizedBox(height: 4),
@@ -640,7 +677,7 @@ class _EngineChoice extends StatelessWidget {
               state,
               style: DudoTextStyles.sans(
                 color: DudoColors.secondary,
-                fontSize: 10,
+                fontSize: 11,
               ),
             ),
           ],
@@ -687,66 +724,85 @@ class _OnlineEngineFields extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SettingsSectionTitle('在线接口'),
-        const SizedBox(height: 8),
-        _SettingField(
-          key: const ValueKey('read-aloud-online-url'),
-          label: '接口地址',
-          hint: 'https://example.com/tts',
-          controller: urlController,
-          keyboardType: TextInputType.url,
-          onChanged: onUrlChanged,
-          error: urlError,
-        ),
-        const SizedBox(height: 8),
-        _SettingField(
-          label: '访问令牌（可选）',
-          hint: '以 Bearer Token 发送',
-          controller: tokenController,
-          onChanged: onTokenChanged,
-        ),
-        const SizedBox(height: 8),
-        _SettingField(
-          label: '音色（可选）',
-          hint: '如 zh-CN-XiaoxiaoNeural',
-          controller: voiceController,
-          onChanged: onVoiceChanged,
-        ),
         const SizedBox(height: 10),
-        _TestConnectionRow(
-          testing: testing,
-          message: testMessage,
-          ok: testOk,
-          onTest: onTest,
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Text(
-              '请求格式',
-              style: DudoTextStyles.sans(
-                color: DudoColors.textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+        Container(
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            color: DudoColors.surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: DudoColors.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SettingField(
+                key: const ValueKey('read-aloud-online-url'),
+                label: '接口地址',
+                hint: 'https://example.com/tts',
+                controller: urlController,
+                icon: LucideIcons.globe,
+                keyboardType: TextInputType.url,
+                onChanged: onUrlChanged,
+                error: urlError,
               ),
-            ),
-            const Spacer(),
-            _FormatChip(
-              label: '文本',
-              selected: settings.onlineFormat == OnlineTtsFormat.text,
-              onTap: () => onFormatChanged(OnlineTtsFormat.text),
-            ),
-            const SizedBox(width: 8),
-            _FormatChip(
-              label: 'JSON',
-              selected: settings.onlineFormat == OnlineTtsFormat.json,
-              onTap: () => onFormatChanged(OnlineTtsFormat.json),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SettingsTrailingValue(
-          '接口需直接返回音频（mp3/wav）。文本模式以 text/plain 提交正文；JSON 模式提交 {"text","voice","rate"}。',
-          color: DudoColors.secondary,
+              const SizedBox(height: 13),
+              _SettingField(
+                label: '访问令牌（可选）',
+                hint: '以 Bearer Token 发送',
+                controller: tokenController,
+                icon: LucideIcons.keyRound,
+                onChanged: onTokenChanged,
+              ),
+              const SizedBox(height: 13),
+              _SettingField(
+                label: '音色参数（可选）',
+                hint: '如 zh-CN-XiaoxiaoNeural',
+                controller: voiceController,
+                icon: LucideIcons.audioLines,
+                onChanged: onVoiceChanged,
+              ),
+              const SizedBox(height: 14),
+              _TestConnectionButton(testing: testing, onTest: onTest),
+              if (testMessage != null) ...[
+                const SizedBox(height: 10),
+                _TestStatusLine(message: testMessage!, ok: testOk),
+              ],
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Text(
+                    '请求格式',
+                    style: DudoTextStyles.sans(
+                      color: DudoColors.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  _FormatChip(
+                    label: '文本',
+                    selected: settings.onlineFormat == OnlineTtsFormat.text,
+                    onTap: () => onFormatChanged(OnlineTtsFormat.text),
+                  ),
+                  const SizedBox(width: 8),
+                  _FormatChip(
+                    label: 'JSON',
+                    selected: settings.onlineFormat == OnlineTtsFormat.json,
+                    onTap: () => onFormatChanged(OnlineTtsFormat.json),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '接口按段落接收文本并返回 mp3/wav 音频，仅临时缓存当前段落；文本模式只发送正文，JSON 模式发送 text、voice、rate。',
+                style: DudoTextStyles.sans(
+                  color: DudoColors.secondary,
+                  fontSize: 11.5,
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -759,6 +815,7 @@ class _SettingField extends StatelessWidget {
     required this.label,
     required this.hint,
     required this.controller,
+    required this.icon,
     required this.onChanged,
     this.keyboardType,
     this.error,
@@ -767,82 +824,132 @@ class _SettingField extends StatelessWidget {
   final String label;
   final String hint;
   final TextEditingController controller;
+  final IconData icon;
   final ValueChanged<String> onChanged;
   final TextInputType? keyboardType;
   final String? error;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      decoration: BoxDecoration(
-        color: DudoColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: error == null ? DudoColors.outlineVariant : DudoColors.accent,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: DudoTextStyles.sans(
-              color: DudoColors.secondary,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: DudoTextStyles.sans(
+            color: DudoColors.secondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
-          TextField(
+        ),
+        const SizedBox(height: 7),
+        SizedBox(
+          height: 52,
+          child: TextField(
             controller: controller,
             onChanged: onChanged,
             keyboardType: keyboardType,
+            autocorrect: false,
+            enableSuggestions: false,
+            textAlignVertical: TextAlignVertical.center,
             style: DudoTextStyles.sans(
               color: DudoColors.textPrimary,
               fontSize: 13,
             ),
             decoration: InputDecoration(
-              isDense: true,
               hintText: hint,
               hintStyle: DudoTextStyles.sans(
-                color: DudoColors.outline,
-                fontSize: 12,
+                color: DudoColors.secondary,
+                fontSize: 13,
               ),
-              border: InputBorder.none,
-            ),
-          ),
-          if (error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 2, bottom: 4),
-              child: Text(
-                error!,
-                key: const ValueKey('read-aloud-online-url-error'),
-                style: DudoTextStyles.sans(
-                  color: DudoColors.accent,
-                  fontSize: 10,
+              filled: true,
+              fillColor: DudoColors.surface,
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              prefixIcon: Icon(icon, size: 17, color: DudoColors.secondary),
+              prefixIconConstraints: const BoxConstraints(
+                minWidth: 42,
+                minHeight: 17,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide(
+                  color: error == null ? DudoColors.outline : DudoColors.accent,
                 ),
               ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide(color: DudoColors.primary),
+              ),
             ),
+          ),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            error!,
+            key: const ValueKey('read-aloud-online-url-error'),
+            style: DudoTextStyles.sans(
+              color: DudoColors.accent,
+              fontSize: 11,
+            ),
+          ),
         ],
+      ],
+    );
+  }
+}
+
+class _TestConnectionButton extends StatelessWidget {
+  const _TestConnectionButton({required this.testing, required this.onTest});
+
+  final bool testing;
+  final VoidCallback onTest;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 46,
+      child: Material(
+        color: DudoColors.surfaceLow,
+        borderRadius: BorderRadius.circular(23),
+        child: InkWell(
+          key: const ValueKey('read-aloud-test-connection'),
+          onTap: testing ? null : onTest,
+          borderRadius: BorderRadius.circular(23),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                testing ? LucideIcons.loaderCircle : LucideIcons.plugZap,
+                size: 16,
+                color: testing ? DudoColors.secondary : DudoColors.primary,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                testing ? '测试中…' : '测试连接',
+                style: DudoTextStyles.sans(
+                  color: testing ? DudoColors.secondary : DudoColors.primary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-/// "测试连接" plus the outcome of the last attempt, so a bad endpoint is
-/// diagnosed here instead of only failing when the reader starts.
-class _TestConnectionRow extends StatelessWidget {
-  const _TestConnectionRow({
-    required this.testing,
-    required this.message,
-    required this.ok,
-    required this.onTest,
-  });
+/// The outcome of the last connection test, so a bad endpoint is diagnosed
+/// here instead of only failing when the reader starts.
+class _TestStatusLine extends StatelessWidget {
+  const _TestStatusLine({required this.message, required this.ok});
 
-  final bool testing;
-  final String? message;
+  final String message;
   final bool? ok;
-  final VoidCallback onTest;
 
   @override
   Widget build(BuildContext context) {
@@ -851,36 +958,18 @@ class _TestConnectionRow extends StatelessWidget {
       false => DudoColors.accent,
       null => DudoColors.secondary,
     };
+    final icon = switch (ok) {
+      true => LucideIcons.circleCheck,
+      false => LucideIcons.triangleAlert,
+      null => LucideIcons.info,
+    };
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        GestureDetector(
-          key: const ValueKey('read-aloud-test-connection'),
-          onTap: testing ? null : onTest,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            height: 30,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: DudoColors.surface,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: DudoColors.outlineVariant),
-            ),
-            child: Text(
-              testing ? '测试中…' : '测试连接',
-              style: DudoTextStyles.sans(
-                color: testing ? DudoColors.secondary : DudoColors.primary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 6),
         Expanded(
           child: Text(
-            message ?? '',
+            message,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: DudoTextStyles.sans(color: color, fontSize: 11),
@@ -908,12 +997,12 @@ class _FormatChip extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 13),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected ? DudoColors.primaryContainer : DudoColors.surface,
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color:
                 selected ? DudoColors.accentMuted : DudoColors.outlineVariant,
@@ -932,109 +1021,341 @@ class _FormatChip extends StatelessWidget {
   }
 }
 
-class _VoiceGrid extends StatefulWidget {
-  const _VoiceGrid({
+class _VoiceSection extends StatelessWidget {
+  const _VoiceSection({
     required this.voices,
     required this.loading,
     required this.selectedName,
+    required this.expanded,
+    required this.onToggle,
     required this.onSelect,
   });
 
   final List<TtsVoice> voices;
   final bool loading;
   final String? selectedName;
+  final bool expanded;
+  final VoidCallback onToggle;
   final ValueChanged<TtsVoice?> onSelect;
 
   @override
-  State<_VoiceGrid> createState() => _VoiceGridState();
+  Widget build(BuildContext context) {
+    if (loading && voices.isEmpty) {
+      return Container(
+        height: 68,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: DudoColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: DudoColors.outlineVariant),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: DudoColors.surfaceLow,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '正在读取系统语音',
+                    style: DudoTextStyles.sans(
+                      color: DudoColors.textPrimary,
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '正在向系统 TTS 引擎获取声音列表',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DudoTextStyles.sans(
+                      color: DudoColors.secondary,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final selected = _findVoice(selectedName);
+    final title = expanded ? '选择朗读声音' : (selected?.displayName ?? '系统默认');
+    final meta = expanded
+        ? '列表来自系统 TTS 引擎，选择后试听会使用该声音'
+        : (selected?.voiceMeta ?? '跟随系统设置');
+
+    return Container(
+      decoration: BoxDecoration(
+        color: DudoColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: DudoColors.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          GestureDetector(
+            key: const ValueKey('read-aloud-voice-toggle'),
+            onTap: onToggle,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              child: Row(
+                children: [
+                  _VoiceIconCircle(
+                    icon: LucideIcons.audioLines,
+                    fill: DudoColors.surfaceLow,
+                    color: DudoColors.secondary,
+                    size: 40,
+                    iconSize: 17,
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: DudoTextStyles.sans(
+                            color: DudoColors.textPrimary,
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          meta,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: DudoTextStyles.sans(
+                            color: DudoColors.secondary,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+                    color: DudoColors.secondary,
+                    size: 18,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: Column(
+                children: [
+                  for (var i = 0; i < voices.length + 1; i++) ...[
+                    _VoiceOption(
+                      key: ValueKey('read-aloud-voice-$i'),
+                      voice: i == 0 ? null : voices[i - 1],
+                      selected: i == 0
+                          ? selectedName == null
+                          : voices[i - 1].name == selectedName,
+                      onTap: () => onSelect(i == 0 ? null : voices[i - 1]),
+                    ),
+                    if (i < voices.length) const SizedBox(height: 8),
+                  ],
+                  if (voices.isEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '当前设备没有可用的系统语音，请先在系统设置的“文字转语音”中安装中文语音数据。',
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.secondary,
+                        fontSize: 11.5,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  TtsVoice? _findVoice(String? name) {
+    if (name == null) return null;
+    for (final voice in voices) {
+      if (voice.name == name) return voice;
+    }
+    return null;
+  }
 }
 
-class _VoiceGridState extends State<_VoiceGrid> {
-  static const _itemWidth = 116.0;
-  static const _itemGap = 10.0;
+class _VoiceOption extends StatelessWidget {
+  const _VoiceOption({
+    super.key,
+    required this.voice,
+    required this.selected,
+    required this.onTap,
+  });
 
-  final ScrollController _controller = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _revealSelection();
-  }
-
-  @override
-  void didUpdateWidget(covariant _VoiceGrid oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedName != widget.selectedName ||
-        oldWidget.voices.length != widget.voices.length) {
-      _revealSelection();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  /// Scrolls a selection that sits off-screen into view, so reopening the page
-  /// shows which voice is actually in use.
-  void _revealSelection() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_controller.hasClients) return;
-      final name = widget.selectedName;
-      if (name == null) return;
-      final index = widget.voices.indexWhere((voice) => voice.name == name);
-      if (index < 0) return;
-      // The leading "系统默认" chip occupies slot 0.
-      final offset = (index + 1) * (_itemWidth + _itemGap);
-      final position = _controller.position;
-      if (offset >= position.pixels &&
-          offset + _itemWidth <= position.pixels + position.viewportDimension) {
-        return;
-      }
-      _controller.jumpTo(
-        offset.clamp(0.0, position.maxScrollExtent),
-      );
-    });
-  }
+  final TtsVoice? voice;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    if (widget.loading) {
-      return const SizedBox(
-        height: 86,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    }
-    final options = <TtsVoice?>[null, ...widget.voices];
-    return SizedBox(
-      height: 86,
-      child: ListView.separated(
-        controller: _controller,
-        scrollDirection: Axis.horizontal,
-        itemCount: options.length,
-        separatorBuilder: (_, __) => const SizedBox(width: _itemGap),
-        itemBuilder: (context, index) {
-          final voice = options[index];
-          final selected = voice?.name == widget.selectedName;
-          return SizedBox(
-            width: _itemWidth,
-            child: _VoiceChoice(
-              label: voice?.displayName ?? '系统默认',
-              state: voice?.locale ?? '跟随系统',
-              iconColor: selected ? DudoColors.primary : DudoColors.secondary,
-              selected: selected,
-              onTap: () => widget.onSelect(voice),
+    final dark = DudoColors.isDark;
+    final fill = selected
+        ? (dark ? DudoColors.primaryContainer : DudoColors.ink)
+        : DudoColors.paperBackground;
+    final stroke = selected
+        ? (dark ? DudoColors.primaryContainerStrong : DudoColors.ink)
+        : DudoColors.outlineVariant;
+    final titleColor = selected
+        ? (dark ? DudoColors.onPrimaryContainer : DudoColors.onInk)
+        : DudoColors.textPrimary;
+    final metaColor = selected
+        ? (dark ? DudoColors.textSecondary : DudoColors.onInkMuted)
+        : DudoColors.textSecondary;
+    final iconFill = selected
+        ? (dark
+            ? DudoColors.primaryContainerStrong
+            : DudoColors.onInk.withValues(alpha: 0.12))
+        : DudoColors.surfaceLow;
+    final iconColor = selected
+        ? (dark ? DudoColors.primaryDark : DudoColors.primaryContainer)
+        : DudoColors.secondary;
+    final checkFill = dark ? DudoColors.primary : DudoColors.primaryContainer;
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 60,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: stroke),
+        ),
+        child: Row(
+          children: [
+            _VoiceIconCircle(
+              icon: voice?.isNetwork ?? false
+                  ? LucideIcons.wifi
+                  : LucideIcons.volume2,
+              fill: iconFill,
+              color: iconColor,
+              size: 36,
+              iconSize: 17,
             ),
-          );
-        },
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    voice?.displayName ?? '系统默认',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DudoTextStyles.sans(
+                      color: titleColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    voice?.voiceMeta ?? '跟随系统设置',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DudoTextStyles.sans(
+                      color: metaColor,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              width: 18,
+              height: 18,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected ? checkFill : Colors.transparent,
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(
+                  color: selected ? checkFill : DudoColors.outline,
+                ),
+              ),
+              child: selected
+                  ? Icon(
+                      LucideIcons.check,
+                      size: 11,
+                      color: dark ? DudoColors.ink : DudoColors.primary,
+                    )
+                  : null,
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _VoiceIconCircle extends StatelessWidget {
+  const _VoiceIconCircle({
+    required this.icon,
+    required this.fill,
+    required this.color,
+    this.size = 36,
+    this.iconSize = 16,
+  });
+
+  final IconData icon;
+  final Color fill;
+  final Color color;
+  final double size;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.circular(size / 2),
+      ),
+      child: Icon(icon, color: color, size: iconSize),
     );
   }
 }
 
 class _VoicePreviewPlayer extends StatelessWidget {
   const _VoicePreviewPlayer({
+    required this.title,
+    required this.source,
     required this.playing,
     required this.progress,
     required this.enabled,
@@ -1043,6 +1364,8 @@ class _VoicePreviewPlayer extends StatelessWidget {
     required this.onToggle,
   });
 
+  final String title;
+  final String source;
   final bool playing;
 
   /// 0..1 playback position; `null` while the sample is still being prepared.
@@ -1054,8 +1377,9 @@ class _VoicePreviewPlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final track = DudoColors.surface.withValues(alpha: 0.6);
     return Container(
-      height: 156,
+      height: 188,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: DudoColors.primaryContainer,
@@ -1065,34 +1389,69 @@ class _VoicePreviewPlayer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '试听朗读',
-                style: DudoTextStyles.sans(
-                  color: DudoColors.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      key: const ValueKey('read-aloud-preview-title'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.serif(
+                        color: DudoColors.textPrimary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      source,
+                      key: const ValueKey('read-aloud-preview-source'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: DudoTextStyles.sans(
+                        color: DudoColors.primary,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                rateLabel,
-                style: DudoTextStyles.numeric(
-                  color: DudoColors.primary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: 10),
+              Container(
+                height: 24,
+                padding: const EdgeInsets.symmetric(horizontal: 9),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: DudoColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  rateLabel,
+                  style: DudoTextStyles.numeric(
+                    color: DudoColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Text(
             _previewText,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: DudoTextStyles.serif(
               color: DudoColors.textPrimary,
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              height: 1.35,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.55,
             ),
           ),
           const Spacer(),
@@ -1103,23 +1462,24 @@ class _VoicePreviewPlayer extends StatelessWidget {
                 onTap: enabled ? onToggle : null,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
-                  width: 36,
-                  height: 36,
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: enabled
                         ? DudoColors.textPrimary
                         : DudoColors.outlineVariant,
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(22),
                   ),
                   child: Icon(
-                    playing ? LucideIcons.square : LucideIcons.play,
+                    playing ? LucideIcons.pause : LucideIcons.play,
                     color:
                         enabled ? DudoColors.surfaceHigh : DudoColors.secondary,
-                    size: 16,
+                    size: 18,
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: message != null
                     ? Text(
@@ -1133,22 +1493,19 @@ class _VoicePreviewPlayer extends StatelessWidget {
                         ),
                       )
                     : ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(999),
                         child: SizedBox(
-                          height: 8,
+                          height: 7,
                           child: !playing
-                              ? Container(
-                                  color: DudoColors.surface
-                                      .withValues(alpha: 0.67),
-                                )
+                              ? Container(color: track)
                               // While the sample is still being prepared
                               // there is no position yet; once sound starts
                               // the bar follows the real playback position.
                               : progress == null
                                   ? LinearProgressIndicator(
+                                      minHeight: 7,
                                       color: DudoColors.primary,
-                                      backgroundColor: DudoColors.surface
-                                          .withValues(alpha: 0.67),
+                                      backgroundColor: track,
                                     )
                                   : TweenAnimationBuilder<double>(
                                       // Progress arrives word by word (system)
@@ -1163,10 +1520,10 @@ class _VoicePreviewPlayer extends StatelessWidget {
                                       curve: Curves.linear,
                                       builder: (context, value, _) =>
                                           LinearProgressIndicator(
+                                        minHeight: 7,
                                         value: value,
                                         color: DudoColors.primary,
-                                        backgroundColor: DudoColors.surface
-                                            .withValues(alpha: 0.67),
+                                        backgroundColor: track,
                                       ),
                                     ),
                         ),
@@ -1175,107 +1532,6 @@ class _VoicePreviewPlayer extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _VoiceChoice extends StatelessWidget {
-  const _VoiceChoice({
-    required this.label,
-    required this.state,
-    required this.iconColor,
-    required this.onTap,
-    this.selected = false,
-  });
-
-  final String label;
-  final String state;
-  final Color iconColor;
-  final VoidCallback onTap;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: DudoColors.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? DudoColors.secondary : DudoColors.outlineVariant,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(LucideIcons.volume2, color: iconColor, size: 18),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: DudoTextStyles.sans(
-                color: DudoColors.textPrimary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              state,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: DudoTextStyles.sans(
-                  color: DudoColors.secondary, fontSize: 10),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TimeChip extends StatelessWidget {
-  const _TimeChip({required this.minutes, required this.onTap});
-
-  final int minutes;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: 30,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: DudoColors.surfaceLow,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: DudoColors.outlineVariant),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '$minutes 分钟',
-              style: DudoTextStyles.sans(
-                color: DudoColors.secondary,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Icon(
-              LucideIcons.chevronRight,
-              color: Color(0xFFB8A88E),
-              size: 14,
-            ),
-          ],
-        ),
       ),
     );
   }

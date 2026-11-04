@@ -11,8 +11,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-/// The online panel is taller than the default 800x600 test surface; a phone
-/// sized viewport keeps the test button on screen without scrolling.
+/// These settings pages are taller than the default 800x600 test surface; a
+/// phone sized viewport keeps every control on screen without scrolling.
 void _useTallViewport(WidgetTester tester) {
   tester.view.physicalSize = const Size(900, 2400);
   tester.view.devicePixelRatio = 1.0;
@@ -22,6 +22,7 @@ void _useTallViewport(WidgetTester tester) {
 void main() {
   testWidgets('renders the persisted settings and device voices',
       (tester) async {
+    _useTallViewport(tester);
     final repository = _MemoryReadAloudRepository()
       ..settings = ReadAloudSettings.defaults().copyWith(
         speechRate: 1.3,
@@ -44,14 +45,34 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('试听朗读'), findsOneWidget);
+    // The timer lives in the reader's listening panel now.
+    expect(find.text('定时停止'), findsNothing);
+    expect(find.text('30 分钟'), findsNothing);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('read-aloud-preview-title')),
+          )
+          .data,
+      '系统默认',
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('read-aloud-preview-source')),
+          )
+          .data,
+      '系统语音 · 跟随系统设置',
+    );
     expect(find.text('1.3x'), findsWidgets);
     expect(find.text('50%'), findsOneWidget);
-    expect(find.text('30 分钟'), findsOneWidget);
-    expect(find.text('系统默认'), findsOneWidget);
-    expect(find.text('中文 · local'), findsOneWidget);
+    expect(find.text('系统默认'), findsNWidgets(2));
 
-    await tester.tap(find.text('中文 · local'));
+    await tester.tap(find.byKey(const ValueKey('read-aloud-voice-toggle')));
+    await tester.pump();
+
+    expect(find.text('普通话 · 本地'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('read-aloud-voice-1')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -60,6 +81,14 @@ void main() {
     // Browsing the voice list stays silent; only 试听 plays a sample.
     expect(player.spoken, isEmpty);
     expect(find.byIcon(LucideIcons.play), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('read-aloud-preview-title')),
+          )
+          .data,
+      '普通话 · 本地',
+    );
 
     await tester.tap(
       find.byKey(const ValueKey('read-aloud-preview-button')),
@@ -67,11 +96,12 @@ void main() {
     await tester.pump();
 
     expect(player.spoken, isNotEmpty);
-    expect(find.byIcon(LucideIcons.square), findsOneWidget);
+    expect(find.byIcon(LucideIcons.pause), findsOneWidget);
   });
 
   testWidgets('every system voice is listed, not just the first eight',
       (tester) async {
+    _useTallViewport(tester);
     final repository = _MemoryReadAloudRepository();
     final player = _FakeReadAloudPlayer()
       ..voicesResult = [
@@ -90,17 +120,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('中文 · v0'), findsOneWidget);
-    expect(find.text('中文 · v11'), findsNothing);
-
-    await tester.drag(find.byType(ListView), const Offset(-900, 0));
+    await tester.tap(find.byKey(const ValueKey('read-aloud-voice-toggle')));
     await tester.pump();
 
-    expect(find.text('中文 · v11'), findsOneWidget);
+    // Every voice is built at once instead of a horizontally paged grid.
+    for (var index = 1; index <= 12; index++) {
+      expect(
+        find.byKey(ValueKey('read-aloud-voice-$index')),
+        findsOneWidget,
+      );
+    }
   });
 
   testWidgets('a selected voice filtered out of the Chinese list stays visible',
       (tester) async {
+    _useTallViewport(tester);
     final repository = _MemoryReadAloudRepository()
       ..settings = ReadAloudSettings.defaults().copyWith(
         voiceName: 'en-us-x-aaa',
@@ -123,12 +157,27 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('en-US · aaa'), findsOneWidget);
-    expect(find.text('中文 · bbb'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey('read-aloud-preview-title')),
+          )
+          .data,
+      'en-US · 本地',
+    );
+
+    await tester.tap(find.byKey(const ValueKey('read-aloud-voice-toggle')));
+    await tester.pump();
+
+    // The Chinese voice comes first and the saved English voice is appended
+    // instead of disappearing from the filtered list.
+    expect(find.text('普通话 · 本地'), findsOneWidget);
+    expect(find.text('en-US · 本地'), findsNWidgets(2));
   });
 
   testWidgets('the system voice settings row opens the platform screen',
       (tester) async {
+    _useTallViewport(tester);
     final repository = _MemoryReadAloudRepository();
     final player = _FakeReadAloudPlayer();
     final settingsLauncher = _FakeSystemTtsSettings();
@@ -155,6 +204,7 @@ void main() {
 
   testWidgets('a device without the system screen shows a hint',
       (tester) async {
+    _useTallViewport(tester);
     final repository = _MemoryReadAloudRepository();
     final player = _FakeReadAloudPlayer();
     final settingsLauncher = _FakeSystemTtsSettings()..result = false;
@@ -217,6 +267,40 @@ void main() {
     expect(repository.settings.onlineUrl, 'https://tts.example.com/speak');
   });
 
+  testWidgets('the online text mode disables the speed meter', (tester) async {
+    _useTallViewport(tester);
+    final repository = _MemoryReadAloudRepository()
+      ..settings = ReadAloudSettings.defaults().copyWith(
+        engine: ReadAloudEngine.online,
+        onlineUrl: 'https://tts.example.com/speak',
+      );
+    final player = _FakeReadAloudPlayer();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readAloudSettingsRepositoryProvider.overrideWithValue(repository),
+          readAloudPlayerProvider.overrideWithValue(player),
+        ],
+        child: const MaterialApp(home: ReadAloudSettingsPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The text body carries no rate, and pitch is always server-side, so only
+    // the volume meter remains interactive.
+    expect(find.text('文本模式不发送'), findsOneWidget);
+    expect(find.text('由服务端决定'), findsOneWidget);
+    expect(find.byType(Slider), findsOneWidget);
+
+    await tester.tap(find.text('JSON'));
+    await tester.pump();
+
+    expect(find.text('文本模式不发送'), findsNothing);
+    expect(find.text('1.0x'), findsWidgets);
+    expect(find.byType(Slider), findsNWidgets(2));
+  });
+
   testWidgets('retries when the engine reports no voices at first',
       (tester) async {
     final repository = _MemoryReadAloudRepository();
@@ -240,7 +324,13 @@ void main() {
     await tester.pump();
 
     expect(player.voicesCalls, greaterThan(1));
-    expect(find.text('中文 · local'), findsOneWidget);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('read-aloud-voice-toggle')));
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('read-aloud-voice-1')), findsOneWidget);
+    expect(find.text('普通话 · 本地'), findsOneWidget);
   });
 
   testWidgets('preview speaks the sample with the current settings',
@@ -267,7 +357,7 @@ void main() {
 
     expect(player.spoken, isNotEmpty);
     expect(player.applied?.volume, 0.4);
-    expect(find.byIcon(LucideIcons.square), findsOneWidget);
+    expect(find.byIcon(LucideIcons.pause), findsOneWidget);
 
     // No playback position yet: the bar keeps its loading animation.
     expect(
@@ -319,7 +409,7 @@ void main() {
       find.byKey(const ValueKey('read-aloud-preview-button')),
     );
     await tester.pump();
-    expect(find.byIcon(LucideIcons.square), findsOneWidget);
+    expect(find.byIcon(LucideIcons.pause), findsOneWidget);
 
     await tester.tap(find.text('在线引擎'));
     await tester.pump();
@@ -369,7 +459,7 @@ void main() {
     await tester.pump();
 
     expect(player.spoken, isNotEmpty);
-    expect(find.byIcon(LucideIcons.square), findsOneWidget);
+    expect(find.byIcon(LucideIcons.pause), findsOneWidget);
   });
 
   testWidgets('an address without a scheme is flagged and cannot be used',

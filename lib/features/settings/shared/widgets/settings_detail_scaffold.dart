@@ -140,9 +140,8 @@ class SettingsDetailHeader extends StatelessWidget {
                       iconSize: 20,
                       // Keep the "finish editing" state emphasised now that
                       // every header action is an icon.
-                      backgroundColor: actionEmphasized
-                          ? DudoColors.primaryContainer
-                          : null,
+                      backgroundColor:
+                          actionEmphasized ? DudoColors.primaryContainer : null,
                       iconColor:
                           actionEmphasized ? DudoColors.primaryDark : null,
                       borderColor: actionEmphasized
@@ -230,6 +229,7 @@ class SettingsMeterControl extends StatelessWidget {
     required this.value,
     required this.color,
     required this.fraction,
+    this.icon,
     this.minValue = 0,
     this.maxValue = 1,
     this.onChanged,
@@ -239,6 +239,7 @@ class SettingsMeterControl extends StatelessWidget {
   final String value;
   final Color color;
   final double fraction;
+  final IconData? icon;
   final double minValue;
   final double maxValue;
   final ValueChanged<double>? onChanged;
@@ -246,6 +247,7 @@ class SettingsMeterControl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onChanged = this.onChanged;
+    final icon = this.icon;
     final currentValue =
         minValue + (maxValue - minValue) * fraction.clamp(0.0, 1.0);
     return Container(
@@ -258,8 +260,19 @@ class SettingsMeterControl extends StatelessWidget {
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              if (icon != null) ...[
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: DudoColors.surfaceLow,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Icon(icon, color: DudoColors.secondary, size: 17),
+                ),
+                const SizedBox(width: 12),
+              ],
               Text(
                 label,
                 style: DudoTextStyles.sans(
@@ -268,37 +281,37 @@ class SettingsMeterControl extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              const Spacer(),
               Text(
                 value,
                 style: DudoTextStyles.numeric(
                   color: color,
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
           if (onChanged == null) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             ClipRRect(
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(999),
               child: Container(
-                height: 8,
-                color: DudoColors.outlineVariant,
-                alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  widthFactor: fraction,
-                  child: Container(color: color),
-                ),
+                height: 7,
+                color: DudoColors.surfaceLow,
               ),
             ),
           ] else
             SliderTheme(
               data: SliderThemeData(
                 activeTrackColor: color,
-                inactiveTrackColor: DudoColors.outlineVariant,
+                inactiveTrackColor: DudoColors.surfaceLow,
                 thumbColor: color,
                 trackHeight: 4,
+                thumbShape: const RoundSliderThumbShape(
+                  enabledThumbRadius: 9,
+                  disabledThumbRadius: 9,
+                ),
                 overlayShape: SliderComponentShape.noOverlay,
               ),
               child: Slider(
@@ -322,17 +335,26 @@ class SettingsOptionRow extends StatelessWidget {
     required this.title,
     required this.description,
     required this.trailing,
+    this.icon,
+    this.iconFill,
+    this.iconColor,
     this.height = 68,
   });
 
   final String title;
   final String description;
   final Widget trailing;
+  final IconData? icon;
+  final Color? iconFill;
+  final Color? iconColor;
   final double height;
 
   @override
   Widget build(BuildContext context) {
     return DudoEntryRow(
+      icon: icon,
+      iconFill: iconFill,
+      iconColor: iconColor,
       title: title,
       description: description,
       trailing: trailing,
