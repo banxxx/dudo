@@ -11,6 +11,8 @@ import 'app/di/injection.dart';
 import 'core/exceptions/error_handler.dart';
 import 'core/network/http_client.dart';
 import 'core/tts/tts_service.dart';
+import 'features/settings/start_page_settings/application/start_page_settings_provider.dart';
+import 'features/settings/start_page_settings/domain/start_page_settings.dart';
 
 Future<void> main() async {
   runZonedGuarded<Future<void>>(
@@ -82,7 +84,21 @@ Future<void> _bootstrap() async {
     ErrorHandler.handle(e, st, context: 'TtsService.init');
   }
 
+  // Load the startup-page choice before the router is built so the first
+  // frame lands on the tab the user picked instead of flashing the home page.
+  final container = ProviderContainer();
+  try {
+    final startPage =
+        await container.read(startPageSettingsRepositoryProvider).load();
+    StartPageSettings.remember(startPage);
+  } catch (e, st) {
+    ErrorHandler.handle(e, st, context: 'StartPageSettings.load');
+  }
+
   runApp(
-    const ProviderScope(child: DudoApp()),
+    UncontrolledProviderScope(
+      container: container,
+      child: const DudoApp(),
+    ),
   );
 }

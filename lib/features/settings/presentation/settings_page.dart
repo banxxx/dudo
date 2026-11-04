@@ -14,6 +14,8 @@ import '../../settings/read_aloud_settings/application/read_aloud_settings_provi
 import '../../settings/read_aloud_settings/domain/read_aloud_settings.dart';
 import '../../settings/shelf_update_settings/application/shelf_update_settings_provider.dart';
 import '../../settings/shelf_update_settings/domain/shelf_update_settings.dart';
+import '../../settings/start_page_settings/application/start_page_settings_provider.dart';
+import '../../settings/start_page_settings/domain/start_page_settings.dart';
 import '../../settings/storage_settings/application/storage_usage_provider.dart';
 import '../../settings/storage_settings/domain/storage_usage.dart';
 import '../../settings/theme_settings/application/theme_settings_provider.dart';
@@ -36,6 +38,8 @@ class SettingsPage extends ConsumerWidget {
     final readAloud = ref.watch(readAloudSettingsProvider).valueOrNull;
     final shelfUpdate = ref.watch(shelfUpdateSettingsProvider).valueOrNull ??
         ShelfUpdateSettings.defaults();
+    final startPage = ref.watch(startPageSettingsProvider).valueOrNull ??
+        StartPageSettings.defaults();
     final dataSync = ref.watch(dataSyncSettingsProvider).valueOrNull ??
         DataSyncSettings.defaults();
     final storageUsage = ref.watch(storageUsageProvider).valueOrNull;
@@ -103,6 +107,14 @@ class SettingsPage extends ConsumerWidget {
           _SettingsSection(
             title: '通用',
             rows: [
+              _SettingRowData(
+                title: '启动页面',
+                description: '打开应用时首先显示的页面',
+                value: startPage.page.label,
+                icon: LucideIcons.rocket,
+                iconFill: DudoColors.primaryContainer,
+                route: AppRoutes.startPageSettings,
+              ),
               _SettingRowData(
                 title: '数据同步',
                 description: '阅读进度、书签、标注与设置',

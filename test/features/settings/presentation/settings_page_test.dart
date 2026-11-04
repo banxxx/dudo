@@ -5,6 +5,8 @@ import 'package:dudo/features/settings/read_aloud_settings/application/read_alou
 import 'package:dudo/features/settings/read_aloud_settings/domain/read_aloud_settings.dart';
 import 'package:dudo/features/settings/shelf_update_settings/application/shelf_update_settings_provider.dart';
 import 'package:dudo/features/settings/shelf_update_settings/domain/shelf_update_settings.dart';
+import 'package:dudo/features/settings/start_page_settings/application/start_page_settings_provider.dart';
+import 'package:dudo/features/settings/start_page_settings/domain/start_page_settings.dart';
 import 'package:dudo/features/settings/storage_settings/application/storage_usage_provider.dart';
 import 'package:dudo/features/settings/storage_settings/domain/storage_usage.dart';
 import 'package:dudo/features/settings/theme_settings/application/theme_settings_provider.dart';
@@ -37,6 +39,11 @@ void main() {
               ShelfUpdateSettings.defaults().copyWith(
                 frequency: ShelfUpdateFrequency.everyThreeDays,
               ),
+            ),
+          ),
+          startPageSettingsProvider.overrideWith(
+            (_) => Stream.value(
+              const StartPageSettings(page: StartPage.search),
             ),
           ),
           dataSyncSettingsProvider.overrideWith(
@@ -83,6 +90,9 @@ void main() {
     expect(find.text('更新频率、章节提醒和自动拉取'), findsOneWidget);
     expect(find.text('每 3 天'), findsOneWidget);
     expect(find.text('通用'), findsOneWidget);
+    expect(find.text('启动页面'), findsOneWidget);
+    expect(find.text('打开应用时首先显示的页面'), findsOneWidget);
+    expect(find.text('搜索'), findsOneWidget);
     expect(find.text('数据同步'), findsOneWidget);
     expect(find.text('阅读进度、书签、标注与设置'), findsOneWidget);
     expect(find.text('未连接'), findsOneWidget);

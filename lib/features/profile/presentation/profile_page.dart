@@ -458,7 +458,6 @@ class _MonthlyGoalCard extends StatelessWidget {
       ),
     );
   }
-
 }
 
 /// A compact echo of the reading goal page's donut: paper track, pine arc and
@@ -492,6 +491,11 @@ class _GoalRing extends StatelessWidget {
                 child: CircularProgressIndicator(
                   value: 1,
                   strokeWidth: 6,
+                  // F1 draws the 6pt stroke inside the 62pt circle, leaving a
+                  // 2pt gap to the 46pt disc. The default centred stroke would
+                  // push the ring out to 68pt and widen that gap to 5pt.
+                  strokeAlign: CircularProgressIndicator.strokeAlignInside,
+                  padding: EdgeInsets.zero,
                   strokeCap: StrokeCap.round,
                   color: DudoColors.surface.withValues(alpha: 0.72),
                 ),
@@ -502,6 +506,8 @@ class _GoalRing extends StatelessWidget {
                 child: CircularProgressIndicator(
                   value: value,
                   strokeWidth: 6,
+                  strokeAlign: CircularProgressIndicator.strokeAlignInside,
+                  padding: EdgeInsets.zero,
                   strokeCap: StrokeCap.round,
                   color: DudoColors.primary,
                 ),
@@ -538,20 +544,22 @@ class _LibraryToolsSection extends StatelessWidget {
   /// Built per build, not cached: the fills come from the active palette and
   /// must follow a theme switch the moment the palette changes.
   List<_ToolItem> get _items => [
+        // All four tools share the primary tint so the section reads as one
+        // group; the neutral tile is reserved for non-tool rows elsewhere.
         _ToolItem(
           title: '书源管理',
           description: '添加、启用、更新和校验书源',
           icon: LucideIcons.rss,
-          iconFill: DudoColors.surfaceLow,
-          iconColor: DudoColors.secondary,
+          iconFill: DudoColors.primaryContainer,
+          iconColor: DudoColors.primary,
           route: AppRoutes.sourceSettings,
         ),
         _ToolItem(
           title: '阅读记录',
           description: '最近打开的书与阅读位置',
-          icon: LucideIcons.timer,
-          iconFill: DudoColors.surfaceLow,
-          iconColor: DudoColors.secondary,
+          icon: LucideIcons.history,
+          iconFill: DudoColors.primaryContainer,
+          iconColor: DudoColors.primary,
           route: AppRoutes.readingHistory,
         ),
         _ToolItem(
@@ -566,8 +574,8 @@ class _LibraryToolsSection extends StatelessWidget {
           title: '笔记摘录',
           description: '整理高亮与想法',
           icon: LucideIcons.notebookPen,
-          iconFill: DudoColors.surfaceLow,
-          iconColor: DudoColors.secondary,
+          iconFill: DudoColors.primaryContainer,
+          iconColor: DudoColors.primary,
           route: AppRoutes.bookmarks,
         ),
       ];

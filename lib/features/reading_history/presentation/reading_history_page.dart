@@ -399,6 +399,9 @@ class _HistoryCover extends StatelessWidget {
       height: 72,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
+        // A small radius matches the rounded history card; the cover is a
+        // thumbnail here, not the physical book shown on the detail page.
+        borderRadius: BorderRadius.circular(6),
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,

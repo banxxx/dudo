@@ -18,6 +18,7 @@ import 'package:dudo/features/settings/data_sync_settings/data/data_sync_setting
 import 'package:dudo/features/settings/data_sync_settings/data/sync_snapshot_repository.dart';
 import 'package:dudo/features/settings/data_sync_settings/domain/data_sync_settings.dart';
 import 'package:dudo/features/settings/data_sync_settings/domain/sync_snapshot.dart';
+import 'package:dudo/features/settings/start_page_settings/domain/start_page_settings.dart';
 import 'package:dudo/shared/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -133,6 +134,27 @@ void main() {
     expect(find.text('偏好中心'), findsOneWidget);
     expect(find.text('阅读体验'), findsOneWidget);
     expect(find.text('内容与书源'), findsOneWidget);
+  });
+
+  testWidgets('router starts on the saved startup page', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(Breakpoints.medium - 1, 800);
+    addTearDown(tester.view.reset);
+    StartPageSettings.remember(
+      const StartPageSettings(page: StartPage.search),
+    );
+    addTearDown(
+      () => StartPageSettings.remember(StartPageSettings.defaults()),
+    );
+
+    await pumpApp(tester);
+
+    expect(find.text('探索书源与作品'), findsOneWidget);
+    expect(find.text('今天想读点什么？'), findsNothing);
+    // The shell still shows the full tab bar around the chosen branch; the
+    // search page title and its tab share the same label.
+    expect(find.text('首页'), findsOneWidget);
+    expect(find.text('搜索'), findsNWidgets(2));
   });
 
   testWidgets('home quick actions navigate to search, bookmarks, and stats',

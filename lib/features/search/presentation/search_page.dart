@@ -1082,9 +1082,9 @@ class _SearchResultCover extends StatelessWidget {
     final imageUri = url == null || url.isEmpty ? null : Uri.tryParse(url);
     final hasImage = imageUri != null && imageUri.hasScheme;
     if (!hasImage) {
-      return const ClipRRect(
-        borderRadius: BorderRadius.zero,
-        child: SizedBox(
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: const SizedBox(
           width: 48,
           height: 68,
           child: _SearchResultCoverPlaceholder(),
@@ -1093,7 +1093,7 @@ class _SearchResultCover extends StatelessWidget {
     }
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(9),
+      borderRadius: BorderRadius.circular(6),
       child: SizedBox(
         width: 48,
         height: 68,

@@ -204,7 +204,9 @@ class _HeroBookCover extends StatelessWidget {
       height: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.zero,
+        // The hero cover is artwork inside a 26-radius card, so a small radius
+        // keeps it from reading as a square pasted onto the paper.
+        borderRadius: BorderRadius.circular(12),
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,

@@ -26,6 +26,8 @@ import '../../features/settings/read_aloud_settings/presentation/read_aloud_sett
 import '../../features/settings/shelf_update_settings/presentation/shelf_update_settings_page.dart';
 import '../../features/settings/source_add/presentation/source_add_settings_page.dart';
 import '../../features/settings/source_manage/presentation/source_manage_settings_page.dart';
+import '../../features/settings/start_page_settings/domain/start_page_settings.dart';
+import '../../features/settings/start_page_settings/presentation/start_page_settings_page.dart';
 import '../../features/settings/storage_settings/presentation/storage_settings_page.dart';
 import '../../features/settings/theme_settings/application/theme_settings_provider.dart';
 import '../../features/settings/theme_settings/presentation/theme_settings_page.dart';
@@ -62,9 +64,21 @@ class _ThemedPage extends ConsumerWidget {
 
 Widget _themed(Widget page) => _ThemedPage(child: page);
 
+/// The first location of the session. `main()` loads the saved choice into
+/// [StartPageSettings] before the router is built, so this reads the user's
+/// startup page instead of always landing on home.
+String _initialLocation() {
+  return switch (StartPageSettings.lastKnown.page) {
+    StartPage.home => AppRoutes.home,
+    StartPage.bookshelf => AppRoutes.bookshelf,
+    StartPage.search => AppRoutes.search,
+    StartPage.profile => AppRoutes.profile,
+  };
+}
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: AppRoutes.home,
+    initialLocation: _initialLocation(),
     debugLogDiagnostics: true,
     routes: [
       GoRoute(
@@ -228,6 +242,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, state) => DudoPageTransition(
           key: state.pageKey,
           child: _themed(const TypographySettingsPage()),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.startPageSettings,
+        name: AppRoutes.startPageSettingsName,
+        pageBuilder: (_, state) => DudoPageTransition(
+          key: state.pageKey,
+          child: _themed(const StartPageSettingsPage()),
         ),
       ),
       GoRoute(
@@ -412,6 +434,9 @@ class AppRoutes {
 
   static const typographySettings = '/settings/typography';
   static const typographySettingsName = 'settings-typography';
+
+  static const startPageSettings = '/settings/start-page';
+  static const startPageSettingsName = 'settings-start-page';
 
   static const readAloudSettings = '/settings/read-aloud';
   static const readAloudSettingsName = 'settings-read-aloud';
